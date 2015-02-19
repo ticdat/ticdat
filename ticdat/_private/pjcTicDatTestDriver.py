@@ -20,7 +20,7 @@ backingUp = True
 filterByReject = None
 
 # override code
-#filterByReject = lambda f :  True    # this line rejects everything, easy way to bypass all tests#
+filterByReject = lambda f :  True    # this line rejects everything, easy way to bypass all tests#
 #filterByReject = lambda f :  not "slow" in f.lower()  # True means rejection
 
 
@@ -69,4 +69,14 @@ def performBackUp(gDrive):
 gDrivesPython= "/Users/petercacioppi/Google_Drive/Python/ticdat"
 performBackUp(gDrivesPython) if backingUp and os.path.exists(gDrivesPython) else None
 
-
+import shutil
+# !!!!!!!!!!!!!!!!!!!! BEGIN KEEP ME !!!!!!!!!!!!!!!!!!!!!!!!!!
+# remove the extra shizzle
+_filesWithExtension = lambda ext  : tuple(os.path.abspath(x) for y in
+    (utils.findAllUnixWildCard(y, "*" + ext) for y in (os.path.join(tdu._codeDir(), ".."),))
+    for x in y)
+map(os.remove, utils.deepFlatten((_filesWithExtension(".pyc"), _filesWithExtension(".pyo"))))
+map(os.remove, utils.deepFlatten(utils.findAllUnixWildCard(os.path.join(tdu._codeDir(), ".."), "gurobi.log")))
+utils.doIt(shutil.rmtree(z) if os.path.isdir(z) else None for x in range(3)
+    for z in (os.path.join(os.path.join(tdu._codeDir(), *([".."]*x)), ".idea"),))
+# !!!!!!!!!!!!!!!!!!!! END KEEP ME !!!!!!!!!!!!!!!!!!!!!!!!!!
