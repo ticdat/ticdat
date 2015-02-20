@@ -118,7 +118,7 @@ def shallowFlatten(x) :
 
 dictish = lambda x : all(hasattr(x, _) for _ in ("__getitem__", "keys", "values", "items", "__contains__", "__len__"))
 stringish = lambda x : all(hasattr(x, _) for _ in ("lower", "upper", "strip"))
-containerish = lambda x : hasattr(x, "__iter__") and not stringish(x)
+containerish = lambda x : all(hasattr(x, _) for _ in ("__iter__", "__len__", "__getitem__")) and not stringish(x)
 
 def goodTicDatObject(ticDatObject, tableList = None, badMessageHolder=None):
     if tableList is None :
@@ -252,15 +252,23 @@ def ticDataRowFactory(table, keyFieldNames, dataFieldNames, defaultValues={}):
     fieldToIndex = {x:dataFieldNames.index(x) for x in dataFieldNames}
     indexToField = {v:k for k,v in fieldToIndex.items()}
     class TicDatDataRow(freezableFactory(object, "_attributesFrozen")) :
-        def __init__(self, *args, **kwargs):
-            d = dict(*args, **kwargs)
-            verify(set(d.keys()).issubset(fieldToIndex), "Applying inappropriate data field names to %s"%table)
+        def __init__(self, x):
             self._data = [None] * len(fieldToIndex)
-            for f,i in fieldToIndex.items():
-                if f in defaultValues :
-                    self._data[i] = defaultValues[f]
-            for f,_d in d.items():
-                self[f] = _d
+            if dictish(x) :
+                verify(set(x.keys()).issubset(fieldToIndex), "Applying inappropriate data field names to %s"%table)
+
+                for f,i in fieldToIndex.items():
+                    if f in defaultValues :
+                        self._data[i] = defaultValues[f]
+                for f,_d in x.items():
+                    self[f] = _d
+            elif containerish(x) :
+                verify(len(x) == len(self), "%s has requires each row to have %s data values"%(table, len(self)))
+                for i in range(len(self)):
+                    self._data[i] = x[i]
+            else:
+                verify(len(self) ==1, "%s has requires each row to have %s data values"%(table, len(self)))
+                self._data[0] = x
         def __getitem__(self, item):
             verify(item in fieldToIndex, "Key error : %s not data field name for table %s"%(item, table))
             return self._data[fieldToIndex[item]]
@@ -295,11 +303,31 @@ def assertFalse(x) :
 
 
 
-def assertTicDatTablesSame(t1, t2, _assertTrue = assertTrue, _assertFalse = assertFalse) :
-    assertTrue(set(t1) == set(t2))
-    assertTrue(goodTicDatTable(t1) and goodTicDatTable(t2))
+def assertTicDatTablesSame(t1, t2, _goodTicDatTable = goodTicDatTable,
+                           _assertTrue = assertTrue, _assertFalse = assertFalse) :
+    _assertTrue(set(t1) == set(t2))
+    _assertTrue(_goodTicDatTable(t1) and _goodTicDatTable(t2))
     for k1,v1 in t1.items() :
         v2 = t2[k1]
-        assertTrue(set(v1) == set(v2))
-        for _k1 in v1 :
-            assertTrue(v1[_k1] == v2[_k1])
+        if dictish(v1) != dictish(v2) and dictish(v2) :
+            v2, v1 = v1, v2
+        if dictish(v1) and dictish(v2) :
+            _assertTrue(set(v1) == set(v2))
+            for _k1 in v1 :
+                _assertTrue(v1[_k1] == v2[_k1])
+        elif dictish(v1) and containerish(v2) :
+            _assertTrue(sorted(v1.values()) == sorted(v2))
+        elif dictish(v1) :
+            _assertTrue(len(v1) == 1 and v1.values()[0] == v2)
+        else :
+            if containerish(v1) != containerish(v2) and containerish(v2) :
+                v2, v1 = v1, v2
+            if containerish(v1) and containerish(v2) :
+                _assertTrue(len(v1) == len(v2))
+                _assertTrue(all(v1[x] == v2[x] for x in range(len(v1))))
+            elif containerish(v1) :
+                _assertTrue(len(v1) == 1 and v1[0] == v2)
+            else :
+                _assertTrue(v1 == v2)
+
+

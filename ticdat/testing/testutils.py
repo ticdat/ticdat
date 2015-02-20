@@ -1,7 +1,7 @@
 import sys
 import unittest
 import ticdat._private.utils as utils
-from ticdat.static import TicDatFactory
+from ticdat.static import TicDatFactory, goodTicDatObject, goodTicDatTable
 
 
 _GRB_INFINITY = 1e+100
@@ -10,6 +10,23 @@ _GRB_INFINITY = 1e+100
 #@utils.failToDebugger
 class TestUtils(unittest.TestCase):
 
+    # gurobi netflow problem - http://www.gurobi.com/documentation/6.0/example-tour/netflow_py
+    def _netflowSchema(self):
+        return {
+            "primaryKeyFields" : {"commodities" : "name", "nodes":"name", "arcs" : ("source", "destination"),
+                                  "cost" : ("commodity", "source", "destination"),
+                                  "inflow" : ("commmodity", "node")},
+            "dataFields" : {"arcs" : "capacity", "cost" : "cost", "inflow" : "quantity"}
+        }
+    def _origNetflowTicDat(self) :
+        class _(object) :
+            pass
+
+        dat = _() # simplest object with a __dict__
+
+        pass
+
+    # gurobi diet problem - http://www.gurobi.com/documentation/6.0/example-tour/diet_py
     def _dietSchema(self):
         return {
             # deliberately mixing up singleton containers and strings for situations where one field is being listed
@@ -37,10 +54,10 @@ class TestUtils(unittest.TestCase):
           'chicken':   {"cost": 2.89},
           'hot dog':   {"cost": 1.50},
           'fries':     {"cost": 1.89},
-          'macaroni':  {"cost": 2.09},
+          'macaroni':  2.09,
           'pizza':     {"cost": 1.99},
           'salad':     {"cost": 2.49},
-          'milk':      {"cost": 0.89},
+          'milk':      (0.89,),
           'ice cream': {"cost": 1.59}}
 
         dat.nutritionQuantities = {
@@ -84,22 +101,22 @@ class TestUtils(unittest.TestCase):
         return dat
 
     def testOne(self):
-        objGood = utils.goodTicDatObject
-        dataDict = self._origDietTicDat()
-        self.assertTrue(objGood(dataDict) and objGood(dataDict, ("categories", "foods", "nutritionQuantities")))
+        dataObj = self._origDietTicDat()
+        self.assertTrue(goodTicDatObject(dataObj) and goodTicDatObject(dataObj,
+                        ("categories", "foods", "nutritionQuantities")))
         msg = []
-        dataDict.foods[("milk", "cookies")] = {"cost": float("inf")}
-        dataDict.boger = []
-        self.assertFalse(objGood(dataDict) or objGood(dataDict, badMessageHolder= msg))
+        dataObj.foods[("milk", "cookies")] = {"cost": float("inf")}
+        dataObj.boger = []
+        self.assertFalse(goodTicDatObject(dataObj) or goodTicDatObject(dataObj, badMessageHolder= msg))
         self.assertTrue({"foods : Inconsistent key lengths", "boger : Not a dict-like object."} == set(msg))
-        self.assertTrue(objGood(dataDict, ("categories", "nutritionQuantities")))
+        self.assertTrue(goodTicDatObject(dataObj, ("categories", "nutritionQuantities")))
 
-        dataDict = self._origDietTicDat()
-        dataDict.categories["boger"] = {"cost":1}
-        dataDict.categories["boger"] = {"cost":1}
-        self.assertFalse(objGood(dataDict) or objGood(dataDict, badMessageHolder= msg))
+        dataObj = self._origDietTicDat()
+        dataObj.categories["boger"] = {"cost":1}
+        dataObj.categories["boger"] = {"cost":1}
+        self.assertFalse(goodTicDatObject(dataObj) or goodTicDatObject(dataObj, badMessageHolder= msg))
         self.assertTrue({"foods : Inconsistent key lengths", "boger : Not a dict-like object.",
-                         'categories : Inconsistent field name keys.'} == set(msg))
+                         'categories : Inconsistent data field name keys.'} == set(msg))
 
     def testTwo(self):
         objOrig = self._origDietTicDat()
@@ -107,6 +124,7 @@ class TestUtils(unittest.TestCase):
         tables = set(self._dietSchema()["primaryKeyFields"])
         ticDat = staticFactory.FrozenTicDat(**{t:getattr(objOrig,t) for t in tables})
         utils.doIt(utils.assertTicDatTablesSame(getattr(objOrig, t), getattr(ticDat,t),
+                _goodTicDatTable=  goodTicDatTable,
                 _assertTrue=self.assertTrue, _assertFalse=self.assertFalse) for t in tables)
 
 
