@@ -1,15 +1,23 @@
 import sys
 import unittest
 import ticdat._private.utils as utils
-
+from ticdat.static import TicDatFactory
 
 
 _GRB_INFINITY = 1e+100
 
 #uncomment decorator to drop into debugger for assertTrue, assertFalse failures
-@utils.failToDebugger
+#@utils.failToDebugger
 class TestUtils(unittest.TestCase):
 
+    def _dietSchema(self):
+        return {
+            # deliberately mixing up singleton containers and strings for situations where one field is being listed
+            "primaryKeyFields" : {"categories" : ("name",), "foods" : "name", "nutritionQuantities" : ("food", "category")},
+            "dataFields" : {"categories" : ("minNutrition", "maxNutrition"),
+                            "foods": "cost",
+                            "nutritionQuantities" : ["qty"]}
+        }
     def _origDietTicDat(self):
         # this is the gurobi diet data in ticDat format
 
@@ -92,6 +100,14 @@ class TestUtils(unittest.TestCase):
         self.assertFalse(objGood(dataDict) or objGood(dataDict, badMessageHolder= msg))
         self.assertTrue({"foods : Inconsistent key lengths", "boger : Not a dict-like object.",
                          'categories : Inconsistent field name keys.'} == set(msg))
+
+    def testTwo(self):
+        objOrig = self._origDietTicDat()
+        staticFactory = TicDatFactory(**self._dietSchema())
+        tables = set(self._dietSchema()["primaryKeyFields"])
+        ticDat = staticFactory.FrozenTicDat(**{t:getattr(objOrig,t) for t in tables})
+        utils.doIt(utils.assertTicDatTablesSame(getattr(objOrig, t), getattr(ticDat,t),
+                _assertTrue=self.assertTrue, _assertFalse=self.assertFalse) for t in tables)
 
 
 def runTheTests(fastOnly=True) :
