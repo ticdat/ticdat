@@ -245,8 +245,8 @@ def ticDataRowFactory(table, keyFieldNames, dataFieldNames, defaultValues={}):
     assert dictish(defaultValues) and set(defaultValues).issubset(dataFieldNames)
     assert not set(keyFieldNames).intersection(dataFieldNames)
     if not dataFieldNames:
-        def makeFrozenDict(*args, **kwargs) :
-            verify(len(args) == len(kwargs) == 0, "Attempting to add non-empty data to %s"%table)
+        def makeFrozenDict(x=()) :
+            verify(containerish(x) and len(x) == 0, "Attempting to add non-empty data to %s"%table)
             return FrozenDict()
         return makeFrozenDict
     fieldToIndex = {x:dataFieldNames.index(x) for x in dataFieldNames}
@@ -256,7 +256,6 @@ def ticDataRowFactory(table, keyFieldNames, dataFieldNames, defaultValues={}):
             self._data = [None] * len(fieldToIndex)
             if dictish(x) :
                 verify(set(x.keys()).issubset(fieldToIndex), "Applying inappropriate data field names to %s"%table)
-
                 for f,i in fieldToIndex.items():
                     if f in defaultValues :
                         self._data[i] = defaultValues[f]
@@ -301,12 +300,17 @@ def assertTrue(x) :
 def assertFalse(x) :
     assert (not x)
 
-
-
 def assertTicDatTablesSame(t1, t2, _goodTicDatTable = goodTicDatTable,
                            _assertTrue = assertTrue, _assertFalse = assertFalse) :
     _assertTrue(set(t1) == set(t2))
     _assertTrue(_goodTicDatTable(t1) and _goodTicDatTable(t2))
+    if not dictish(t1) and not dictish(t2) :
+        return
+    if dictish(t1) != dictish(t2) and dictish(t2) :
+        t1,t2 = t2,t1
+    if not dictish(t2) :
+        _assertTrue(all(containerish(x) and len(x) == 0 for x in t1.values()))
+        return
     for k1,v1 in t1.items() :
         v2 = t2[k1]
         if dictish(v1) != dictish(v2) and dictish(v2) :

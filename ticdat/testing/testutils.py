@@ -2,6 +2,7 @@ import sys
 import unittest
 import ticdat._private.utils as utils
 from ticdat.static import TicDatFactory, goodTicDatObject, goodTicDatTable
+import ticdat.static as static
 
 
 _GRB_INFINITY = 1e+100
@@ -15,7 +16,7 @@ class TestUtils(unittest.TestCase):
         return {
             "primaryKeyFields" : {"commodities" : "name", "nodes":"name", "arcs" : ("source", "destination"),
                                   "cost" : ("commodity", "source", "destination"),
-                                  "inflow" : ("commmodity", "node")},
+                                  "inflow" : ("commodity", "node")},
             "dataFields" : {"arcs" : "capacity", "cost" : "cost", "inflow" : "quantity"}
         }
     def _origNetflowTicDat(self) :
@@ -24,8 +25,46 @@ class TestUtils(unittest.TestCase):
 
         dat = _() # simplest object with a __dict__
 
-        pass
+        # simplest possible copy
 
+        dat.commodities = ['Pencils', 'Pens']
+        dat.nodes = ['Detroit', 'Denver', 'Boston', 'New York', 'Seattle']
+
+        dat.arcs = {
+  ('Detroit', 'Boston'):   100,
+  ('Detroit', 'New York'):  80,
+  ('Detroit', 'Seattle'):  120,
+  ('Denver',  'Boston'):   120,
+  ('Denver',  'New York'): 120,
+  ('Denver',  'Seattle'):  120 }
+
+        dat.cost = {
+  ('Pencils', 'Detroit', 'Boston'):   10,
+  ('Pencils', 'Detroit', 'New York'): 20,
+  ('Pencils', 'Detroit', 'Seattle'):  60,
+  ('Pencils', 'Denver',  'Boston'):   40,
+  ('Pencils', 'Denver',  'New York'): 40,
+  ('Pencils', 'Denver',  'Seattle'):  30,
+  ('Pens',    'Detroit', 'Boston'):   20,
+  ('Pens',    'Detroit', 'New York'): 20,
+  ('Pens',    'Detroit', 'Seattle'):  80,
+  ('Pens',    'Denver',  'Boston'):   60,
+  ('Pens',    'Denver',  'New York'): 70,
+  ('Pens',    'Denver',  'Seattle'):  30 }
+
+        dat.inflow = {
+  ('Pencils', 'Detroit'):   50,
+  ('Pencils', 'Denver'):    60,
+  ('Pencils', 'Boston'):   -50,
+  ('Pencils', 'New York'): -50,
+  ('Pencils', 'Seattle'):  -10,
+  ('Pens',    'Detroit'):   60,
+  ('Pens',    'Denver'):    40,
+  ('Pens',    'Boston'):   -40,
+  ('Pens',    'New York'): -30,
+  ('Pens',    'Seattle'):  -30 }
+
+        return dat
     # gurobi diet problem - http://www.gurobi.com/documentation/6.0/example-tour/diet_py
     def _dietSchema(self):
         return {
@@ -106,26 +145,40 @@ class TestUtils(unittest.TestCase):
                         ("categories", "foods", "nutritionQuantities")))
         msg = []
         dataObj.foods[("milk", "cookies")] = {"cost": float("inf")}
-        dataObj.boger = []
+        dataObj.boger = object()
         self.assertFalse(goodTicDatObject(dataObj) or goodTicDatObject(dataObj, badMessageHolder= msg))
-        self.assertTrue({"foods : Inconsistent key lengths", "boger : Not a dict-like object."} == set(msg))
+        self.assertTrue({"foods : Inconsistent key lengths", "boger : Unexpected ticDat table type."} == set(msg))
         self.assertTrue(goodTicDatObject(dataObj, ("categories", "nutritionQuantities")))
 
         dataObj = self._origDietTicDat()
         dataObj.categories["boger"] = {"cost":1}
         dataObj.categories["boger"] = {"cost":1}
         self.assertFalse(goodTicDatObject(dataObj) or goodTicDatObject(dataObj, badMessageHolder= msg))
-        self.assertTrue({"foods : Inconsistent key lengths", "boger : Not a dict-like object.",
+        self.assertTrue({"foods : Inconsistent key lengths", "boger : Unexpected ticDat table type.",
                          'categories : Inconsistent data field name keys.'} == set(msg))
+    def _assertSame(self, t1, t2):
+        _ass = lambda _t1, _t2 : utils.assertTicDatTablesSame(_t1, _t2,
+                _goodTicDatTable=  goodTicDatTable,
+                _assertTrue=self.assertTrue, _assertFalse=self.assertFalse)
+        _ass(t1, t2)
+        _ass(t2, t1)
 
     def testTwo(self):
         objOrig = self._origDietTicDat()
         staticFactory = TicDatFactory(**self._dietSchema())
-        tables = set(self._dietSchema()["primaryKeyFields"])
+        tables = set(staticFactory.primaryKeyFields)
         ticDat = staticFactory.FrozenTicDat(**{t:getattr(objOrig,t) for t in tables})
-        utils.doIt(utils.assertTicDatTablesSame(getattr(objOrig, t), getattr(ticDat,t),
-                _goodTicDatTable=  goodTicDatTable,
-                _assertTrue=self.assertTrue, _assertFalse=self.assertFalse) for t in tables)
+        self.assertTrue(goodTicDatObject(ticDat))
+        utils.doIt(self._assertSame(getattr(objOrig, t), getattr(ticDat,t)) for t in tables)
+
+    def testThree(self):
+        objOrig = self._origNetflowTicDat()
+        staticFactory = TicDatFactory(**self._netflowSchema())
+        tables = set(staticFactory.primaryKeyFields)
+        ticDat = staticFactory.FrozenTicDat(**{t:getattr(objOrig,t) for t in tables})
+        self.assertTrue(goodTicDatObject(ticDat))
+        utils.doIt(self._assertSame(getattr(objOrig, t), getattr(ticDat,t)) for t in tables)
+        utils.memo((objOrig, ticDat))
 
 
 def runTheTests(fastOnly=True) :

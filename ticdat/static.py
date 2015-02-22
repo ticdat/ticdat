@@ -20,7 +20,7 @@ class _TicDat(_utls.freezableFactory(object, "_isFrozen")) :
 class TicDatFactory(freezableFactory(object, "_isFrozen")) :
     def __init__(self, primaryKeyFields = {}, dataFields = {}):
         primaryKeyFields, dataFields = _utls.checkSchema(primaryKeyFields, dataFields)
-
+        self.primaryKeyFields, self.dataFields = primaryKeyFields, dataFields
         assert set(dataFields).issubset(primaryKeyFields), "this code assumes all tables have primary keys"
         dataRowFactory = FrozenDict({t : _utls.ticDataRowFactory(t, primaryKeyFields[t], dataFields.get(t, ()))
                             for t in primaryKeyFields})
@@ -33,20 +33,22 @@ class TicDatFactory(freezableFactory(object, "_isFrozen")) :
                     badTicDatTable = []
                     if not (goodTicDatTable(v, lambda x : badTicDatTable.append(x))) :
                         raise _utls.TicDatError(t + " cannot be treated as a ticDat table : " + badTicDatTable[-1])
-                    for _k in v.keys():
+                    for _k in v :
                         verify((hasattr(_k, "__len__") and len(_k) == len(primaryKeyFields.get(t, ())) or
                                len(primaryKeyFields.get(t, ())) == 1),
                            "Unexpected number of primary key fields for %s"%t)
                     # lots of verification inside the dataRowFactory
-                    setattr(self, t, FrozenDict({_k : dataRowFactory[t](_v) for _k, _v in v.items() }))
+                    setattr(self, t, FrozenDict({_k : dataRowFactory[t](v[_k] if _utls.dictish(v) else ()) for _k in v}))
                     for v in getattr(self, t).values() :
-                        v._dataFrozen =True
-                        v._attributesFrozen = True
+                        if not getattr(v, "_attributesFrozen", False) :
+                            v._dataFrozen =True
+                            v._attributesFrozen = True
+                        assert v._dataFrozen and v._attributesFrozen
                 for t in set(primaryKeyFields).union(dataFields).difference(initTables) :
                     setattr(self, t, FrozenDict())
                 self._isFrozen = True
             def __repr__(self):
-                return "td:" + tuple(set(primaryKeyFields).union(dataFields).keys()).__repr__()
+                return "td:" + tuple(set(primaryKeyFields).union(dataFields)).__repr__()
         self.FrozenTicDat = FrozenTicDat
 
         self._isFrozen = True
@@ -76,21 +78,40 @@ def goodTicDatObject(ticDatObject, tableList = None, badMessageHolder=None):
         evalGood = list(evalGood)
     return all(evalGood)
 
-def goodTicDatTable(ticDatTable, badMessageHandler = lambda x : None):
+def _keyLen(k) :
+    if not _utls.containerish(k) :
+        return "singleton"
+    try:
+        rtn = len(k)
+    except :
+        rtn = 0
+    return rtn
+
+def goodTicDatTable(ticDatTable, badMessageHandler = lambda x : None) :
+    if _utls.dictish(ticDatTable) :
+        return _goodTicDatDictTable(ticDatTable, badMessageHandler)
+    if _utls.containerish(ticDatTable):
+        return _goodTicDatKeyContainer(ticDatTable, badMessageHandler)
+    badMessageHandler("Unexpected ticDat table type.")
+    return False
+
+def _goodTicDatKeyContainer(ticDatTable, badMessageHandler = lambda x : None) :
+    if _utls.dictish(ticDatTable) and not _utls.containerish(ticDatTable) :
+        badMessageHandler("Not a pure container-like object.")
+        return False
+    if not len(ticDatTable) :
+        return True
+    if not all(_keyLen(k) == _keyLen(ticDatTable[0]) for k in ticDatTable) :
+        badMessageHandler("Inconsistent key lengths")
+        return False
+    return True
+def _goodTicDatDictTable(ticDatTable, badMessageHandler = lambda x : None):
     if not _utls.dictish(ticDatTable) :
         badMessageHandler("Not a dict-like object.")
         return False
     if not len(ticDatTable) :
         return True
-    def keyLen(k) :
-        if not _utls.containerish(k) :
-            return "singleton"
-        try:
-            rtn = len(k)
-        except :
-            rtn = 0
-        return rtn
-    if not all(keyLen(k) == keyLen(ticDatTable.keys()[0]) for k in ticDatTable.keys()) :
+    if not all(_keyLen(k) == _keyLen(ticDatTable.keys()[0]) for k in ticDatTable.keys()) :
         badMessageHandler("Inconsistent key lengths")
         return False
     dictishRows = tuple(x for x in ticDatTable.values() if _utls.dictish(x))
