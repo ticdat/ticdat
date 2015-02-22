@@ -120,48 +120,6 @@ dictish = lambda x : all(hasattr(x, _) for _ in ("__getitem__", "keys", "values"
 stringish = lambda x : all(hasattr(x, _) for _ in ("lower", "upper", "strip"))
 containerish = lambda x : all(hasattr(x, _) for _ in ("__iter__", "__len__", "__getitem__")) and not stringish(x)
 
-def goodTicDatObject(ticDatObject, tableList = None, badMessageHolder=None):
-    if tableList is None :
-        tableList = tuple(x for x in dir(ticDatObject) if not x.startswith("_") and
-                          not callable(getattr(ticDatObject, x)))
-    badMessages = badMessageHolder if badMessageHolder is not None else  []
-    assert hasattr(badMessages, "append")
-    def _hasAttr(t) :
-        if not hasattr(ticDatObject, t) :
-            badMessages.append(t + " not an attribute.")
-            return False
-        return True
-    evalGood = (_hasAttr(t) and goodTicDatTable(getattr(ticDatObject, t),
-                lambda x : badMessages.append(t + " : " + x)) for t in tableList)
-    if (badMessageHolder is not None) : # if logging, then evaluate all, else shortcircuit
-        evalGood = list(evalGood)
-    return all(evalGood)
-
-def goodTicDatTable(ticDatTable, badMessageHandler = lambda x : None):
-    if not dictish(ticDatTable) :
-        badMessageHandler("Not a dict-like object.")
-        return False
-    if not len(ticDatTable) :
-        return True
-    def keyLen(k) :
-        if not containerish(k) :
-            return "singleton"
-        try:
-            rtn = len(k)
-        except :
-            rtn = 0
-        return rtn
-    if not all(keyLen(k) == keyLen(ticDatTable.keys()[0]) for k in ticDatTable.keys()) :
-        badMessageHandler("Inconsistent key lengths")
-        return False
-    if not all(dictish(x) for x in ticDatTable.values()) :
-        badMessageHandler("At least one value is not a dict-like object")
-        return False
-    if not all(set(x.keys()) == set(ticDatTable.values()[0].keys()) for x in ticDatTable.values()) :
-        badMessageHandler("Inconsistent field name keys.")
-        return False
-    return True
-
 
 def freezableFactory(baseClass, freezeAttr) :
     class _Freezeable(baseClass) :
@@ -300,7 +258,7 @@ def assertTrue(x) :
 def assertFalse(x) :
     assert (not x)
 
-def assertTicDatTablesSame(t1, t2, _goodTicDatTable = goodTicDatTable,
+def assertTicDatTablesSame(t1, t2, _goodTicDatTable,
                            _assertTrue = assertTrue, _assertFalse = assertFalse) :
     _assertTrue(set(t1) == set(t2))
     _assertTrue(_goodTicDatTable(t1) and _goodTicDatTable(t2))

@@ -3,7 +3,16 @@ Provides assistance for hard coded ticDat objects.
 """
 
 import ticdat._private.utils as _utls
-from ticdat._private.utils import verify, freezableFactory, FrozenDict, doIt
+from ticdat._private.utils import verify, freezableFactory, FrozenDict, doIt, dictish, containerish
+
+def _keyLen(k) :
+    if not _utls.containerish(k) :
+        return 1
+    try:
+        rtn = len(k)
+    except :
+        rtn = 0
+    return rtn
 
 class _TicDat(_utls.freezableFactory(object, "_isFrozen")) :
     def _freeze(self):
@@ -24,14 +33,14 @@ class TicDatFactory(freezableFactory(object, "_isFrozen")) :
         assert set(dataFields).issubset(primaryKeyFields), "this code assumes all tables have primary keys"
         dataRowFactory = FrozenDict({t : _utls.ticDataRowFactory(t, primaryKeyFields[t], dataFields.get(t, ()))
                             for t in primaryKeyFields})
-
+        goodTicDatTable = self.goodTicDatTable
         class FrozenTicDat(_TicDat) :
             def __init__(self, **initTables):
                 for t in initTables :
                     verify(t in set(primaryKeyFields).union(dataFields), "Unexpected table name %s"%t)
                 for t,v in initTables.items():
                     badTicDatTable = []
-                    if not (goodTicDatTable(v, lambda x : badTicDatTable.append(x))) :
+                    if not (goodTicDatTable(v, t, lambda x : badTicDatTable.append(x))) :
                         raise _utls.TicDatError(t + " cannot be treated as a ticDat table : " + badTicDatTable[-1])
                     for _k in v :
                         verify((hasattr(_k, "__len__") and len(_k) == len(primaryKeyFields.get(t, ())) or
@@ -54,78 +63,111 @@ class TicDatFactory(freezableFactory(object, "_isFrozen")) :
         self._isFrozen = True
 
 
-def datDictFactory(dataRowFactory) :
-    class StaticTableDict (_utls.FreezeableDict) :
-        def __setitem__(self, key, value):
-            verify(_utls.dictish(value), "the values of a TableDict should all be parallel dictionaries")
-            return super(StaticTableDict, self).__setitem__(key, dataRowFactory(value))
+    def goodTicDatObject(self, ticDatObject,  badMessageHolder=None):
+        badMessages = badMessageHolder if badMessageHolder is not None else  []
+        assert hasattr(badMessages, "append")
+        def _hasAttr(t) :
+            if not hasattr(ticDatObject, t) :
+                badMessages.append(t + " not an attribute.")
+                return False
+            return True
+        rtn = True
+        for t in set(self.primaryKeyFields).union(self.dataFields):
+            rtn = rtn and  self.goodTicDatTable(getattr(ticDatObject, t), t,
+                    lambda x : badMessages.append(t + " : " + x))
+        return rtn
 
+    def goodTicDatTable(self, ticDatTable, tableName, badMessageHandler = lambda x : None) :
+        if tableName not in set(self.primaryKeyFields).union(self.dataFields):
+            badMessageHandler("%s is not a valid table name for this schema"%tableName)
+            return False
+        if _utls.dictish(ticDatTable) :
+            return self._goodTicDatDictTable(ticDatTable, tableName, badMessageHandler)
+        if _utls.containerish(ticDatTable):
+            return  self._goodTicDatKeyContainer(ticDatTable, tableName, badMessageHandler)
+        badMessageHandler("Unexpected ticDat table type.")
+        return False
 
-def goodTicDatObject(ticDatObject, tableList = None, badMessageHolder=None):
+    def _goodTicDatKeyContainer(self, ticDatTable, tableName, badMessageHandler = lambda x : None) :
+        assert containerish(ticDatTable) and not dictish(ticDatTable)
+        if tableName in self.dataFields :
+            badMessageHandler("%s contains data fields, and thus must be represented by a dict"%tableName)
+            return False
+        if not len(ticDatTable) :
+            return True
+        if not all(_keyLen(k) == len(self.primaryKeyFields[tableName])  for k in ticDatTable) :
+            badMessageHandler("Inconsistent key lengths")
+            return False
+        return True
+    def _goodTicDatDictTable(self, ticDatTable, tableName, badMessageHandler = lambda x : None):
+        assert dictish(ticDatTable)
+        if not len(ticDatTable) :
+            return True
+        if not all(_keyLen(k) == len(self.primaryKeyFields[tableName]) for k in ticDatTable.keys()) :
+            badMessageHandler("Inconsistent key lengths")
+            return False
+        dictishRows = tuple(x for x in ticDatTable.values() if _utls.dictish(x))
+        if not all(set(x.keys()) == set(self.dataFields.get(tableName,())) for x in dictishRows) :
+            badMessageHandler("Inconsistent data field name keys.")
+            return False
+        containerishRows = tuple(x for x in ticDatTable.values() if _utls.containerish(x) and not  _utls.dictish(x))
+        if not all(len(x) == len(self.dataFields.get(tableName,())) for x in containerishRows) :
+            badMessageHandler("Inconsistent data row lengths.")
+            return False
+        singletonishRows = tuple(x for x in ticDatTable.values() if not (_utls.containerish(x) or _utls.dictish(x)))
+        if singletonishRows and (len(self.dataFields[tableName]) != 1)  :
+            badMessageHandler("Non-container data rows supported only for single-data-field tables")
+            return False
+        return True
+
+def goodTicDatObject(ticDatObject, tableList = None, badMessageHandler = lambda x : None):
+    """
+    determines if an object qualifies as attribute collection of valid dict-of-dicts tibDat tables
+    :param ticDatObject: the object to verify
+    :param tableList: an optional list of attributes to verify. if missing, then all non calleable, non private,
+                      attributes will be checked
+    :param badMessageHandler: a call back function to receive description of any failure message
+    :return: True if the ticDatObject is an attribute collection of valid dict-of-dicts. False otherwise.
+    """
     if tableList is None :
         tableList = tuple(x for x in dir(ticDatObject) if not x.startswith("_") and
                           not callable(getattr(ticDatObject, x)))
-    badMessages = badMessageHolder if badMessageHolder is not None else  []
-    assert hasattr(badMessages, "append")
     def _hasAttr(t) :
         if not hasattr(ticDatObject, t) :
-            badMessages.append(t + " not an attribute.")
+            badMessageHandler(t + " not an attribute.")
             return False
         return True
-    evalGood = (_hasAttr(t) and goodTicDatTable(getattr(ticDatObject, t),
-                lambda x : badMessages.append(t + " : " + x)) for t in tableList)
-    if (badMessageHolder is not None) : # if logging, then evaluate all, else shortcircuit
-        evalGood = list(evalGood)
-    return all(evalGood)
+    return all([_hasAttr(t) and goodTicDatTable(getattr(ticDatObject, t),
+                lambda x : badMessageHandler(t + " : " + x)) for t in tableList])
 
-def _keyLen(k) :
-    if not _utls.containerish(k) :
-        return "singleton"
-    try:
-        rtn = len(k)
-    except :
-        rtn = 0
-    return rtn
-
-def goodTicDatTable(ticDatTable, badMessageHandler = lambda x : None) :
-    if _utls.dictish(ticDatTable) :
-        return _goodTicDatDictTable(ticDatTable, badMessageHandler)
-    if _utls.containerish(ticDatTable):
-        return _goodTicDatKeyContainer(ticDatTable, badMessageHandler)
-    badMessageHandler("Unexpected ticDat table type.")
-    return False
-
-def _goodTicDatKeyContainer(ticDatTable, badMessageHandler = lambda x : None) :
-    if _utls.dictish(ticDatTable) and not _utls.containerish(ticDatTable) :
-        badMessageHandler("Not a pure container-like object.")
-        return False
-    if not len(ticDatTable) :
-        return True
-    if not all(_keyLen(k) == _keyLen(ticDatTable[0]) for k in ticDatTable) :
-        badMessageHandler("Inconsistent key lengths")
-        return False
-    return True
-def _goodTicDatDictTable(ticDatTable, badMessageHandler = lambda x : None):
-    if not _utls.dictish(ticDatTable) :
+def goodTicDatTable(ticDatTable, badMessageHandler = lambda x : None):
+    """
+    determines if a simple, dict-of-dicts qualifies as a valid ticDat table object
+    :param ticDatTable: the object to verify
+    :param badMessageHandler: a call back function to receive description of any failure message
+    :return: True if the ticDatTable is a valid dict-of-dicts. False otherwise
+    """
+    if not dictish(ticDatTable) :
         badMessageHandler("Not a dict-like object.")
         return False
     if not len(ticDatTable) :
         return True
-    if not all(_keyLen(k) == _keyLen(ticDatTable.keys()[0]) for k in ticDatTable.keys()) :
+    def keyLen(k) :
+        if not containerish(k) :
+            return "singleton"
+        try:
+            rtn = len(k)
+        except :
+            rtn = 0
+        return rtn
+    if not all(keyLen(k) == keyLen(ticDatTable.keys()[0]) for k in ticDatTable.keys()) :
         badMessageHandler("Inconsistent key lengths")
         return False
-    dictishRows = tuple(x for x in ticDatTable.values() if _utls.dictish(x))
-    if not all(set(x.keys()) == set(dictishRows[0].keys()) for x in dictishRows) :
-        badMessageHandler("Inconsistent data field name keys.")
-        return False
-    containerishRows = tuple(x for x in ticDatTable.values() if _utls.containerish(x) and not  _utls.dictish(x))
-    if (not all(len(x) == len(containerishRows[0]) for x in containerishRows) or
-        (containerishRows and dictishRows and len(containerishRows[0]) != len(dictishRows[0]) ) ) :
-        badMessageHandler("Inconsistent data row lengths.")
-        return False
-    singletonishRows = tuple(x for x in ticDatTable.values() if not (_utls.containerish(x) or _utls.dictish(x)))
-    if singletonishRows and any(len(x) != 1 for x in containerishRows + dictishRows) :
+    if not all(dictish(x) for x in ticDatTable.values()) :
         badMessageHandler("At least one value is not a dict-like object")
+        return False
+    if not all(set(x.keys()) == set(ticDatTable.values()[0].keys()) for x in ticDatTable.values()) :
+        badMessageHandler("Inconsistent field name keys.")
         return False
     return True
 

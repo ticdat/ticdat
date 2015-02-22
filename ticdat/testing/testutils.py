@@ -1,11 +1,17 @@
 import sys
 import unittest
 import ticdat._private.utils as utils
-from ticdat.static import TicDatFactory, goodTicDatObject, goodTicDatTable
+from ticdat.static import TicDatFactory, goodTicDatObject
 import ticdat.static as static
 
 
 _GRB_INFINITY = 1e+100
+
+def _firesException(f) :
+    try:
+        f()
+    except Exception as e:
+        return e
 
 #uncomment decorator to drop into debugger for assertTrue, assertFalse failures
 #@utils.failToDebugger
@@ -140,23 +146,37 @@ class TestUtils(unittest.TestCase):
         return dat
 
     def testOne(self):
+        def _cleanIt(x) :
+            x.foods['macaroni'] = {"cost": 2.09}
+            x.foods['milk'] = {"cost":0.89}
+            return x
         dataObj = self._origDietTicDat()
+        self.assertFalse(goodTicDatObject(dataObj) or goodTicDatObject(dataObj,
+                        ("categories", "foods", "nutritionQuantities")))
+        tdf = TicDatFactory(**self._dietSchema())
+        self.assertTrue(tdf.goodTicDatObject(dataObj))
+        dataObj = _cleanIt(dataObj)
         self.assertTrue(goodTicDatObject(dataObj) and goodTicDatObject(dataObj,
                         ("categories", "foods", "nutritionQuantities")))
+
         msg = []
         dataObj.foods[("milk", "cookies")] = {"cost": float("inf")}
         dataObj.boger = object()
-        self.assertFalse(goodTicDatObject(dataObj) or goodTicDatObject(dataObj, badMessageHolder= msg))
-        self.assertTrue({"foods : Inconsistent key lengths", "boger : Unexpected ticDat table type."} == set(msg))
+        self.assertFalse(goodTicDatObject(dataObj) or goodTicDatObject(dataObj, badMessageHandler=msg.append))
+        self.assertTrue({"foods : Inconsistent key lengths", "boger : Not a dict-like object."} == set(msg))
         self.assertTrue(goodTicDatObject(dataObj, ("categories", "nutritionQuantities")))
 
         dataObj = self._origDietTicDat()
         dataObj.categories["boger"] = {"cost":1}
         dataObj.categories["boger"] = {"cost":1}
-        self.assertFalse(goodTicDatObject(dataObj) or goodTicDatObject(dataObj, badMessageHolder= msg))
-        self.assertTrue({"foods : Inconsistent key lengths", "boger : Unexpected ticDat table type.",
-                         'categories : Inconsistent data field name keys.'} == set(msg))
-    def _assertSame(self, t1, t2):
+        self.assertFalse(goodTicDatObject(dataObj) or goodTicDatObject(dataObj, badMessageHandler=msg.append))
+        self.assertTrue({'boger : Not a dict-like object.', 'foods : Inconsistent key lengths',
+                         'categories : Inconsistent field name keys.',
+                         'foods : At least one value is not a dict-like object'} == set(msg))
+        self.assertTrue("categories cannot be treated as a ticDat table : Inconsistent data field name keys" in
+            _firesException(lambda : tdf.FrozenTicDat(**{t:getattr(dataObj,t) for t in tdf.primaryKeyFields})).message)
+
+    def _assertSame(self, t1, t2, goodTicDatTable):
         _ass = lambda _t1, _t2 : utils.assertTicDatTablesSame(_t1, _t2,
                 _goodTicDatTable=  goodTicDatTable,
                 _assertTrue=self.assertTrue, _assertFalse=self.assertFalse)
@@ -169,16 +189,42 @@ class TestUtils(unittest.TestCase):
         tables = set(staticFactory.primaryKeyFields)
         ticDat = staticFactory.FrozenTicDat(**{t:getattr(objOrig,t) for t in tables})
         self.assertTrue(goodTicDatObject(ticDat))
-        utils.doIt(self._assertSame(getattr(objOrig, t), getattr(ticDat,t)) for t in tables)
+        for t in tables :
+            self._assertSame(getattr(objOrig, t), getattr(ticDat,t),
+                                    lambda _t : staticFactory.goodTicDatTable(_t, t))
 
     def testThree(self):
         objOrig = self._origNetflowTicDat()
         staticFactory = TicDatFactory(**self._netflowSchema())
+        goodTable = lambda t : lambda _t : staticFactory.goodTicDatTable(_t, t)
         tables = set(staticFactory.primaryKeyFields)
         ticDat = staticFactory.FrozenTicDat(**{t:getattr(objOrig,t) for t in tables})
         self.assertTrue(goodTicDatObject(ticDat))
-        utils.doIt(self._assertSame(getattr(objOrig, t), getattr(ticDat,t)) for t in tables)
-        utils.memo((objOrig, ticDat))
+        for t in tables :
+            self._assertSame(getattr(objOrig, t), getattr(ticDat,t), goodTable(t))
+
+        objOrig.commodities.append(12.3)
+        objOrig.arcs[(1, 2)] = [12]
+        self._assertSame(objOrig.nodes, ticDat.nodes, goodTable("nodes"))
+        self._assertSame(objOrig.cost, ticDat.cost, goodTable("cost"))
+        self.assertTrue(_firesException(lambda : self._assertSame(
+            objOrig.commodities, ticDat.commodities, goodTable("commodities")) ))
+        self.assertTrue(_firesException(lambda : self._assertSame(
+            objOrig.arcs, ticDat.arcs, goodTable("arcs")) ))
+
+        ticDat = staticFactory.FrozenTicDat(**{t:getattr(objOrig,t) for t in tables})
+        for t in tables :
+            self._assertSame(getattr(objOrig, t), getattr(ticDat,t), goodTable(t))
+
+        self.assertTrue(ticDat.arcs[1, 2]["capacity"] == 12)
+        self.assertTrue(12.3 in ticDat.commodities)
+
+        objOrig.cost[5]=5
+
+        self.assertTrue("cost cannot be treated as a ticDat table : Inconsistent key lengths" in
+            _firesException(lambda : staticFactory.FrozenTicDat(**{t:getattr(objOrig,t) for t in tables})))
+
+
 
 
 def runTheTests(fastOnly=True) :
