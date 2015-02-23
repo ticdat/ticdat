@@ -1,5 +1,12 @@
 """
-Provides assistance for hard coded ticDat objects.
+Primary ticDat module. Client code can do the following.
+-> Create a TicDatFactory from a schema (a listing of the primary key fields and data fields for each table)
+->-> A TicDatFactory can then create frozen and editable ticDat data objects from a variety of data sources.
+     These objects are functionally equivalent to the "attributes of dict of dicts" that are
+     demonstrated in the simple example code.
+-> Validate whether simple "dict of dicts" tables and "attribute collection of dict of dicts tables" objects are
+   ticDat compliant. ticDat compliances simply refers common sense consistency. (I.e. the dictionary keys
+   are consistent).
 """
 
 import ticdat._private.utils as _utls
@@ -16,6 +23,12 @@ def _keyLen(k) :
 
 
 class TicDatFactory(freezableFactory(object, "_isFrozen")) :
+    """
+    Primary class for ticDat library. This class is constructed with a schema (a listing of the primary key
+    fields and data fields for each table). Client code can then read/write ticDat objects from a variety of data
+    sources. Analytical code that that reads/writes from ticDat objects can then be used, without change,
+    on different data sources, or on the Opalytics platform.
+    """
     def __init__(self, primaryKeyFields = {}, dataFields = {}):
         primaryKeyFields, dataFields = _utls.checkSchema(primaryKeyFields, dataFields)
         self.primaryKeyFields, self.dataFields = primaryKeyFields, dataFields
@@ -79,28 +92,41 @@ class TicDatFactory(freezableFactory(object, "_isFrozen")) :
         self._isFrozen = True
 
 
-    def goodTicDatObject(self, ticDatObject,  badMessageHolder=None):
+    def goodTicDatObject(self, dataObj,  badMessageHolder=None):
+        """
+        determines if an object can be can be converted to a TicDat data object.
+        :param dataObj: the object to verify
+        :param badMessageHandler: a call back function to receive description of any failure message
+        :return: True if the dataObj can be converted to a TicDat data object. False otherwise.
+        """
         badMessages = badMessageHolder if badMessageHolder is not None else  []
         assert hasattr(badMessages, "append")
         def _hasAttr(t) :
-            if not hasattr(ticDatObject, t) :
+            if not hasattr(dataObj, t) :
                 badMessages.append(t + " not an attribute.")
                 return False
             return True
         rtn = True
         for t in set(self.primaryKeyFields).union(self.dataFields):
-            rtn = rtn and  self.goodTicDatTable(getattr(ticDatObject, t), t,
+            rtn = rtn and  self.goodTicDatTable(getattr(dataObj, t), t,
                     lambda x : badMessages.append(t + " : " + x))
         return rtn
 
-    def goodTicDatTable(self, ticDatTable, tableName, badMessageHandler = lambda x : None) :
+    def goodTicDatTable(self, dataTable, tableName, badMessageHandler = lambda x : None) :
+        """
+        determines if an object can be can be converted to a TicDat data table.
+        :param dataObj: the object to verify
+        :param tableName: the name of the table
+        :param badMessageHandler: a call back function to receive description of any failure message
+        :return: True if the dataObj can be converted to a TicDat data table. False otherwise.
+        """
         if tableName not in set(self.primaryKeyFields).union(self.dataFields):
             badMessageHandler("%s is not a valid table name for this schema"%tableName)
             return False
-        if _utls.dictish(ticDatTable) :
-            return self._goodTicDatDictTable(ticDatTable, tableName, badMessageHandler)
-        if _utls.containerish(ticDatTable):
-            return  self._goodTicDatKeyContainer(ticDatTable, tableName, badMessageHandler)
+        if _utls.dictish(dataTable) :
+            return self._goodTicDatDictTable(dataTable, tableName, badMessageHandler)
+        if _utls.containerish(dataTable):
+            return  self._goodTicDatKeyContainer(dataTable, tableName, badMessageHandler)
         badMessageHandler("Unexpected ticDat table type.")
         return False
 

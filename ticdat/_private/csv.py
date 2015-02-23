@@ -3,7 +3,6 @@ Read/write ticDat objects from/to csv files. Requires csv module (which is typic
 """
 
 try:
-    import csv
     _importWorked=True
 except:
     _importWorked=False
