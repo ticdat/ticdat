@@ -3,7 +3,7 @@ Provides assistance for hard coded ticDat objects.
 """
 
 import ticdat._private.utils as _utls
-from ticdat._private.utils import verify, freezableFactory, FrozenDict, doIt, dictish, containerish
+from ticdat._private.utils import verify, freezableFactory, FrozenDict, FreezeableDict, doIt, dictish, containerish
 
 def _keyLen(k) :
     if not _utls.containerish(k) :
@@ -14,17 +14,6 @@ def _keyLen(k) :
         rtn = 0
     return rtn
 
-class _TicDat(_utls.freezableFactory(object, "_isFrozen")) :
-    def _freeze(self):
-        if getattr(self, "_isFrozen", False) :
-            return
-        for t in getattr(self, "_tables", {}) :
-            for v in getattr(self, t).values() :
-                v._dataFrozen =True
-                v._attributesFrozen = True
-            getattr(self, t)._dataFrozen  = True
-            getattr(self, t)._attributesFrozen = True
-        self._isFrozen = True
 
 class TicDatFactory(freezableFactory(object, "_isFrozen")) :
     def __init__(self, primaryKeyFields = {}, dataFields = {}):
@@ -34,7 +23,23 @@ class TicDatFactory(freezableFactory(object, "_isFrozen")) :
         dataRowFactory = FrozenDict({t : _utls.ticDataRowFactory(t, primaryKeyFields[t], dataFields.get(t, ()))
                             for t in primaryKeyFields})
         goodTicDatTable = self.goodTicDatTable
-        class FrozenTicDat(_TicDat) :
+        class _TicDat(_utls.freezableFactory(object, "_isFrozen")) :
+            def _freeze(self):
+                if getattr(self, "_isFrozen", False) :
+                    return
+                for t in set(primaryKeyFields).union(dataFields) :
+                    for v in getattr(self, t).values() :
+                        if not getattr(v, "_dataFrozen", False) :
+                            v._dataFrozen =True
+                            v._attributesFrozen = True
+                        else : # we freeze the data-less ones off the bat as empties, easiest way
+                            assert (len(v) == 0) and v._attributesFrozen
+                    getattr(self, t)._dataFrozen  = True
+                    getattr(self, t)._attributesFrozen = True
+                self._isFrozen = True
+            def __repr__(self):
+                return "td:" + tuple(set(primaryKeyFields).union(dataFields)).__repr__()
+        class TicDat(_TicDat) :
             def __init__(self, **initTables):
                 for t in initTables :
                     verify(t in set(primaryKeyFields).union(dataFields), "Unexpected table name %s"%t)
@@ -43,22 +48,22 @@ class TicDatFactory(freezableFactory(object, "_isFrozen")) :
                     if not (goodTicDatTable(v, t, lambda x : badTicDatTable.append(x))) :
                         raise _utls.TicDatError(t + " cannot be treated as a ticDat table : " + badTicDatTable[-1])
                     for _k in v :
-                        verify((hasattr(_k, "__len__") and len(_k) == len(primaryKeyFields.get(t, ())) or
+                        verify((hasattr(_k, "__len__") and (len(_k) == len(primaryKeyFields.get(t, ())) > 1) or
                                len(primaryKeyFields.get(t, ())) == 1),
                            "Unexpected number of primary key fields for %s"%t)
                     # lots of verification inside the dataRowFactory
-                    setattr(self, t, FrozenDict({_k : dataRowFactory[t](v[_k] if _utls.dictish(v) else ()) for _k in v}))
-                    for v in getattr(self, t).values() :
-                        if not getattr(v, "_attributesFrozen", False) :
-                            v._dataFrozen =True
-                            v._attributesFrozen = True
-                        assert v._dataFrozen and v._attributesFrozen
+                    setattr(self, t, FreezeableDict({_k : dataRowFactory[t](v[_k]
+                                                            if _utls.dictish(v) else ()) for _k in v}))
                 for t in set(primaryKeyFields).union(dataFields).difference(initTables) :
-                    setattr(self, t, FrozenDict())
-                self._isFrozen = True
-            def __repr__(self):
-                return "td:" + tuple(set(primaryKeyFields).union(dataFields)).__repr__()
+                    setattr(self, t, FreezeableDict())
+
+        self.TicDat = TicDat
+        class FrozenTicDat(TicDat) :
+            def __init__(self, **initTables):
+                super(FrozenTicDat, self).__init__(**initTables)
+                self._freeze()
         self.FrozenTicDat = FrozenTicDat
+
 
         self._isFrozen = True
 
