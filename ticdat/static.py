@@ -39,6 +39,17 @@ class TicDatFactory(freezableFactory(object, "_isFrozen")) :
                 self._isFrozen = True
             def __repr__(self):
                 return "td:" + tuple(set(primaryKeyFields).union(dataFields)).__repr__()
+
+        def ticDatDictFactory(tableName) :
+            keyLen = len(self.primaryKeyFields[tableName])
+            class TicDatDict (FreezeableDict) :
+                def __setitem__(self, key, value):
+                    verify(containerish(key) ==  (keyLen > 1) and keyLen == 1 or keyLen == len(key),
+                           "inconsistent key length for %s"%tableName)
+                    return super(TicDatDict, self).__setitem__(key,value)
+            assert dictish(TicDatDict)
+            return TicDatDict
+
         class TicDat(_TicDat) :
             def __init__(self, **initTables):
                 for t in initTables :
@@ -52,10 +63,10 @@ class TicDatFactory(freezableFactory(object, "_isFrozen")) :
                                len(primaryKeyFields.get(t, ())) == 1),
                            "Unexpected number of primary key fields for %s"%t)
                     # lots of verification inside the dataRowFactory
-                    setattr(self, t, FreezeableDict({_k : dataRowFactory[t](v[_k]
+                    setattr(self, t, ticDatDictFactory(t)({_k : dataRowFactory[t](v[_k]
                                                             if _utls.dictish(v) else ()) for _k in v}))
                 for t in set(primaryKeyFields).union(dataFields).difference(initTables) :
-                    setattr(self, t, FreezeableDict())
+                    setattr(self, t, ticDatDictFactory(t)())
 
         self.TicDat = TicDat
         class FrozenTicDat(TicDat) :

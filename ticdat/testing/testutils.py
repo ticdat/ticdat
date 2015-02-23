@@ -114,8 +114,8 @@ class TestUtils(unittest.TestCase):
         for t in tables :
             self._assertSame(getattr(objOrig, t), getattr(mutable,t), goodTable(t))
         ### get this one to work !!!!!! no reason not to override both..... make sure sqlTicDat does it too!!!! ####
-        #self.assertTrue(firesException(editMeWell(mutable)))
-        self.assertFalse(firesException(editMeBadly(mutable)) or firesException(attributeMe(mutable)))
+        self.assertTrue(firesException(editMeBadly(mutable)))
+        self.assertFalse(firesException(editMeWell(mutable)) or firesException(attributeMe(mutable)))
         self.assertTrue(firesException(lambda : self._assertSame(
             objOrig.cost, mutable.cost, goodTable("cost")) ))
 
