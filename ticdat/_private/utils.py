@@ -2,6 +2,7 @@ import itertools
 import os
 import fnmatch
 import unittest
+from shutil import rmtree
 
 _debug = []
 def _asserting() :
@@ -293,3 +294,15 @@ def assertTicDatTablesSame(t1, t2, _goodTicDatTable,
                 _assertTrue(v1 == v2)
 
 
+def makeCleanDir(path) :
+    assert not os.path.exists(path) or os.path.isdir(path)
+    rmtree(path, ignore_errors = True)
+    os.mkdir(path)
+    return path
+def makeCleanPath(path) :
+    if os.path.exists(path) :
+        if os.path.isdir(path) :
+            makeCleanDir(path)
+        else :
+            os.remove(path)
+    return path

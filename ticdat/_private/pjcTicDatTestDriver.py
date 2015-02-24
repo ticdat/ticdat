@@ -64,6 +64,12 @@ def performBackUp(gDrive):
     utils.zipBackUp(projectFiles(), gDrive, "ticDatSrc")
 
 
+tdf = TicDatFactory(**netflowSchema())
+net = tdf.xls.createFrozenTicDat("netflow.xls")
+
+tdf = TicDatFactory(**dietSchema())
+diet = tdf.xls.createFrozenTicDat("diet.xls")
+
 # the gDrive backing up is just a convenience, so hardcoding paths for my convenience
 # for now just a singleton, can put other paths here if needed
 gDrivesPython= "/Users/petercacioppi/Google_Drive/Python/ticdat"

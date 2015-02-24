@@ -17,7 +17,6 @@ def getDataFiles() :
     rtn = (utils.findAllFiles(_testingModelsDir, _validDataExtensions) )
     return rtn
 
-_GRB_INFINITY = 1e+100
 def firesException(f) :
     try:
         f()
@@ -98,7 +97,7 @@ def dietData():
 
     dat.categories = {
       'calories': {"minNutrition": 1800, "maxNutrition" : 2200},
-      'protein':  {"minNutrition": 91,   "maxNutrition" : _GRB_INFINITY},
+      'protein':  {"minNutrition": 91,   "maxNutrition" : float("inf")},
       'fat':      {"minNutrition": 0,    "maxNutrition" : 65},
       'sodium':   {"minNutrition": 0,    "maxNutrition" : 1779}}
 

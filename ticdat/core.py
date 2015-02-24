@@ -9,11 +9,12 @@ Primary ticDat module. Client code can do the following.
    are consistent).
 """
 
-import ticdat._private.utils as _utls
+import ticdat._private.utils as utils
 from ticdat._private.utils import verify, freezableFactory, FrozenDict, FreezeableDict, doIt, dictish, containerish
+import ticdat._private.xls as xls
 
 def _keyLen(k) :
-    if not _utls.containerish(k) :
+    if not utils.containerish(k) :
         return 1
     try:
         rtn = len(k)
@@ -30,13 +31,13 @@ class TicDatFactory(freezableFactory(object, "_isFrozen")) :
     on different data sources, or on the Opalytics platform.
     """
     def __init__(self, primaryKeyFields = {}, dataFields = {}):
-        primaryKeyFields, dataFields = _utls.checkSchema(primaryKeyFields, dataFields)
+        primaryKeyFields, dataFields = utils.checkSchema(primaryKeyFields, dataFields)
         self.primaryKeyFields, self.dataFields = primaryKeyFields, dataFields
         assert set(dataFields).issubset(primaryKeyFields), "this code assumes all tables have primary keys"
-        dataRowFactory = FrozenDict({t : _utls.ticDataRowFactory(t, primaryKeyFields[t], dataFields.get(t, ()))
+        dataRowFactory = FrozenDict({t : utils.ticDataRowFactory(t, primaryKeyFields[t], dataFields.get(t, ()))
                             for t in primaryKeyFields})
         goodTicDatTable = self.goodTicDatTable
-        class _TicDat(_utls.freezableFactory(object, "_isFrozen")) :
+        class _TicDat(utils.freezableFactory(object, "_isFrozen")) :
             def _freeze(self):
                 if getattr(self, "_isFrozen", False) :
                     return
@@ -70,14 +71,14 @@ class TicDatFactory(freezableFactory(object, "_isFrozen")) :
                 for t,v in initTables.items():
                     badTicDatTable = []
                     if not (goodTicDatTable(v, t, lambda x : badTicDatTable.append(x))) :
-                        raise _utls.TicDatError(t + " cannot be treated as a ticDat table : " + badTicDatTable[-1])
+                        raise utils.TicDatError(t + " cannot be treated as a ticDat table : " + badTicDatTable[-1])
                     for _k in v :
                         verify((hasattr(_k, "__len__") and (len(_k) == len(primaryKeyFields.get(t, ())) > 1) or
                                len(primaryKeyFields.get(t, ())) == 1),
                            "Unexpected number of primary key fields for %s"%t)
                     # lots of verification inside the dataRowFactory
                     setattr(self, t, ticDatDictFactory(t)({_k : dataRowFactory[t](v[_k]
-                                                            if _utls.dictish(v) else ()) for _k in v}))
+                                                            if utils.dictish(v) else ()) for _k in v}))
                 for t in set(primaryKeyFields).union(dataFields).difference(initTables) :
                     setattr(self, t, ticDatDictFactory(t)())
 
@@ -87,29 +88,27 @@ class TicDatFactory(freezableFactory(object, "_isFrozen")) :
                 super(FrozenTicDat, self).__init__(**initTables)
                 self._freeze()
         self.FrozenTicDat = FrozenTicDat
-
-
+        if xls.importWorked :
+            self.xls = xls.XlsTicFactory(self)
         self._isFrozen = True
 
 
-    def goodTicDatObject(self, dataObj,  badMessageHolder=None):
+    def goodTicDatObject(self, dataObj,  badMessageHandler = lambda x : None):
         """
         determines if an object can be can be converted to a TicDat data object.
         :param dataObj: the object to verify
         :param badMessageHandler: a call back function to receive description of any failure message
         :return: True if the dataObj can be converted to a TicDat data object. False otherwise.
         """
-        badMessages = badMessageHolder if badMessageHolder is not None else  []
-        assert hasattr(badMessages, "append")
         def _hasAttr(t) :
             if not hasattr(dataObj, t) :
-                badMessages.append(t + " not an attribute.")
+                badMessageHandler(t + " not an attribute.")
                 return False
             return True
         rtn = True
         for t in set(self.primaryKeyFields).union(self.dataFields):
             rtn = rtn and  self.goodTicDatTable(getattr(dataObj, t), t,
-                    lambda x : badMessages.append(t + " : " + x))
+                    lambda x : badMessageHandler(t + " : " + x))
         return rtn
 
     def goodTicDatTable(self, dataTable, tableName, badMessageHandler = lambda x : None) :
@@ -123,9 +122,9 @@ class TicDatFactory(freezableFactory(object, "_isFrozen")) :
         if tableName not in set(self.primaryKeyFields).union(self.dataFields):
             badMessageHandler("%s is not a valid table name for this schema"%tableName)
             return False
-        if _utls.dictish(dataTable) :
+        if utils.dictish(dataTable) :
             return self._goodTicDatDictTable(dataTable, tableName, badMessageHandler)
-        if _utls.containerish(dataTable):
+        if utils.containerish(dataTable):
             return  self._goodTicDatKeyContainer(dataTable, tableName, badMessageHandler)
         badMessageHandler("Unexpected ticDat table type.")
         return False
@@ -148,15 +147,15 @@ class TicDatFactory(freezableFactory(object, "_isFrozen")) :
         if not all(_keyLen(k) == len(self.primaryKeyFields[tableName]) for k in ticDatTable.keys()) :
             badMessageHandler("Inconsistent key lengths")
             return False
-        dictishRows = tuple(x for x in ticDatTable.values() if _utls.dictish(x))
+        dictishRows = tuple(x for x in ticDatTable.values() if utils.dictish(x))
         if not all(set(x.keys()) == set(self.dataFields.get(tableName,())) for x in dictishRows) :
             badMessageHandler("Inconsistent data field name keys.")
             return False
-        containerishRows = tuple(x for x in ticDatTable.values() if _utls.containerish(x) and not  _utls.dictish(x))
+        containerishRows = tuple(x for x in ticDatTable.values() if utils.containerish(x) and not  utils.dictish(x))
         if not all(len(x) == len(self.dataFields.get(tableName,())) for x in containerishRows) :
             badMessageHandler("Inconsistent data row lengths.")
             return False
-        singletonishRows = tuple(x for x in ticDatTable.values() if not (_utls.containerish(x) or _utls.dictish(x)))
+        singletonishRows = tuple(x for x in ticDatTable.values() if not (utils.containerish(x) or utils.dictish(x)))
         if singletonishRows and (len(self.dataFields[tableName]) != 1)  :
             badMessageHandler("Non-container data rows supported only for single-data-field tables")
             return False
