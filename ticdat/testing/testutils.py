@@ -3,6 +3,7 @@ import unittest
 import ticdat._private.utils as utils
 from ticdat.core import TicDatFactory, goodTicDatObject
 from ticdat.testing.ticdattestutils import dietData, dietSchema, netflowData, netflowSchema, firesException
+from ticdat.testing.ticdattestutils import sillyMeData, sillyMeSchema
 
 
 #uncomment decorator to drop into debugger for assertTrue, assertFalse failures
@@ -117,6 +118,25 @@ class TestUtils(unittest.TestCase):
         self.assertFalse(firesException(editMeWell(mutable)) or firesException(attributeMe(mutable)))
         self.assertTrue(firesException(lambda : self._assertSame(
             objOrig.cost, mutable.cost, goodTable("cost")) ))
+
+    def testFour(self):
+        objOrig = sillyMeData()
+        staticFactory = TicDatFactory(**sillyMeSchema())
+        goodTable = lambda t : lambda _t : staticFactory.goodTicDatTable(_t, t)
+        tables = set(staticFactory.primaryKeyFields)
+        ticDat = staticFactory.FrozenTicDat(**objOrig)
+        self.assertTrue(goodTicDatObject(ticDat))
+        for t in tables :
+            self._assertSame(objOrig[t], getattr(ticDat,t), goodTable(t))
+
+        mutTicDat = staticFactory.TicDat()
+        for k,v in ticDat.a.items() :
+            mutTicDat.a[k] = v.values()
+        for k,v in ticDat.b.items() :
+            mutTicDat.b[k] = v.values()[0]
+        for t in tables :
+            self._assertSame(getattr(mutTicDat, t), getattr(ticDat,t), goodTable(t))
+
 
 
 def runTheTests(fastOnly=True) :

@@ -9,6 +9,9 @@ Primary ticDat module. Client code can do the following.
    are consistent).
 """
 
+# !!! KNOWN BUGS !!!!
+# -> For xls file writing, None not being written out as NULL. Not sure how xlwd, xlwt is supposed to handle this?
+
 import ticdat._private.utils as utils
 from ticdat._private.utils import verify, freezableFactory, FrozenDict, FreezeableDict, doIt, dictish, containerish
 import ticdat._private.xls as xls
@@ -58,9 +61,9 @@ class TicDatFactory(freezableFactory(object, "_isFrozen")) :
             keyLen = len(self.primaryKeyFields[tableName])
             class TicDatDict (FreezeableDict) :
                 def __setitem__(self, key, value):
-                    verify(containerish(key) ==  (keyLen > 1) and keyLen == 1 or keyLen == len(key),
+                    verify(containerish(key) ==  (keyLen > 1) and (keyLen == 1 or keyLen == len(key)),
                            "inconsistent key length for %s"%tableName)
-                    return super(TicDatDict, self).__setitem__(key,value)
+                    return super(TicDatDict, self).__setitem__(key,dataRowFactory[tableName](value))
             assert dictish(TicDatDict)
             return TicDatDict
 
@@ -159,6 +162,24 @@ class TicDatFactory(freezableFactory(object, "_isFrozen")) :
         if singletonishRows and (len(self.dataFields[tableName]) != 1)  :
             badMessageHandler("Non-container data rows supported only for single-data-field tables")
             return False
+        return True
+
+    def _sameData(self, obj1, obj2):
+        assert self.goodTicDatObject(obj1) and self.goodTicDatObject(obj2)
+        for t in set(self.primaryKeyFields).union(self.dataFields) :
+            t1 = getattr(obj1, t)
+            t2 = getattr(obj2, t)
+            assert goodTicDatTable(t1) and goodTicDatTable(t2)
+            if not set(t1) == set(t2) :
+                return False
+            for k in t1 :
+                r1 = t1[k]
+                r2 = t2[k]
+                if not set(r1) == set(r2) :
+                    return False
+                for _k in r1:
+                    if r1[_k] != r2[_k] :
+                        return False
         return True
 
 def goodTicDatObject(ticDatObject, tableList = None, badMessageHandler = lambda x : None):

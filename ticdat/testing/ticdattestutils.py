@@ -1,21 +1,6 @@
 import os
-import inspect
 import ticdat._private.utils as utils
 
-
-def _codeFile() :
-    return os.path.realpath(os.path.abspath(inspect.getsourcefile(_codeFile)))
-def _codeDir():
-    return os.path.dirname(__codeFile)
-__codeFile = _codeFile()
-
-_testingModelsDir = os.path.abspath(os.path.join(_codeDir(), "data"))
-
-_validDataExtensions = (".csv", ".xls", ".xlsx")
-
-def getDataFiles() :
-    rtn = (utils.findAllFiles(_testingModelsDir, _validDataExtensions) )
-    return rtn
 
 def firesException(f) :
     try:
@@ -153,3 +138,14 @@ def dietData():
 
     return dat
 
+def sillyMeSchema() :
+    return {
+        "primaryKeyFields" : { "a" : ("aField",), "b" : ("bField1", "bField2", "bField3") },
+        "dataFields" : { "a" : ("aData1", "aData2", "aData3"), "b" : "bData"}
+    }
+
+def sillyMeData() :
+    return {
+        "a" : {1 : (1, 2, 3), "b" : ("b", "d", 12), 0.23 : (11, 12, "thirt")},
+        "b" : {(1, 2, 3) : 1, ("a", "b", "b") : 12}
+    }

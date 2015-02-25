@@ -183,8 +183,9 @@ def checkSchema(primaryKeyFields, dataFields):
         verify(dictish(arg), "%s needs to be dict"%argName)
         verify(all(stringish(x) for x in arg.keys()), "The keys for %s should be table names")
         verify(not any(x.startswith("_") for x in arg.keys()), "%s contains a table names starting with underscore")
-        verify(all(stringish(x) or (containerish(x) and all(stringish(y) for y in x))
-                   for x in arg.values()), "The values for %s should be field names or containers filled with field names")
+        verify(all(stringish(x) or (containerish(x) and len(x) == len(set(x)) and all(stringish(y) for y in x))
+                   for x in arg.values()),
+               "The values for %s should be field names or containers filled with non repeating field names")
         return FrozenDict({k : (v,) if stringish(v) else tuple(v) for k,v in arg.items()})
 
     primaryKeyFields = _checkArg(primaryKeyFields, "primaryKeyFields")
@@ -221,11 +222,11 @@ def ticDataRowFactory(table, keyFieldNames, dataFieldNames, defaultValues={}):
                 for f,_d in x.items():
                     self[f] = _d
             elif containerish(x) :
-                verify(len(x) == len(self), "%s has requires each row to have %s data values"%(table, len(self)))
+                verify(len(x) == len(self), "%s requires each row to have %s data values"%(table, len(self)))
                 for i in range(len(self)):
                     self._data[i] = x[i]
             else:
-                verify(len(self) ==1, "%s has requires each row to have %s data values"%(table, len(self)))
+                verify(len(self) ==1, "%s requires each row to have %s data values"%(table, len(self)))
                 self._data[0] = x
         def __getitem__(self, item):
             verify(item in fieldToIndex, "Key error : %s not data field name for table %s"%(item, table))
@@ -233,7 +234,7 @@ def ticDataRowFactory(table, keyFieldNames, dataFieldNames, defaultValues={}):
         def __setitem__(self, key, value):
             verify(key in fieldToIndex, "Key error : %s not data field name for table %s"%(key, table))
             if getattr(self, "_dataFrozen", False) :
-                raise Exception("Can't edit a frozen TicDatDataRow")
+                raise TicDatError("Can't edit a frozen TicDatDataRow")
             self._data[fieldToIndex[key]] = value
         def keys(self):
             return tuple(indexToField[i] for i in range(len(self)))

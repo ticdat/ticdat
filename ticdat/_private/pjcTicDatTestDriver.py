@@ -11,6 +11,12 @@ except NameError:
 
 import ticdat.testing.ticdattestutils as testutils
 
+def _codeFile() :
+    import inspect
+    return os.path.realpath(os.path.abspath(inspect.getsourcefile(_codeFile)))
+def _codeDir():
+    return os.path.dirname(__codeFile)
+__codeFile = _codeFile()
 
 if _IPYHTON :
     print "!!IPYTHON!!"
@@ -21,7 +27,7 @@ filterByReject = None
 
 # override code
 #filterByReject = lambda f :  True    # this line rejects everything, easy way to bypass all tests#
-#filterByReject = lambda f :  not "slow" in f.lower()  # True means rejection
+#filterByReject = lambda f :  not "xls" in f.lower()  # True means rejection
 
 
 def diagnosticPause(msg) :
@@ -38,7 +44,8 @@ if filterByReject :
 passesTheFilter = lambda f : (not filterByReject) or (not filterByReject(f))
 
 # run the appropriate tests
-for f in sorted(utils.findAllUnixWildCard(tdu._codeDir(), "*test*.py"), key = lambda x : "slow." in x) :
+for f in sorted(utils.findAllUnixWildCard(os.path.join(_codeDir(), "..", "testing"), "*test*.py"),
+                key = lambda x : "slow." in x) :
  if os.path.basename(f).startswith("test") or os.path.basename(f).startswith("slow.test") :
     print os.path.basename(f), passesTheFilter(f)
     if passesTheFilter(f)  :
@@ -52,9 +59,8 @@ for f in sorted(utils.findAllUnixWildCard(tdu._codeDir(), "*test*.py"), key = la
 
 def projectFiles() :
 
-    myProjectFiles = [os.path.abspath(x) for x in utils.deepFlatten((
-        utils.findAllUnixWildCard(os.path.join(tdu._codeDir(), ".."), "*.py"),
-        tdu.getDataFiles() ))
+    myProjectFiles = [os.path.abspath(x) for x in utils.deepFlatten(
+        utils.findAllUnixWildCard(os.path.join(_codeDir(), ".."), "*.py"))
         if x]
     assert myProjectFiles, "nothing found"
     assert len(myProjectFiles) < 200
@@ -63,12 +69,12 @@ def projectFiles() :
 def performBackUp(gDrive):
     utils.zipBackUp(projectFiles(), gDrive, "ticDatSrc")
 
-
-tdf = TicDatFactory(**netflowSchema())
-net = tdf.xls.createFrozenTicDat("netflow.xls")
-
-tdf = TicDatFactory(**dietSchema())
-diet = tdf.xls.createFrozenTicDat("diet.xls")
+#
+# tdf = TicDatFactory(**netflowSchema())
+# net = tdf.xls.createFrozenTicDat("netflow.xls")
+#
+# tdf = TicDatFactory(**dietSchema())
+# diet = tdf.xls.createFrozenTicDat("diet.xls")
 
 # the gDrive backing up is just a convenience, so hardcoding paths for my convenience
 # for now just a singleton, can put other paths here if needed
@@ -79,10 +85,10 @@ import shutil
 # !!!!!!!!!!!!!!!!!!!! BEGIN KEEP ME !!!!!!!!!!!!!!!!!!!!!!!!!!
 # remove the extra shizzle
 _filesWithExtension = lambda ext  : tuple(os.path.abspath(x) for y in
-    (utils.findAllUnixWildCard(y, "*" + ext) for y in (os.path.join(tdu._codeDir(), ".."),))
+    (utils.findAllUnixWildCard(y, "*" + ext) for y in (os.path.join(_codeDir(), ".."),))
     for x in y)
 map(os.remove, utils.deepFlatten((_filesWithExtension(".pyc"), _filesWithExtension(".pyo"))))
-map(os.remove, utils.deepFlatten(utils.findAllUnixWildCard(os.path.join(tdu._codeDir(), ".."), "gurobi.log")))
+map(os.remove, utils.deepFlatten(utils.findAllUnixWildCard(os.path.join(_codeDir(), ".."), "gurobi.log")))
 utils.doIt(shutil.rmtree(z) if os.path.isdir(z) else None for x in range(3)
-    for z in (os.path.join(os.path.join(tdu._codeDir(), *([".."]*x)), ".idea"),))
+    for z in (os.path.join(os.path.join(_codeDir(), *([".."]*x)), ".idea"),))
 # !!!!!!!!!!!!!!!!!!!! END KEEP ME !!!!!!!!!!!!!!!!!!!!!!!!!!
