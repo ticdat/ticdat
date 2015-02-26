@@ -64,6 +64,10 @@ class TicDatFactory(freezableFactory(object, "_isFrozen")) :
                     verify(containerish(key) ==  (keyLen > 1) and (keyLen == 1 or keyLen == len(key)),
                            "inconsistent key length for %s"%tableName)
                     return super(TicDatDict, self).__setitem__(key,dataRowFactory[tableName](value))
+                def __getitem__(self, item):
+                    if item not in self:
+                        self[item] = dataRowFactory[tableName]({})
+                    return super(TicDatDict, self).__getitem__(item)
             assert dictish(TicDatDict)
             return TicDatDict
 

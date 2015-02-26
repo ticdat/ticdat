@@ -213,7 +213,7 @@ def ticDataRowFactory(table, keyFieldNames, dataFieldNames, defaultValues={}):
     indexToField = {v:k for k,v in fieldToIndex.items()}
     class TicDatDataRow(freezableFactory(object, "_attributesFrozen")) :
         def __init__(self, x):
-            self._data = [None] * len(fieldToIndex)
+            self._data = [0] * len(fieldToIndex) # since ticDat targeting numerical analysis, 0 is good default default
             if dictish(x) :
                 verify(set(x.keys()).issubset(fieldToIndex), "Applying inappropriate data field names to %s"%table)
                 for f,i in fieldToIndex.items():

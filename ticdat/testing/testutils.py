@@ -137,7 +137,9 @@ class TestUtils(unittest.TestCase):
         for t in tables :
             self._assertSame(getattr(mutTicDat, t), getattr(ticDat,t), goodTable(t))
 
-
+        self.assertTrue("theboger" not in mutTicDat.a)
+        mutTicDat.a["theboger"]["aData2"] =22
+        self.assertTrue("theboger" in mutTicDat.a and mutTicDat.a["theboger"].values() == (0, 22, 0))
 
 def runTheTests(fastOnly=True) :
     utils.runSuite(TestUtils, fastOnly=fastOnly)
