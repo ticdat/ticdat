@@ -27,7 +27,7 @@ filterByReject = None
 
 # override code
 #filterByReject = lambda f :  True    # this line rejects everything, easy way to bypass all tests#
-#filterByReject = lambda f :  not "xls" in f.lower()  # True means rejection
+#filterByReject = lambda f :  not "csv" in f.lower()  # True means rejection
 
 
 def diagnosticPause(msg) :
@@ -69,12 +69,15 @@ def projectFiles() :
 def performBackUp(gDrive):
     utils.zipBackUp(projectFiles(), gDrive, "ticDatSrc")
 
+# tdfDiet = TicDatFactory(**dietSchema())
+# ticDatDiet = tdfDiet.FrozenTicDat(**{t:getattr(dietData(),t) for t in tdfDiet.primaryKeyFields})
+# tdfDiet.csv.writeDirectory(ticDatDiet, "diet")
+# redoDiet = tdfDiet.csv.createTicDat("diet")
 #
-# tdf = TicDatFactory(**netflowSchema())
-# net = tdf.xls.createFrozenTicDat("netflow.xls")
-#
-# tdf = TicDatFactory(**dietSchema())
-# diet = tdf.xls.createFrozenTicDat("diet.xls")
+# tdfNetflow = TicDatFactory(**netflowSchema())
+# ticDatNetflow = tdfNetflow.FrozenTicDat(**{t:getattr(netflowData(),t) for t in tdfNetflow.primaryKeyFields})
+# tdfNetflow.csv.writeDirectory(ticDatNetflow, "netflow")
+# redoNet = tdfNetflow.csv.createTicDat("netflow")
 
 # the gDrive backing up is just a convenience, so hardcoding paths for my convenience
 # for now just a singleton, can put other paths here if needed

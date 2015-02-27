@@ -11,10 +11,15 @@ Primary ticDat module. Client code can do the following.
 
 # !!! KNOWN BUGS !!!!
 # -> For xls file writing, None not being written out as NULL. Not sure how xlwd, xlwt is supposed to handle this?
+# -> For csv file reading, all data is turned into floats if possible. So zip codes will be turned into floats
+# !!! REMEMBER !!!! ticDat is supposed to facilitate rapid prototyping and port-ready solver engine
+#                   development. The true fix for these cosmetic flaws is to use the Opalytics platform
+#                   for industrial data and the ticDat library for cleaner, isolated development/testing.
 
 import ticdat._private.utils as utils
 from ticdat._private.utils import verify, freezableFactory, FrozenDict, FreezeableDict, doIt, dictish, containerish
 import ticdat._private.xls as xls
+import ticdat._private.csvtd as csv
 
 def _keyLen(k) :
     if not utils.containerish(k) :
@@ -97,6 +102,9 @@ class TicDatFactory(freezableFactory(object, "_isFrozen")) :
         self.FrozenTicDat = FrozenTicDat
         if xls.importWorked :
             self.xls = xls.XlsTicFactory(self)
+        if csv.importWorked :
+            self.csv = csv.CsvTicFactory(self)
+
         self._isFrozen = True
 
 
@@ -114,6 +122,8 @@ class TicDatFactory(freezableFactory(object, "_isFrozen")) :
             return True
         rtn = True
         for t in set(self.primaryKeyFields).union(self.dataFields):
+            if not _hasAttr(t) :
+                return False
             rtn = rtn and  self.goodTicDatTable(getattr(dataObj, t), t,
                     lambda x : badMessageHandler(t + " : " + x))
         return rtn
