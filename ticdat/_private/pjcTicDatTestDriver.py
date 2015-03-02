@@ -26,7 +26,7 @@ backingUp = True
 filterByReject = None
 
 # override code
-#filterByReject = lambda f :  True    # this line rejects everything, easy way to bypass all tests#
+filterByReject = lambda f :  True    # this line rejects everything, easy way to bypass all tests#
 #filterByReject = lambda f :  not "csv" in f.lower()  # True means rejection
 
 

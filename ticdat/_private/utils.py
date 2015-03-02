@@ -120,7 +120,7 @@ def shallowFlatten(x) :
 dictish = lambda x : all(hasattr(x, _) for _ in ("__getitem__", "keys", "values", "items", "__contains__", "__len__"))
 stringish = lambda x : all(hasattr(x, _) for _ in ("lower", "upper", "strip"))
 containerish = lambda x : all(hasattr(x, _) for _ in ("__iter__", "__len__", "__getitem__")) and not stringish(x)
-
+generatorish = lambda x : all(hasattr(x, _) for _ in ("__iter__", "next")) and not (containerish(x) or dictish(x))
 
 def freezableFactory(baseClass, freezeAttr) :
     class _Freezeable(baseClass) :
@@ -194,11 +194,6 @@ def checkSchema(primaryKeyFields, dataFields):
     for pt in set(primaryKeyFields).intersection(dataFields) :
         verify(not set(primaryKeyFields[pt]).intersection(dataFields[pt]),
                "Table %s has a non empty intersection between its primary key field names and its data field names"%pt)
-    for t in dataFields:
-        # at some point we will support support tables without primary keys
-        verify(t in primaryKeyFields, "Table %s doesn't have any primary key fields"%t)
-    for t in primaryKeyFields:
-        verify(len(primaryKeyFields) > 0, "Table %s doesn't have any primary key fields"%t)
     return (primaryKeyFields, dataFields)
 
 def ticDataRowFactory(table, keyFieldNames, dataFieldNames, defaultValues={}):

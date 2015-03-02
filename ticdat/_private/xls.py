@@ -18,8 +18,6 @@ class XlsTicFactory(freezableFactory(object, "_isFrozen")) :
     def __init__(self, ticDatFactory):
         assert importWorked, "don't create this otherwise"
         self.ticDatFactory = ticDatFactory
-        assert not set(ticDatFactory.dataFields).difference(ticDatFactory.primaryKeyFields), \
-            "not expecting tables with no primary key fields"
         self._isFrozen = True
     def createTicDat(self, xlsFilePath):
         return self.ticDatFactory.TicDat(**self._createTicDat(xlsFilePath))
@@ -32,10 +30,10 @@ class XlsTicFactory(freezableFactory(object, "_isFrozen")) :
         except Exception as e:
             raise TicDatError("Unable to open %s as xls file : %s"%(xlsFilePath, e.message))
         sheets = defaultdict(list)
-        for table, sheet in product(tdf.primaryKeyFields, book.sheets()) :
+        for table, sheet in product(tdf.allTables, book.sheets()) :
             if table == sheet.name :
                 sheets[table].append(sheet)
-        missingSheets = set(tdf.primaryKeyFields).difference(sheets)
+        missingSheets = set(tdf.allTables).difference(sheets)
         verify(not missingSheets, "The following sheet names could not be found : " + ",".join(missingSheets))
         duplicatedSheets = tuple(_t for _t,_s in sheets.items() if len(_s) > 1)
         verify(not duplicatedSheets, "The following sheet names were duplicated : " + ",".join(duplicatedSheets))
@@ -47,13 +45,21 @@ class XlsTicFactory(freezableFactory(object, "_isFrozen")) :
                "\n".join("%s : "%t + ",".join(bf) for t,bf in badFields.items() if bf))
         rtn = {}
         for table, sheet in sheets.items() :
-            fields = tdf.primaryKeyFields[table] + tdf.dataFields.get(table, ())
+            fields = tdf.primaryKeyFields.get(table, ()) + tdf.dataFields.get(table, ())
             indicies = fieldIndicies[table]
             tableLen = min(len(sheet.col_values(indicies[field])) for field in fields)
-            tableDict = {self._subTuple(tdf.primaryKeyFields[table], indicies)(x) :
-                         self._subTuple(tdf.dataFields.get(table, ()), indicies)(x)
-                         for x in (sheet.row_values(i) for i in range(tableLen)[1:])}
-            rtn[table] = tableDict
+            if tdf.primaryKeyFields.get(table, ()) :
+                tableObj = {self._subTuple(tdf.primaryKeyFields[table], indicies)(x) :
+                            self._subTuple(tdf.dataFields.get(table, ()), indicies)(x)
+                            for x in (sheet.row_values(i) for i in range(tableLen)[1:])}
+            elif table in tdf.generatorTables:
+                def tableObj() :
+                    for x in (sheet.row_values(i) for i in range(tableLen)[1:]) :
+                        yield self._subTuple(tdf.dataFields.get(table, ()), indicies)(x)
+            else :
+                tableObj = [self._subTuple(tdf.dataFields.get(table, ()), indicies)(x)
+                            for x in (sheet.row_values(i) for i in range(tableLen)[1:])]
+            rtn[table] = tableObj
         return rtn
 
     def _subTuple(self, fields, fieldIndicies) :
@@ -65,7 +71,7 @@ class XlsTicFactory(freezableFactory(object, "_isFrozen")) :
         return rtn
 
     def _getFieldIndicies(self, table, sheet, badFieldsRtn = None) :
-        fields = self.ticDatFactory.primaryKeyFields[table] + self.ticDatFactory.dataFields.get(table, ())
+        fields = self.ticDatFactory.primaryKeyFields.get(table, ()) + self.ticDatFactory.dataFields.get(table, ())
         if not sheet.nrows :
             doIt(badFieldsRtn.append(x) for x in fields)
             return None
@@ -88,14 +94,20 @@ class XlsTicFactory(freezableFactory(object, "_isFrozen")) :
         verify(allowOverwrite or not os.path.exists(xlsFilePath),
                "The %s path exists and overwrite is not allowed"%xlsFilePath)
         book = xlwt.Workbook()
-        for t in  sorted(sorted(tdf.primaryKeyFields), key=lambda x: len(tdf.primaryKeyFields[x])) :
+        for t in  sorted(sorted(tdf.allTables), key=lambda x: len(tdf.primaryKeyFields.get(x, ()))) :
             sheet = book.add_sheet(t)
-            for i,f in enumerate(tdf.primaryKeyFields[t] + tdf.dataFields.get(t, ())) :
+            for i,f in enumerate(tdf.primaryKeyFields.get(t,()) + tdf.dataFields.get(t, ())) :
                 sheet.write(0, i, f)
-            for rowInd, (primaryKey, dataRow) in enumerate(getattr(ticDat, t).items()) :
-                for fieldInd, cellValue in enumerate( (primaryKey if containerish(primaryKey) else (primaryKey,)) +
+            _t = getattr(ticDat, t)
+            if utls.dictish(_t) :
+                for rowInd, (primaryKey, dataRow) in enumerate(_t.items()) :
+                    for fieldInd, cellValue in enumerate( (primaryKey if containerish(primaryKey) else (primaryKey,)) +
                                         tuple(dataRow[_f] for _f in tdf.dataFields.get(t, ()))):
-                    sheet.write(rowInd+1, fieldInd, cellValue)
+                        sheet.write(rowInd+1, fieldInd, cellValue)
+            else :
+                for rowInd, dataRow in enumerate(_t if containerish(_t) else _t()) :
+                    for fieldInd, cellValue in enumerate(tuple(dataRow[_f] for _f in tdf.dataFields[t])) :
+                        sheet.write(rowInd+1, fieldInd, cellValue)
         if os.path.exists(xlsFilePath):
             os.remove(xlsFilePath)
         book.save(xlsFilePath)

@@ -141,11 +141,13 @@ def dietData():
 def sillyMeSchema() :
     return {
         "primaryKeyFields" : { "a" : ("aField",), "b" : ("bField1", "bField2", "bField3") },
-        "dataFields" : { "a" : ("aData1", "aData2", "aData3"), "b" : "bData"}
+        "dataFields" : { "a" : ("aData1", "aData2", "aData3"), "b" : "bData",
+                         "c" : ("cData1", "cData2", "cData3", "cData4")}
     }
 
 def sillyMeData() :
     return {
         "a" : {1 : (1, 2, 3), "b" : ("b", "d", 12), 0.23 : (11, 12, "thirt")},
-        "b" : {(1, 2, 3) : 1, ("a", "b", "b") : 12}
+        "b" : {(1, 2, 3) : 1, ("a", "b", "b") : 12},
+        "c" : ((1, 2, 3, 4), ("a", "b", "c", "d"), ("a", "b", 12, 24) )
     }
