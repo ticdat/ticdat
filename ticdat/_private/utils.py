@@ -194,6 +194,8 @@ def checkSchema(primaryKeyFields, dataFields):
     for pt in set(primaryKeyFields).intersection(dataFields) :
         verify(not set(primaryKeyFields[pt]).intersection(dataFields[pt]),
                "Table %s has a non empty intersection between its primary key field names and its data field names"%pt)
+    for pt in set(primaryKeyFields).union(dataFields) :
+        verify(set(primaryKeyFields.get(pt, ())).union(dataFields.get(pt,())),"Table %s has no field names"%pt)
     return (primaryKeyFields, dataFields)
 
 def ticDataRowFactory(table, keyFieldNames, dataFieldNames, defaultValues={}):

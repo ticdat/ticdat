@@ -228,9 +228,27 @@ class TicDatFactory(freezableFactory(object, "_isFrozen")) :
             return False
         return True
 
+    def _keyless(self, obj):
+        assert self.goodTicDatObject(obj)
+        class _ (object) :
+            pass
+        rtn = _()
+        for t in self.allTables :
+            _rtn = []
+            _t = getattr(obj, t)
+            if dictish(_t) :
+                for pk, dr in _t.items() :
+                    _rtn.append(dict(dr, **{_f: _pk for _f,_pk in
+                                zip(self.primaryKeyFields[t], pk if containerish(pk) else (pk,))}))
+            else :
+                for dr in (_t if containerish(_t) else _t()) :
+                    _rtn.append(dict(dr))
+            setattr(rtn, t, _rtn)
+        return rtn
     def _sameData(self, obj1, obj2):
         assert self.goodTicDatObject(obj1) and self.goodTicDatObject(obj2)
         def sameRow(r1, r2) :
+            assert dictish(r1) and dictish(r2)
             if bool(r1) != bool(r2) or set(r1) != set(r2) :
                 return False
             for _k in r1:
@@ -250,8 +268,10 @@ class TicDatFactory(freezableFactory(object, "_isFrozen")) :
                         return False
             else :
                 _iter = lambda x : x if containerish(x) else x()
-                for r1, r2 in izip_longest(_iter(t1), _iter(t2)) :
-                    if not sameRow(r1, r2):
+                if not len(list(_iter(t1))) == len(list(_iter(t2))) :
+                    return False
+                for r1 in _iter(t1):
+                    if not any (sameRow(r1, r2) for r2 in _iter(t2)) :
                         return False
         return True
 

@@ -56,8 +56,14 @@ class TestXls(unittest.TestCase):
         schema3["dataFields"]["a"] = ("aData2", "aData3", "aData1")
         schema4 = sillyMeSchema()
         schema4["dataFields"]["a"] = ("aData1", "aData3")
+        schema5 = sillyMeSchema()
+        _tuple = lambda x : tuple(x) if utils.containerish(x) else (x,)
+        for t in ("a", "b") :
+            schema5["dataFields"][t] = _tuple(schema5["dataFields"][t]) + _tuple(schema5["primaryKeyFields"][t])
+        schema5["primaryKeyFields"] = {"a" : (), "b" : []}
+        schema5["generatorTables"] = ["a", "c"]
 
-        tdf2, tdf3, tdf4 = (TicDatFactory(**x) for x in (schema2, schema3, schema4))
+        tdf2, tdf3, tdf4, tdf5 = (TicDatFactory(**x) for x in (schema2, schema3, schema4, schema5))
 
         filePath = os.path.join(_scratchDir, "silly.xls")
         tdf.xls.writeFile(ticDat, filePath)
@@ -77,6 +83,11 @@ class TestXls(unittest.TestCase):
                     self.assertTrue(t == "b")
                 else :
                     self.assertTrue(t == "a")
+
+        ticDat5 = tdf5.xls.createTicDat(filePath)
+        self.assertTrue(tdf5._sameData(tdf._keyless(ticDat), ticDat5))
+        self.assertTrue(callable(ticDat5.a) and callable(ticDat5.c) and not callable(ticDat5.b))
+
 
         import xlwt
         book = xlwt.Workbook()

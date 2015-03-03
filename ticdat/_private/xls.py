@@ -43,6 +43,16 @@ class XlsTicFactory(freezableFactory(object, "_isFrozen")) :
         verify(not any(_ for _ in badFields.values()), "The following field names could not be found : \n" +
                "\n".join("%s : "%t + ",".join(bf) for t,bf in badFields.items() if bf))
         return sheets, fieldIndicies
+    def _createGeneratorObj(self, xlsFilePath, table):
+        tdf = self.ticDatFactory
+        def tableObj() :
+            sheets, fieldIndicies = self._getSheetsAndFields(xlsFilePath, (table,))
+            sheet = sheets[table]
+            tableLen = min(len(sheet.col_values(fieldIndicies[table][field])) for field in tdf.dataFields[table])
+            for x in (sheet.row_values(i) for i in range(tableLen)[1:]) :
+                yield self._subTuple(tdf.dataFields[table], fieldIndicies[table])(x)
+        return tableObj
+
     def _createTicDat(self, xlsFilePath):
         tdf = self.ticDatFactory
         rtn = {}
@@ -61,14 +71,7 @@ class XlsTicFactory(freezableFactory(object, "_isFrozen")) :
                             for x in (sheet.row_values(i) for i in range(tableLen)[1:])]
             rtn[table] = tableObj
         for table in tdf.generatorTables :
-            def tableObj() :
-                sheets, fieldIndicies = self._getSheetsAndFields(xlsFilePath, (table,))
-                fields = tdf.primaryKeyFields.get(table, ()) + tdf.dataFields.get(table, ())
-                indicies = fieldIndicies[table]
-                tableLen = min(len(sheet.col_values(fieldIndicies[table][field])) for field in fields)
-                for x in (sheet.row_values(i) for i in range(tableLen)[1:]) :
-                    yield self._subTuple(tdf.dataFields.get(table, ()))(x)
-            rtn[table] = tableObj
+            rtn[table] = self._createGeneratorObj(xlsFilePath, table)
         return rtn
 
     def _subTuple(self, fields, fieldIndicies) :
