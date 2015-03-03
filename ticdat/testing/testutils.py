@@ -28,14 +28,14 @@ class TestUtils(unittest.TestCase):
         dataObj.foods[("milk", "cookies")] = {"cost": float("inf")}
         dataObj.boger = object()
         self.assertFalse(goodTicDatObject(dataObj) or goodTicDatObject(dataObj, badMessageHandler=msg.append))
-        self.assertTrue({"foods : Inconsistent key lengths", "boger : Not a dict-like object."} == set(msg))
+        self.assertTrue({"foods : Inconsistent key lengths", "boger : Unexpected object."} == set(msg))
         self.assertTrue(goodTicDatObject(dataObj, ("categories", "nutritionQuantities")))
 
         dataObj = dietData()
         dataObj.categories["boger"] = {"cost":1}
         dataObj.categories["boger"] = {"cost":1}
         self.assertFalse(goodTicDatObject(dataObj) or goodTicDatObject(dataObj, badMessageHandler=msg.append))
-        self.assertTrue({'boger : Not a dict-like object.', 'foods : Inconsistent key lengths',
+        self.assertTrue({'boger : Unexpected object.', 'foods : Inconsistent key lengths',
                          'categories : Inconsistent field name keys.',
                          'foods : At least one value is not a dict-like object'} == set(msg))
         self.assertTrue("categories cannot be treated as a ticDat table : Inconsistent data field name keys" in

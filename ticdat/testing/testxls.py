@@ -80,9 +80,9 @@ class TestXls(unittest.TestCase):
 
         import xlwt
         book = xlwt.Workbook()
-        for t in tdf.primaryKeyFields :
+        for t in tdf.allTables :
             sheet = book.add_sheet(t)
-            for i,f in enumerate(tdf.primaryKeyFields[t] + tdf.dataFields.get(t, ())) :
+            for i,f in enumerate(tdf.primaryKeyFields.get(t, ()) + tdf.dataFields.get(t, ())) :
                 sheet.write(0, i, f)
             for rowInd, row in enumerate( [(1, 2, 3, 4), (1, 20, 30, 40), (10, 20, 30, 40)]) :
                 for fieldInd, cellValue in enumerate(row):

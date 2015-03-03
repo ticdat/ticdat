@@ -22,6 +22,7 @@ from ticdat._private.utils import generatorish
 import ticdat._private.xls as xls
 import ticdat._private.csvtd as csv
 import collections as clt
+from itertools import izip_longest
 
 def _keyLen(k) :
     if not utils.containerish(k) :
@@ -46,7 +47,7 @@ class TicDatFactory(freezableFactory(object, "_isFrozen")) :
         self.allTables = frozenset(set(self.primaryKeyFields).union(self.dataFields))
         verify(containerish(generatorTables) and set(generatorTables).issubset(self.allTables),
                "generatorTables should be a container of table names")
-        verify(not any(primaryKeyFields.get(t, ()) for t in generatorTables),
+        verify(not any(primaryKeyFields.get(t) for t in generatorTables),
                "Can not make generators from tables with primary keys")
         dataRowFactory = FrozenDict({t : utils.ticDataRowFactory(t, primaryKeyFields.get(t, ()), dataFields.get(t, ()))
                             for t in self.allTables})
@@ -59,21 +60,23 @@ class TicDatFactory(freezableFactory(object, "_isFrozen")) :
                     return
                 for t in superSelf.allTables :
                     _t = getattr(self, t)
-                    for v in getattr(_t, "values", lambda : _t)() :
-                        if not getattr(v, "_dataFrozen", False) :
-                            v._dataFrozen =True
-                            v._attributesFrozen = True
-                        else : # we freeze the data-less ones off the bat as empties, easiest way
-                            assert (len(v) == 0) and v._attributesFrozen
-                    if utils.dictish(_t) :
-                        _t._dataFrozen  = True
-                        _t._attributesFrozen = True
-                    else:
-                        assert utils.containerish(_t)
-                        setattr(self, t, tuple(_t))
+                    if utils.dictish(_t) or utils.containerish(_t) :
+                        for v in getattr(_t, "values", lambda : _t)() :
+                            if not getattr(v, "_dataFrozen", False) :
+                                v._dataFrozen =True
+                                v._attributesFrozen = True
+                            else : # we freeze the data-less ones off the bat as empties, easiest way
+                                assert (len(v) == 0) and v._attributesFrozen
+                        if utils.dictish(_t) :
+                            _t._dataFrozen  = True
+                            _t._attributesFrozen = True
+                        elif utils.containerish(_t) :
+                            setattr(self, t, tuple(_t))
+                    else :
+                        assert callable(_t) and t in superSelf.generatorTables
                 self._isFrozen = True
             def __repr__(self):
-                return "td:" + tuple(set(primaryKeyFields).union(dataFields)).__repr__()
+                return "td:" + tuple(superSelf.allTables).__repr__()
         def ticDatTableFactory(tableName) :
             assert tableName not in self.generatorTables
             keyLen = len(self.primaryKeyFields.get(tableName, ()))
@@ -90,18 +93,18 @@ class TicDatFactory(freezableFactory(object, "_isFrozen")) :
                 assert dictish(TicDatDict)
                 return TicDatDict
             class TicDatDataList(clt.MutableSequence):
-                def __init__(self, sqlDataObject, table):
-                    self._SqlDataRow = dataRowFactory[table]
+                def __init__(self, *_args):
                     self._list = list()
+                    self.extend(list(_args))
                 def __len__(self): return len(self._list)
                 def __getitem__(self, i): return self._list[i]
                 def __delitem__(self, i): del self._list[i]
                 def __setitem__(self, i, v):
-                    self._list[i] = self._SqlDataRow(v)
+                    self._list[i] = dataRowFactory[tableName](v)
                 def insert(self, i, v):
-                    self._list.insert(i, self._SqlDataRow(v))
-                def __str__(self):
-                    return str(self._list)
+                    self._list.insert(i, dataRowFactory[tableName](v))
+                def __repr__(self):
+                    return "td:" + self._list.__repr__()
             assert containerish(TicDatDataList) and not dictish(TicDatDataList)
             return TicDatDataList
         def generatorFactory(data, tableName) :
@@ -113,12 +116,12 @@ class TicDatFactory(freezableFactory(object, "_isFrozen")) :
         class TicDat(_TicDat) :
             def __init__(self, **initTables):
                 for t in initTables :
-                    verify(t in set(primaryKeyFields).union(dataFields), "Unexpected table name %s"%t)
+                    verify(t in superSelf.allTables, "Unexpected table name %s"%t)
                 for t,v in initTables.items():
                     badTicDatTable = []
                     if not (goodTicDatTable(v, t, lambda x : badTicDatTable.append(x))) :
                         raise utils.TicDatError(t + " cannot be treated as a ticDat table : " + badTicDatTable[-1])
-                    if dictish(v) :
+                    if superSelf.primaryKeyFields.get(t) :
                      for _k in v :
                         verify((hasattr(_k, "__len__") and (len(_k) == len(primaryKeyFields.get(t, ())) > 1) or
                                len(primaryKeyFields.get(t, ())) == 1),
@@ -129,8 +132,8 @@ class TicDatFactory(freezableFactory(object, "_isFrozen")) :
                     elif t in superSelf.generatorTables :
                         setattr(self, t, generatorFactory(v, t))
                     else :
-                        setattr(self, t, ticDatTableFactory(t)([dataRowFactory[t](_v) for _v in v]))
-                for t in set(primaryKeyFields).union(dataFields).difference(initTables) :
+                        setattr(self, t, ticDatTableFactory(t)(*v))
+                for t in set(superSelf.allTables).difference(initTables) :
                     setattr(self, t, ticDatTableFactory(t)())
         self.TicDat = TicDat
         class FrozenTicDat(TicDat) :
@@ -153,14 +156,10 @@ class TicDatFactory(freezableFactory(object, "_isFrozen")) :
         :param badMessageHandler: a call back function to receive description of any failure message
         :return: True if the dataObj can be converted to a TicDat data object. False otherwise.
         """
-        def _hasAttr(t) :
+        rtn = True
+        for t in self.allTables:
             if not hasattr(dataObj, t) :
                 badMessageHandler(t + " not an attribute.")
-                return False
-            return True
-        rtn = True
-        for t in set(self.primaryKeyFields).union(self.dataFields):
-            if not _hasAttr(t) :
                 return False
             rtn = rtn and  self.goodTicDatTable(getattr(dataObj, t), t,
                     lambda x : badMessageHandler(t + " : " + x))
@@ -178,17 +177,22 @@ class TicDatFactory(freezableFactory(object, "_isFrozen")) :
             badMessageHandler("%s is not a valid table name for this schema"%tableName)
             return False
         if tableName in self.generatorTables :
+            assert not self.primaryKeyFields.get(tableName)
             verify((containerish(dataTable) or callable(dataTable)) and not dictish(dataTable),
                    "Expecting a container of rows or a generator function of rows for %s"%tableName)
-            if containerish(dataTable) :
-                return self._goodDataRows(dataTable, tableName, badMessageHandler)
-            return self._goodDataRows(dataTable(), tableName, badMessageHandler)
-        if utils.dictish(dataTable) :
-            return self._goodTicDatDictTable(dataTable, tableName, badMessageHandler)
-        if utils.containerish(dataTable):
-            return  self._goodTicDatKeyContainer(dataTable, tableName, badMessageHandler)
-        badMessageHandler("Unexpected ticDat table type.")
+            return self._goodDataRows(dataTable if containerish(dataTable) else dataTable(),
+                                      tableName, badMessageHandler)
+        if self.primaryKeyFields.get(tableName) :
+            if utils.dictish(dataTable) :
+                return self._goodTicDatDictTable(dataTable, tableName, badMessageHandler)
+            if utils.containerish(dataTable):
+                return  self._goodTicDatKeyContainer(dataTable, tableName, badMessageHandler)
+        else :
+            verify(utils.containerish(dataTable), "Unexpected ticDat table type for %s."%tableName)
+            return self._goodDataRows(dataTable, tableName, badMessageHandler)
+        badMessageHandler("Unexpected ticDat table type for %s."%tableName)
         return False
+
 
     def _goodTicDatKeyContainer(self, ticDatTable, tableName, badMessageHandler = lambda x : None) :
         assert containerish(ticDatTable) and not dictish(ticDatTable)
@@ -226,19 +230,28 @@ class TicDatFactory(freezableFactory(object, "_isFrozen")) :
 
     def _sameData(self, obj1, obj2):
         assert self.goodTicDatObject(obj1) and self.goodTicDatObject(obj2)
-        for t in set(self.primaryKeyFields).union(self.dataFields) :
+        def sameRow(r1, r2) :
+            if bool(r1) != bool(r2) or set(r1) != set(r2) :
+                return False
+            for _k in r1:
+                if r1[_k] != r2[_k] :
+                    return False
+            return True
+        for t in self.allTables :
             t1 = getattr(obj1, t)
             t2 = getattr(obj2, t)
-            assert goodTicDatTable(t1) and goodTicDatTable(t2)
-            if not set(t1) == set(t2) :
+            if dictish(t1) != dictish(t2) :
                 return False
-            for k in t1 :
-                r1 = t1[k]
-                r2 = t2[k]
-                if not set(r1) == set(r2) :
+            if dictish(t1) :
+                if set(t1) != set(t2) :
                     return False
-                for _k in r1:
-                    if r1[_k] != r2[_k] :
+                for k in t1 :
+                    if not sameRow(t1[k], t2[k]) :
+                        return False
+            else :
+                _iter = lambda x : x if containerish(x) else x()
+                for r1, r2 in izip_longest(_iter(t1), _iter(t2)) :
+                    if not sameRow(r1, r2):
                         return False
         return True
 
@@ -269,26 +282,29 @@ def goodTicDatTable(ticDatTable, badMessageHandler = lambda x : None):
     :param badMessageHandler: a call back function to receive description of any failure message
     :return: True if the ticDatTable is a valid dict-of-dicts. False otherwise
     """
-    if not dictish(ticDatTable) :
-        badMessageHandler("Not a dict-like object.")
+    if not (dictish(ticDatTable) or containerish(ticDatTable) or callable(ticDatTable)) :
+        badMessageHandler("Unexpected object.")
         return False
-    if not len(ticDatTable) :
+    rows = ticDatTable.values() if dictish(ticDatTable) else (
+           ticDatTable if containerish(ticDatTable) else tuple(ticDatTable()))
+    if not rows :
         return True
-    def keyLen(k) :
-        if not containerish(k) :
-            return "singleton"
-        try:
-            rtn = len(k)
-        except :
-            rtn = 0
-        return rtn
-    if not all(keyLen(k) == keyLen(ticDatTable.keys()[0]) for k in ticDatTable.keys()) :
-        badMessageHandler("Inconsistent key lengths")
-        return False
-    if not all(dictish(x) for x in ticDatTable.values()) :
+    if dictish(ticDatTable) :
+        def keyLen(k) :
+            if not containerish(k) :
+                return "singleton"
+            try:
+                rtn = len(k)
+            except :
+                rtn = 0
+            return rtn
+        if not all(keyLen(k) == keyLen(ticDatTable.keys()[0]) for k in ticDatTable.keys()) :
+            badMessageHandler("Inconsistent key lengths")
+            return False
+    if not all(dictish(x) for x in rows) :
         badMessageHandler("At least one value is not a dict-like object")
         return False
-    if not all(set(x.keys()) == set(ticDatTable.values()[0].keys()) for x in ticDatTable.values()) :
+    if not all(set(x.keys()) == set(rows[0].keys()) for x in rows) :
         badMessageHandler("Inconsistent field name keys.")
         return False
     return True
