@@ -1,13 +1,3 @@
-"""
-Primary ticDat module. Client code can do the following.
--> Create a TicDatFactory from a schema (a listing of the primary key fields and data fields for each table)
-->-> A TicDatFactory can then create frozen and editable ticDat data objects from a variety of data sources.
-     These objects are functionally equivalent to the "attributes of dict of dicts" that are
-     demonstrated in the simple example code.
--> Validate whether simple "dict of dicts" tables and "attribute collection of dict of dicts tables" objects are
-   ticDat compliant. ticDat compliances simply refers common sense consistency. (I.e. the dictionary keys
-   are consistent).
-"""
 
 # !!! KNOWN BUGS !!!!
 # -> For xls file writing, None not being written out as NULL. Not sure how xlwd, xlwt is supposed to handle this?
@@ -16,13 +6,11 @@ Primary ticDat module. Client code can do the following.
 #                   development. The true fix for these cosmetic flaws is to use the Opalytics platform
 #                   for industrial data and the ticDat library for cleaner, isolated development/testing.
 
-import ticdat._private.utils as utils
-from ticdat._private.utils import verify, freezableFactory, FrozenDict, FreezeableDict, doIt, dictish, containerish
-from ticdat._private.utils import generatorish
-import ticdat._private.xls as xls
-import ticdat._private.csvtd as csv
+import utils as utils
+from utils import verify, freezableFactory, FrozenDict, FreezeableDict,  dictish, containerish
 import collections as clt
-from itertools import izip_longest
+import xls
+import csvtd as csv
 
 def _keyLen(k) :
     if not utils.containerish(k) :
@@ -294,6 +282,7 @@ def goodTicDatObject(ticDatObject, tableList = None, badMessageHandler = lambda 
         return True
     return all([_hasAttr(t) and goodTicDatTable(getattr(ticDatObject, t),
                 lambda x : badMessageHandler(t + " : " + x)) for t in tableList])
+
 
 def goodTicDatTable(ticDatTable, badMessageHandler = lambda x : None):
     """

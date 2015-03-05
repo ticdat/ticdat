@@ -1,7 +1,7 @@
 import os
 import unittest
-import ticdat._private.utils as utils
-from ticdat.core import TicDatFactory
+import ticdat.utils as utils
+from ticdat.ticdatfactory import TicDatFactory
 from ticdat.testing.ticdattestutils import dietData, dietSchema, netflowData, netflowSchema, firesException
 from ticdat.testing.ticdattestutils import sillyMeData, sillyMeSchema
 import shutil

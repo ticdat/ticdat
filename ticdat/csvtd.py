@@ -2,7 +2,7 @@
 Read/write ticDat objects from/to csv files. Requires csv module (which is typically standard)
 """
 
-from ticdat._private.utils import freezableFactory, TicDatError, verify, containerish, dictish, debugBreak
+from utils import freezableFactory, TicDatError, verify, containerish, dictish, debugBreak
 import os
 
 try:

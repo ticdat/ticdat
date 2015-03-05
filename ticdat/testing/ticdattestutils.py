@@ -1,5 +1,16 @@
 import os
-import ticdat._private.utils as utils
+import ticdat.utils as utils
+
+__codeFile = []
+def _codeFile() :
+    if __codeFile:
+        return __codeFile[0]
+    import inspect
+    __codeFile[:]=[os.path.abspath(inspect.getsourcefile(_codeFile))]
+    return _codeFile()
+
+def _codeDir():
+    return os.path.dirname(_codeFile())
 
 
 def firesException(f) :

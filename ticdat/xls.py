@@ -1,8 +1,8 @@
 """
 Read/write ticDat objects from xls files. Requires the xlrd/xlrt module
 """
-import ticdat._private.utils as utls
-from ticdat._private.utils import freezableFactory, TicDatError, verify, containerish, doIt
+import utils as utls
+from utils import freezableFactory, TicDatError, verify, containerish, doIt
 import os
 from collections import defaultdict
 from itertools import product
