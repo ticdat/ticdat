@@ -29,7 +29,7 @@ class TicDatFactory(freezableFactory(object, "_isFrozen")) :
     sources. Analytical code that that reads/writes from ticDat objects can then be used, without change,
     on different data sources, or on the Opalytics platform.
     """
-    def __init__(self, primaryKeyFields = {}, dataFields = {}, generatorTables = ()):
+    def __init__(self, primaryKeyFields = {}, dataFields = {}, generatorTables = (), foreignKeys = {}):
         primaryKeyFields, dataFields = utils.checkSchema(primaryKeyFields, dataFields)
         self.primaryKeyFields, self.dataFields = primaryKeyFields, dataFields
         self.allTables = frozenset(set(self.primaryKeyFields).union(self.dataFields))
@@ -37,39 +37,31 @@ class TicDatFactory(freezableFactory(object, "_isFrozen")) :
                "generatorTables should be a container of table names")
         verify(not any(primaryKeyFields.get(t) for t in generatorTables),
                "Can not make generators from tables with primary keys")
+        verify(dictish(foreignKeys) and set(foreignKeys).issubset(self.allTables) and
+               all (containerish(_) for _ in foreignKeys.values()),
+               "foreignKeys needs to a dictionary mapping table names to containers of foreign key definitions")
+        for t,l in foreignKeys.items() :
+            msg = []
+            if not all(self._goodForeignKey(t, fk, msg.append) for fk in l) :
+                raise utils.TicDatError("Bad foreign key for %s : %s"%(t, ",".join(msg)))
+        self.foreignKeys = utils.deepFreezeContainer(foreignKeys)
+
         dataRowFactory = FrozenDict({t : utils.ticDataRowFactory(t, primaryKeyFields.get(t, ()), dataFields.get(t, ()))
                             for t in self.allTables})
         self.generatorTables = frozenset(generatorTables)
         goodTicDatTable = self.goodTicDatTable
         superSelf = self
-        class _TicDat(utils.freezableFactory(object, "_isFrozen")) :
-            def _freeze(self):
-                if getattr(self, "_isFrozen", False) :
-                    return
-                for t in superSelf.allTables :
-                    _t = getattr(self, t)
-                    if utils.dictish(_t) or utils.containerish(_t) :
-                        for v in getattr(_t, "values", lambda : _t)() :
-                            if not getattr(v, "_dataFrozen", False) :
-                                v._dataFrozen =True
-                                v._attributesFrozen = True
-                            else : # we freeze the data-less ones off the bat as empties, easiest way
-                                assert (len(v) == 0) and v._attributesFrozen
-                        if utils.dictish(_t) :
-                            _t._dataFrozen  = True
-                            _t._attributesFrozen = True
-                        elif utils.containerish(_t) :
-                            setattr(self, t, tuple(_t))
-                    else :
-                        assert callable(_t) and t in superSelf.generatorTables
-                self._isFrozen = True
-            def __repr__(self):
-                return "td:" + tuple(superSelf.allTables).__repr__()
-        def ticDatTableFactory(tableName) :
+        def ticDatTableFactory(allDataDicts, tableName, primaryKey = None) :
+            if primaryKey is None :
+                primaryKey = self.primaryKeyFields.get(tableName, ())
+            assert containerish(primaryKey)
             assert tableName not in self.generatorTables
-            keyLen = len(self.primaryKeyFields.get(tableName, ()))
+            keyLen = len(primaryKey)
             if keyLen > 0 :
                 class TicDatDict (FreezeableDict) :
+                    def __init__(self, *_args, **_kwargs):
+                        super(TicDatDict, self).__init__(*_args, **_kwargs)
+                        allDataDicts.append(self)
                     def __setitem__(self, key, value):
                         verify(containerish(key) ==  (keyLen > 1) and (keyLen == 1 or keyLen == len(key)),
                                "inconsistent key length for %s"%tableName)
@@ -101,8 +93,36 @@ class TicDatFactory(freezableFactory(object, "_isFrozen")) :
                 for row in (data if containerish(data) else data()):
                     yield dataRowFactory[tableName](row)
             return generatorFunction
+        class _TicDat(utils.freezableFactory(object, "_isFrozen")) :
+            def _freeze(self):
+                if getattr(self, "_isFrozen", False) :
+                    return
+                for t in superSelf.allTables :
+                    _t = getattr(self, t)
+                    if utils.dictish(_t) or utils.containerish(_t) :
+                        for v in getattr(_t, "values", lambda : _t)() :
+                            if not getattr(v, "_dataFrozen", False) :
+                                v._dataFrozen =True
+                                v._attributesFrozen = True
+                            else : # we freeze the data-less ones off the bat as empties, easiest way
+                                assert (len(v) == 0) and v._attributesFrozen
+                        if utils.dictish(_t) :
+                            _t._dataFrozen  = True
+                            _t._attributesFrozen = True
+                        elif utils.containerish(_t) :
+                            setattr(self, t, tuple(_t))
+                    else :
+                        assert callable(_t) and t in superSelf.generatorTables
+                for _t in getattr(self, "_allDataDicts", ()) :
+                    if utils.dictish(_t) and not getattr(_t, "_attributesFrozen", False) :
+                        _t._dataFrozen  = True
+                        _t._attributesFrozen = True
+                self._isFrozen = True
+            def __repr__(self):
+                return "td:" + tuple(superSelf.allTables).__repr__()
         class TicDat(_TicDat) :
             def __init__(self, **initTables):
+                self._allDataDicts = []
                 for t in initTables :
                     verify(t in superSelf.allTables, "Unexpected table name %s"%t)
                 for t,v in initTables.items():
@@ -115,14 +135,53 @@ class TicDatFactory(freezableFactory(object, "_isFrozen")) :
                                len(primaryKeyFields.get(t, ())) == 1),
                            "Unexpected number of primary key fields for %s"%t)
                      # lots of verification inside the dataRowFactory
-                     setattr(self, t, ticDatTableFactory(t)({_k : dataRowFactory[t](v[_k]
+                     setattr(self, t, ticDatTableFactory(self._allDataDicts, t)({_k : dataRowFactory[t](v[_k]
                                                             if utils.dictish(v) else ()) for _k in v}))
                     elif t in superSelf.generatorTables :
                         setattr(self, t, generatorFactory(v, t))
                     else :
-                        setattr(self, t, ticDatTableFactory(t)(*v))
+                        setattr(self, t, ticDatTableFactory(self._allDataDicts, t)(*v))
                 for t in set(superSelf.allTables).difference(initTables) :
-                    setattr(self, t, ticDatTableFactory(t)())
+                    setattr(self, t, ticDatTableFactory(self._allDataDicts, t)())
+                canLinkWithMe = lambda t : t not in generatorTables and superSelf.primaryKeys.get(t)
+                for t, fks in superSelf.foreignKeys.items() :
+                  if canLinkWithMe(t):
+                    lens = {z:len([x for x in fks if x["foreignTable"] == z]) for z in [y["foreignTable"] for y in fks]}
+                    for fk in fks:
+                      if canLinkWithMe(fk["foreignTable"])  :
+                        linkName = t if lens[fk["foreignTable"]] ==1 else (t + "_" + "_".join(fk["mappings"].keys()))
+                        if linkName not in ("keys", "items", "values") :
+                            ft = getattr(self, fk["foreignTable"])
+                            foreignPrimaryKey = superSelf.primaryKeys[fk["foreignTable"]]
+                            localPrimaryKey = superSelf.primaryKeys[t]
+                            assert all(pk for pk in (foreignPrimaryKey, localPrimaryKey))
+                            assert set(foreignPrimaryKey) == set(fk["mappings"].values())
+                            appendageForeignKey = (
+                                            set(foreignPrimaryKey) == set(fk["mappings"].values()) and
+                                            set(localPrimaryKey) == set(fk["mappings"].keys()))
+                            reverseMapping  = {v:k for k,v in fk["mappings"].items()}
+                            localPosition = {x:superSelf.tables[t].index(reverseMapping[x]) for x in foreignPrimaryKey}
+                            unusedLocalPositions = {i for i,_ in enumerate(superSelf.tables[t]) if i not in
+                                                        localPosition.values()}
+                            if not appendageForeignKey :
+                                newPrimaryKey = tuple(x for x in localPrimaryKey if x not in fk["mappings"].keys())
+                                newDataDict = ticDatTableFactory(self._allDataDicts, newPrimaryKey)
+                                for row in ft.values() :
+                                    setattr(row, linkName, newDataDict())
+                            for key,row in getattr(self, t).items() :
+                                keyRow = ((key,) if not containerish(key) else key) + \
+                                         tuple(row[x] for x in dataFields[t])
+                                lookUp = tuple(keyRow[localPosition[x]] for x in foreignPrimaryKey)
+                                linkRow = ft.get(lookUp[0] if len(lookUp) ==1 else lookUp, None)
+                                if linkRow is not None :
+                                    if  appendageForeignKey :
+                                        # the attribute is simply a reference to the mapping table if such a reference exists
+                                        assert not hasattr(linkRow, linkName)
+                                        setattr(linkRow, linkName,row)
+                                    else :
+                                        _key = tuple(x for i,x in enumerate(keyRow[:-len(row)]) if i in unusedLocalPositions)
+                                        getattr(linkRow, linkName)[_key[0] if len(_key) == 1 else _key] = row
+
         self.TicDat = TicDat
         class FrozenTicDat(TicDat) :
             def __init__(self, **initTables):
@@ -136,8 +195,40 @@ class TicDatFactory(freezableFactory(object, "_isFrozen")) :
 
         self._isFrozen = True
 
+    def _allFields(self, table):
+        assert table in self.allTables
+        set(self.primaryKeyFields.get(table, ())).union(self.dataFields.get(table, ()))
+    def _goodForeignKey(self, table, fk, badMessageHandler = lambda x : None):
+        assert table in self.allTables
+        if not self.primaryKeyFields.get(table) :
+            badMessageHandler("%s has no primary keys and can't participate in a foreign key"%table)
+            return True
+        if not dictish(fk) :
+            badMessageHandler("Not a dict")
+            return False
+        if set(fk.keys()) != {"foreignTable", "mappings"} :
+            badMessageHandler("Unexpected keys")
+            return False
+        if fk["foreignTable"] not in self.allTables:
+            badMessageHandler("Bad foreignTable value")
+            return False
+        if not self.primaryKeyFields.get(fk["foreignTable"]) :
+            badMessageHandler("%s has no primary keys and can't participate in a foreign key"%fk["foreignTable"])
+            return True
+        if not dictish(fk["mappings"]) :
+            badMessageHandler("mappings should refer to a dictionary")
+            return False
+        if not self._allFields(table).superset(fk["mappings"].keys()):
+            badMessageHandler("the mappings dictionary should have keys in %s"%str(self._allFields(table)))
+            return False
+        if not set(self.primaryKeyFields[fk["foreignTable"]]) == set(fk["mappings"].values()):
+            badMessageHandler("the mappings dictionary should have values that match the primary key of %s"%
+                        fk["foreignTable"])
+            return False
+        
+        return True
 
-    def goodTicDatObject(self, dataObj,  badMessageHandler = lambda x : None):
+    def goodTicDatObject(self, dataObj, badMessageHandler = lambda x : None):
         """
         determines if an object can be can be converted to a TicDat data object.
         :param dataObj: the object to verify
