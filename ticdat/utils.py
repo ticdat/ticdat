@@ -202,10 +202,10 @@ def ticDataRowFactory(table, keyFieldNames, dataFieldNames, defaultValues={}):
     assert dictish(defaultValues) and set(defaultValues).issubset(dataFieldNames)
     assert not set(keyFieldNames).intersection(dataFieldNames)
     if not dataFieldNames:
-        def makeFrozenDict(x=()) :
+        def makeFreezeableDict(x=()) : # need a freezeable dict not a frozen dict here so can still link foreign keys
             verify(containerish(x) and len(x) == 0, "Attempting to add non-empty data to %s"%table)
-            return FrozenDict()
-        return makeFrozenDict
+            return FreezeableDict()
+        return makeFreezeableDict
     fieldToIndex = {x:dataFieldNames.index(x) for x in dataFieldNames}
     indexToField = {v:k for k,v in fieldToIndex.items()}
     class TicDatDataRow(freezableFactory(object, "_attributesFrozen")) :
