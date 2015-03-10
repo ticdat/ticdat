@@ -17,5 +17,5 @@ cloud deployments of solve engines that use the ticDat library.
 The ticDat library is distributed freely and without liability. ??LEGAL BALLIWICK??
 """
 
-from ticdatfactory import TicDatFactory, goodTicDatObject, goodTicDatTable
+from ticdatfactory import TicDatFactory, freeze_me
 __all__ = ["TicDatFactory", "goodTicDatObject", "goodTicDatTable"]

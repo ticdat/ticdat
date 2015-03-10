@@ -18,68 +18,68 @@ def _tryFloat(x) :
         return x
 
 class CsvTicFactory(freezableFactory(object, "_isFrozen")) :
-    def __init__(self, ticDatFactory):
+    def __init__(self, tic_dat_factory):
         assert importWorked, "don't create this otherwise"
-        self.ticDatFactory = ticDatFactory
+        self.tic_dat_factory = tic_dat_factory
         self._isFrozen = True
-    def createTicDat(self, dirPath, dialect='excel'):
-        return self.ticDatFactory.TicDat(**self._createTicDat(dirPath, dialect))
-    def createFrozenTicDat(self, dirPath, dialect='excel'):
-        return self.ticDatFactory.FrozenTicDat(**self._createTicDat(dirPath, dialect))
+    def create_tic_dat(self, dirPath, dialect='excel'):
+        return self.tic_dat_factory.TicDat(**self._createTicDat(dirPath, dialect))
+    def create_frozen_tic_dat(self, dirPath, dialect='excel'):
+        return self.tic_dat_factory.FrozenTicDat(**self._createTicDat(dirPath, dialect))
     def _createTicDat(self, dirPath, dialect):
         verify(dialect in csv.list_dialects(), "Invalid dialect %s"%dialect)
         verify(os.path.isdir(dirPath), "Invalid directory path %s"%dirPath)
-        return {t : self._createTable(dirPath, t, dialect) for t in self.ticDatFactory.allTables}
+        return {t : self._createTable(dirPath, t, dialect) for t in self.tic_dat_factory.all_tables}
     def _createTable(self, dirPath, table, dialect):
         filePath = os.path.join(dirPath, table + ".csv")
         verify(os.path.isfile(filePath), "Could not find file path %s for table %s"%(filePath, table))
-        tdf = self.ticDatFactory
-        fieldnames=tdf.primaryKeyFields.get(table, ()) + tdf.dataFields.get(table, ())
-        if table in tdf.generatorTables:
+        tdf = self.tic_dat_factory
+        fieldnames=tdf.primary_key_fields.get(table, ()) + tdf.data_fields.get(table, ())
+        if table in tdf.generator_tables:
             def rtn() :
                 verify(os.path.isfile(filePath), "Could not find file path %s for table %s"%(filePath, table))
                 with open(filePath) as csvfile:
                     for r in csv.DictReader(csvfile, dialect=dialect) :
                         verify(set(r.keys()).issuperset(fieldnames),
                                "Failed to find the required field names for %s"%table)
-                        yield tuple(_tryFloat(r[_]) for _ in tdf.dataFields[table])
+                        yield tuple(_tryFloat(r[_]) for _ in tdf.data_fields[table])
         else:
-            rtn = {} if tdf.primaryKeyFields.get(table) else []
+            rtn = {} if tdf.primary_key_fields.get(table) else []
             with open(filePath) as csvfile:
                 for r in csv.DictReader(csvfile, dialect=dialect) :
                     verify(set(r.keys()).issuperset(fieldnames), "Failed to find the required field names for %s"%table)
-                    if tdf.primaryKeyFields.get(table) :
-                        primaryKey = _tryFloat(r[tdf.primaryKeyFields[table][0]]) \
-                            if len(tdf.primaryKeyFields[table])==1 else \
-                            tuple(_tryFloat(r[_]) for _ in tdf.primaryKeyFields[table])
-                        rtn[primaryKey] = tuple(_tryFloat(r[_]) for _ in tdf.dataFields.get(table,()))
+                    if tdf.primary_key_fields.get(table) :
+                        primaryKey = _tryFloat(r[tdf.primary_key_fields[table][0]]) \
+                            if len(tdf.primary_key_fields[table])==1 else \
+                            tuple(_tryFloat(r[_]) for _ in tdf.primary_key_fields[table])
+                        rtn[primaryKey] = tuple(_tryFloat(r[_]) for _ in tdf.data_fields.get(table,()))
                     else:
-                        rtn.append(tuple(_tryFloat(r[_]) for _ in tdf.dataFields[table]))
+                        rtn.append(tuple(_tryFloat(r[_]) for _ in tdf.data_fields[table]))
         return rtn
 
-    def writeDirectory(self, ticDat, dirPath, allowOverwrite = True, dialect='excel'):
+    def write_directory(self, tic_dat, dir_path, allow_overwrite = True, dialect='excel'):
         verify(dialect in csv.list_dialects(), "Invalid dialect %s"%dialect)
-        verify(not os.path.isfile(dirPath), "A file is not a valid directory path")
-        tdf = self.ticDatFactory
+        verify(not os.path.isfile(dir_path), "A file is not a valid directory path")
+        tdf = self.tic_dat_factory
         msg = []
-        if not self.ticDatFactory.goodTicDatObject(ticDat, lambda m : msg.append(m)) :
+        if not self.tic_dat_factory.good_tic_dat_object(tic_dat, lambda m : msg.append(m)) :
             raise TicDatError("Not a valid ticDat object for this schema : " + " : ".join(msg))
-        if not allowOverwrite:
-            for t in tdf.allTables :
-                f = os.path.join(dirPath, t + ".csv")
+        if not allow_overwrite:
+            for t in tdf.all_tables :
+                f = os.path.join(dir_path, t + ".csv")
                 verify(not os.path.exists(f), "The %s path exists and overwrite is not allowed"%f)
-        if not os.path.isdir(dirPath) :
-            os.mkdir(dirPath)
-        for t in tdf.allTables :
-            f = os.path.join(dirPath, t + ".csv")
+        if not os.path.isdir(dir_path) :
+            os.mkdir(dir_path)
+        for t in tdf.all_tables :
+            f = os.path.join(dir_path, t + ".csv")
             with open(f, 'w') as csvfile:
                  writer = csv.DictWriter(csvfile,dialect=dialect, fieldnames=
-                        tdf.primaryKeyFields.get(t, ()) + tdf.dataFields.get(t, ()) )
+                        tdf.primary_key_fields.get(t, ()) + tdf.data_fields.get(t, ()) )
                  writer.writeheader()
-                 _t =  getattr(ticDat, t)
+                 _t =  getattr(tic_dat, t)
                  if dictish(_t) :
                      for primaryKey, dataRow in _t.items() :
-                         primaryKeyDict = {f:v for f,v in zip(tdf.primaryKeyFields[t],
+                         primaryKeyDict = {f:v for f,v in zip(tdf.primary_key_fields[t],
                                             primaryKey if containerish(primaryKey) else (primaryKey,))}
                          writer.writerow(dict(dataRow, **primaryKeyDict))
                  else :

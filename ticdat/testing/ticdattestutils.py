@@ -22,10 +22,10 @@ def firesException(f) :
 # gurobi netflow problem - http://www.gurobi.com/documentation/6.0/example-tour/netflow_py
 def netflowSchema():
     return {
-        "primaryKeyFields" : {"commodities" : "name", "nodes":"name", "arcs" : ("source", "destination"),
+        "primary_key_fields" : {"commodities" : "name", "nodes":"name", "arcs" : ("source", "destination"),
                               "cost" : ("commodity", "source", "destination"),
                               "inflow" : ("commodity", "node")},
-        "dataFields" : {"arcs" : "capacity", "cost" : "cost", "inflow" : "quantity"}
+        "data_fields" : {"arcs" : "capacity", "cost" : "cost", "inflow" : "quantity"}
     }
 def netflowData() :
     class _(object) :
@@ -78,8 +78,8 @@ def netflowData() :
 def dietSchema():
     return {
         # deliberately mixing up singleton containers and strings for situations where one field is being listed
-        "primaryKeyFields" : {"categories" : ("name",), "foods" : "name", "nutritionQuantities" : ("food", "category")},
-        "dataFields" : {"categories" : ("minNutrition", "maxNutrition"),
+        "primary_key_fields" : {"categories" : ("name",), "foods" : "name", "nutritionQuantities" : ("food", "category")},
+        "data_fields" : {"categories" : ("minNutrition", "maxNutrition"),
                         "foods": "cost",
                         "nutritionQuantities" : ["qty"]}
     }
@@ -151,8 +151,8 @@ def dietData():
 
 def sillyMeSchema() :
     return {
-        "primaryKeyFields" : { "a" : ("aField",), "b" : ("bField1", "bField2", "bField3") },
-        "dataFields" : { "a" : ("aData1", "aData2", "aData3"), "b" : "bData",
+        "primary_key_fields" : { "a" : ("aField",), "b" : ("bField1", "bField2", "bField3") },
+        "data_fields" : { "a" : ("aData1", "aData2", "aData3"), "b" : "bData",
                          "c" : ("cData1", "cData2", "cData3", "cData4")}
     }
 
