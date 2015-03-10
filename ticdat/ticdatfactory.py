@@ -129,6 +129,8 @@ class TicDatFactory(freezableFactory(object, "_isFrozen")) :
             def __repr__(self):
                 return "td:" + tuple(superSelf.all_tables).__repr__()
         class TicDat(_TicDat) :
+            def _generatorFactory(self, data, tableName):
+                return generatorFactory(data, tableName)
             def __init__(self, **initTables):
                 self._allDataDicts = []
                 self._madeForeignLinks = False
