@@ -29,7 +29,7 @@ class TestCsv(unittest.TestCase):
         self.assertTrue(self.firesException(lambda  :
             tdf.csv.write_directory(ticDat, dirPath, dialect="excel_t")).endswith("Invalid dialect excel_t"))
 
-        tdf.csv.write_directory(ticDat, dirPath, dialect="excel-tab")
+        tdf.csv.write_directory(ticDat, dirPath, dialect="excel-tab", allow_overwrite=True)
         self.assertTrue(self.firesException(lambda : tdf.csv.create_frozen_tic_dat(dirPath)))
         csvTicDat = tdf.csv.create_frozen_tic_dat(dirPath, dialect="excel-tab")
         self.assertTrue(firesException(change))
@@ -44,14 +44,15 @@ class TestCsv(unittest.TestCase):
         self.assertTrue(tdf._sameData(ticDat, csvTicDat))
 
         ticDat.nodes[12] = {}
-        tdf.csv.write_directory(ticDat, dirPath)
+        tdf.csv.write_directory(ticDat, dirPath, allow_overwrite=True)
         csvTicDat = tdf.csv.create_frozen_tic_dat(dirPath)
         self.assertTrue(tdf._sameData(ticDat, csvTicDat))
 
         # minor flaw - strings that are floatable get turned into floats when reading csvs
         del(ticDat.nodes[12])
         ticDat.nodes['12'] = {}
-        tdf.csv.write_directory(ticDat, dirPath)
+        self.assertTrue(firesException(lambda : tdf.csv.write_directory(ticDat, dirPath)))
+        tdf.csv.write_directory(ticDat, dirPath, allow_overwrite=True)
         csvTicDat = tdf.csv.create_frozen_tic_dat(dirPath)
         self.assertFalse(tdf._sameData(ticDat, csvTicDat))
 
@@ -70,9 +71,10 @@ class TestCsv(unittest.TestCase):
             schema5["data_fields"][t] = _tuple(schema5["data_fields"][t]) + _tuple(schema5["primary_key_fields"][t])
         schema5["primary_key_fields"] = {"a" : (), "b" : []}
         schema5["generator_tables"] = ["a", "c"]
+        schema6 = sillyMeSchema()
+        schema6["primary_key_fields"]["d"] = "dField"
 
-
-        tdf2, tdf3, tdf4, tdf5 = (TicDatFactory(**x) for x in (schema2, schema3, schema4, schema5))
+        tdf2, tdf3, tdf4, tdf5, tdf6 = (TicDatFactory(**x) for x in (schema2, schema3, schema4, schema5, schema6))
 
         dirPath = os.path.join(_scratchDir, "silly")
         tdf.csv.write_directory(ticDat, dirPath)
@@ -97,6 +99,10 @@ class TestCsv(unittest.TestCase):
         self.assertTrue(tdf5._sameData(tdf._keyless(ticDat), ticDat5))
         self.assertTrue(callable(ticDat5.a) and callable(ticDat5.c) and not callable(ticDat5.b))
 
+        ticDat6 = tdf6.csv.create_tic_dat(dirPath)
+        self.assertTrue(tdf._sameData(ticDat, ticDat6))
+        self.assertTrue(firesException(lambda : tdf6._sameData(ticDat, ticDat6)))
+        self.assertTrue(hasattr(ticDat6, "d") and utils.dictish(ticDat6.d))
 
 
 _scratchDir = TestCsv.__name__ + "_scratch"

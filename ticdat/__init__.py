@@ -18,4 +18,4 @@ The ticDat library is distributed freely and without liability. ??LEGAL BALLIWIC
 """
 
 from ticdatfactory import TicDatFactory, freeze_me
-__all__ = ["TicDatFactory", "goodTicDatObject", "goodTicDatTable"]
+__all__ = ["TicDatFactory", "freeze_me"]

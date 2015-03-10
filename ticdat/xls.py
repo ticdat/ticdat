@@ -15,13 +15,32 @@ except:
     importWorked=False
 
 class XlsTicFactory(freezableFactory(object, "_isFrozen")) :
+    """
+    Primary class for reading/writing Excel files with ticDat objects.
+    """
     def __init__(self, ticDatFactory):
+        """
+        Don't call this function explicitly. A XlsTicDatFactory will automatically be associated with the parent
+        TicDatFactory if your system has the required xlrd, xlwt packages.
+        :param ticDatFactory:
+        :return:
+        """
         assert importWorked, "don't create this otherwise"
         self.ticDatFactory = ticDatFactory
         self._isFrozen = True
     def create_tic_dat(self, xlsFilePath):
+        """
+        Create a TicDat object from an Excel file
+        :param xlsFilePath: An Excel file containing sheets whose names match the table names in the schema.
+        :return: a TicDat object populated by the matching sheets.
+        """
         return self.ticDatFactory.TicDat(**self._createTicDat(xlsFilePath))
     def create_frozen_tic_dat(self, xlsFilePath):
+        """
+        Create a FrozenTicDat object from an Excel file
+        :param xlsFilePath: An Excel file containing sheets whose names match the table names in the schema.
+        :return: a TicDat object populated by the matching sheets.
+        """
         return self.ticDatFactory.FrozenTicDat(**self._createTicDat(xlsFilePath))
     def _getSheetsAndFields(self, xlsFilePath, allTables):
         try :
@@ -32,8 +51,6 @@ class XlsTicFactory(freezableFactory(object, "_isFrozen")) :
         for table, sheet in product(allTables, book.sheets()) :
             if table == sheet.name :
                 sheets[table].append(sheet)
-        missingSheets = set(allTables).difference(sheets)
-        verify(not missingSheets, "The following sheet names could not be found : " + ",".join(missingSheets))
         duplicatedSheets = tuple(_t for _t,_s in sheets.items() if len(_s) > 1)
         verify(not duplicatedSheets, "The following sheet names were duplicated : " + ",".join(duplicatedSheets))
         sheets = utls.FrozenDict({k:v[0] for k,v in sheets.items() })
@@ -47,10 +64,12 @@ class XlsTicFactory(freezableFactory(object, "_isFrozen")) :
         tdf = self.ticDatFactory
         def tableObj() :
             sheets, fieldIndicies = self._getSheetsAndFields(xlsFilePath, (table,))
-            sheet = sheets[table]
-            tableLen = min(len(sheet.col_values(fieldIndicies[table][field])) for field in tdf.data_fields[table])
-            for x in (sheet.row_values(i) for i in range(tableLen)[1:]) :
-                yield self._subTuple(tdf.data_fields[table], fieldIndicies[table])(x)
+            if table in sheets :
+                sheet = sheets[table]
+                tableLen = min(len(sheet.col_values(fieldIndicies[table][field]))
+                               for field in tdf.data_fields[table])
+                for x in (sheet.row_values(i) for i in range(tableLen)[1:]) :
+                    yield self._subTuple(tdf.data_fields[table], fieldIndicies[table])(x)
         return tableObj
 
     def _createTicDat(self, xlsFilePath):
@@ -97,7 +116,14 @@ class XlsTicFactory(freezableFactory(object, "_isFrozen")) :
         doIt(badFieldsRtn.append(field) for field, inds in tempRtn.items() if len(inds)!=1)
         return rtn if len(rtn) == len(fields) else None
 
-    def write_file(self, ticDat, xlsFilePath, allowOverwrite = True):
+    def write_file(self, ticDat, xlsFilePath, allowOverwrite = False):
+        """
+        write the ticDat data to an excel file
+        :param ticDat: the data object to write
+        :param xlsFilePath: the file path of the excel file to create
+        :param allowOverwrite: boolean - are we allowed to overwrite an existing file?
+        :return:
+        """
         tdf = self.ticDatFactory
         msg = []
         if not self.ticDatFactory.good_tic_dat_object(ticDat, lambda m : msg.append(m)) :

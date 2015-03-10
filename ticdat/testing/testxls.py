@@ -9,6 +9,11 @@ import shutil
 #uncomment decorator to drop into debugger for assertTrue, assertFalse failures
 #@utils.failToDebugger
 class TestXls(unittest.TestCase):
+    def firesException(self, f):
+        e = firesException(f)
+        if e :
+            self.assertTrue("TicDatError" in e.__class__.__name__)
+            return e.message
     def testDiet(self):
         tdf = TicDatFactory(**dietSchema())
         ticDat = tdf.FrozenTicDat(**{t:getattr(dietData(),t) for t in tdf.primary_key_fields})
@@ -18,12 +23,6 @@ class TestXls(unittest.TestCase):
         self.assertTrue(tdf._sameData(ticDat, xlsTicDat))
         xlsTicDat.categories["calories"]["minNutrition"]=12
         self.assertFalse(tdf._sameData(ticDat, xlsTicDat))
-
-    def firesException(self, f):
-        e = firesException(f)
-        if e :
-            self.assertTrue("TicDatError" in e.__class__.__name__)
-            return e.message
     def testNetflow(self):
         tdf = TicDatFactory(**netflowSchema())
         ticDat = tdf.FrozenTicDat(**{t:getattr(netflowData(),t) for t in tdf.primary_key_fields})
@@ -44,7 +43,8 @@ class TestXls(unittest.TestCase):
         pkHacked = netflowSchema()
         pkHacked["primary_key_fields"]["nodes"] = "nimrod"
         tdfHacked = TicDatFactory(**pkHacked)
-        tdfHacked.xls.write_file(ticDat, filePath)
+        self.assertTrue(self.firesException(lambda : tdfHacked.xls.write_file(ticDat, filePath)))
+        tdfHacked.xls.write_file(ticDat, filePath, allowOverwrite=True)
         self.assertTrue("nodes : name" in self.firesException(lambda  :tdf.xls.create_tic_dat(filePath)))
 
     def testSilly(self):
@@ -62,8 +62,10 @@ class TestXls(unittest.TestCase):
             schema5["data_fields"][t] = _tuple(schema5["data_fields"][t]) + _tuple(schema5["primary_key_fields"][t])
         schema5["primary_key_fields"] = {"a" : (), "b" : []}
         schema5["generator_tables"] = ["a", "c"]
+        schema6 = sillyMeSchema()
+        schema6["primary_key_fields"]["d"] = "dField"
 
-        tdf2, tdf3, tdf4, tdf5 = (TicDatFactory(**x) for x in (schema2, schema3, schema4, schema5))
+        tdf2, tdf3, tdf4, tdf5, tdf6 = (TicDatFactory(**x) for x in (schema2, schema3, schema4, schema5, schema6))
 
         filePath = os.path.join(_scratchDir, "silly.xls")
         tdf.xls.write_file(ticDat, filePath)
@@ -88,6 +90,10 @@ class TestXls(unittest.TestCase):
         self.assertTrue(tdf5._sameData(tdf._keyless(ticDat), ticDat5))
         self.assertTrue(callable(ticDat5.a) and callable(ticDat5.c) and not callable(ticDat5.b))
 
+        ticDat6 = tdf6.xls.create_tic_dat(filePath)
+        self.assertTrue(tdf._sameData(ticDat, ticDat6))
+        self.assertTrue(firesException(lambda : tdf6._sameData(ticDat, ticDat6)))
+        self.assertTrue(hasattr(ticDat6, "d") and utils.dictish(ticDat6.d))
 
         import xlwt
         book = xlwt.Workbook()
@@ -107,7 +113,7 @@ class TestXls(unittest.TestCase):
         self.assertTrue(ticDatMan.b[(1, 20, 30)]["bData"] == 40)
 
         ticDat.a["theboger"] = (1, None, 12)
-        tdf.xls.write_file(ticDat, filePath)
+        tdf.xls.write_file(ticDat, filePath, allowOverwrite=True)
         ticDatNone = tdf.xls.create_frozen_tic_dat(filePath)
         # THIS IS A FLAW - but a minor one. None's are hard to represent. It is turning into the empty string here.
         # not sure how to handle this, but documenting for now.

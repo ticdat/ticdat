@@ -18,21 +18,45 @@ def _tryFloat(x) :
         return x
 
 class CsvTicFactory(freezableFactory(object, "_isFrozen")) :
+    """
+    Primary class for reading/writing csv files with ticDat objects.
+    """
     def __init__(self, tic_dat_factory):
+        """
+        Don't call this function explicitly. A CsvTicDatFactory will automatically be associated with the parent
+        TicDatFactory if your system has the required csv package.
+        :param tic_dat_factory:
+        :return:
+        """
         assert importWorked, "don't create this otherwise"
         self.tic_dat_factory = tic_dat_factory
         self._isFrozen = True
     def create_tic_dat(self, dirPath, dialect='excel'):
+        """
+        Create a TicDat object from the csv files in a directory
+        :param dirPath: the directory containing the .csv files.
+        :param dialect: the csv dialect. Consult csv documentation for details.
+        :return: a TicDat object populated by the matching files.
+        """
         return self.tic_dat_factory.TicDat(**self._createTicDat(dirPath, dialect))
     def create_frozen_tic_dat(self, dirPath, dialect='excel'):
+        """
+        Create a FrozenTicDat object from the csv files in a directory
+        :param dirPath: the directory containing .csv files whose names match the table names in
+                        the ticDat schema
+        :param dialect: the csv dialect. Consult csv documentation for details.
+        :return: a TicDat object populated by the matching files.
+        """
         return self.tic_dat_factory.FrozenTicDat(**self._createTicDat(dirPath, dialect))
     def _createTicDat(self, dirPath, dialect):
         verify(dialect in csv.list_dialects(), "Invalid dialect %s"%dialect)
         verify(os.path.isdir(dirPath), "Invalid directory path %s"%dirPath)
-        return {t : self._createTable(dirPath, t, dialect) for t in self.tic_dat_factory.all_tables}
+        rtn =  {t : self._createTable(dirPath, t, dialect) for t in self.tic_dat_factory.all_tables}
+        return {k:v for k,v in rtn.items() if v}
     def _createTable(self, dirPath, table, dialect):
         filePath = os.path.join(dirPath, table + ".csv")
-        verify(os.path.isfile(filePath), "Could not find file path %s for table %s"%(filePath, table))
+        if not os.path.isfile(filePath) :
+            return
         tdf = self.tic_dat_factory
         fieldnames=tdf.primary_key_fields.get(table, ()) + tdf.data_fields.get(table, ())
         if table in tdf.generator_tables:
@@ -57,7 +81,15 @@ class CsvTicFactory(freezableFactory(object, "_isFrozen")) :
                         rtn.append(tuple(_tryFloat(r[_]) for _ in tdf.data_fields[table]))
         return rtn
 
-    def write_directory(self, tic_dat, dir_path, allow_overwrite = True, dialect='excel'):
+    def write_directory(self, tic_dat, dir_path, allow_overwrite = False, dialect='excel'):
+        """
+        write the ticDat data to a collection of csv files
+        :param tic_dat: the data object
+        :param dir_path: the directory in which to write the csv files
+        :param allow_overwrite: boolean - are we allowed to overwrite existing files?
+        :param dialect: the csv dialect. Consult csv documentation for details.
+        :return:
+        """
         verify(dialect in csv.list_dialects(), "Invalid dialect %s"%dialect)
         verify(not os.path.isfile(dir_path), "A file is not a valid directory path")
         tdf = self.tic_dat_factory

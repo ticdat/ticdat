@@ -24,13 +24,21 @@ def _keyLen(k) :
 
 class TicDatFactory(freezableFactory(object, "_isFrozen")) :
     """
-    Primary class for ticDat library. This class is constructed with a schema (a listing of the primary key
-    fields and data fields for each table). Client code can then read/write ticDat objects from a variety of data
-    sources. Analytical code that that reads/writes from ticDat objects can then be used, without change,
-    on different data sources, or on the Opalytics platform.
+    Primary class for ticDat library. This class is constructed with a schema, and can be used to generate ticDat
+    objects, or to write ticDat objects to different file types. Analytical code that uses ticDat objects can
+    be used, without change, on different data sources, or on the Opalytics platform.
     """
     def __init__(self, primary_key_fields = {}, data_fields = {}, generator_tables = (), foreign_keys = {},
                  default_values = {}):
+        """
+        create a TicDatFactory
+        :param primary_key_fields: a dictionary mapping table names to primary key field names
+        :param data_fields: a dictionary mapping table names to data field names.
+        :param generator_tables: *ADVANCED* a list of tables to be streamed through generators
+        :param foreign_keys: *ADVANCED* foreign key definitions to be used to create data row links
+        :param default_values: *ADVANCED* default values for data fields
+        :return: a TicDatFactory
+        """
         primary_key_fields, data_fields = utils.checkSchema(primary_key_fields, data_fields)
         self.primary_key_fields, self.data_fields = primary_key_fields, data_fields
         self.all_tables = frozenset(set(self.primary_key_fields).union(self.data_fields))
@@ -277,7 +285,7 @@ class TicDatFactory(freezableFactory(object, "_isFrozen")) :
             bad_message_handler("%s is not a valid table name for this schema"%table_name)
             return False
         if table_name in self.generator_tables :
-            assert not self.primary_key_fields.get(table_name)
+            assert not self.primary_key_fields.get(table_name), "this should be verified in __init__"
             verify((containerish(data_table) or callable(data_table)) and not dictish(data_table),
                    "Expecting a container of rows or a generator function of rows for %s"%table_name)
             return self._goodDataRows(data_table if containerish(data_table) else data_table(),
