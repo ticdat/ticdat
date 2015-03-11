@@ -31,46 +31,57 @@ class CsvTicFactory(freezableFactory(object, "_isFrozen")) :
         assert importWorked, "don't create this otherwise"
         self.tic_dat_factory = tic_dat_factory
         self._isFrozen = True
-    def create_tic_dat(self, dirPath, dialect='excel'):
+    def create_tic_dat(self, dirPath, dialect='excel', headers_present = True):
         """
         Create a TicDat object from the csv files in a directory
         :param dirPath: the directory containing the .csv files.
         :param dialect: the csv dialect. Consult csv documentation for details.
+        :param headers_present: Boolean. Does the first row of data contain the column headers?
         :return: a TicDat object populated by the matching files.
         """
-        return self.tic_dat_factory.TicDat(**self._createTicDat(dirPath, dialect))
-    def create_frozen_tic_dat(self, dirPath, dialect='excel'):
+        return self.tic_dat_factory.TicDat(**self._createTicDat(dirPath, dialect, headers_present))
+    def create_frozen_tic_dat(self, dirPath, dialect='excel', headers_present = True):
         """
         Create a FrozenTicDat object from the csv files in a directory
         :param dirPath: the directory containing .csv files whose names match the table names in
                         the ticDat schema
         :param dialect: the csv dialect. Consult csv documentation for details.
+        :param headers_present: Boolean. Does the first row of data contain the column headers?
         :return: a TicDat object populated by the matching files.
         """
-        return self.tic_dat_factory.FrozenTicDat(**self._createTicDat(dirPath, dialect))
-    def _createTicDat(self, dirPath, dialect):
+        return self.tic_dat_factory.FrozenTicDat(**self._createTicDat(dirPath, dialect, headers_present))
+    def _createTicDat(self, dirPath, dialect, headers_present):
         verify(dialect in csv.list_dialects(), "Invalid dialect %s"%dialect)
         verify(os.path.isdir(dirPath), "Invalid directory path %s"%dirPath)
-        rtn =  {t : self._createTable(dirPath, t, dialect) for t in self.tic_dat_factory.all_tables}
+        rtn =  {t : self._createTable(dirPath, t, dialect, headers_present) for t in self.tic_dat_factory.all_tables}
         return {k:v for k,v in rtn.items() if v}
-    def _createTable(self, dirPath, table, dialect):
+    def _createTable(self, dirPath, table, dialect, headers_present):
         filePath = os.path.join(dirPath, table + ".csv")
         if not os.path.isfile(filePath) :
             return
         tdf = self.tic_dat_factory
         fieldnames=tdf.primary_key_fields.get(table, ()) + tdf.data_fields.get(table, ())
+        dictReaderArgs = dict({"fieldnames":fieldnames} if not headers_present else{},**{"dialect": dialect})
+        def verifyFieldsByCount() :
+            verify(os.path.isfile(filePath), "Could not find file path %s for table %s"%(filePath, table))
+            with open(filePath) as csvfile :
+                trialReader = csv.reader(csvfile, dialect=dialect)
+                for row in trialReader:
+                    verify(len(row) == len(fieldnames), "Need %s columns for table %s"%(len(fieldnames), table))
+                    return
         if table in tdf.generator_tables:
             def rtn() :
-                verify(os.path.isfile(filePath), "Could not find file path %s for table %s"%(filePath, table))
+                verifyFieldsByCount() if not headers_present else None
                 with open(filePath) as csvfile:
-                    for r in csv.DictReader(csvfile, dialect=dialect) :
+                    for r in csv.DictReader(csvfile, **dictReaderArgs) :
                         verify(set(r.keys()).issuperset(fieldnames),
                                "Failed to find the required field names for %s"%table)
                         yield tuple(_tryFloat(r[_]) for _ in tdf.data_fields[table])
         else:
+            verifyFieldsByCount() if not headers_present else None
             rtn = {} if tdf.primary_key_fields.get(table) else []
             with open(filePath) as csvfile:
-                for r in csv.DictReader(csvfile, dialect=dialect) :
+                for r in csv.DictReader(csvfile, **dictReaderArgs) :
                     verify(set(r.keys()).issuperset(fieldnames), "Failed to find the required field names for %s"%table)
                     if tdf.primary_key_fields.get(table) :
                         primaryKey = _tryFloat(r[tdf.primary_key_fields[table][0]]) \
@@ -81,13 +92,14 @@ class CsvTicFactory(freezableFactory(object, "_isFrozen")) :
                         rtn.append(tuple(_tryFloat(r[_]) for _ in tdf.data_fields[table]))
         return rtn
 
-    def write_directory(self, tic_dat, dir_path, allow_overwrite = False, dialect='excel'):
+    def write_directory(self, tic_dat, dir_path, allow_overwrite = False, dialect='excel', write_header = True):
         """
         write the ticDat data to a collection of csv files
         :param tic_dat: the data object
         :param dir_path: the directory in which to write the csv files
         :param allow_overwrite: boolean - are we allowed to overwrite existing files?
         :param dialect: the csv dialect. Consult csv documentation for details.
+        :param write_header: Boolean. Should the header information be written as the first row?
         :return:
         """
         verify(dialect in csv.list_dialects(), "Invalid dialect %s"%dialect)
@@ -107,7 +119,7 @@ class CsvTicFactory(freezableFactory(object, "_isFrozen")) :
             with open(f, 'w') as csvfile:
                  writer = csv.DictWriter(csvfile,dialect=dialect, fieldnames=
                         tdf.primary_key_fields.get(t, ()) + tdf.data_fields.get(t, ()) )
-                 writer.writeheader()
+                 writer.writeheader() if write_header else None
                  _t =  getattr(tic_dat, t)
                  if dictish(_t) :
                      for primaryKey, dataRow in _t.items() :
