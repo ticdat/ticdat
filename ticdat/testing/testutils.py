@@ -3,11 +3,12 @@ import unittest
 import ticdat.utils as utils
 from ticdat.ticdatfactory import TicDatFactory
 from ticdat.testing.ticdattestutils import dietData, dietSchema, netflowData, netflowSchema, firesException
-from ticdat.testing.ticdattestutils import sillyMeData, sillyMeSchema
+from ticdat.testing.ticdattestutils import sillyMeData, sillyMeSchema, runSuite, failToDebugger
+from ticdat.testing.ticdattestutils import assertTicDatTablesSame, DEBUG
 
 
 #uncomment decorator to drop into debugger for assertTrue, assertFalse failures
-#@utils.failToDebugger
+#@failToDebugger
 class TestUtils(unittest.TestCase):
 
     def testOne(self):
@@ -42,9 +43,9 @@ class TestUtils(unittest.TestCase):
 
     def _assertSame(self, t1, t2, goodTicDatTable):
 
-        _ass = lambda _t1, _t2 : utils.assertTicDatTablesSame(_t1, _t2,
+        _ass = lambda _t1, _t2 : assertTicDatTablesSame(_t1, _t2,
                 _goodTicDatTable=  goodTicDatTable,
-                **({} if utils.DEBUG() else {"_assertTrue":self.assertTrue, "_assertFalse":self.assertFalse}))
+                **({} if DEBUG() else {"_assertTrue":self.assertTrue, "_assertFalse":self.assertFalse}))
 
         _ass(t1, t2)
         _ass(t2, t1)
@@ -141,7 +142,7 @@ class TestUtils(unittest.TestCase):
         self.assertTrue("theboger" in mutTicDat.a and mutTicDat.a["theboger"].values() == (0, 22, 0))
 
 def runTheTests(fastOnly=True) :
-    utils.runSuite(TestUtils, fastOnly=fastOnly)
+    runSuite(TestUtils, fastOnly=fastOnly)
 
 # Run the tests.
 if __name__ == "__main__":

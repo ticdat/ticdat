@@ -3,11 +3,11 @@ import unittest
 import ticdat.utils as utils
 from ticdat.ticdatfactory import TicDatFactory
 from ticdat.testing.ticdattestutils import dietData, dietSchema, netflowData, netflowSchema, firesException
-from ticdat.testing.ticdattestutils import sillyMeData, sillyMeSchema
+from ticdat.testing.ticdattestutils import sillyMeData, sillyMeSchema, failToDebugger, makeCleanDir, runSuite
 import shutil
 
 
-#@utils.failToDebugger
+#@failToDebugger
 class TestCsv(unittest.TestCase):
     def firesException(self, f):
         e = firesException(f)
@@ -89,7 +89,7 @@ class TestCsv(unittest.TestCase):
             tdf2, tdf3, tdf4, tdf5, tdf5b, tdf6 = (TicDatFactory(**x) for x in
                             (schema2, schema3, schema4, schema5, schema5b, schema6))
 
-            dirPath = utils.makeCleanDir(os.path.join(_scratchDir, "silly"))
+            dirPath = makeCleanDir(os.path.join(_scratchDir, "silly"))
             tdf.csv.write_directory(ticDat, dirPath, write_header=headersPresent)
 
             ticDat2 = tdf2.csv.create_tic_dat(dirPath, headers_present=headersPresent)
@@ -131,8 +131,8 @@ class TestCsv(unittest.TestCase):
 _scratchDir = TestCsv.__name__ + "_scratch"
 
 def runTheTests(fastOnly=True) :
-    utils.makeCleanDir(_scratchDir)
-    utils.runSuite(TestCsv, fastOnly=fastOnly)
+    makeCleanDir(_scratchDir)
+    runSuite(TestCsv, fastOnly=fastOnly)
     shutil.rmtree(_scratchDir)
 # Run the tests.
 if __name__ == "__main__":

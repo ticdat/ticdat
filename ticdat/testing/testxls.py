@@ -3,11 +3,11 @@ import unittest
 import ticdat.utils as utils
 from ticdat.ticdatfactory import TicDatFactory
 from ticdat.testing.ticdattestutils import dietData, dietSchema, netflowData, netflowSchema, firesException
-from ticdat.testing.ticdattestutils import sillyMeData, sillyMeSchema
+from ticdat.testing.ticdattestutils import sillyMeData, sillyMeSchema, makeCleanDir, failToDebugger, runSuite
 import shutil
 
 #uncomment decorator to drop into debugger for assertTrue, assertFalse failures
-#@utils.failToDebugger
+#@failToDebugger
 class TestXls(unittest.TestCase):
     def firesException(self, f):
         e = firesException(f)
@@ -124,8 +124,8 @@ class TestXls(unittest.TestCase):
 _scratchDir = TestXls.__name__ + "_scratch"
 
 def runTheTests(fastOnly=True) :
-    utils.makeCleanDir(_scratchDir)
-    utils.runSuite(TestXls, fastOnly=fastOnly)
+    makeCleanDir(_scratchDir)
+    runSuite(TestXls, fastOnly=fastOnly)
     shutil.rmtree(_scratchDir)
 # Run the tests.
 if __name__ == "__main__":
