@@ -83,5 +83,5 @@ if solution :
     for c,n in solution.consumeNutrition.items():
         print('%s %g' % (c, n["qty"]))
 else :
-    print('No solution')
+    print('\nNo solution')
 

@@ -26,5 +26,5 @@ if solution :
     solutionFactory.csv.write_directory(solution, os.path.join("diet", "solution"),
                                     allow_overwrite=True)
 else :
-    print('No solution')
+    print('\nNo solution')
 

@@ -25,5 +25,5 @@ if solution :
     # will write to a solution subdirectory, overwriting any pre-existing solution
     solutionFactory.xls.write_file(solution, "solution.xls", allow_overwrite=True)
 else :
-    print('No solution')
+    print('\nNo solution')
 
