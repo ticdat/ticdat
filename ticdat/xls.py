@@ -116,12 +116,12 @@ class XlsTicFactory(freezableFactory(object, "_isFrozen")) :
         doIt(badFieldsRtn.append(field) for field, inds in tempRtn.items() if len(inds)!=1)
         return rtn if len(rtn) == len(fields) else None
 
-    def write_file(self, ticDat, xlsFilePath, allowOverwrite = False):
+    def write_file(self, ticDat, xlsFilePath, allow_overwrite = False):
         """
         write the ticDat data to an excel file
         :param ticDat: the data object to write
         :param xlsFilePath: the file path of the excel file to create
-        :param allowOverwrite: boolean - are we allowed to overwrite an existing file?
+        :param allow_overwrite: boolean - are we allowed to overwrite an existing file?
         :return:
         """
         tdf = self.ticDatFactory
@@ -129,7 +129,7 @@ class XlsTicFactory(freezableFactory(object, "_isFrozen")) :
         if not self.ticDatFactory.good_tic_dat_object(ticDat, lambda m : msg.append(m)) :
             raise TicDatError("Not a valid ticDat object for this schema : " + " : ".join(msg))
         verify(not os.path.isdir(xlsFilePath), "A directory is not a valid xls file path")
-        verify(allowOverwrite or not os.path.exists(xlsFilePath),
+        verify(allow_overwrite or not os.path.exists(xlsFilePath),
                "The %s path exists and overwrite is not allowed"%xlsFilePath)
         book = xlwt.Workbook()
         for t in  sorted(sorted(tdf.all_tables), key=lambda x: len(tdf.primary_key_fields.get(x, ()))) :

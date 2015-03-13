@@ -44,7 +44,7 @@ class TestXls(unittest.TestCase):
         pkHacked["primary_key_fields"]["nodes"] = "nimrod"
         tdfHacked = TicDatFactory(**pkHacked)
         self.assertTrue(self.firesException(lambda : tdfHacked.xls.write_file(ticDat, filePath)))
-        tdfHacked.xls.write_file(ticDat, filePath, allowOverwrite=True)
+        tdfHacked.xls.write_file(ticDat, filePath, allow_overwrite =True)
         self.assertTrue("nodes : name" in self.firesException(lambda  :tdf.xls.create_tic_dat(filePath)))
 
     def testSilly(self):
@@ -113,7 +113,7 @@ class TestXls(unittest.TestCase):
         self.assertTrue(ticDatMan.b[(1, 20, 30)]["bData"] == 40)
 
         ticDat.a["theboger"] = (1, None, 12)
-        tdf.xls.write_file(ticDat, filePath, allowOverwrite=True)
+        tdf.xls.write_file(ticDat, filePath, allow_overwrite=True)
         ticDatNone = tdf.xls.create_frozen_tic_dat(filePath)
         # THIS IS A FLAW - but a minor one. None's are hard to represent. It is turning into the empty string here.
         # not sure how to handle this, but documenting for now.

@@ -11,24 +11,35 @@
 # 'dietxls.py', or 'dietcsv.py' to invoke this function.
 
 from gurobipy import *
+from ticdat import TicDatFactory, freeze_me
 
+dataFactory = TicDatFactory (
+        primary_key_fields = {"categories" : "name", "foods" : "name",
+                              "nutritionQuantities" : ("food", "category")},
+        data_fields = {"categories" : ("minNutrition", "maxNutrition"), "foods": "cost",
+                       "nutritionQuantities" : "qty"})
 
+solutionFactory = TicDatFactory(
+                primary_key_fields= {"buyFood" : "food",
+                                     "consumeNutrition" : "category"},
+                data_fields= {"parameters" : "totalCost", "buyFood": "qty",
+                              "consumeNutrition" : "qty" })
 
-def solve(categories, minNutrition, maxNutrition, foods, cost,
-          nutritionValues):
+def solve(dat):
+    assert dataFactory.good_tic_dat_object(dat)
     # Model
     m = Model("diet")
 
     # Create decision variables for the nutrition information,
     # which we limit via bounds
     nutrition = {}
-    for c in categories:
-        nutrition[c] = m.addVar(lb=minNutrition[c], ub=maxNutrition[c], name=c)
+    for c,n in dat.categories.items() :
+        nutrition[c] = m.addVar(lb=n["minNutrition"], ub=n["maxNutrition"], name=c)
 
     # Create decision variables for the foods to buy
     buy = {}
-    for f in foods:
-        buy[f] = m.addVar(obj=cost[f], name=f)
+    for f,c in dat.foods.items():
+        buy[f] = m.addVar(obj=c["cost"], name=f)
 
     # The objective is to minimize the costs
     m.modelSense = GRB.MINIMIZE
@@ -36,32 +47,23 @@ def solve(categories, minNutrition, maxNutrition, foods, cost,
     # Update model to integrate new variables
     m.update()
 
+
     # Nutrition constraints
-    for c in categories:
-        m.addConstr(
-          quicksum(nutritionValues[f,c] * buy[f] for f in foods) ==
-                    nutrition[c], c)
-
-    def printSolution():
-        if m.status == GRB.status.OPTIMAL:
-            print('\nCost: %g' % m.objVal)
-            print('\nBuy:')
-            for f in foods:
-                if buy[f].x > 0.0001:
-                    print('%s %g' % (f, buy[f].x))
-            print('\nNutrition:')
-            for c in categories:
-                print('%s %g' % (c, nutrition[c].x))
-        else:
-            print('No solution')
+    for c in dat.categories:
+        m.addConstr(quicksum(dat.nutritionQuantities[f,c]["qty"] * buy[f]
+                             for f in dat.foods)
+                    == nutrition[c],
+                    c)
 
     # Solve
     m.optimize()
-    printSolution()
 
-    print('\nAdding constraint: at most 6 servings of dairy')
-    m.addConstr(buy['milk'] + buy['ice cream'] <= 6, "limit_dairy")
-
-    # Solve
-    m.optimize()
-    printSolution()
+    if m.status == GRB.status.OPTIMAL:
+        sln = solutionFactory.TicDat()
+        sln.parameters.append(m.objVal)
+        for f in dat.foods:
+            if buy[f].x > 0.0001:
+                sln.buyFood[f] = buy[f].x
+            for c in dat.categories:
+                sln.consumeNutrition[c] = nutrition[c].x
+        return freeze_me(sln)
