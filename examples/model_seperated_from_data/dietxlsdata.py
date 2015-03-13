@@ -22,7 +22,7 @@ solution =  solve(dat)
 
 if solution :
     print('\nCost: %g' % solution.parameters[0]["totalCost"])
-    # will write to a solution subdirectory, overwriting any pre-existing solution
+    # will write to a solution.xls file, overwriting any pre-existing file
     solutionFactory.xls.write_file(solution, "solution.xls", allow_overwrite=True)
 else :
     print('\nNo solution')
