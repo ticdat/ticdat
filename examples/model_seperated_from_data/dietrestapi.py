@@ -3,7 +3,8 @@ import opalytils.sqliteutils as sql
 import opalytils.sqlticdat as ticdat
 import os
 import inspect
-from dietmodel import dataFactory, solutionFactory, solve
+from dietmodel import dataFactory, solutionFactory
+import dietmodel as dm
 import shutil
 
 def _codeFile() :
@@ -120,12 +121,12 @@ def _solve(outputTxt, errorTxt, netKey, conExitController, progressFunction) :
                                  {os.path.basename(x.path) for x in (outputTxt, errorTxt)}),
                          solution = {}) # the sln tables
 
-        solution = solve(dat)
+        solution = dm.solve(dat)
 
         if solution :
            outputTxt.write("Total Cost: %s\n"%_formatIt(solution.parameters[0]["totalCost"]))
            dietSolution = DietSolution(parameters = solution.parameters,
-                                       buyFoods = solution.buyFoods,
+                                       buyFood = solution.buyFood,
                                        consumeNutrition = solution.consumeNutrition)
            dietSolution.writeToCon(con)
            rtn["solution"] = _sqlDb.dumpsToDict(con, lambda t : not t.startswith("sln"))
