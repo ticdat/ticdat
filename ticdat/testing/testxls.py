@@ -124,6 +124,10 @@ class TestXls(unittest.TestCase):
 _scratchDir = TestXls.__name__ + "_scratch"
 
 def runTheTests(fastOnly=True) :
+    td = TicDatFactory()
+    if not hasattr(td, "xls") :
+        print "!!!!!!!!!FAILING XLS UNIT TESTS DUE TO FAILURE TO LOAD XLS LIBRARIES!!!!!!!!"
+        return
     makeCleanDir(_scratchDir)
     runSuite(TestXls, fastOnly=fastOnly)
     shutil.rmtree(_scratchDir)

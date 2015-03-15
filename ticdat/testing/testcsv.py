@@ -131,6 +131,10 @@ class TestCsv(unittest.TestCase):
 _scratchDir = TestCsv.__name__ + "_scratch"
 
 def runTheTests(fastOnly=True) :
+    td = TicDatFactory()
+    if not hasattr(td, "csv") :
+        print "!!!!!!!!!FAILING CSV UNIT TESTS DUE TO FAILURE TO LOAD CSV LIBRARIES!!!!!!!!"
+        return
     makeCleanDir(_scratchDir)
     runSuite(TestCsv, fastOnly=fastOnly)
     shutil.rmtree(_scratchDir)
