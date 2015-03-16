@@ -61,18 +61,18 @@ class TicDatFactory(freezableFactory(object, "_isFrozen")) :
             verify(dictish(d) and set(d).issubset(self._allFields(t)),
                    "The default values for table %s is not a dictionary keyed by field names"%t)
         self.default_values = utils.deepFreezeContainer(default_values)
-        dataRowFactory = FrozenDict({t : utils.ticDataRowFactory(t,
+        dataRowFactory = lambda t :  utils.ticDataRowFactory(t,
                 self.primary_key_fields.get(t, ()), self.data_fields.get(t, ()),
                 defaultValues=  {k:v for k,v in self.default_values.get(t, {}).items()
-                    if k in self.data_fields.get(t, ())}) for t in self.all_tables})
+                    if k in self.data_fields.get(t, ())})
         self.generator_tables = frozenset(generator_tables)
         goodTicDatTable = self.good_tic_dat_table
         superSelf = self
-        def ticDatTableFactory(allDataDicts, tableName, primaryKey = (), rowFactory = None) :
+        def ticDatTableFactory(allDataDicts, tableName, primaryKey = (), _rowFactory = None) :
             assert containerish(primaryKey)
             primaryKey = primaryKey or  self.primary_key_fields.get(tableName, ())
             keyLen = len(primaryKey)
-            rowFactory = rowFactory or dataRowFactory[tableName]
+            rowFactory = _rowFactory or dataRowFactory(tableName)
             if keyLen > 0 :
                 class TicDatDict (FreezeableDict) :
                     def __init__(self, *_args, **_kwargs):
@@ -83,7 +83,7 @@ class TicDatFactory(freezableFactory(object, "_isFrozen")) :
                                "inconsistent key length for %s"%tableName)
                         return super(TicDatDict, self).__setitem__(key, rowFactory(value))
                     def __getitem__(self, item):
-                        if item not in self and rowFactory is dataRowFactory.get(tableName):
+                        if item not in self:
                             self[item] = rowFactory({})
                         return super(TicDatDict, self).__getitem__(item)
                 assert dictish(TicDatDict)
@@ -105,9 +105,10 @@ class TicDatFactory(freezableFactory(object, "_isFrozen")) :
             return TicDatDataList
         def generatorFactory(data, tableName) :
             assert tableName in self.generator_tables
+            drf = dataRowFactory(tableName)
             def generatorFunction() :
                 for row in (data if containerish(data) else data()):
-                    yield dataRowFactory[tableName](row)
+                    yield drf(row)
             return generatorFunction
         class _TicDat(utils.freezableFactory(object, "_isFrozen")) :
             def _freeze(self):
@@ -153,8 +154,8 @@ class TicDatFactory(freezableFactory(object, "_isFrozen")) :
                         verify((hasattr(_k, "__len__") and (len(_k) == len(primary_key_fields.get(t, ())) > 1) or
                                len(primary_key_fields.get(t, ())) == 1),
                            "Unexpected number of primary key fields for %s"%t)
-                     # lots of verification inside the dataRowFactory
-                     setattr(self, t, ticDatTableFactory(self._allDataDicts, t)({_k : dataRowFactory[t](v[_k]
+                     drf = dataRowFactory(t) # lots of verification inside the dataRowFactory
+                     setattr(self, t, ticDatTableFactory(self._allDataDicts, t)({_k : drf(v[_k]
                                                             if utils.dictish(v) else ()) for _k in v}))
                     elif t in superSelf.generator_tables :
                         setattr(self, t, generatorFactory(v, t))
