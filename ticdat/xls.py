@@ -26,7 +26,7 @@ class XlsTicFactory(freezableFactory(object, "_isFrozen")) :
         :return:
         """
         assert importWorked, "don't create this otherwise"
-        self.ticDatFactory = ticDatFactory
+        self.tic_dat_factory = ticDatFactory
         self._isFrozen = True
     def create_tic_dat(self, xlsFilePath):
         """
@@ -34,14 +34,14 @@ class XlsTicFactory(freezableFactory(object, "_isFrozen")) :
         :param xlsFilePath: An Excel file containing sheets whose names match the table names in the schema.
         :return: a TicDat object populated by the matching sheets.
         """
-        return self.ticDatFactory.TicDat(**self._createTicDat(xlsFilePath))
+        return self.tic_dat_factory.TicDat(**self._createTicDat(xlsFilePath))
     def create_frozen_tic_dat(self, xlsFilePath):
         """
         Create a FrozenTicDat object from an Excel file
         :param xlsFilePath: An Excel file containing sheets whose names match the table names in the schema.
         :return: a TicDat object populated by the matching sheets.
         """
-        return self.ticDatFactory.FrozenTicDat(**self._createTicDat(xlsFilePath))
+        return self.tic_dat_factory.FrozenTicDat(**self._createTicDat(xlsFilePath))
     def _getSheetsAndFields(self, xlsFilePath, allTables):
         try :
             book = xlrd.open_workbook(xlsFilePath)
@@ -61,7 +61,7 @@ class XlsTicFactory(freezableFactory(object, "_isFrozen")) :
                "\n".join("%s : "%t + ",".join(bf) for t,bf in badFields.items() if bf))
         return sheets, fieldIndicies
     def _createGeneratorObj(self, xlsFilePath, table):
-        tdf = self.ticDatFactory
+        tdf = self.tic_dat_factory
         def tableObj() :
             sheets, fieldIndicies = self._getSheetsAndFields(xlsFilePath, (table,))
             if table in sheets :
@@ -73,7 +73,7 @@ class XlsTicFactory(freezableFactory(object, "_isFrozen")) :
         return tableObj
 
     def _createTicDat(self, xlsFilePath):
-        tdf = self.ticDatFactory
+        tdf = self.tic_dat_factory
         rtn = {}
         sheets, fieldIndicies = self._getSheetsAndFields(xlsFilePath,
                                     set(tdf.all_tables).difference(tdf.generator_tables))
@@ -102,7 +102,7 @@ class XlsTicFactory(freezableFactory(object, "_isFrozen")) :
         return rtn
 
     def _getFieldIndicies(self, table, sheet, badFieldsRtn = None) :
-        fields = self.ticDatFactory.primary_key_fields.get(table, ()) + self.ticDatFactory.data_fields.get(table, ())
+        fields = self.tic_dat_factory.primary_key_fields.get(table, ()) + self.tic_dat_factory.data_fields.get(table, ())
         if not sheet.nrows :
             doIt(badFieldsRtn.append(x) for x in fields)
             return None
@@ -124,9 +124,9 @@ class XlsTicFactory(freezableFactory(object, "_isFrozen")) :
         :param allow_overwrite: boolean - are we allowed to overwrite an existing file?
         :return:
         """
-        tdf = self.ticDatFactory
+        tdf = self.tic_dat_factory
         msg = []
-        if not self.ticDatFactory.good_tic_dat_object(ticDat, lambda m : msg.append(m)) :
+        if not self.tic_dat_factory.good_tic_dat_object(ticDat, lambda m : msg.append(m)) :
             raise TicDatError("Not a valid ticDat object for this schema : " + " : ".join(msg))
         verify(not os.path.isdir(xlsFilePath), "A directory is not a valid xls file path")
         verify(allow_overwrite or not os.path.exists(xlsFilePath),
