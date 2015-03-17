@@ -171,7 +171,7 @@ class TicDatFactory(freezableFactory(object, "_isFrozen")) :
             def _tryMakeForeignLinks(self):
                 assert not self._madeForeignLinks, "call once"
                 self._madeForeignLinks = True
-                canLinkWithMe = lambda t : t not in generator_tables and superSelf.primary_key_fields.get(t)
+                canLinkWithMe = lambda t : t not in superSelf.generator_tables and superSelf.primary_key_fields.get(t)
                 for t, fks in superSelf.foreign_keys.items() :
                   if canLinkWithMe(t):
                     lens = {z:len([x for x in fks if x["foreignTable"] == z]) for z in [y["foreignTable"] for y in fks]}
