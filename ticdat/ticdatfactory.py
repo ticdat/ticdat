@@ -151,8 +151,8 @@ class TicDatFactory(freezableFactory(object, "_isFrozen")) :
                         raise utils.TicDatError(t + " cannot be treated as a ticDat table : " + badTicDatTable[-1])
                     if superSelf.primary_key_fields.get(t) :
                      for _k in v :
-                        verify((hasattr(_k, "__len__") and (len(_k) == len(primary_key_fields.get(t, ())) > 1) or
-                               len(primary_key_fields.get(t, ())) == 1),
+                        verify((hasattr(_k, "__len__") and (len(_k) == len(superSelf.primary_key_fields.get(t, ())) > 1)
+                                or len(superSelf.primary_key_fields.get(t, ())) == 1),
                            "Unexpected number of primary key fields for %s"%t)
                      drf = dataRowFactory(t) # lots of verification inside the dataRowFactory
                      setattr(self, t, ticDatTableFactory(self._allDataDicts, t)({_k : drf(v[_k]
@@ -200,7 +200,7 @@ class TicDatFactory(freezableFactory(object, "_isFrozen")) :
                                     setattr(row, linkName, newDataDict())
                             for key,row in getattr(self, t).items() :
                                 keyRow = ((key,) if not containerish(key) else key) + \
-                                         tuple(row[x] for x in data_fields[t])
+                                         tuple(row[x] for x in superSelf.data_fields[t])
                                 lookUp = tuple(keyRow[localPosition[x]] for x in foreignPrimaryKey)
                                 linkRow = ft.get(lookUp[0] if len(lookUp) ==1 else lookUp, None)
                                 if linkRow is not None :
