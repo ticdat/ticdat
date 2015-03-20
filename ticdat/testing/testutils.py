@@ -4,13 +4,17 @@ import ticdat.utils as utils
 from ticdat.ticdatfactory import TicDatFactory
 from ticdat.testing.ticdattestutils import dietData, dietSchema, netflowData, netflowSchema, firesException
 from ticdat.testing.ticdattestutils import sillyMeData, sillyMeSchema, runSuite, failToDebugger
-from ticdat.testing.ticdattestutils import assertTicDatTablesSame, DEBUG
+from ticdat.testing.ticdattestutils import assertTicDatTablesSame, DEBUG, addNetflowForeignKeys, addDietForeignKeys
 
 
 #uncomment decorator to drop into debugger for assertTrue, assertFalse failures
 #@failToDebugger
 class TestUtils(unittest.TestCase):
-
+    def firesException(self, f):
+        e = firesException(f)
+        if e :
+            self.assertTrue("TicDatError" in e.__class__.__name__)
+            return e.message
     def testOne(self):
         def _cleanIt(x) :
             x.foods['macaroni'] = {"cost": 2.09}
@@ -146,6 +150,40 @@ class TestUtils(unittest.TestCase):
         self.assertTrue("theboger" not in mutTicDat.a)
         mutTicDat.a["theboger"]["aData2"] =22
         self.assertTrue("theboger" in mutTicDat.a and mutTicDat.a["theboger"].values() == (0, 22, 0))
+
+    def testFive(self):
+        tdf = TicDatFactory(**netflowSchema())
+        addNetflowForeignKeys(tdf)
+        self.assertTrue(tdf.foreign_keys == dict(arcs =  ({'foreignTable': u'nodes','mappings': {u'source': u'name'}},
+                            {'foreignTable': u'nodes', 'mappings': {u'destination': u'name'}}),
+                            cost = ({'foreignTable': u'nodes','mappings': {u'source': u'name'}},
+                            {'foreignTable': u'nodes', 'mappings': {u'destination': u'name'}},
+                            {'foreignTable': u'commodities', 'mappings': {u'commodity': u'name'}}),
+                            inflow = ({'foreignTable': u'commodities', 'mappings': {u'commodity': u'name'}},
+                                      {'foreignTable': u'nodes', 'mappings': {u'node': u'name'}})))
+        tdf.clear_foreign_keys("cost")
+        self.assertTrue(tdf.foreign_keys == dict(arcs =  ({'foreignTable': u'nodes','mappings': {u'source': u'name'}},
+                            {'foreignTable': u'nodes', 'mappings': {u'destination': u'name'}}),
+                            inflow = ({'foreignTable': u'commodities', 'mappings': {u'commodity': u'name'}},
+                                      {'foreignTable': u'nodes', 'mappings': {u'node': u'name'}})))
+
+        tdf = TicDatFactory(**dietSchema())
+        self.assertFalse(tdf.foreign_keys)
+        addDietForeignKeys(tdf)
+
+        self.assertTrue(tdf.foreign_keys == {"nutritionQuantities"  :
+                            ({'foreignTable': u'categories', 'mappings': {u'category': u'name'}},
+                            {'foreignTable': u'foods', 'mappings': {u'food': u'name'}})})
+        tdf.TicDat()
+        self.assertTrue(self.firesException(lambda  : tdf.clear_foreign_keys("nutritionQuantities")))
+        self.assertTrue(tdf.foreign_keys)
+        tdf = TicDatFactory(**dietSchema())
+        addDietForeignKeys(tdf)
+        tdf.clear_foreign_keys("nutritionQuantities")
+        self.assertFalse(tdf.foreign_keys)
+
+
+
 
 def runTheTests(fastOnly=True) :
     runSuite(TestUtils, fastOnly=fastOnly)

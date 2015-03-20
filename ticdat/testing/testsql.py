@@ -4,7 +4,7 @@ import ticdat.utils as utils
 from ticdat.ticdatfactory import TicDatFactory
 from ticdat.testing.ticdattestutils import dietData, dietSchema, netflowData, netflowSchema, firesException
 from ticdat.testing.ticdattestutils import sillyMeData, sillyMeSchema, makeCleanDir, failToDebugger, runSuite
-from ticdat.testing.ticdattestutils import makeCleanPath
+from ticdat.testing.ticdattestutils import makeCleanPath, addNetflowForeignKeys, addDietForeignKeys
 import shutil
 
 #uncomment decorator to drop into debugger for assertTrue, assertFalse failures
@@ -36,28 +36,21 @@ class TestSql(unittest.TestCase):
         doTheTests(TicDatFactory(**dietSchema()))
 
         tdf = TicDatFactory(**dietSchema())
+        self.assertFalse(tdf.foreign_keys)
         tdf.set_default_values(categories =  {'maxNutrition': float("inf"), 'minNutrition': 0.0},
                                foods =  {'cost': 0.0},
                                nutritionQuantities =  {'qty': 0.0})
-        tdf.set_foreign_keys(nutritionQuantities =  ({'foreignTable': u'categories',
-                            'mappings': {u'category': u'name'}},
-                            {'foreignTable': u'foods', 'mappings': {u'food': u'name'}}))
+        addDietForeignKeys(tdf)
         ordered = tdf.sql._orderedTables()
         self.assertTrue(ordered.index("categories") < ordered.index("nutritionQuantities"))
         self.assertTrue(ordered.index("foods") < ordered.index("nutritionQuantities"))
 
         doTheTests(tdf)
 
+
     def testNetflow(self):
         tdf = TicDatFactory(**netflowSchema())
-        tdf.set_foreign_keys(arcs =  [{'foreignTable': u'nodes','mappings': {u'source': u'name'}},
-                            {'foreignTable': u'nodes', 'mappings': {u'destination': u'name'}}],
-                            cost = [{'foreignTable': u'nodes','mappings': {u'source': u'name'}},
-                            {'foreignTable': u'nodes', 'mappings': {u'destination': u'name'}},
-                            {'foreignTable': u'commodities', 'mappings': {u'commodity': u'name'}}],
-                            inflow = [{'foreignTable': u'commodities', 'mappings': {u'commodity': u'name'}},
-                                      {'foreignTable': u'nodes', 'mappings': {u'node': u'name'}}])
-
+        addNetflowForeignKeys(tdf)
         ordered = tdf.sql._orderedTables()
         self.assertTrue(ordered.index("nodes") < min(ordered.index(_) for _ in ("arcs", "cost", "inflow")))
         self.assertTrue(ordered.index("commodities") < min(ordered.index(_) for _ in ("cost", "inflow")))
@@ -85,6 +78,7 @@ class TestSql(unittest.TestCase):
         tdfHacked.sql.write_file(ticDat, filePath, allow_overwrite =True)
         self.assertTrue("Unable to recognize field name in table nodes" in
                         self.firesException(lambda  :tdf.sql.create_tic_dat(filePath)))
+
 
     def testSilly(self):
         tdf = TicDatFactory(**sillyMeSchema())

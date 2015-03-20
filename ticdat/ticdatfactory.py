@@ -8,6 +8,7 @@
 
 import utils as utils
 from utils import verify, freezableFactory, FrozenDict, FreezeableDict,  dictish, containerish, deepFreezeContainer
+from utils import stringish
 import collections as clt
 import xls
 import csvtd as csv
@@ -61,16 +62,31 @@ Once a TicDatFactory has been used to create TicDat objects, the generator table
         verify(not any(self.primary_key_fields.get(t) for t in g),
                "Can not make generators from tables with primary keys")
         self._generator_tables[:] = [_ for _ in g]
-    def set_foreign_keys(self, **fks):
+    def clear_foreign_keys(self, native_table = None):
+        """
+        create a TicDatFactory
+        :param native_table: optional. The table whose foreign keys should be cleared. If omitted, all foreign keys
+                                       are cleared.
+        """
         verify(not self._hasBeenUsed, """
 Once a TicDatFactory has been used to create TicDat objects, the foreign keys can no longer be changed.""")
-        for k,v in fks.items() :
-            verify(k in self.all_tables, "Unrecognized table name %s"%k)
-            verify(containerish(v), "Need a container of foreign keys for %s"%k)
-            msg = []
-            if not all(self._goodForeignKey(k, fk, msg.append) for fk in v) :
-                raise utils.TicDatError("Bad foreign key for %s : %s"%(k, ",".join(msg)))
-            self._foreign_keys[k]=v
+        verify(native_table is None or native_table in self.all_tables,
+               "native_table should either be omitted, or specify a specific table to clear from foreign keys")
+        for t in ((native_table,) if native_table else self.all_tables) :
+            if t in self._foreign_keys:
+                del(self._foreign_keys[t])
+    def add_foreign_key(self, native_table, foreign_table, mappings):
+        verify(not self._hasBeenUsed, """
+Once a TicDatFactory has been used to create TicDat objects, the foreign keys can no longer be changed.""")
+        for t in (native_table, foreign_table):
+            verify(t in self.all_tables, "%s is not a table name"%t)
+        verify(dictish(mappings),
+               "mappings argument needs to be dictionary mapping native_table fields to foreign_table fields")
+        for k,v in mappings.items() :
+            verify(k in self._allFields(native_table), "%s does not refer one of %s 's fields"%(k, native_table))
+        verify(set(self.primary_key_fields.get(foreign_table, ())) == set(mappings.values()),
+            "(%s) is not the same as the primary key for %s"%(",".join(mappings.values()), foreign_table))
+        self._foreign_keys[native_table].append({"foreignTable" : foreign_table,  "mappings" : dict(mappings)})
     def __init__(self, **initFields):
         """
         create a TicDatFactory
@@ -94,7 +110,7 @@ Once a TicDatFactory has been used to create TicDat objects, the foreign keys ca
         self._data_fields = FrozenDict({k : tuple(v[1]) for k,v in initFields.items()})
         self._default_values = clt.defaultdict(dict)
         self._generator_tables = []
-        self._foreign_keys = {}
+        self._foreign_keys = clt.defaultdict(list)
         self.all_tables = frozenset(initFields)
 
         dataRowFactory = lambda t :  utils.ticDataRowFactory(t, self.primary_key_fields.get(t, ()),
@@ -264,35 +280,6 @@ Once a TicDatFactory has been used to create TicDat objects, the foreign keys ca
     def _allFields(self, table):
         assert table in self.all_tables
         return set(self.primary_key_fields.get(table, ())).union(self.data_fields.get(table, ()))
-    def _goodForeignKey(self, table, fk, badMessageHandler = lambda x : None):
-        assert table in self.all_tables
-        if not self.primary_key_fields.get(table) :
-            badMessageHandler("%s has no primary keys and can't participate in a foreign key"%table)
-            return True
-        if not dictish(fk) :
-            badMessageHandler("Not a dict")
-            return False
-        if set(fk.keys()) != {"foreignTable", "mappings"} :
-            badMessageHandler("Unexpected keys")
-            return False
-        if fk["foreignTable"] not in self.all_tables:
-            badMessageHandler("Bad foreignTable value")
-            return False
-        if not self.primary_key_fields.get(fk["foreignTable"]) :
-            badMessageHandler("%s has no primary keys and can't participate in a foreign key"%fk["foreignTable"])
-            return True
-        if not dictish(fk["mappings"]) :
-            badMessageHandler("mappings should refer to a dictionary")
-            return False
-        if not self._allFields(table).issuperset(fk["mappings"].keys()):
-            badMessageHandler("the mappings dictionary should have keys in %s"%str(self._allFields(table)))
-            return False
-        if not set(self.primary_key_fields[fk["foreignTable"]]) == set(fk["mappings"].values()):
-            badMessageHandler("the mappings dictionary should have values that match the primary key of %s"%
-                        fk["foreignTable"])
-            return False
-        
-        return True
 
     def good_tic_dat_object(self, data_obj, bad_message_handler = lambda x : None):
         """
