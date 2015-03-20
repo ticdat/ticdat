@@ -13,17 +13,20 @@
 from gurobipy import *
 from ticdat import TicDatFactory, freeze_me
 
+# define the input schema. There are three input tables, with 4 primary key fields
+# and 4 data fields amongst them.
 dataFactory = TicDatFactory (
-        primary_key_fields = {"categories" : "name", "foods" : "name",
-                              "nutritionQuantities" : ("food", "category")},
-        data_fields = {"categories" : ("minNutrition", "maxNutrition"), "foods": "cost",
-                       "nutritionQuantities" : "qty"})
+     categories = [["name"],["minNutrition", "maxNutrition"]],
+     foods  = [["name"],["cost"]],
+     nutritionQuantities = [["food", "category"], ["qty"]])
 
+# define the solution schema. There are three solution tables, with 2 primary key fields
+# and 3 data fields amongst them.
 solutionFactory = TicDatFactory(
-                primary_key_fields= {"buyFood" : "food",
-                                     "consumeNutrition" : "category"},
-                data_fields= {"parameters" : "totalCost", "buyFood": "qty",
-                              "consumeNutrition" : "qty" })
+        parameters = [[],["totalCost"]],
+        buyFood = [["food"],["qty"]],
+        consumeNutrition = [["category"],["qty"]])
+
 
 def solve(dat):
     assert dataFactory.good_tic_dat_object(dat)
@@ -60,6 +63,7 @@ def solve(dat):
 
     if m.status == GRB.status.OPTIMAL:
         sln = solutionFactory.TicDat()
+        # when writing into tables with just one data row, the field name can be omitted
         sln.parameters.append(m.objVal)
         for f in dat.foods:
             if buy[f].x > 0.0001:

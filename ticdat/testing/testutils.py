@@ -43,12 +43,16 @@ class TestUtils(unittest.TestCase):
 
     def _assertSame(self, t1, t2, goodTicDatTable):
 
-        _ass = lambda _t1, _t2 : assertTicDatTablesSame(_t1, _t2,
-                _goodTicDatTable=  goodTicDatTable,
-                **({} if DEBUG() else {"_assertTrue":self.assertTrue, "_assertFalse":self.assertFalse}))
+        if utils.dictish(t1) or utils.dictish(t2) :
+            _ass = lambda _t1, _t2 : assertTicDatTablesSame(_t1, _t2,
+                    _goodTicDatTable=  goodTicDatTable,
+                    **({} if DEBUG() else {"_assertTrue":self.assertTrue, "_assertFalse":self.assertFalse}))
 
-        _ass(t1, t2)
-        _ass(t2, t1)
+            _ass(t1, t2)
+            _ass(t2, t1)
+        else :
+            setify = lambda t : set(t) if len(t) and not hasattr(t[0], "values") else {r.values() for r in t}
+            self.assertTrue(setify(t1) == setify(t2))
 
     def testTwo(self):
         objOrig = dietData()
@@ -113,7 +117,7 @@ class TestUtils(unittest.TestCase):
         mutable = staticFactory.TicDat(**{t:getattr(objOrig,t) for t in tables})
         for t in tables :
             self._assertSame(getattr(objOrig, t), getattr(mutable,t), goodTable(t))
-        ### get this one to work !!!!!! no reason not to override both..... make sure sqlTicDat does it too!!!! ####
+
         self.assertTrue(firesException(editMeBadly(mutable)))
         self.assertFalse(firesException(editMeWell(mutable)) or firesException(attributeMe(mutable)))
         self.assertTrue(firesException(lambda : self._assertSame(
@@ -134,6 +138,8 @@ class TestUtils(unittest.TestCase):
             mutTicDat.a[k] = v.values()
         for k,v in ticDat.b.items() :
             mutTicDat.b[k] = v.values()[0]
+        for r in ticDat.c:
+            mutTicDat.c.append(r)
         for t in tables :
             self._assertSame(getattr(mutTicDat, t), getattr(ticDat,t), goodTable(t))
 

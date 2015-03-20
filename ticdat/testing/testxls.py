@@ -41,7 +41,7 @@ class TestXls(unittest.TestCase):
         self.assertFalse(tdf._sameData(ticDat, xlsTicDat))
 
         pkHacked = netflowSchema()
-        pkHacked["primary_key_fields"]["nodes"] = "nimrod"
+        pkHacked["nodes"][0] = ["nimrod"]
         tdfHacked = TicDatFactory(**pkHacked)
         self.assertTrue(self.firesException(lambda : tdfHacked.xls.write_file(ticDat, filePath)))
         tdfHacked.xls.write_file(ticDat, filePath, allow_overwrite =True)
@@ -51,22 +51,21 @@ class TestXls(unittest.TestCase):
         tdf = TicDatFactory(**sillyMeSchema())
         ticDat = tdf.TicDat(**sillyMeData())
         schema2 = sillyMeSchema()
-        schema2["primary_key_fields"]["b"] = ("bField2", "bField1", "bField3")
+        schema2["b"][0] = ("bField2", "bField1", "bField3")
         schema3 = sillyMeSchema()
-        schema3["data_fields"]["a"] = ("aData2", "aData3", "aData1")
+        schema3["a"][1] = ("aData2", "aData3", "aData1")
         schema4 = sillyMeSchema()
-        schema4["data_fields"]["a"] = ("aData1", "aData3")
+        schema4["a"][1] = ("aData1", "aData3")
         schema5 = sillyMeSchema()
         _tuple = lambda x : tuple(x) if utils.containerish(x) else (x,)
         for t in ("a", "b") :
-            schema5["data_fields"][t] = _tuple(schema5["data_fields"][t]) + _tuple(schema5["primary_key_fields"][t])
-        schema5["primary_key_fields"] = {"a" : (), "b" : []}
-        schema5["generator_tables"] = ["a", "c"]
+            schema5[t][1] = _tuple(schema5[t][1]) + _tuple(schema5[t][0])
+        schema5["a"][0], schema5["b"][0] =  (),  []
         schema6 = sillyMeSchema()
-        schema6["primary_key_fields"]["d"] = "dField"
+        schema6["d"] =  [["dField"],()]
 
         tdf2, tdf3, tdf4, tdf5, tdf6 = (TicDatFactory(**x) for x in (schema2, schema3, schema4, schema5, schema6))
-
+        tdf5.set_generator_tables(("a","c"))
         filePath = os.path.join(_scratchDir, "silly.xls")
         tdf.xls.write_file(ticDat, filePath)
 
@@ -77,7 +76,7 @@ class TestXls(unittest.TestCase):
         self.assertTrue(tdf._sameData(ticDat, ticDat3))
 
         ticDat4 = tdf4.xls.create_tic_dat(filePath)
-        for t in tdf.primary_key_fields:
+        for t in ["a","b"]:
             for k,v in getattr(ticDat4, t).items() :
                 for _k, _v in v.items() :
                     self.assertTrue(getattr(ticDat, t)[k][_k] == _v)

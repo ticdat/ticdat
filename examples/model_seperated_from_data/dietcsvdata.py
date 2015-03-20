@@ -8,7 +8,7 @@
 # that the model can be solved with different data files.
 #
 # This file solves the model with the data provided by csv files in the "diet" directory.
-# It prints the summary information to the screen, and write the solution into a
+# It prints the summary information to the screen, and writes the solution into a
 # a "solution" subdirectory of "diet", overwriting any pre-existing solution.
 #
 

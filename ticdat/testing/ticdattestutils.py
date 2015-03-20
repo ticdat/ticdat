@@ -26,12 +26,6 @@ assert _asserting()
 def DEBUG() :
     return bool(_debug)
 
-
-_memo = []
-def memo(x) :
-    doIt(_memo.pop() for _ in list(_memo))
-    _memo.append(x)
-
 def firesException(f) :
     try:
         f()
@@ -187,10 +181,11 @@ def shallowFlatten(x) :
 # gurobi netflow problem - http://www.gurobi.com/documentation/6.0/example-tour/netflow_py
 def netflowSchema():
     return {
-        "primary_key_fields" : {"commodities" : "name", "nodes":"name", "arcs" : ("source", "destination"),
-                              "cost" : ("commodity", "source", "destination"),
-                              "inflow" : ("commodity", "node")},
-        "data_fields" : {"arcs" : "capacity", "cost" : "cost", "inflow" : "quantity"}
+        "commodities" : [["name"], []],
+        "nodes": [["name"],[]],
+        "arcs" : [("source", "destination"),["capacity"]],
+        "cost" : [("commodity", "source", "destination"),["cost"]],
+        "inflow" :[["commodity", "node"], ["quantity"]],
     }
 def netflowData() :
     class _(object) :
@@ -242,11 +237,9 @@ def netflowData() :
 # gurobi diet problem - http://www.gurobi.com/documentation/6.0/example-tour/diet_py
 def dietSchema():
     return {
-        # deliberately mixing up singleton containers and strings for situations where one field is being listed
-        "primary_key_fields" : {"categories" : ("name",), "foods" : "name", "nutritionQuantities" : ("food", "category")},
-        "data_fields" : {"categories" : ("minNutrition", "maxNutrition"),
-                        "foods": "cost",
-                        "nutritionQuantities" : ["qty"]}
+     "categories" : (("name",),["minNutrition", "maxNutrition"]),
+     "foods" :[["name"],("cost",)],
+     "nutritionQuantities" : (["food", "category"], ["qty"])
     }
 def dietData():
     # this is the gurobi diet data in ticDat format
@@ -315,11 +308,10 @@ def dietData():
     return dat
 
 def sillyMeSchema() :
-    return {
-        "primary_key_fields" : { "a" : ("aField",), "b" : ("bField1", "bField2", "bField3") },
-        "data_fields" : { "a" : ("aData1", "aData2", "aData3"), "b" : "bData",
-                         "c" : ("cData1", "cData2", "cData3", "cData4")}
-    }
+    return {"a" : [("aField",),("aData1", "aData2", "aData3") ],
+            "b" : [("bField1", "bField2", "bField3"), ["bData"]],
+            "c" : [[],("cData1", "cData2", "cData3", "cData4")]}
+
 
 def sillyMeData() :
     return {

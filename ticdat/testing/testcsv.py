@@ -67,27 +67,28 @@ class TestCsv(unittest.TestCase):
             tdf = TicDatFactory(**sillyMeSchema())
             ticDat = tdf.TicDat(**sillyMeData())
             schema2 = sillyMeSchema()
-            schema2["primary_key_fields"]["b"] = ("bField2", "bField1", "bField3")
+            schema2["b"][0] = ("bField2", "bField1", "bField3")
             schema3 = sillyMeSchema()
-            schema3["data_fields"]["a"] = ("aData2", "aData3", "aData1")
+            schema3["a"][1] = ("aData2", "aData3", "aData1")
             schema4 = sillyMeSchema()
-            schema4["data_fields"]["a"] = ("aData1", "aData3")
+            schema4["a"][1] = ("aData1", "aData3")
             schema5 = sillyMeSchema()
             _tuple = lambda x : tuple(x) if utils.containerish(x) else (x,)
             for t in ("a", "b") :
-                schema5["data_fields"][t] = _tuple(schema5["data_fields"][t]) + _tuple(schema5["primary_key_fields"][t])
-            schema5["primary_key_fields"] = {"a" : (), "b" : []}
-            schema5["generator_tables"] = ["a", "c"]
+                schema5[t][1] = _tuple(schema5[t][1]) + _tuple(schema5[t][0])
+            schema5["a"][0], schema5["b"][0] = (), []
             schema5b = sillyMeSchema()
             for t in ("a", "b") :
-                schema5b["data_fields"][t] = _tuple(schema5b["primary_key_fields"][t]) + _tuple(schema5b["data_fields"][t])
-            schema5b["primary_key_fields"] = {"a" : (), "b" : []}
-            schema5b["generator_tables"] = ["a", "c"]
+                schema5b[t][1] = _tuple(schema5b[t][0]) + _tuple(schema5b[t][1])
+            schema5b["a"][0], schema5b["b"][0] = (), []
             schema6 = sillyMeSchema()
-            schema6["primary_key_fields"]["d"] = "dField"
+            schema6["d"] = [("dField",),[]]
 
             tdf2, tdf3, tdf4, tdf5, tdf5b, tdf6 = (TicDatFactory(**x) for x in
                             (schema2, schema3, schema4, schema5, schema5b, schema6))
+            tdf5.set_generator_tables(["a", "c"])
+            tdf5b.set_generator_tables(("a", "c"))
+
 
             dirPath = makeCleanDir(os.path.join(_scratchDir, "silly"))
             tdf.csv.write_directory(ticDat, dirPath, write_header=headersPresent)
@@ -100,7 +101,7 @@ class TestCsv(unittest.TestCase):
 
             if headersPresent :
                 ticDat4 = tdf4.csv.create_tic_dat(dirPath, headers_present=headersPresent)
-                for t in tdf.primary_key_fields:
+                for t in ("a", "b") :
                     for k,v in getattr(ticDat4, t).items() :
                         for _k, _v in v.items() :
                             self.assertTrue(getattr(ticDat, t)[k][_k] == _v)

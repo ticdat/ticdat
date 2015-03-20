@@ -7,10 +7,12 @@
 #                   for industrial data and the ticDat library for cleaner, isolated development/testing.
 
 import utils as utils
-from utils import verify, freezableFactory, FrozenDict, FreezeableDict,  dictish, containerish
+from utils import verify, freezableFactory, FrozenDict, FreezeableDict,  dictish, containerish, deepFreezeContainer
 import collections as clt
 import xls
 import csvtd as csv
+import sqlitetd as sql
+
 
 def _keyLen(k) :
     if not utils.containerish(k) :
@@ -28,44 +30,76 @@ class TicDatFactory(freezableFactory(object, "_isFrozen")) :
     objects, or to write ticDat objects to different file types. Analytical code that uses ticDat objects can
     be used, without change, on different data sources, or on the Opalytics platform.
     """
-    def __init__(self, primary_key_fields = {}, data_fields = {}, generator_tables = (), foreign_keys = {},
-                 default_values = {}):
+    @property
+    def primary_key_fields(self):
+        return deepFreezeContainer(self._primary_key_fields)
+    @property
+    def data_fields(self):
+        return deepFreezeContainer(self._data_fields)
+    @property
+    def generator_tables(self):
+        return deepFreezeContainer(self._generator_tables)
+    @property
+    def foreign_keys(self):
+        return deepFreezeContainer(self._foreign_keys)
+    @property
+    def default_values(self):
+        return deepFreezeContainer(self._default_values)
+    def set_default_values(self, **tableDefaults):
+        verify(not self._hasBeenUsed, """
+Once a TicDatFactory has been used to create TicDat objects, the default values can no longer be changed.""")
+        for k,v in tableDefaults.items():
+            verify(k in self.all_tables, "Unrecognized table name %s"%k)
+            verify(dictish(v) and set(v).issubset(self.data_fields[k]),
+                   "The default values for %s should be a dictionary mapping data field names to values"%k)
+            self._default_values[k] = dict(self._default_values[k], **v)
+    def set_generator_tables(self, g):
+        verify(not self._hasBeenUsed, """
+Once a TicDatFactory has been used to create TicDat objects, the generator tables can no longer be changed.""")
+        verify(containerish(g) and set(g).issubset(self.all_tables),
+               "generator_tables should be a container of table names")
+        verify(not any(self.primary_key_fields.get(t) for t in g),
+               "Can not make generators from tables with primary keys")
+        self._generator_tables[:] = [_ for _ in g]
+    def set_foreign_keys(self, **fks):
+        verify(not self._hasBeenUsed, """
+Once a TicDatFactory has been used to create TicDat objects, the foreign keys can no longer be changed.""")
+        for k,v in fks.items() :
+            verify(k in self.all_tables, "Unrecognized table name %s"%k)
+            verify(containerish(v), "Need a container of foreign keys for %s"%k)
+            msg = []
+            if not all(self._goodForeignKey(k, fk, msg.append) for fk in v) :
+                raise utils.TicDatError("Bad foreign key for %s : %s"%(k, ",".join(msg)))
+            self._foreign_keys[k]=v
+    def __init__(self, **initFields):
         """
         create a TicDatFactory
-        :param primary_key_fields: a dictionary mapping table names to primary key field names
-        :param data_fields: a dictionary mapping table names to data field names.
-        :param generator_tables: *ADVANCED* a list of tables to be streamed through generators
-        :param foreign_keys: *ADVANCED* foreign key definitions to be used to create data row links
-        :param default_values: *ADVANCED* default values for data fields
+        :param initFields: a mapping of tables to primary key fields and data fields. Each field listing consists
+        of two sub lists ... first primary keys fields, than data fields.
+        ex: TicDatFactory (categories =  [["name"],["minNutrition", "maxNutrition"]],
+                           foods  =  [["name"],["cost"]]
+                           nutritionQuantities = [["food", "category"],["qty"]])
         :return: a TicDatFactory
         """
-        primary_key_fields, data_fields = utils.checkSchema(primary_key_fields, data_fields)
-        self.primary_key_fields, self.data_fields = primary_key_fields, data_fields
-        self.all_tables = frozenset(set(self.primary_key_fields).union(self.data_fields))
-        verify(containerish(generator_tables) and set(generator_tables).issubset(self.all_tables),
-               "generator_tables should be a container of table names")
-        verify(not any(primary_key_fields.get(t) for t in generator_tables),
-               "Can not make generators from tables with primary keys")
-        verify(dictish(foreign_keys) and set(foreign_keys).issubset(self.all_tables) and
-               all (containerish(_) for _ in foreign_keys.values()),
-               "foreign_keys needs to a dictionary mapping table names to containers of foreign key definitions")
-        for t,l in foreign_keys.items() :
-            msg = []
-            if not all(self._goodForeignKey(t, fk, msg.append) for fk in l) :
-                raise utils.TicDatError("Bad foreign key for %s : %s"%(t, ",".join(msg)))
-        self.foreign_keys = utils.deepFreezeContainer(foreign_keys)
+        self._hasBeenUsed = [] # append to this to make it truthy
+        verify(not any(x.startswith("_") for x in initFields), "table names shouldn't start with underscore")
+        for k,v in initFields.items():
+            verify(containerish(v) and len(v) == 2 and all(containerish(_) for _ in v),
+                   "Table %s needs to specify two sublists, one for primary key fields and one for data fields"%k)
+            verify(all(utils.stringish(s) for _ in v for s in _), "The field names for %s need to be strings"%k)
+            verify(v[0] or v[1], "No field names specified for table %s"%k)
+            verify(not set(v[0]).intersection(v[1]),
+                   "The same field name is both a data field and primary key field for table %s"%k)
+        self._primary_key_fields = FrozenDict({k : tuple(v[0])for k,v in initFields.items()})
+        self._data_fields = FrozenDict({k : tuple(v[1]) for k,v in initFields.items()})
+        self._default_values = clt.defaultdict(dict)
+        self._generator_tables = []
+        self._foreign_keys = {}
+        self.all_tables = frozenset(initFields)
 
-        verify(dictish(default_values) and set(default_values).issubset(self.all_tables),
-               "default values needs to be a dictionary keyed by table names")
-        for t,d in default_values.items():
-            verify(dictish(d) and set(d).issubset(self._allFields(t)),
-                   "The default values for table %s is not a dictionary keyed by field names"%t)
-        self.default_values = utils.deepFreezeContainer(default_values)
-        dataRowFactory = lambda t :  utils.ticDataRowFactory(t,
-                self.primary_key_fields.get(t, ()), self.data_fields.get(t, ()),
-                defaultValues=  {k:v for k,v in self.default_values.get(t, {}).items()
-                    if k in self.data_fields.get(t, ())})
-        self.generator_tables = frozenset(generator_tables)
+        dataRowFactory = lambda t :  utils.ticDataRowFactory(t, self.primary_key_fields.get(t, ()),
+                        self.data_fields.get(t, ()), self.default_values.get(t, {}))
+
         goodTicDatTable = self.good_tic_dat_table
         superSelf = self
         def ticDatTableFactory(allDataDicts, tableName, primaryKey = (), _rowFactory = None) :
@@ -141,6 +175,7 @@ class TicDatFactory(freezableFactory(object, "_isFrozen")) :
             def _generatorFactory(self, data, tableName):
                 return generatorFactory(data, tableName)
             def __init__(self, **initTables):
+                superSelf._hasBeenUsed.append(True)
                 self._allDataDicts = []
                 self._madeForeignLinks = False
                 for t in initTables :
@@ -222,8 +257,9 @@ class TicDatFactory(freezableFactory(object, "_isFrozen")) :
             self.xls = xls.XlsTicFactory(self)
         if csv.importWorked :
             self.csv = csv.CsvTicFactory(self)
-
-        self._isFrozen = True
+        if sql.importWorked :
+            self.sql = sql.SQLiteTicFactory(self)
+        self._isFrozen=True
 
     def _allFields(self, table):
         assert table in self.all_tables
@@ -305,7 +341,7 @@ class TicDatFactory(freezableFactory(object, "_isFrozen")) :
 
     def _goodTicDatKeyContainer(self, ticDatTable, tableName, badMessageHandler = lambda x : None) :
         assert containerish(ticDatTable) and not dictish(ticDatTable)
-        if tableName in self.data_fields :
+        if self.data_fields.get(tableName) :
             badMessageHandler("%s contains data fields, and thus must be represented by a dict"%tableName)
             return False
         if not len(ticDatTable) :

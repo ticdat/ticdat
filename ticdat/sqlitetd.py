@@ -1,8 +1,7 @@
-import utils as utls
-from utils import freezableFactory, TicDatError, verify, stringish, dictish
+from utils import freezableFactory, TicDatError, verify, stringish, dictish, containerish, debugBreak
 import os
-from collections import defaultdict
-from itertools import product
+import utils
+
 
 
 try:
@@ -20,6 +19,19 @@ def _readDataFormat(x) :
         return False
     return x
 
+def _insertFormat(x) :
+    # note that [1==True, 0==False, 1 is not True, 0 is not False] is all part of Python
+    if x in (float("inf"), -float("inf")) or stringish(x) or (x is True) or (x is False):
+        return  "'%s'"%x
+    if x is None:
+        return "null"
+    return  str(x)
+
+def _sqlConnect(dbFile, foreignKeys = True) :
+    con = sql.connect(dbFile)
+    con.execute("PRAGMA foreign_keys = %s"%("ON" if foreignKeys else "OFF"))
+    con.commit() # remember - either close or commit to push changes!!
+    return con
 
 class SQLiteTicFactory(freezableFactory(object, "_isFrozen")) :
     """
@@ -41,14 +53,14 @@ class SQLiteTicFactory(freezableFactory(object, "_isFrozen")) :
         :param sqlFilePath: A SQLite db with a consistent schema.
         :return: a TicDat object populated by the matching tables.
         """
-        return self.ticDatFactory.TicDat(**self._createTicDat(sqlFilePath))
+        return self.tic_dat_factory.TicDat(**self._createTicDat(sqlFilePath))
     def create_frozen_tic_dat(self, sqlFilePath):
         """
         Create a FrozenTicDat object from an Excel file
         :param sqlFilePath:A SQLite db with a consistent schema.
         :return: a TicDat object populated by the matching table.
         """
-        return self.ticDatFactory.FrozenTicDat(**self._createTicDat(sqlFilePath))
+        return self.tic_dat_factory.FrozenTicDat(**self._createTicDat(sqlFilePath))
     def _checkTablesAndFields(self, sqlFilePath, allTables):
         tdf = self.tic_dat_factory
         TDE = TicDatError
@@ -67,12 +79,12 @@ class SQLiteTicFactory(freezableFactory(object, "_isFrozen")) :
                     try :
                         con.execute("Select %s from %s"%(field,table))
                     except :
-                        TDE("Unable to recognize field %s in table %s for file %s"%(field, table, sqlFilePath))
+                        raise TDE("Unable to recognize field %s in table %s for file %s"%(field, table, sqlFilePath))
     def _createGeneratorObj(self, sqlFilePath, table):
         tdf = self.tic_dat_factory
         def tableObj() :
             self._checkTablesAndFields(sqlFilePath, (table,))
-            assert (not tdf.primary_key_fields.get(table)) and (tdf.primary_key_fields.get(table))
+            assert (not tdf.primary_key_fields.get(table)) and (tdf.data_fields.get(table))
             with sql.connect(sqlFilePath) as con:
                 for row in con.execute("Select %s from %s"%(", ".join(tdf.data_fields[table]), table)) :
                     yield map(_readDataFormat, row)
@@ -95,10 +107,59 @@ class SQLiteTicFactory(freezableFactory(object, "_isFrozen")) :
         for table in tdf.generator_tables :
             rtn[table] = self._createGeneratorObj(sqlFilePath, table)
         return rtn
-    def write_data(self, ticDat, sqlFilePath, allow_overwrite = False):
+    def _orderedTables(self):
+        rtn = []
+        def processTable(t) :
+            if t not in rtn:
+                for fks in self.tic_dat_factory.foreign_keys.get(t, ()) :
+                    processTable(fks["foreignTable"])
+                rtn.append(t)
+        map(processTable, self.tic_dat_factory.all_tables)
+        return tuple(rtn)
+    def write_file(self, ticDat, sqlFilePath, allow_overwrite = False):
+        msg = []
+        if not self.tic_dat_factory.good_tic_dat_object(ticDat, lambda m : msg.append(m)) :
+            raise TicDatError("Not a valid ticDat object for this schema : " + " : ".join(msg))
+        verify(not os.path.isdir(sqlFilePath), "A directory is not a valid SQLite file path")
         if not os.path.exists(sqlFilePath) :
-            # create the schema in the file path
-            pass
+            with _sqlConnect(sqlFilePath, foreignKeys=False) as con:
+                for t in self._orderedTables() :
+                    str = "Create TABLE %s (\n"%t
+                    strl = [f for f in self.tic_dat_factory.primary_key_fields.get(t, ())] + \
+                           [f + " default %s"%self.tic_dat_factory.default_values.get(t, {}).get(f, 0)
+                            for f in self.tic_dat_factory.data_fields.get(t, ())]
+                    for fks in self.tic_dat_factory.foreign_keys.get(t, ()) :
+                        nativeFields, foreignFields = zip(* (fks["mappings"].items()))
+                        strl.append("FOREIGN KEY(%s) REFERENCES %s(%s)"%(",".join(nativeFields),
+                                     fks["foreignTable"], ",".join(foreignFields)))
+                    if self.tic_dat_factory.primary_key_fields.get(t) :
+                        strl.append("PRIMARY KEY(%s)"%",".join(self.tic_dat_factory.primary_key_fields[t]))
+                    str += ",\n".join(strl) +  "\n);"
+                    con.execute(str)
+
+        self._checkTablesAndFields(sqlFilePath, self.tic_dat_factory.all_tables)
+        with _sqlConnect(sqlFilePath, foreignKeys=False) as con:
+            for t in self.tic_dat_factory.all_tables:
+                verify(allow_overwrite or not any(True for _ in  con.execute("Select * from %s"%t)),
+                        "allow_overwrite is False, but there are already data records in %s"%t)
+                con.execute("Delete from %s"%t) if allow_overwrite else None
+                _t = getattr(ticDat, t)
+                if dictish(_t) :
+                 primaryKeys = tuple(self.tic_dat_factory.primary_key_fields[t])
+                 for pkRow, sqlDataRow in _t.items() :
+                    _items = sqlDataRow.items()
+                    fields = primaryKeys + tuple(x[0] for x in _items)
+                    dataRow = ((pkRow,) if len(primaryKeys)==1 else pkRow) + tuple(x[1] for x in _items)
+                    assert len(dataRow) == len(fields)
+                    str = "INSERT INTO %s (%s) VALUES (%s)"%(t, ",".join(fields),
+                          ",".join("%s" for _ in fields))
+                    con.execute(str%tuple(map(_insertFormat, dataRow)))
+                else :
+                 for sqlDataRow in (_t if containerish(_t) else _t()) :
+                    str = "INSERT INTO %s (%s) VALUES (%s)"%(t, ",".join(sqlDataRow.keys()),
+                          ",".join(["%s"]*len(sqlDataRow)))
+                    con.execute(str%tuple(map(_insertFormat, sqlDataRow.values())))
+
 
 
 

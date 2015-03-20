@@ -10,6 +10,11 @@ class TicDatError(Exception) :
 def debugBreak():
     import ipdb; ipdb.set_trace()
 
+_memo = []
+def memo(x) :
+    doIt(_memo.pop() for _ in list(_memo))
+    _memo.append(x)
+
 dictish = lambda x : all(hasattr(x, _) for _ in ("__getitem__", "keys", "values", "items", "__contains__", "__len__"))
 stringish = lambda x : all(hasattr(x, _) for _ in ("lower", "upper", "strip"))
 containerish = lambda x : all(hasattr(x, _) for _ in ("__iter__", "__len__", "__getitem__")) and not stringish(x)
@@ -70,26 +75,6 @@ def deepFreezeContainer(x) :
 def verify(b, msg) :
     if not b :
         raise TicDatError(msg)
-
-def checkSchema(primaryKeyFields, dataFields):
-    def _checkArg(arg, argName):
-        verify(dictish(arg), "%s needs to be dict"%argName)
-        verify(all(stringish(x) for x in arg.keys()), "The keys for %s should be table names")
-        verify(not any(x.startswith("_") for x in arg.keys()), "%s contains a table names starting with underscore")
-        verify(all(stringish(x) or (containerish(x) and len(x) == len(set(x)) and all(stringish(y) for y in x))
-                   for x in arg.values()),
-               "The values for %s should be field names or containers filled with non repeating field names")
-        return FrozenDict({k : (v,) if stringish(v) else tuple(v) for k,v in arg.items()})
-
-    primaryKeyFields = _checkArg(primaryKeyFields, "primaryKeyFields")
-    dataFields = _checkArg(dataFields, "dataFields")
-
-    for pt in set(primaryKeyFields).intersection(dataFields) :
-        verify(not set(primaryKeyFields[pt]).intersection(dataFields[pt]),
-               "Table %s has a non empty intersection between its primary key field names and its data field names"%pt)
-    for pt in set(primaryKeyFields).union(dataFields) :
-        verify(set(primaryKeyFields.get(pt, ())).union(dataFields.get(pt,())),"Table %s has no field names"%pt)
-    return (primaryKeyFields, dataFields)
 
 def ticDataRowFactory(table, keyFieldNames, dataFieldNames, defaultValues={}):
     assert dictish(defaultValues) and set(defaultValues).issubset(dataFieldNames)
