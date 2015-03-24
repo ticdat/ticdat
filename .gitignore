@@ -1,0 +1,8 @@
+.vagrant*
+*.pyc
+gurobi.log
+*output.txt
+*debugFeas.txt
+*solution/*.csv
+.idea/*
+.idea
