@@ -1,0 +1,5 @@
+-- auto generated view created by SQLDbDeveloperHelper on 2015-03-13 13:26:57
+goodCategories.sql
+goodFoods.sql
+goodNutritionQuantities.sql
+goodParameters.sql
