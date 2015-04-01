@@ -38,6 +38,7 @@ class CsvTicFactory(freezableFactory(object, "_isFrozen")) :
         :param dialect: the csv dialect. Consult csv documentation for details.
         :param headers_present: Boolean. Does the first row of data contain the column headers?
         :return: a TicDat object populated by the matching files.
+        !!NB!! missing files resolve to an empty table, but missing fields on matching files throw an Exception!!
         """
         return self.tic_dat_factory.TicDat(**self._createTicDat(dirPath, dialect, headers_present))
     def create_frozen_tic_dat(self, dirPath, dialect='excel', headers_present = True):
@@ -48,6 +49,7 @@ class CsvTicFactory(freezableFactory(object, "_isFrozen")) :
         :param dialect: the csv dialect. Consult csv documentation for details.
         :param headers_present: Boolean. Does the first row of data contain the column headers?
         :return: a TicDat object populated by the matching files.
+        !!NB!! missing files resolve to an empty table, but missing fields on matching files throw an Exception!!
         """
         return self.tic_dat_factory.FrozenTicDat(**self._createTicDat(dirPath, dialect, headers_present))
     def _createTicDat(self, dirPath, dialect, headers_present):

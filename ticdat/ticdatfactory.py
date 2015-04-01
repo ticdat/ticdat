@@ -13,6 +13,7 @@ import collections as clt
 import xls
 import csvtd as csv
 import sqlitetd as sql
+import mdb
 
 
 def _keyLen(k) :
@@ -33,16 +34,24 @@ class TicDatFactory(freezableFactory(object, "_isFrozen")) :
     """
     @property
     def primary_key_fields(self):
-        return deepFreezeContainer(self._primary_key_fields)
+        return self._primary_key_fields
     @property
     def data_fields(self):
-        return deepFreezeContainer(self._data_fields)
+        return self._data_fields
     @property
     def generator_tables(self):
         return deepFreezeContainer(self._generator_tables)
     @property
     def foreign_keys(self):
-        return deepFreezeContainer(self._foreign_keys)
+        rtn = clt.defaultdict(list)
+        for (native,foreign), nativeFieldTuples in self._foreign_keys.items():
+            for nativeFields in nativeFieldTuples :
+                fk = {"foreignTable" : foreign,
+                      "mappings" : {nf:ff for nf,ff in zip(nativeFields, self.primary_key_fields[foreign])}}
+                fk["cardinality"] = "one-to-one" if \
+                    set(fk["mappings"].keys()) == set(self.primary_key_fields.get(native, ())) else "many-to-one"
+                rtn[native].append(fk)
+        return deepFreezeContainer(rtn)
     @property
     def default_values(self):
         return deepFreezeContainer(self._default_values)
@@ -65,28 +74,70 @@ Once a TicDatFactory has been used to create TicDat objects, the generator table
     def clear_foreign_keys(self, native_table = None):
         """
         create a TicDatFactory
-        :param native_table: optional. The table whose foreign keys should be cleared. If omitted, all foreign keys
-                                       are cleared.
+        :param native_table: optional. The table whose foreign keys should be cleared.
+                             If omitted, all foreign keys are cleared.
         """
         verify(not self._hasBeenUsed, """
-Once a TicDatFactory has been used to create TicDat objects, the foreign keys can no longer be changed.""")
+The foreign keys cannot be changed after a TicDatFactory has been used to create TicDat objects.""")
         verify(native_table is None or native_table in self.all_tables,
                "native_table should either be omitted, or specify a specific table to clear from foreign keys")
-        for t in ((native_table,) if native_table else self.all_tables) :
-            if t in self._foreign_keys:
-                del(self._foreign_keys[t])
+        deleteMe = []
+        for nt,ft in self._foreign_keys:
+            if nt == (native_table or nt) :
+                deleteMe.append((nt,ft))
+        for nt, ft in deleteMe:
+            del(self._foreign_keys[nt,ft])
     def add_foreign_key(self, native_table, foreign_table, mappings):
         verify(not self._hasBeenUsed, """
 Once a TicDatFactory has been used to create TicDat objects, the foreign keys can no longer be changed.""")
         for t in (native_table, foreign_table):
             verify(t in self.all_tables, "%s is not a table name"%t)
-        verify(dictish(mappings),
+        verify(dictish(mappings) and mappings,
                "mappings argument needs to be dictionary mapping native_table fields to foreign_table fields")
         for k,v in mappings.items() :
-            verify(k in self._allFields(native_table), "%s does not refer one of %s 's fields"%(k, native_table))
+            verify(k in self._allFields(native_table), "%s does not refer to one of %s 's fields"%(k, native_table))
+            verify(v in self._allFields(foreign_table), "%s does not refer to one of %s 's fields"%(k, foreign_table))
         verify(set(self.primary_key_fields.get(foreign_table, ())) == set(mappings.values()),
-            "(%s) is not the same as the primary key for %s"%(",".join(mappings.values()), foreign_table))
-        self._foreign_keys[native_table].append({"foreignTable" : foreign_table,  "mappings" : dict(mappings)})
+            """%s is not the primary key for %s.
+This exception is being thrown because ticDat doesn't currently support many-to-many
+foreign key relationships. The ticDat API is forward compatible with re: to many-to-many
+relationships. When a future version of ticDat is released that supports many-to-many
+foreign keys, the code throwing this exception will be removed.
+            """%(",".join(mappings.values()), foreign_table))
+        reverseMapping = {v:k for k,v in mappings.items()}
+        self._foreign_keys[native_table, foreign_table].add(tuple(reverseMapping[pkf]
+                            for pkf in self.primary_key_fields[foreign_table]))
+    def _setHasBeenUsed(self):
+        if self._hasBeenUsed :
+            return # idempotent
+        def findDerivedForeignKey() :
+            curFKs = self.foreign_keys
+            for (nativeTable, bridgeTable), nativeFieldsTuples in self._foreign_keys.items():
+                for nativeFieldTuple in nativeFieldsTuples :
+                    for bfk in curFKs.get(bridgeTable,()):
+                        if set(bfk["mappings"].keys()).issubset(self.primary_key_fields[bridgeTable]):
+                            bridgeToNative = {pkf:nf for pkf,nf in
+                                            zip(self.primary_key_fields[bridgeTable], nativeFieldTuple)}
+                            foreignToBridge = {v:k for k,v in bfk["mappings"].items()}
+                            newNativeFt = tuple(bridgeToNative[foreignToBridge[pkf]] for pkf in
+                                            self.primary_key_fields[bfk["foreignTable"]])
+                            fkSet = self._foreign_keys[nativeTable, bfk["foreignTable"]]
+                            if newNativeFt not in fkSet :
+                                return fkSet.add(newNativeFt) or True
+        while findDerivedForeignKey():
+            pass
+        for (nativeTable, foreignTable), nativeFieldsTuples in self._foreign_keys.items():
+            nativeFieldsSet = frozenset(frozenset(_) for _ in nativeFieldsTuples)
+            if len(nativeFieldsSet)==1:
+                self._linkName[nativeTable, foreignTable, next(_ for _ in nativeFieldsSet)] = nativeTable
+            else :
+                for nativeFields in nativeFieldsSet :
+                    trialLinkName = nativeFields
+                    for _ in nativeFieldsSet.difference({nativeFields}) :
+                        trialLinkName = trialLinkName.difference(_)
+                    self._linkName[nativeTable, foreignTable, nativeFields] = "_".join([nativeTable] +
+                                        [x for x in trialLinkName or nativeFields])
+        self._hasBeenUsed[:] = [True]
     def __init__(self, **initFields):
         """
         create a TicDatFactory
@@ -98,6 +149,7 @@ Once a TicDatFactory has been used to create TicDat objects, the foreign keys ca
         :return: a TicDatFactory
         """
         self._hasBeenUsed = [] # append to this to make it truthy
+        self._linkName = {}
         verify(not any(x.startswith("_") for x in initFields), "table names shouldn't start with underscore")
         for k,v in initFields.items():
             verify(containerish(v) and len(v) == 2 and all(containerish(_) for _ in v),
@@ -110,7 +162,7 @@ Once a TicDatFactory has been used to create TicDat objects, the foreign keys ca
         self._data_fields = FrozenDict({k : tuple(v[1]) for k,v in initFields.items()})
         self._default_values = clt.defaultdict(dict)
         self._generator_tables = []
-        self._foreign_keys = clt.defaultdict(list)
+        self._foreign_keys = clt.defaultdict(set)
         self.all_tables = frozenset(initFields)
 
         dataRowFactory = lambda t :  utils.ticDataRowFactory(t, self.primary_key_fields.get(t, ()),
@@ -133,7 +185,7 @@ Once a TicDatFactory has been used to create TicDat objects, the foreign keys ca
                                "inconsistent key length for %s"%tableName)
                         return super(TicDatDict, self).__setitem__(key, rowFactory(value))
                     def __getitem__(self, item):
-                        if item not in self:
+                        if (item not in self) and (not getattr(self, "_dataFrozen", False)):
                             self[item] = rowFactory({})
                         return super(TicDatDict, self).__getitem__(item)
                 assert dictish(TicDatDict)
@@ -191,7 +243,7 @@ Once a TicDatFactory has been used to create TicDat objects, the foreign keys ca
             def _generatorFactory(self, data, tableName):
                 return generatorFactory(data, tableName)
             def __init__(self, **initTables):
-                superSelf._hasBeenUsed.append(True)
+                superSelf._setHasBeenUsed()
                 self._allDataDicts = []
                 self._madeForeignLinks = False
                 for t in initTables :
@@ -225,19 +277,16 @@ Once a TicDatFactory has been used to create TicDat objects, the foreign keys ca
                 canLinkWithMe = lambda t : t not in superSelf.generator_tables and superSelf.primary_key_fields.get(t)
                 for t, fks in superSelf.foreign_keys.items() :
                   if canLinkWithMe(t):
-                    lens = {z:len([x for x in fks if x["foreignTable"] == z]) for z in [y["foreignTable"] for y in fks]}
                     for fk in fks:
                       if canLinkWithMe(fk["foreignTable"])  :
-                        linkName = t if lens[fk["foreignTable"]] ==1 else (t + "_" + "_".join(fk["mappings"].keys()))
+                        linkName = superSelf._linkName[t, fk["foreignTable"],frozenset(fk["mappings"].keys())]
                         if linkName not in ("keys", "items", "values") :
                             ft = getattr(self, fk["foreignTable"])
                             foreignPrimaryKey = superSelf.primary_key_fields[fk["foreignTable"]]
                             localPrimaryKey = superSelf.primary_key_fields[t]
                             assert all(pk for pk in (foreignPrimaryKey, localPrimaryKey))
                             assert set(foreignPrimaryKey) == set(fk["mappings"].values())
-                            appendageForeignKey = (
-                                            set(foreignPrimaryKey) == set(fk["mappings"].values()) and
-                                            set(localPrimaryKey) == set(fk["mappings"].keys()))
+                            appendageForeignKey = fk["cardinality"] == "one-to-one"
                             reverseMapping  = {v:k for k,v in fk["mappings"].items()}
                             tableFields = superSelf.primary_key_fields.get(t, ()) + superSelf.data_fields.get(t, ())
                             localPosition = {x:tableFields.index(reverseMapping[x]) for x in foreignPrimaryKey}
@@ -269,12 +318,14 @@ Once a TicDatFactory has been used to create TicDat objects, the foreign keys ca
                 super(FrozenTicDat, self).__init__(**initTables)
                 self._freeze()
         self.FrozenTicDat = FrozenTicDat
-        if xls.importWorked :
+        if xls.import_worked :
             self.xls = xls.XlsTicFactory(self)
         if csv.importWorked :
             self.csv = csv.CsvTicFactory(self)
         if sql.importWorked :
             self.sql = sql.SQLiteTicFactory(self)
+        if mdb.importWorked:
+            self.mdb = mdb.MdbTicFactory(self)
         self._isFrozen=True
 
     def _allFields(self, table):

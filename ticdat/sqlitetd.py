@@ -39,8 +39,8 @@ class SQLiteTicFactory(freezableFactory(object, "_isFrozen")) :
     """
     def __init__(self, ticDatFactory):
         """
-        Don't call this function explicitly. A XlsTicDatFactory will automatically be associated with the parent
-        TicDatFactory if your system has the required xlrd, xlwt packages.
+        Don't call this function explicitly. A SQLiteTicFactory will automatically be associated with the parent
+        TicDatFactory if your system has the required sqlite3 packages.
         :param ticDatFactory:
         :return:
         """
@@ -49,14 +49,14 @@ class SQLiteTicFactory(freezableFactory(object, "_isFrozen")) :
         self._isFrozen = True
     def create_tic_dat(self, sqlFilePath):
         """
-        Create a TicDat object from an Excel file
+        Create a TicDat object from a SQLite file
         :param sqlFilePath: A SQLite db with a consistent schema.
         :return: a TicDat object populated by the matching tables.
         """
         return self.tic_dat_factory.TicDat(**self._createTicDat(sqlFilePath))
     def create_frozen_tic_dat(self, sqlFilePath):
         """
-        Create a FrozenTicDat object from an Excel file
+        Create a FrozenTicDat object from an SQLite file
         :param sqlFilePath:A SQLite db with a consistent schema.
         :return: a TicDat object populated by the matching table.
         """
@@ -98,12 +98,12 @@ class SQLiteTicFactory(freezableFactory(object, "_isFrozen")) :
                 fields = tdf.primary_key_fields.get(table, ()) + tdf.data_fields.get(table, ())
                 rtn[table]= {} if tdf.primary_key_fields.get(table, ())  else []
                 for row in con.execute("Select %s from %s"%(", ".join(fields), table)) :
-                        pk = row[:len(tdf.primary_key_fields.get(table, ()))]
-                        data = map(_readDataFormat, row[len(tdf.primary_key_fields.get(table, ())):])
-                        if dictish(rtn[table]) :
-                            rtn[table][pk[0] if len(pk) == 1 else tuple(pk)] = data
-                        else :
-                            rtn[table].append(data)
+                    pk = row[:len(tdf.primary_key_fields.get(table, ()))]
+                    data = map(_readDataFormat, row[len(tdf.primary_key_fields.get(table, ())):])
+                    if dictish(rtn[table]) :
+                        rtn[table][pk[0] if len(pk) == 1 else tuple(pk)] = data
+                    else :
+                        rtn[table].append(data)
         for table in tdf.generator_tables :
             rtn[table] = self._createGeneratorObj(sqlFilePath, table)
         return rtn
@@ -116,27 +116,39 @@ class SQLiteTicFactory(freezableFactory(object, "_isFrozen")) :
                 rtn.append(t)
         map(processTable, self.tic_dat_factory.all_tables)
         return tuple(rtn)
+    def write_schema(self, sqlFilePath):
+        """
+        :param sqlFilePath: the file path of the SQLite database to create
+        :return:
+        """
+        with _sqlConnect(sqlFilePath, foreignKeys=False) as con:
+            for t in self._orderedTables() :
+                str = "Create TABLE %s (\n"%t
+                strl = [f for f in self.tic_dat_factory.primary_key_fields.get(t, ())] + \
+                       [f + " default %s"%self.tic_dat_factory.default_values.get(t, {}).get(f, 0)
+                        for f in self.tic_dat_factory.data_fields.get(t, ())]
+                for fks in self.tic_dat_factory.foreign_keys.get(t, ()) :
+                    nativeFields, foreignFields = zip(* (fks["mappings"].items()))
+                    strl.append("FOREIGN KEY(%s) REFERENCES %s(%s)"%(",".join(nativeFields),
+                                 fks["foreignTable"], ",".join(foreignFields)))
+                if self.tic_dat_factory.primary_key_fields.get(t) :
+                    strl.append("PRIMARY KEY(%s)"%",".join(self.tic_dat_factory.primary_key_fields[t]))
+                str += ",\n".join(strl) +  "\n);"
+                con.execute(str)
     def write_file(self, ticDat, sqlFilePath, allow_overwrite = False):
+        """
+        write the ticDat data to an SQLite database file
+        :param ticDat: the data object to write
+        :param sqlFilePath: the file path of the SQLite database to populate
+        :param allow_overwrite: boolean - are we allowed to overwrite pre-existing data
+        :return:
+        """
         msg = []
         if not self.tic_dat_factory.good_tic_dat_object(ticDat, lambda m : msg.append(m)) :
             raise TicDatError("Not a valid ticDat object for this schema : " + " : ".join(msg))
         verify(not os.path.isdir(sqlFilePath), "A directory is not a valid SQLite file path")
         if not os.path.exists(sqlFilePath) :
-            with _sqlConnect(sqlFilePath, foreignKeys=False) as con:
-                for t in self._orderedTables() :
-                    str = "Create TABLE %s (\n"%t
-                    strl = [f for f in self.tic_dat_factory.primary_key_fields.get(t, ())] + \
-                           [f + " default %s"%self.tic_dat_factory.default_values.get(t, {}).get(f, 0)
-                            for f in self.tic_dat_factory.data_fields.get(t, ())]
-                    for fks in self.tic_dat_factory.foreign_keys.get(t, ()) :
-                        nativeFields, foreignFields = zip(* (fks["mappings"].items()))
-                        strl.append("FOREIGN KEY(%s) REFERENCES %s(%s)"%(",".join(nativeFields),
-                                     fks["foreignTable"], ",".join(foreignFields)))
-                    if self.tic_dat_factory.primary_key_fields.get(t) :
-                        strl.append("PRIMARY KEY(%s)"%",".join(self.tic_dat_factory.primary_key_fields[t]))
-                    str += ",\n".join(strl) +  "\n);"
-                    con.execute(str)
-
+            self.write_schema(sqlFilePath)
         self._checkTablesAndFields(sqlFilePath, self.tic_dat_factory.all_tables)
         with _sqlConnect(sqlFilePath, foreignKeys=False) as con:
             for t in self.tic_dat_factory.all_tables:

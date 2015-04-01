@@ -119,6 +119,25 @@ class TestXls(unittest.TestCase):
         self.assertFalse(tdf._sameData(ticDat, ticDatNone))
         self.assertTrue(ticDatNone.a["theboger"]["aData2"] == "")
 
+    def testRowOffsets(self):
+        tdf = TicDatFactory(boger = [[],["the", "big", "boger"]],
+                            woger = [[], ["the", "real", "big", "woger"]])
+        td = tdf.FrozenTicDat(boger = ([1, 2, 3], [12, 24, 36], tdf.data_fields["boger"], [100, 200, 400]),
+                              woger = ([[1, 2, 3, 4]]*4) + [tdf.data_fields["woger"]] +
+                                      ([[100, 200, 300, 400]]*5))
+        filePath = os.path.join(_scratchDir, "rowoff.xls")
+        tdf.xls.write_file(td, filePath)
+
+        td1= tdf.xls.create_tic_dat(filePath)
+        td2 = tdf.xls.create_tic_dat(filePath, {"woger": 5})
+        td3 = tdf.xls.create_tic_dat(filePath, {"woger":5, "boger":3})
+        self.assertTrue(tdf._sameData(td, td1))
+        tdCheck = tdf.TicDat(boger = td2.boger, woger = td.woger)
+        self.assertTrue(tdf._sameData(td, tdCheck))
+        self.assertTrue(all (td2.woger[i]["big"] == 300 for i in range(5)))
+        self.assertTrue(all (td3.woger[i]["real"] == 200 for i in range(5)))
+        self.assertTrue(td3.boger[0]["big"] == 200 and len(td3.boger) == 1)
+
 
 _scratchDir = TestXls.__name__ + "_scratch"
 

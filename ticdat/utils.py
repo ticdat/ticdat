@@ -1,4 +1,5 @@
 
+from numbers import Number
 
 def doIt(g): # just walks through everything in a gen - I like the syntax this enables
     for x in g :
@@ -15,10 +16,11 @@ def memo(x) :
     doIt(_memo.pop() for _ in list(_memo))
     _memo.append(x)
 
-dictish = lambda x : all(hasattr(x, _) for _ in ("__getitem__", "keys", "values", "items", "__contains__", "__len__"))
-stringish = lambda x : all(hasattr(x, _) for _ in ("lower", "upper", "strip"))
-containerish = lambda x : all(hasattr(x, _) for _ in ("__iter__", "__len__", "__getitem__")) and not stringish(x)
-generatorish = lambda x : all(hasattr(x, _) for _ in ("__iter__", "next")) and not (containerish(x) or dictish(x))
+def dictish(x): return all(hasattr(x, _) for _ in ("__getitem__", "keys", "values", "items", "__contains__", "__len__"))
+def stringish(x): return all(hasattr(x, _) for _ in ("lower", "upper", "strip"))
+def containerish(x): return all(hasattr(x, _) for _ in ("__iter__", "__len__", "__getitem__")) and not stringish(x)
+def generatorish(x): return all(hasattr(x, _) for _ in ("__iter__", "next")) and not (containerish(x) or dictish(x))
+def numericish(x) : return isinstance(x, Number) and not isinstance(x, bool)
 
 def freezableFactory(baseClass, freezeAttr) :
     class _Freezeable(baseClass) :
