@@ -1,28 +1,34 @@
-
+"""
+general utility module
+PEP8
+"""
 from numbers import Number
 
-def doIt(g): # just walks through everything in a gen - I like the syntax this enables
+def do_it(g): # just walks through everything in a gen - I like the syntax this enables
     for x in g :
         pass
 
 class TicDatError(Exception) :
     pass
 
-def debugBreak():
+def debug_break():
     import ipdb; ipdb.set_trace()
 
 _memo = []
 def memo(x) :
-    doIt(_memo.pop() for _ in list(_memo))
+    do_it(_memo.pop() for _ in list(_memo))
     _memo.append(x)
 
-def dictish(x): return all(hasattr(x, _) for _ in ("__getitem__", "keys", "values", "items", "__contains__", "__len__"))
+def dictish(x): return all(hasattr(x, _) for _ in
+                           ("__getitem__", "keys", "values", "items", "__contains__", "__len__"))
 def stringish(x): return all(hasattr(x, _) for _ in ("lower", "upper", "strip"))
-def containerish(x): return all(hasattr(x, _) for _ in ("__iter__", "__len__", "__getitem__")) and not stringish(x)
-def generatorish(x): return all(hasattr(x, _) for _ in ("__iter__", "next")) and not (containerish(x) or dictish(x))
+def containerish(x): return all(hasattr(x, _) for _ in ("__iter__", "__len__", "__getitem__")) \
+                                and not stringish(x)
+def generatorish(x): return all(hasattr(x, _) for _ in ("__iter__", "next")) \
+                            and not (containerish(x) or dictish(x))
 def numericish(x) : return isinstance(x, Number) and not isinstance(x, bool)
 
-def freezableFactory(baseClass, freezeAttr) :
+def freezable_factory(baseClass, freezeAttr) :
     class _Freezeable(baseClass) :
         def __setattr__(self, key, value):
             if not getattr(self, freezeAttr, False):
@@ -35,7 +41,7 @@ def freezableFactory(baseClass, freezeAttr) :
     return _Freezeable
 
 
-_FreezableDictBase = freezableFactory(dict, "_attributesFrozen")
+_FreezableDictBase = freezable_factory(dict, "_attributesFrozen")
 class FreezeableDict(_FreezableDictBase) :
     def __setattr__(self, key, value):
         if key == "_dataFrozen" and value :
@@ -64,65 +70,72 @@ class FrozenDict(FreezeableDict) :
         self._dataFrozen = True # need to do first, obviously
         self._attributesFrozen  = True
 
-def deepFreezeContainer(x) :
+def deep_freeze(x) :
     if stringish(x) or not hasattr(x, "__contains__") :
         return x
     if hasattr(x, "keys") and hasattr(x, "values") :
-        return FrozenDict({deepFreezeContainer(k) : deepFreezeContainer(v) for k,v in x.items()})
+        return FrozenDict({deep_freeze(k) : deep_freeze(v) for k,v in x.items()})
     if hasattr(x, "__getitem__") :
-        return tuple(map(deepFreezeContainer, x))
-    return frozenset(map(deepFreezeContainer,x))
+        return tuple(map(deep_freeze, x))
+    return frozenset(map(deep_freeze,x))
 
 
 def verify(b, msg) :
     if not b :
         raise TicDatError(msg)
 
-def ticDataRowFactory(table, keyFieldNames, dataFieldNames, defaultValues={}):
-    assert dictish(defaultValues) and set(defaultValues).issubset(dataFieldNames)
-    assert not set(keyFieldNames).intersection(dataFieldNames)
-    if not dataFieldNames:
-        def makeFreezeableDict(x=()) : # need a freezeable dict not a frozen dict here so can still link foreign keys
+def td_row_factory(table, key_field_names, data_field_names, default_values={}):
+    assert dictish(default_values) and set(default_values).issubset(data_field_names)
+    assert not set(key_field_names).intersection(data_field_names)
+    if not data_field_names:
+         # need a freezeable dict not a frozen dict here so can still link foreign keys
+        def makefreezeabledict(x=()) :
             verify(containerish(x) and len(x) == 0, "Attempting to add non-empty data to %s"%table)
             return FreezeableDict()
-        return makeFreezeableDict
-    fieldToIndex = {x:dataFieldNames.index(x) for x in dataFieldNames}
-    indexToField = {v:k for k,v in fieldToIndex.items()}
-    class TicDatDataRow(freezableFactory(object, "_attributesFrozen")) :
+        return makefreezeabledict
+    fieldtoindex = {x:data_field_names.index(x) for x in data_field_names}
+    indextofield = {v:k for k,v in fieldtoindex.items()}
+    class TicDatDataRow(freezable_factory(object, "_attributesFrozen")) :
         def __init__(self, x):
-            self._data = [0] * len(fieldToIndex) # since ticDat targeting numerical analysis, 0 is good default default
+            # since ticDat targeting numerical analysis, 0 is good default default
+            self._data = [0] * len(fieldtoindex)
             if dictish(x) :
-                verify(set(x.keys()).issubset(fieldToIndex), "Applying inappropriate data field names to %s"%table)
-                for f,i in fieldToIndex.items():
-                    if f in defaultValues :
-                        self._data[i] = defaultValues[f]
+                verify(set(x.keys()).issubset(fieldtoindex),
+                       "Applying inappropriate data field names to %s"%table)
+                for f,i in fieldtoindex.items():
+                    if f in default_values :
+                        self._data[i] = default_values[f]
                 for f,_d in x.items():
                     self[f] = _d
             elif containerish(x) :
-                verify(len(x) == len(self), "%s requires each row to have %s data values"%(table, len(self)))
+                verify(len(x) == len(self), "%s requires each row to have %s data values"%
+                       (table, len(self)))
                 for i in range(len(self)):
                     self._data[i] = x[i]
             else:
-                verify(len(self) ==1, "%s requires each row to have %s data values"%(table, len(self)))
+                verify(len(self) ==1, "%s requires each row to have %s data values"%
+                       (table, len(self)))
                 self._data[0] = x
         def __getitem__(self, item):
-            verify(item in fieldToIndex, "Key error : %s not data field name for table %s"%(item, table))
-            return self._data[fieldToIndex[item]]
+            verify(item in fieldtoindex, "Key error : %s not data field name for table %s"%
+                   (item, table))
+            return self._data[fieldtoindex[item]]
         def __setitem__(self, key, value):
-            verify(key in fieldToIndex, "Key error : %s not data field name for table %s"%(key, table))
+            verify(key in fieldtoindex, "Key error : %s not data field name for table %s"%
+                   (key, table))
             if getattr(self, "_dataFrozen", False) :
                 raise TicDatError("Can't edit a frozen TicDatDataRow")
-            self._data[fieldToIndex[key]] = value
+            self._data[fieldtoindex[key]] = value
         def keys(self):
-            return tuple(indexToField[i] for i in range(len(self)))
+            return tuple(indextofield[i] for i in range(len(self)))
         def values(self):
             return tuple(self._data)
         def items(self):
             return zip(self.keys(), self.values())
         def __contains__(self, item):
-            return item in fieldToIndex
+            return item in fieldtoindex
         def __iter__(self):
-            return iter(fieldToIndex)
+            return iter(fieldtoindex)
         def __len__(self):
             return len(self._data)
         def __repr__(self):

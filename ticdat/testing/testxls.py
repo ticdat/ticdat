@@ -20,25 +20,25 @@ class TestXls(unittest.TestCase):
         filePath = os.path.join(_scratchDir, "diet.xls")
         tdf.xls.write_file(ticDat, filePath)
         xlsTicDat = tdf.xls.create_tic_dat(filePath)
-        self.assertTrue(tdf._sameData(ticDat, xlsTicDat))
+        self.assertTrue(tdf._same_data(ticDat, xlsTicDat))
         xlsTicDat.categories["calories"]["minNutrition"]=12
-        self.assertFalse(tdf._sameData(ticDat, xlsTicDat))
+        self.assertFalse(tdf._same_data(ticDat, xlsTicDat))
     def testNetflow(self):
         tdf = TicDatFactory(**netflowSchema())
         ticDat = tdf.FrozenTicDat(**{t:getattr(netflowData(),t) for t in tdf.primary_key_fields})
         filePath = os.path.join(_scratchDir, "netflow.xls")
         tdf.xls.write_file(ticDat, filePath)
         xlsTicDat = tdf.xls.create_frozen_tic_dat(filePath)
-        self.assertTrue(tdf._sameData(ticDat, xlsTicDat))
+        self.assertTrue(tdf._same_data(ticDat, xlsTicDat))
         def changeIt() :
             xlsTicDat.inflow['Pencils', 'Boston']["quantity"] = 12
         self.assertTrue(self.firesException(changeIt))
-        self.assertTrue(tdf._sameData(ticDat, xlsTicDat))
+        self.assertTrue(tdf._same_data(ticDat, xlsTicDat))
 
         xlsTicDat = tdf.xls.create_tic_dat(filePath)
-        self.assertTrue(tdf._sameData(ticDat, xlsTicDat))
+        self.assertTrue(tdf._same_data(ticDat, xlsTicDat))
         self.assertFalse(self.firesException(changeIt))
-        self.assertFalse(tdf._sameData(ticDat, xlsTicDat))
+        self.assertFalse(tdf._same_data(ticDat, xlsTicDat))
 
         pkHacked = netflowSchema()
         pkHacked["nodes"][0] = ["nimrod"]
@@ -70,10 +70,10 @@ class TestXls(unittest.TestCase):
         tdf.xls.write_file(ticDat, filePath)
 
         ticDat2 = tdf2.xls.create_tic_dat(filePath)
-        self.assertFalse(tdf._sameData(ticDat, ticDat2))
+        self.assertFalse(tdf._same_data(ticDat, ticDat2))
 
         ticDat3 = tdf3.xls.create_tic_dat(filePath)
-        self.assertTrue(tdf._sameData(ticDat, ticDat3))
+        self.assertTrue(tdf._same_data(ticDat, ticDat3))
 
         ticDat4 = tdf4.xls.create_tic_dat(filePath)
         for t in ["a","b"]:
@@ -86,12 +86,12 @@ class TestXls(unittest.TestCase):
                     self.assertTrue(t == "a")
 
         ticDat5 = tdf5.xls.create_tic_dat(filePath)
-        self.assertTrue(tdf5._sameData(tdf._keyless(ticDat), ticDat5))
+        self.assertTrue(tdf5._same_data(tdf._keyless(ticDat), ticDat5))
         self.assertTrue(callable(ticDat5.a) and callable(ticDat5.c) and not callable(ticDat5.b))
 
         ticDat6 = tdf6.xls.create_tic_dat(filePath)
-        self.assertTrue(tdf._sameData(ticDat, ticDat6))
-        self.assertTrue(firesException(lambda : tdf6._sameData(ticDat, ticDat6)))
+        self.assertTrue(tdf._same_data(ticDat, ticDat6))
+        self.assertTrue(firesException(lambda : tdf6._same_data(ticDat, ticDat6)))
         self.assertTrue(hasattr(ticDat6, "d") and utils.dictish(ticDat6.d))
 
         import xlwt
@@ -116,7 +116,7 @@ class TestXls(unittest.TestCase):
         ticDatNone = tdf.xls.create_frozen_tic_dat(filePath)
         # THIS IS A FLAW - but a minor one. None's are hard to represent. It is turning into the empty string here.
         # not sure how to handle this, but documenting for now.
-        self.assertFalse(tdf._sameData(ticDat, ticDatNone))
+        self.assertFalse(tdf._same_data(ticDat, ticDatNone))
         self.assertTrue(ticDatNone.a["theboger"]["aData2"] == "")
 
     def testRowOffsets(self):
@@ -131,9 +131,9 @@ class TestXls(unittest.TestCase):
         td1= tdf.xls.create_tic_dat(filePath)
         td2 = tdf.xls.create_tic_dat(filePath, {"woger": 5})
         td3 = tdf.xls.create_tic_dat(filePath, {"woger":5, "boger":3})
-        self.assertTrue(tdf._sameData(td, td1))
+        self.assertTrue(tdf._same_data(td, td1))
         tdCheck = tdf.TicDat(boger = td2.boger, woger = td.woger)
-        self.assertTrue(tdf._sameData(td, tdCheck))
+        self.assertTrue(tdf._same_data(td, tdCheck))
         self.assertTrue(all (td2.woger[i]["big"] == 300 for i in range(5)))
         self.assertTrue(all (td3.woger[i]["real"] == 200 for i in range(5)))
         self.assertTrue(td3.boger[0]["big"] == 200 and len(td3.boger) == 1)

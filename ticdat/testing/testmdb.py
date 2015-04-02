@@ -21,18 +21,18 @@ class TestMdb(unittest.TestCase):
         filePath = makeCleanPath(os.path.join(_scratchDir, "diet.mdb"))
         tdf.mdb.write_file(ticDat, filePath)
         mdbTicDat = tdf.mdb.create_tic_dat(filePath)
-        self.assertTrue(tdf._sameData(ticDat, mdbTicDat))
+        self.assertTrue(tdf._same_data(ticDat, mdbTicDat))
         def changeit() :
             mdbTicDat.categories["calories"]["minNutrition"]=12
         changeit()
-        self.assertFalse(tdf._sameData(ticDat, mdbTicDat))
+        self.assertFalse(tdf._same_data(ticDat, mdbTicDat))
 
         self.assertTrue(self.firesException(lambda : tdf.mdb.write_file(ticDat, filePath)))
         tdf.mdb.write_file(ticDat, filePath, allow_overwrite=True)
         mdbTicDat = tdf.mdb.create_frozen_tic_dat(filePath)
-        self.assertTrue(tdf._sameData(ticDat, mdbTicDat))
+        self.assertTrue(tdf._same_data(ticDat, mdbTicDat))
         self.assertTrue(self.firesException(changeit))
-        self.assertTrue(tdf._sameData(ticDat, mdbTicDat))
+        self.assertTrue(tdf._same_data(ticDat, mdbTicDat))
 
     def testNetflow(self):
         tdf = TicDatFactory(**netflowSchema())
@@ -41,16 +41,16 @@ class TestMdb(unittest.TestCase):
         filePath = os.path.join(_scratchDir, "netflow.mdb")
         tdf.mdb.write_file(ticDat, filePath)
         mdbTicDat = tdf.mdb.create_frozen_tic_dat(filePath)
-        self.assertTrue(tdf._sameData(ticDat, mdbTicDat))
+        self.assertTrue(tdf._same_data(ticDat, mdbTicDat))
         def changeIt() :
             mdbTicDat.inflow['Pencils', 'Boston']["quantity"] = 12
         self.assertTrue(self.firesException(changeIt))
-        self.assertTrue(tdf._sameData(ticDat, mdbTicDat))
+        self.assertTrue(tdf._same_data(ticDat, mdbTicDat))
 
         mdbTicDat = tdf.mdb.create_tic_dat(filePath)
-        self.assertTrue(tdf._sameData(ticDat, mdbTicDat))
+        self.assertTrue(tdf._same_data(ticDat, mdbTicDat))
         self.assertFalse(self.firesException(changeIt))
-        self.assertFalse(tdf._sameData(ticDat, mdbTicDat))
+        self.assertFalse(tdf._same_data(ticDat, mdbTicDat))
 
         pkHacked = netflowSchema()
         pkHacked["nodes"][0] = ["nimrod"]
@@ -81,7 +81,7 @@ class TestMdb(unittest.TestCase):
             return filePath
         tdf.mdb.write_file(ticDat, makeCleanSchema())
         mdbTicDat = tdf.mdb.create_tic_dat(filePath)
-        self.assertTrue(tdf._sameData(ticDat, mdbTicDat))
+        self.assertTrue(tdf._same_data(ticDat, mdbTicDat))
 
         schema2 = sillyMeSchema()
         schema2["b"][0] = ("bField2", "bField1", "bField3")
@@ -101,10 +101,10 @@ class TestMdb(unittest.TestCase):
         tdf5.set_generator_tables(("a","c"))
 
         ticDat2 = tdf2.mdb.create_tic_dat(filePath)
-        self.assertFalse(tdf._sameData(ticDat, ticDat2))
+        self.assertFalse(tdf._same_data(ticDat, ticDat2))
 
         ticDat3 = tdf3.mdb.create_tic_dat(filePath)
-        self.assertTrue(tdf._sameData(ticDat, ticDat3))
+        self.assertTrue(tdf._same_data(ticDat, ticDat3))
 
         ticDat4 = tdf4.mdb.create_tic_dat(filePath)
         for t in ["a","b"]:
@@ -117,7 +117,7 @@ class TestMdb(unittest.TestCase):
                     self.assertTrue(t == "a")
 
         ticDat5 = tdf5.mdb.create_tic_dat(filePath)
-        self.assertTrue(tdf5._sameData(tdf._keyless(ticDat), ticDat5))
+        self.assertTrue(tdf5._same_data(tdf._keyless(ticDat), ticDat5))
         self.assertTrue(callable(ticDat5.a) and callable(ticDat5.c) and not callable(ticDat5.b))
 
         self.assertTrue("table d" in self.firesException(lambda  : tdf6.mdb.create_tic_dat(filePath)))
@@ -125,7 +125,7 @@ class TestMdb(unittest.TestCase):
         ticDat.a["theboger"] = (1, None, "twelve")
         tdf.mdb.write_file(ticDat, makeCleanSchema())
         ticDatNone = tdf.mdb.create_frozen_tic_dat(filePath)
-        self.assertTrue(tdf._sameData(ticDat, ticDatNone))
+        self.assertTrue(tdf._same_data(ticDat, ticDatNone))
         self.assertTrue(ticDatNone.a["theboger"]["aData2"] == None)
 
 _scratchDir = TestMdb.__name__ + "_scratch"

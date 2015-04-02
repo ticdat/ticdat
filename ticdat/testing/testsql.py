@@ -21,18 +21,18 @@ class TestSql(unittest.TestCase):
             filePath = makeCleanPath(os.path.join(_scratchDir, "diet.sql"))
             tdf.sql.write_file(ticDat, filePath)
             sqlTicDat = tdf.sql.create_tic_dat(filePath)
-            self.assertTrue(tdf._sameData(ticDat, sqlTicDat))
+            self.assertTrue(tdf._same_data(ticDat, sqlTicDat))
             def changeit() :
                 sqlTicDat.categories["calories"]["minNutrition"]=12
             changeit()
-            self.assertFalse(tdf._sameData(ticDat, sqlTicDat))
+            self.assertFalse(tdf._same_data(ticDat, sqlTicDat))
 
             self.assertTrue(self.firesException(lambda : tdf.sql.write_file(ticDat, filePath)))
             tdf.sql.write_file(ticDat, filePath, allow_overwrite=True)
             sqlTicDat = tdf.sql.create_frozen_tic_dat(filePath)
-            self.assertTrue(tdf._sameData(ticDat, sqlTicDat))
+            self.assertTrue(tdf._same_data(ticDat, sqlTicDat))
             self.assertTrue(self.firesException(changeit))
-            self.assertTrue(tdf._sameData(ticDat, sqlTicDat))
+            self.assertTrue(tdf._same_data(ticDat, sqlTicDat))
         doTheTests(TicDatFactory(**dietSchema()))
 
         tdf = TicDatFactory(**dietSchema())
@@ -41,7 +41,7 @@ class TestSql(unittest.TestCase):
                                foods =  {'cost': 0.0},
                                nutritionQuantities =  {'qty': 0.0})
         addDietForeignKeys(tdf)
-        ordered = tdf.sql._orderedTables()
+        ordered = tdf.sql._ordered_tables()
         self.assertTrue(ordered.index("categories") < ordered.index("nutritionQuantities"))
         self.assertTrue(ordered.index("foods") < ordered.index("nutritionQuantities"))
 
@@ -51,23 +51,23 @@ class TestSql(unittest.TestCase):
     def testNetflow(self):
         tdf = TicDatFactory(**netflowSchema())
         addNetflowForeignKeys(tdf)
-        ordered = tdf.sql._orderedTables()
+        ordered = tdf.sql._ordered_tables()
         self.assertTrue(ordered.index("nodes") < min(ordered.index(_) for _ in ("arcs", "cost", "inflow")))
         self.assertTrue(ordered.index("commodities") < min(ordered.index(_) for _ in ("cost", "inflow")))
         ticDat = tdf.FrozenTicDat(**{t:getattr(netflowData(),t) for t in tdf.primary_key_fields})
         filePath = os.path.join(_scratchDir, "netflow.sql")
         tdf.sql.write_file(ticDat, filePath)
         sqlTicDat = tdf.sql.create_frozen_tic_dat(filePath)
-        self.assertTrue(tdf._sameData(ticDat, sqlTicDat))
+        self.assertTrue(tdf._same_data(ticDat, sqlTicDat))
         def changeIt() :
             sqlTicDat.inflow['Pencils', 'Boston']["quantity"] = 12
         self.assertTrue(self.firesException(changeIt))
-        self.assertTrue(tdf._sameData(ticDat, sqlTicDat))
+        self.assertTrue(tdf._same_data(ticDat, sqlTicDat))
 
         sqlTicDat = tdf.sql.create_tic_dat(filePath)
-        self.assertTrue(tdf._sameData(ticDat, sqlTicDat))
+        self.assertTrue(tdf._same_data(ticDat, sqlTicDat))
         self.assertFalse(self.firesException(changeIt))
-        self.assertFalse(tdf._sameData(ticDat, sqlTicDat))
+        self.assertFalse(tdf._same_data(ticDat, sqlTicDat))
 
         pkHacked = netflowSchema()
         pkHacked["nodes"][0] = ["nimrod"]
@@ -103,10 +103,10 @@ class TestSql(unittest.TestCase):
         tdf.sql.write_file(ticDat, filePath)
 
         ticDat2 = tdf2.sql.create_tic_dat(filePath)
-        self.assertFalse(tdf._sameData(ticDat, ticDat2))
+        self.assertFalse(tdf._same_data(ticDat, ticDat2))
 
         ticDat3 = tdf3.sql.create_tic_dat(filePath)
-        self.assertTrue(tdf._sameData(ticDat, ticDat3))
+        self.assertTrue(tdf._same_data(ticDat, ticDat3))
 
         ticDat4 = tdf4.sql.create_tic_dat(filePath)
         for t in ["a","b"]:
@@ -119,7 +119,7 @@ class TestSql(unittest.TestCase):
                     self.assertTrue(t == "a")
 
         ticDat5 = tdf5.sql.create_tic_dat(filePath)
-        self.assertTrue(tdf5._sameData(tdf._keyless(ticDat), ticDat5))
+        self.assertTrue(tdf5._same_data(tdf._keyless(ticDat), ticDat5))
         self.assertTrue(callable(ticDat5.a) and callable(ticDat5.c) and not callable(ticDat5.b))
 
         self.assertTrue("table d" in self.firesException(lambda  : tdf6.sql.create_tic_dat(filePath)))
@@ -127,7 +127,7 @@ class TestSql(unittest.TestCase):
         ticDat.a["theboger"] = (1, None, 12)
         tdf.sql.write_file(ticDat, makeCleanPath(filePath))
         ticDatNone = tdf.sql.create_frozen_tic_dat(filePath)
-        self.assertTrue(tdf._sameData(ticDat, ticDatNone))
+        self.assertTrue(tdf._same_data(ticDat, ticDatNone))
         self.assertTrue(ticDatNone.a["theboger"]["aData2"] == None)
 
 

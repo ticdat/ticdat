@@ -3,7 +3,7 @@ Read/write ticDat objects from xls files. Requires the xlrd/xlrt module.
 PEP8
 """
 import utils as utls
-from utils import freezableFactory, TicDatError, verify, containerish, doIt, FrozenDict
+from utils import freezable_factory, TicDatError, verify, containerish, do_it, FrozenDict
 import os
 from collections import defaultdict
 from itertools import product
@@ -16,7 +16,7 @@ try:
 except:
     import_worked=False
 
-class XlsTicFactory(freezableFactory(object, "_isFrozen")) :
+class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
     """
     Primary class for reading/writing Excel files with ticDat objects.
     """
