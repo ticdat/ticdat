@@ -423,7 +423,7 @@ foreign keys, the code throwing this exception will be removed.
         return self._good_data_rows(ticdat_table.values(), table_name, bad_msg_handler)
     def _good_data_rows(self, data_rows, table_name, bad_message_handler = lambda x : None):
         dictishrows = tuple(x for x in data_rows if utils.dictish(x))
-        if not all(set(x.keys()) == set(self.data_fields.get(table_name,())) for x in dictishrows):
+        if not all(set(x.keys()).issubset(self.data_fields.get(table_name,())) for x in dictishrows):
             bad_message_handler("Inconsistent data field name keys.")
             return False
         containerishrows = tuple(x for x in data_rows

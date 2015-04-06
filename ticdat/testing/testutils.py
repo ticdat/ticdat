@@ -151,6 +151,17 @@ class TestUtils(unittest.TestCase):
         mutTicDat.a["theboger"]["aData2"] =22
         self.assertTrue("theboger" in mutTicDat.a and mutTicDat.a["theboger"].values() == (0, 22, 0))
 
+        newSchema = sillyMeSchema()
+        newSchema["a"][1] += ("aData4",)
+        newFactory = TicDatFactory(**newSchema)
+        def makeNewTicDat() : return newFactory.TicDat(a=ticDat.a, b=ticDat.b, c=ticDat.c)
+        newTicDat = makeNewTicDat()
+        self.assertFalse(staticFactory.good_tic_dat_object(newTicDat))
+        self.assertTrue(newFactory.good_tic_dat_object(ticDat))
+        self.assertTrue(newFactory._same_data(makeNewTicDat(), newTicDat))
+        newTicDat.a[ticDat.a.keys()[0]]["aData4"]=12
+        self.assertFalse(newFactory._same_data(makeNewTicDat(), newTicDat))
+
     def testFive(self):
         def fksSame(fk1, fk2) :
             self.assertTrue(set(fk1.keys()) == set(fk2.keys()))
