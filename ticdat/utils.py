@@ -22,7 +22,7 @@ def memo(x) :
 def dictish(x): return all(hasattr(x, _) for _ in
                            ("__getitem__", "keys", "values", "items", "__contains__", "__len__"))
 def stringish(x): return all(hasattr(x, _) for _ in ("lower", "upper", "strip"))
-def containerish(x): return all(hasattr(x, _) for _ in ("__iter__", "__len__", "__getitem__")) \
+def containerish(x): return all(hasattr(x, _) for _ in ("__iter__", "__len__", "__contains__")) \
                                 and not stringish(x)
 def generatorish(x): return all(hasattr(x, _) for _ in ("__iter__", "next")) \
                             and not (containerish(x) or dictish(x))
