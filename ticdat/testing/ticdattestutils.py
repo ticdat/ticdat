@@ -1,10 +1,9 @@
 import os
-import ticdat.utils as utils
-from ticdat.utils import doIt, dictish, containerish
 import unittest
 from shutil import rmtree
 import itertools
 import fnmatch
+from ticdat.utils import dictish, containerish
 
 __codeFile = []
 def _codeFile() :

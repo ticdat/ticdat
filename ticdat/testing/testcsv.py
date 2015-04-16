@@ -1,11 +1,12 @@
 import os
 import unittest
 import ticdat.utils as utils
-from ticdat.ticdatfactory import TicDatFactory
-from ticdat.testing.ticdattestutils import dietData, dietSchema, netflowData, netflowSchema, firesException
-from ticdat.testing.ticdattestutils import sillyMeData, sillyMeSchema, failToDebugger, makeCleanDir, runSuite
 import shutil
-
+from ticdat.ticdatfactory import TicDatFactory
+from ticdat.testing.ticdattestutils import dietData, dietSchema, netflowData
+from ticdat.testing.ticdattestutils import  netflowSchema, firesException
+from ticdat.testing.ticdattestutils import sillyMeData, sillyMeSchema, failToDebugger
+from ticdat.testing.ticdattestutils import  makeCleanDir, runSuite
 
 #@failToDebugger
 class TestCsv(unittest.TestCase):
@@ -20,20 +21,21 @@ class TestCsv(unittest.TestCase):
         dirPath = os.path.join(_scratchDir, "diet")
         tdf.csv.write_directory(ticDat,dirPath)
         csvTicDat = tdf.csv.create_tic_dat(dirPath)
-        self.assertTrue(tdf._sameData(ticDat, csvTicDat))
+        self.assertTrue(tdf._same_data(ticDat, csvTicDat))
         def change() :
             csvTicDat.categories["calories"]["minNutrition"]=12
         self.assertFalse(firesException(change))
-        self.assertFalse(tdf._sameData(ticDat, csvTicDat))
+        self.assertFalse(tdf._same_data(ticDat, csvTicDat))
 
         self.assertTrue(self.firesException(lambda  :
-            tdf.csv.write_directory(ticDat, dirPath, dialect="excel_t")).endswith("Invalid dialect excel_t"))
+            tdf.csv.write_directory(ticDat, dirPath, dialect="excel_t")).endswith(
+                                                                        "Invalid dialect excel_t"))
 
         tdf.csv.write_directory(ticDat, dirPath, dialect="excel-tab", allow_overwrite=True)
         self.assertTrue(self.firesException(lambda : tdf.csv.create_frozen_tic_dat(dirPath)))
         csvTicDat = tdf.csv.create_frozen_tic_dat(dirPath, dialect="excel-tab")
         self.assertTrue(firesException(change))
-        self.assertTrue(tdf._sameData(ticDat, csvTicDat))
+        self.assertTrue(tdf._same_data(ticDat, csvTicDat))
 
     def testNetflow(self):
         tdf = TicDatFactory(**netflowSchema())
@@ -41,18 +43,18 @@ class TestCsv(unittest.TestCase):
         dirPath = os.path.join(_scratchDir, "netflow")
         tdf.csv.write_directory(ticDat, dirPath)
         csvTicDat = tdf.csv.create_frozen_tic_dat(dirPath)
-        self.assertTrue(tdf._sameData(ticDat, csvTicDat))
+        self.assertTrue(tdf._same_data(ticDat, csvTicDat))
         csvTicDat = tdf.csv.create_frozen_tic_dat(dirPath, headers_present=False)
-        self.assertFalse(tdf._sameData(ticDat, csvTicDat))
+        self.assertFalse(tdf._same_data(ticDat, csvTicDat))
         tdf.csv.write_directory(ticDat, dirPath, write_header=False,allow_overwrite=True)
         self.assertTrue(self.firesException(lambda  : tdf.csv.create_frozen_tic_dat(dirPath)))
         csvTicDat = tdf.csv.create_frozen_tic_dat(dirPath, headers_present=False)
-        self.assertTrue(tdf._sameData(ticDat, csvTicDat))
+        self.assertTrue(tdf._same_data(ticDat, csvTicDat))
 
         ticDat.nodes[12] = {}
         tdf.csv.write_directory(ticDat, dirPath, allow_overwrite=True)
         csvTicDat = tdf.csv.create_frozen_tic_dat(dirPath)
-        self.assertTrue(tdf._sameData(ticDat, csvTicDat))
+        self.assertTrue(tdf._same_data(ticDat, csvTicDat))
 
         # minor flaw - strings that are floatable get turned into floats when reading csvs
         del(ticDat.nodes[12])
@@ -60,7 +62,7 @@ class TestCsv(unittest.TestCase):
         self.assertTrue(firesException(lambda : tdf.csv.write_directory(ticDat, dirPath)))
         tdf.csv.write_directory(ticDat, dirPath, allow_overwrite=True)
         csvTicDat = tdf.csv.create_frozen_tic_dat(dirPath)
-        self.assertFalse(tdf._sameData(ticDat, csvTicDat))
+        self.assertFalse(tdf._same_data(ticDat, csvTicDat))
 
     def testSilly(self):
         def doTest(headersPresent) :
@@ -94,10 +96,10 @@ class TestCsv(unittest.TestCase):
             tdf.csv.write_directory(ticDat, dirPath, write_header=headersPresent)
 
             ticDat2 = tdf2.csv.create_tic_dat(dirPath, headers_present=headersPresent)
-            (self.assertFalse if headersPresent else self.assertTrue)(tdf._sameData(ticDat, ticDat2))
+            (self.assertFalse if headersPresent else self.assertTrue)(tdf._same_data(ticDat, ticDat2))
 
             ticDat3 = tdf3.csv.create_tic_dat(dirPath, headers_present=headersPresent)
-            (self.assertTrue if headersPresent else self.assertFalse)(tdf._sameData(ticDat, ticDat3))
+            (self.assertTrue if headersPresent else self.assertFalse)(tdf._same_data(ticDat, ticDat3))
 
             if headersPresent :
                 ticDat4 = tdf4.csv.create_tic_dat(dirPath, headers_present=headersPresent)
@@ -114,20 +116,21 @@ class TestCsv(unittest.TestCase):
                                     tdf4.csv.create_tic_dat(dirPath, headers_present=headersPresent)))
 
             ticDat5 = tdf5.csv.create_tic_dat(dirPath, headers_present=headersPresent)
-            (self.assertTrue if headersPresent else self.assertFalse)(tdf5._sameData(tdf._keyless(ticDat), ticDat5))
+            (self.assertTrue if headersPresent else self.assertFalse)(
+                                                    tdf5._same_data(tdf._keyless(ticDat), ticDat5))
             self.assertTrue(callable(ticDat5.a) and callable(ticDat5.c) and not callable(ticDat5.b))
 
             ticDat5b = tdf5b.csv.create_tic_dat(dirPath, headers_present=headersPresent)
-            self.assertTrue(tdf5b._sameData(tdf._keyless(ticDat), ticDat5b))
+            self.assertTrue(tdf5b._same_data(tdf._keyless(ticDat), ticDat5b))
             self.assertTrue(callable(ticDat5b.a) and callable(ticDat5b.c) and not callable(ticDat5b.b))
 
 
             ticDat6 = tdf6.csv.create_tic_dat(dirPath, headers_present=headersPresent)
-            self.assertTrue(tdf._sameData(ticDat, ticDat6))
-            self.assertTrue(firesException(lambda : tdf6._sameData(ticDat, ticDat6)))
+            self.assertTrue(tdf._same_data(ticDat, ticDat6))
+            self.assertTrue(firesException(lambda : tdf6._same_data(ticDat, ticDat6)))
             self.assertTrue(hasattr(ticDat6, "d") and utils.dictish(ticDat6.d))
 
-        utils.doIt(doTest(x) for x in (True, False))
+        utils.do_it(doTest(x) for x in (True, False))
 
 _scratchDir = TestCsv.__name__ + "_scratch"
 

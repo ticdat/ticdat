@@ -151,10 +151,32 @@ class TestUtils(unittest.TestCase):
         mutTicDat.a["theboger"]["aData2"] =22
         self.assertTrue("theboger" in mutTicDat.a and mutTicDat.a["theboger"].values() == (0, 22, 0))
 
+        newSchema = sillyMeSchema()
+        newSchema["a"][1] += ("aData4",)
+        newFactory = TicDatFactory(**newSchema)
+        def makeNewTicDat() : return newFactory.TicDat(a=ticDat.a, b=ticDat.b, c=ticDat.c)
+        newTicDat = makeNewTicDat()
+        self.assertFalse(staticFactory.good_tic_dat_object(newTicDat))
+        self.assertTrue(newFactory.good_tic_dat_object(ticDat))
+        self.assertTrue(newFactory._same_data(makeNewTicDat(), newTicDat))
+        newTicDat.a[ticDat.a.keys()[0]]["aData4"]=12
+        self.assertFalse(newFactory._same_data(makeNewTicDat(), newTicDat))
+
     def testFive(self):
+        def fksSame(fk1, fk2) :
+            self.assertTrue(set(fk1.keys()) == set(fk2.keys()))
+            def addCardinality(fks):
+                for fk in fks:
+                    if "cardinality" not in fk :
+                        fk["cardinality"] = fk.get("cardinality", "many-to-one")
+            flatten = lambda x: [_ for z in x for _ in z]
+            addCardinality(flatten(fk1.values())), addCardinality(flatten(fk2.values()))
+            for t, fks in fk1.items():
+                for fk in fks :
+                    self.assertTrue(fk in fk2[t])
         tdf = TicDatFactory(**netflowSchema())
         addNetflowForeignKeys(tdf)
-        self.assertTrue(tdf.foreign_keys == dict(arcs =  ({'foreignTable': u'nodes','mappings': {u'source': u'name'}},
+        fksSame(tdf.foreign_keys, dict(arcs =  ({'foreignTable': u'nodes','mappings': {u'source': u'name'}},
                             {'foreignTable': u'nodes', 'mappings': {u'destination': u'name'}}),
                             cost = ({'foreignTable': u'nodes','mappings': {u'source': u'name'}},
                             {'foreignTable': u'nodes', 'mappings': {u'destination': u'name'}},
@@ -162,7 +184,7 @@ class TestUtils(unittest.TestCase):
                             inflow = ({'foreignTable': u'commodities', 'mappings': {u'commodity': u'name'}},
                                       {'foreignTable': u'nodes', 'mappings': {u'node': u'name'}})))
         tdf.clear_foreign_keys("cost")
-        self.assertTrue(tdf.foreign_keys == dict(arcs =  ({'foreignTable': u'nodes','mappings': {u'source': u'name'}},
+        fksSame(tdf.foreign_keys, dict(arcs =  ({'foreignTable': u'nodes','mappings': {u'source': u'name'}},
                             {'foreignTable': u'nodes', 'mappings': {u'destination': u'name'}}),
                             inflow = ({'foreignTable': u'commodities', 'mappings': {u'commodity': u'name'}},
                                       {'foreignTable': u'nodes', 'mappings': {u'node': u'name'}})))
@@ -171,7 +193,7 @@ class TestUtils(unittest.TestCase):
         self.assertFalse(tdf.foreign_keys)
         addDietForeignKeys(tdf)
 
-        self.assertTrue(tdf.foreign_keys == {"nutritionQuantities"  :
+        fksSame(tdf.foreign_keys, {"nutritionQuantities"  :
                             ({'foreignTable': u'categories', 'mappings': {u'category': u'name'}},
                             {'foreignTable': u'foods', 'mappings': {u'food': u'name'}})})
         tdf.TicDat()
@@ -181,6 +203,33 @@ class TestUtils(unittest.TestCase):
         addDietForeignKeys(tdf)
         tdf.clear_foreign_keys("nutritionQuantities")
         self.assertFalse(tdf.foreign_keys)
+
+        tdf = TicDatFactory(parentTable = [["pk"],["pd1", "pd2", "pd3"]],
+                            goodChild = [["gk"], ["gd1", "gd2"]],
+                            badChild = [["bk1", "bk2"], ["bd"]],
+                            appendageChild = [["ak"], ["ad1", "ad2"]],
+                            appendageBadChild = [["bk1", "bk2"], []])
+        tdf.add_foreign_key("goodChild", "parentTable", {"gd1" : "pk"})
+        tdf.add_foreign_key("badChild", "parentTable", {"bk2" : "pk"})
+        self.assertTrue("many-to-many" in self.firesException(lambda :
+                tdf.add_foreign_key("badChild", "parentTable", {"bd" : "pd2"})))
+        tdf.add_foreign_key("appendageChild", "parentTable", {"ak" : "pk"})
+        tdf.add_foreign_key("appendageBadChild", "badChild", {"bk2" : "bk2", "bk1":"bk1"})
+        fks = tdf.foreign_keys
+        self.assertTrue(fks["goodChild"][0]["cardinality"] == "many-to-one")
+        self.assertTrue(fks["badChild"][0]["cardinality"] == "many-to-one")
+        self.assertTrue(fks["appendageChild"][0]["cardinality"] == "one-to-one")
+        self.assertTrue(fks["appendageBadChild"][0]["cardinality"] == "one-to-one")
+
+        tdf.clear_foreign_keys("appendageBadChild")
+        self.assertTrue(tdf.foreign_keys and "appendageBadChild" not in tdf.foreign_keys)
+        tdf.clear_foreign_keys()
+        self.assertFalse(tdf.foreign_keys)
+
+
+
+
+
 
 
 
