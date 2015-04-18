@@ -397,8 +397,6 @@ foreign keys, the code throwing this exception will be removed.
             return self._good_data_rows(data_table, table_name, bad_message_handler)
         bad_message_handler("Unexpected ticDat table type for %s."%table_name)
         return False
-
-
     def _good_ticdat_key_container(self, ticdat_table, tablename,
                                   bad_msg_handler = lambda x : None) :
         assert containerish(ticdat_table) and not dictish(ticdat_table)
@@ -438,7 +436,6 @@ foreign keys, the code throwing this exception will be removed.
                 "Non-container data rows supported only for single-data-field tables")
             return False
         return True
-
     def _keyless(self, obj):
         assert self.good_tic_dat_object(obj)
         class _ (object) :
@@ -459,13 +456,22 @@ foreign keys, the code throwing this exception will be removed.
     def _same_data(self, obj1, obj2):
         assert self.good_tic_dat_object(obj1) and self.good_tic_dat_object(obj2)
         def samerow(r1, r2) :
-            assert dictish(r1) and dictish(r2)
-            if bool(r1) != bool(r2) or set(r1) != set(r2) :
-                return False
-            for _k in r1:
-                if r1[_k] != r2[_k] :
+            if dictish(r1) and dictish(r2):
+                if bool(r1) != bool(r2) or set(r1) != set(r2) :
                     return False
-            return True
+                for _k in r1:
+                    if r1[_k] != r2[_k] :
+                        return False
+                return True
+            if dictish(r2) and not dictish(r1) :
+                return samerow(r2, r1)
+            def containerize(_r) :
+                if utils.containerish(_r) :
+                    return list(_r)
+                return [_r,]
+            if dictish(r1) :
+                return list(r1.values()) == containerize(r2)
+            return containerize(r1) == containerize(r2)
         for t in self.all_tables :
             t1 = getattr(obj1, t)
             t2 = getattr(obj2, t)
@@ -485,11 +491,23 @@ foreign keys, the code throwing this exception will be removed.
                     if not any (samerow(r1, r2) for r2 in _iter(t2)) :
                         return False
         return True
-
+    def copy_tic_dat(self, tic_dat, freeze_it = False):
+        """
+        copies the tic_dat object into a new tic_dat object
+        performs a deep copy
+        :param tic_dat: a ticdat object
+        :param freeze_it: boolean. should the returned object be frozen?
+        :return: a deep copy of the tic_dat argument
+        """
+        msg  = []
+        verify(self.good_tic_dat_object(tic_dat, msg.append),
+               "tic_dat not a good object for this factory : %s"%"\n".join(msg))
+        rtn = self.TicDat(**{t:getattr(tic_dat, t) for t in self.all_tables})
+        return freeze_me(rtn) if freeze_it else rtn
 def freeze_me(x) :
     """
-    Freezes a
-    :param x: ticDat object
+    Freezes a ticdat object
+    :param x: ticdat object
     :return: x, after it has been frozen
     """
     verify(hasattr(x, "_freeze"), "x not a freezeable object")
