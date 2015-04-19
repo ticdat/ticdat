@@ -236,13 +236,6 @@ class TestUtils(unittest.TestCase):
         self.assertFalse(tdf.foreign_keys)
 
 
-
-
-
-
-
-
-
 def runTheTests(fastOnly=True) :
     runSuite(TestUtils, fastOnly=fastOnly)
 
