@@ -23,8 +23,17 @@ class TestUtils(unittest.TestCase):
         dataObj = dietData()
         tdf = TicDatFactory(**dietSchema())
         self.assertTrue(tdf.good_tic_dat_object(dataObj))
+        dataObj2 = tdf.copy_tic_dat(dataObj)
+        dataObj3 = tdf.copy_tic_dat(dataObj, freeze_it=True)
+        self.assertTrue(all (tdf._same_data(dataObj, x) and dataObj is not x for x in (dataObj2, dataObj3)))
         dataObj = _cleanIt(dataObj)
         self.assertTrue(tdf.good_tic_dat_object(dataObj))
+        self.assertTrue(all (tdf._same_data(dataObj, x) and dataObj is not x for x in (dataObj2, dataObj3)))
+        def hackit(x) :
+            x.foods["macaroni"] = 100
+        self.assertTrue(self.firesException(lambda :hackit(dataObj3)))
+        hackit(dataObj2)
+        self.assertTrue(not tdf._same_data(dataObj, dataObj2) and  tdf._same_data(dataObj, dataObj3))
 
         msg = []
         dataObj.foods[("milk", "cookies")] = {"cost": float("inf")}
@@ -225,13 +234,6 @@ class TestUtils(unittest.TestCase):
         self.assertTrue(tdf.foreign_keys and "appendageBadChild" not in tdf.foreign_keys)
         tdf.clear_foreign_keys()
         self.assertFalse(tdf.foreign_keys)
-
-
-
-
-
-
-
 
 
 def runTheTests(fastOnly=True) :
