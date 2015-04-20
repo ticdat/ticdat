@@ -41,6 +41,7 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
         :return: a TicDat object populated by the matching sheets.
         caveats: Missing sheets resolve to an empty table, but missing fields
                  on matching sheets throw an Exception.
+                 Sheet names are considered case insensitive
         """
         return self.tic_dat_factory.TicDat(**self._create_tic_dat(xls_file_path, row_offsets))
     def create_frozen_tic_dat(self, xls_file_path, row_offsets={}):
@@ -50,6 +51,9 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
                               the table names in the schema.
         :param row_offsets: (optional) A mapping from table names to initial
                             number of rows to skip
+        caveats: Missing sheets resolve to an empty table, but missing fields
+                 on matching sheets throw an Exception.
+                 Sheet names are considered case insensitive
         :return:
         """
         return self.tic_dat_factory.FrozenTicDat(**self._create_tic_dat(xls_file_path, row_offsets))
@@ -60,7 +64,7 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
             raise TicDatError("Unable to open %s as xls file : %s"%(xls_file_path, e.message))
         sheets = defaultdict(list)
         for table, sheet in product(all_tables, book.sheets()) :
-            if table == sheet.name :
+            if table.lower() == sheet.name.lower() :
                 sheets[table].append(sheet)
         duplicated_sheets = tuple(_t for _t,_s in sheets.items() if len(_s) > 1)
         verify(not duplicated_sheets, "The following sheet names were duplicated : " +
