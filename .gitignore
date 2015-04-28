@@ -6,3 +6,4 @@ gurobi.log
 *solution/*.csv
 .idea/*
 .idea
+*.pyo
