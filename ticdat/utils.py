@@ -117,9 +117,10 @@ def td_row_factory(table, key_field_names, data_field_names, default_values={}):
                        (table, len(self)))
                 self._data[0] = x
         def __getitem__(self, item):
-            verify(item in fieldtoindex, "Key error : %s not data field name for table %s"%
-                   (item, table))
-            return self._data[fieldtoindex[item]]
+            try :
+                return self._data[fieldtoindex[item]]
+            except :
+                raise TicDatError("Key error : %s not data field name for table %s"% (item, table))
         def __setitem__(self, key, value):
             verify(key in fieldtoindex, "Key error : %s not data field name for table %s"%
                    (key, table))
