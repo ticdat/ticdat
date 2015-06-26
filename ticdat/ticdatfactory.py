@@ -326,7 +326,8 @@ foreign keys, the code throwing this exception will be removed.
                                         assert not hasattr(linkrow, linkname)
                                         setattr(linkrow, linkname,row)
                                     else :
-                                        _key = tuple(x for i,x in enumerate(keyrow[:-len(row)])
+                                        _key = keyrow[:-len(row)] if row else keyrow
+                                        _key = tuple(x for i,x in enumerate(_key)
                                                      if i in unused_local_posn)
                                         getattr(linkrow, linkname)\
                                             [_key[0] if len(_key) == 1 else _key] = row
