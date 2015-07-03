@@ -50,19 +50,19 @@ class FreezeableDict(_FreezableDictBase) :
     def __setitem__(self, key, value):
         if not getattr(self, "_dataFrozen", False) :
             return super(FreezeableDict, self).__setitem__(key, value)
-        raise TicDatError("Can't edit a " + self.__class__.__name__)
+        raise TicDatError("Can't edit a frozen " + self.__class__.__name__)
     def __delitem__(self, key):
         if not getattr(self, "_dataFrozen", False) :
             return super(FreezeableDict, self).__delitem__(key)
-        raise TicDatError("Can't edit a " + self.__class__.__name__)
+        raise TicDatError("Can't edit a frozen " + self.__class__.__name__)
     def update(self, *args, **kwargs) :
         if not getattr(self, "_dataFrozen", False) :
             return super(FreezeableDict, self).update(*args, **kwargs)
-        raise TicDatError("Can't edit a " + self.__class__.__name__)
+        raise TicDatError("Can't edit a frozen " + self.__class__.__name__)
     def pop(self, *args, **kwargs) :
         if not getattr(self, "_dataFrozen", False) :
             return super(FreezeableDict, self).pop(*args, **kwargs)
-        raise TicDatError("Can't edit a " + self.__class__.__name__)
+        raise TicDatError("Can't edit a frozen " + self.__class__.__name__)
 
 class FrozenDict(FreezeableDict) :
     def __init__(self, *args, **kwargs):
