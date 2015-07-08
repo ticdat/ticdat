@@ -142,6 +142,24 @@ foreign keys, the code throwing this exception will be removed.
                     self._linkName[nativetable, foreigntable, nativeFields] = \
                         "_".join([nativetable] + [x for x in trialLinkName or nativeFields])
         self._has_been_used[:] = [True]
+    def pickle_this(self, ticdat):
+        '''
+        As a nested class, TicDat and FrozenTicDat objects cannot be pickled
+        directly. Instead, the dictionary returned by this function can be pickled.
+        For unpickling, first unpickle the pickled 'pickle_this' dictionary, and then pass it,
+        unpacked, to the TicDat/FrozenTicDat constructor.
+        :param ticdat: a TicDat or FrozenTicDat object whose data is to be returned as a pickleable dict
+        :return: A dictionary that can either be pickled, or unpacked to a
+                TicDat/FrozenTicDat constructor
+        '''
+        verify(not self.generator_tables, "Can't pickle generator tables.")
+        rtn = {}
+        dict_tables = {t for t,pk in self.primary_key_fields.items() if pk}
+        for t in dict_tables:
+            rtn[t] = {pk : {k:v for k,v in row.items()} for pk,row in getattr(ticdat,t).items()}
+        for t in set(self.all_tables).difference(dict_tables):
+            rtn[t] = [{k:v for k,v in row.items()} for row in getattr(ticdat, t)]
+        return rtn
     def __init__(self, **init_fields):
         """
         create a TicDatFactory
@@ -252,23 +270,6 @@ foreign keys, the code throwing this exception will be removed.
         class TicDat(_TicDat) :
             def _generatorfactory(self, data, tableName):
                 return generatorfactory(data, tableName)
-            def pickle_this(self):
-                '''
-                As a nested class, TicDat and FrozenTicDat objects cannot be pickled
-                directly. Instead, the dictionary returned by this function can be pickled.
-                For unpickling, first unpickle the pickled 'pickle_this' dictionary, and then pass it,
-                unpacked, to the TicDat/FrozenTicDat constructor.
-                :return: A dictionary that can either be pickled, or unpacked to a
-                        TicDat/FrozenTicDat constructor
-                '''
-                verify(not superself.generator_tables, "Can't pickle generator tables.")
-                rtn = {}
-                dict_tables = {t for t,pk in superself.primary_key_fields.items() if pk}
-                for t in dict_tables:
-                    rtn[t] = {pk : {k:v for k,v in row.items()} for pk,row in getattr(self,t).items()}
-                for t in set(superself.all_tables).difference(dict_tables):
-                    rtn[t] = [{k:v for k,v in row.items()} for row in getattr(self, t)]
-                return rtn
             def __init__(self, **init_tables):
                 superself._trigger_has_been_used()
                 self._all_data_dicts = []
