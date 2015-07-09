@@ -25,7 +25,7 @@ class TestUtils(unittest.TestCase):
         self.assertTrue(tdf.good_tic_dat_object(dataObj))
         dataObj2 = tdf.copy_tic_dat(dataObj)
         dataObj3 = tdf.copy_tic_dat(dataObj, freeze_it=True)
-        dataObj4 = tdf.TicDat(**dataObj3.pickle_this())
+        dataObj4 = tdf.TicDat(**tdf.pickle_this(dataObj3))
         self.assertTrue(all (tdf._same_data(dataObj, x) and dataObj is not x for x in (dataObj2, dataObj3, dataObj4)))
         dataObj = _cleanIt(dataObj)
         self.assertTrue(tdf.good_tic_dat_object(dataObj))
@@ -146,7 +146,7 @@ class TestUtils(unittest.TestCase):
         self.assertTrue(staticFactory.good_tic_dat_object(ticDat))
         for t in tables :
             self._assertSame(objOrig[t], getattr(ticDat,t), goodTable(t))
-        pickedData = staticFactory.TicDat(**ticDat.pickle_this())
+        pickedData = staticFactory.TicDat(**staticFactory.pickle_this(ticDat))
         self.assertTrue(staticFactory._same_data(ticDat, pickedData))
         mutTicDat = staticFactory.TicDat()
         for k,v in ticDat.a.items() :
