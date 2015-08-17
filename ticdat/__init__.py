@@ -18,4 +18,5 @@ The ticDat library is distributed freely and without liability. ??LEGAL BALLIWIC
 """
 
 from ticdatfactory import TicDatFactory, freeze_me
-__all__ = ["TicDatFactory", "freeze_me"]
+from logfile import LogFactory
+__all__ = ["TicDatFactory", "freeze_me", "LogFactory"]

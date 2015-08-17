@@ -6,6 +6,8 @@
 # http://amzn.to/1Lbd6By
 #
 
+import time
+import datetime
 import gurobipy as gu
 from ticdat import TicDatFactory, freeze_me
 
@@ -23,87 +25,139 @@ solutionFactory = TicDatFactory(
     assignments = [['site', 'assigned_to'],[]],
     parameters  = [["key_"], ["value"]])
 
-def solve(dat):
+def timeStamp() :
+    ts = time.time()
+    return datetime.datetime.fromtimestamp(ts).strftime('%Y-%m-%d %H:%M:%S')
+
+def solve(dat, logFactory, progressFunction = lambda progDict : True):
     assert dataFactory.good_tic_dat_object(dat)
+    with logFactory.LogFile("output.txt") as out :
+        out.write("COG output log\n%s\n\n"%timeStamp())
+        with logFactory.LogFile("error.txt") as err:
+            err.write("COG error log\n%s\n\n"%timeStamp())
 
-    m = gu.Model("cog")
+            def getDistance(x,y):
+                if (x,y) in dat.distance:
+                    return dat.distance[x,y]["distance"]
+                if (y,x) in dat.distance:
+                    return dat.distance[y,x]["distance"]
+                return float("inf")
 
-    def getDistance(x,y):
-        if (x,y) in dat.distance:
-            return dat.distance[x,y]["distance"]
-        if (y,x) in dat.distance:
-            return dat.distance[y,x]["distance"]
-        return float("inf")
+            def canAssign(x, y):
+                return dat.sites[y]["center_status"] == "canBeCenter" and getDistance(x,y)<float("inf")
 
-    assignVars = { (n, assignedTo) : m.addVar(vtype = gu.GRB.BINARY, name = "%s_%s"%(n,assignedTo),
-                                              obj = distance * dat.sites[n]["demand"])
-            for n in dat.sites for assignedTo in dat.sites
-            for distance in (getDistance(n, assignedTo),)
-            if dat.sites[assignedTo]["center_status"] == "canBeCenter" and distance < float("inf")}
-    openVars = { n : m.addVar(vtype = gu.GRB.BINARY, name = "open_%s"%n)
+
+            unassignables = [n for n in dat.sites if not any(canAssign(n,y) for y in dat.sites) and
+                                                     dat.sites[n]["demand"] > 0]
+            if unassignables:
+                err.write("The following sites have demand, but can't be assigned to anything.\n")
+                err.long_sequence(unassignables)
+                return
+
+            useless = [n for n in dat.sites if not any(canAssign(y,n) for y in dat.sites) and
+                                                     dat.sites[n]["demand"] == 0]
+            if useless:
+                err.write(
+"The following sites have no demand, and serve as the center point for any assignments.\n")
+                err.long_sequence(useless)
+
+            progressFunction({"Feasibility Analysis" : 100})
+
+            m = gu.Model("cog")
+
+            assignVars = { (n, assignedTo) : m.addVar(vtype = gu.GRB.BINARY,
+                                                name = "%s_%s"%(n,assignedTo),
+                                                obj = getDistance(n,assignedTo) * dat.sites[n]["demand"])
+                    for n in dat.sites for assignedTo in dat.sites if canAssign(n,assignedTo)}
+            openVars = { n : m.addVar(vtype = gu.GRB.BINARY, name = "open_%s"%n)
                             for n in dat.sites if dat.sites[n]["center_status"] == "canBeCenter"}
-    if not openVars:
-        print "Nothing can be a center!"
-        return
+            if not openVars:
+                err.write("Nothing can be a center!\n")
+                return
 
-    m.update()
+            m.update()
 
-    inboundAssignVars = {assignedTo : set() for assignedTo in openVars}
-    outboundAssignVars = {n : 0 for n in dat.sites}
-    for (n,assignedTo),assignVar in assignVars.items() :
-        inboundAssignVars[assignedTo].add(assignVar)
-        outboundAssignVars[n] += assignVar
+            progressFunction({"Core Model Creation" : 50})
 
-    for n, varSum in outboundAssignVars.items():
-        m.addConstr(varSum == 1, name = "must_assign_%s"%n)
+            inboundAssignVars = {assignedTo : set() for assignedTo in openVars}
+            outboundAssignVars = {n : 0 for n in dat.sites}
+            for (n,assignedTo),assignVar in assignVars.items() :
+                inboundAssignVars[assignedTo].add(assignVar)
+                outboundAssignVars[n] += assignVar
 
-    crippledForDemo = "formulation" in dat.parameters and dat.parameters["formulation"]["value"] == "weak"
-    if crippledForDemo:
-        for assignedTo, _assignVars in inboundAssignVars.items() :
-            m.addConstr(gu.quicksum(_assignVars) <= len(_assignVars) * openVars[assignedTo],
-                        name="weak_force_open%s"%assignedTo)
-    else:
-        for assignedTo, _assignVars in inboundAssignVars.items() :
-            for var in _assignVars :
-                m.addConstr(var <= openVars[assignedTo], name = "strong_force_open_%s"%assignedTo)
+            for n, varSum in outboundAssignVars.items():
+                if dat.sites[n]["demand"] > 0:
+                    m.addConstr(varSum == 1, name = "must_assign_%s"%n)
 
-    numberOfCentroids = dat.parameters["numberOfCentroids"]["value"] if "numberOfCentroids" in dat.parameters else 1
-    m.addConstr(gu.quicksum(v for v in openVars.values()) == numberOfCentroids, name= "numCentroids")
+            crippledForDemo = "formulation" in dat.parameters and \
+                              dat.parameters["formulation"]["value"] == "weak"
+            if crippledForDemo:
+                for assignedTo, _assignVars in inboundAssignVars.items() :
+                    m.addConstr(gu.quicksum(_assignVars) <= len(_assignVars) * openVars[assignedTo],
+                                name="weak_force_open%s"%assignedTo)
+            else:
+                for assignedTo, _assignVars in inboundAssignVars.items() :
+                    for var in _assignVars :
+                        m.addConstr(var <= openVars[assignedTo],
+                                    name = "strong_force_open_%s"%assignedTo)
 
-    if "mipGap" in dat.parameters:
-        m.Params.MIPGap = dat.parameters["mipGat"]["value"]
+            numberOfCentroids = dat.parameters["numberOfCentroids"]["value"] \
+                                if "numberOfCentroids" in dat.parameters else 1
+            m.addConstr(gu.quicksum(v for v in openVars.values()) == numberOfCentroids,
+                        name= "numCentroids")
 
-    m.update()
-    m.optimize()
+            if "mipGap" in dat.parameters:
+                m.Params.MIPGap = dat.parameters["mipGap"]["value"]
+            m.update()
+            if "lpFileName" in dat.parameters:
+                m.write(dat.parameters["lpFileName"]["value"])
 
-    if not hasattr(m, "status"):
-        print "missing status - likely premature termination"
-        return
-    for failStr,grbKey in (("inf_or_unbd", gu.GRB.INF_OR_UNBD), ("infeasible", gu.GRB.INFEASIBLE),
-                              ("unbounded", gu.GRB.UNBOUNDED)):
-         if m.status == grbKey:
-            print "Optimization failed due to model status of %s"%failStr
-            return
+            progressFunction({"Core Model Creation" : 100})
 
-    if m.status != gu.GRB.OPTIMAL:
-        print "unexpected status %s"%m.status
-        return
+            with logFactory.GurobiCallBackAndLog(dat.parameters["guLogFileName"]["value"]
+                    if "guLogFileName" in dat.parameters else None,
+                    lambda lb,ub : progressFunction({"Lower Bound":lb, "Upper Bound":ub})) as guLog:
+                m.optimize(guLog.create_gurobi_callback())
 
-    sln = solutionFactory.TicDat()
-    sln.parameters["Lower Bound"] = getattr(m, "objBound", m.objVal)
-    sln.parameters["Upper Bound"] = m.objVal
+            progressFunction({"Core Optimization" : 100})
 
-    def almostOne(x) :
-        return abs(x-1) < 0.0001
+            if not hasattr(m, "status"):
+                print "missing status - likely premature termination"
+                return
+            for failStr,grbKey in (("inf_or_unbd", gu.GRB.INF_OR_UNBD),
+                                   ("infeasible", gu.GRB.INFEASIBLE),
+                                   ("unbounded", gu.GRB.UNBOUNDED)):
+                 if m.status == grbKey:
+                    print "Optimization failed due to model status of %s"%failStr
+                    return
 
-    for (n, assignedTo), var in assignVars.items() :
-        if almostOne(var.x) :
-            sln.assignments[n,assignedTo] = {}
-    for n,var in openVars.items() :
-        if almostOne(var.x) :
-            sln.openings[n]={}
+            if m.status == gu.GRB.INTERRUPTED:
+                err.write("Solve process interrupted by user feedback\n")
+                if not all(hasattr(var, "x") for var in openVars.values()):
+                    err.write("No solution was found\n")
+                    return
+            elif m.status != gu.GRB.OPTIMAL:
+                err.write("unexpected status %s\n"%m.status)
+                return
 
-    return sln
+            sln = solutionFactory.TicDat()
+            sln.parameters["Lower Bound"] = getattr(m, "objBound", m.objVal)
+            sln.parameters["Upper Bound"] = m.objVal
+            out.write('Upper Bound: %g\n' % sln.parameters["Upper Bound"]["value"])
+            out.write('Lower Bound: %g\n' % sln.parameters["Lower Bound"]["value"])
+
+            def almostOne(x) :
+                return abs(x-1) < 0.0001
+
+            for (n, assignedTo), var in assignVars.items() :
+                if almostOne(var.x) :
+                    sln.assignments[n,assignedTo] = {}
+            for n,var in openVars.items() :
+                if almostOne(var.x) :
+                    sln.openings[n]={}
+            out.write('Number Centroids: %s\n' % len(sln.openings))
+            progressFunction({"Full Cog Solve" : 100})
+            return freeze_me(sln)
 
 
 
