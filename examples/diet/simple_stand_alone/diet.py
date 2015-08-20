@@ -16,7 +16,7 @@ from gurobipy import *
 class _(object) :
     pass
 
-dat = _() # simplest object whose attributes can be monkey-patching
+dat = _() # simplest object with ticDat attributes from monkey-patching
           # note that monkey-patching is a poor practice for industrial
           # software, but fine for a small, self-contained example
 
