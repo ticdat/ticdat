@@ -14,6 +14,15 @@ class TestXls(unittest.TestCase):
         if e :
             self.assertTrue("TicDatError" in e.__class__.__name__)
             return e.message
+    def _testBasicRowCounts(self, filePath, tdf, ticDat):
+        rowCnts = tdf.xls.get_row_counts(filePath)
+        self.assertTrue(all(hasattr(ticDat, k) for k in rowCnts) and set(rowCnts) == set(tdf.primary_key_fields))
+        for t in tdf.primary_key_fields:
+            self.assertTrue(len(rowCnts[t]) == len(getattr(ticDat,t)))
+            self.assertTrue(all(v == 1 for v in rowCnts[t].values()))
+
+        self.assertFalse(tdf.xls.get_row_counts(filePath, keep_only_duplicates=True))
+
     def testDiet(self):
         tdf = TicDatFactory(**dietSchema())
         ticDat = tdf.FrozenTicDat(**{t:getattr(dietData(),t) for t in tdf.primary_key_fields})
@@ -23,6 +32,10 @@ class TestXls(unittest.TestCase):
         self.assertTrue(tdf._same_data(ticDat, xlsTicDat))
         xlsTicDat.categories["calories"]["minNutrition"]=12
         self.assertFalse(tdf._same_data(ticDat, xlsTicDat))
+
+        self._testBasicRowCounts(filePath, tdf, xlsTicDat)
+
+
     def testNetflow(self):
         tdf = TicDatFactory(**netflowSchema())
         ticDat = tdf.FrozenTicDat(**{t:getattr(netflowData(),t) for t in tdf.primary_key_fields})
@@ -39,6 +52,8 @@ class TestXls(unittest.TestCase):
         self.assertTrue(tdf._same_data(ticDat, xlsTicDat))
         self.assertFalse(self.firesException(changeIt))
         self.assertFalse(tdf._same_data(ticDat, xlsTicDat))
+
+        self._testBasicRowCounts(filePath, tdf, xlsTicDat)
 
         pkHacked = netflowSchema()
         pkHacked["nodes"][0] = ["nimrod"]
@@ -94,22 +109,26 @@ class TestXls(unittest.TestCase):
         self.assertTrue(firesException(lambda : tdf6._same_data(ticDat, ticDat6)))
         self.assertTrue(hasattr(ticDat6, "d") and utils.dictish(ticDat6.d))
 
-        import xlwt
-        book = xlwt.Workbook()
-        for t in tdf.all_tables :
-            sheet = book.add_sheet(t)
-            for i,f in enumerate(tdf.primary_key_fields.get(t, ()) + tdf.data_fields.get(t, ())) :
-                sheet.write(0, i, f)
-            for rowInd, row in enumerate( [(1, 2, 3, 4), (1, 20, 30, 40), (10, 20, 30, 40)]) :
-                for fieldInd, cellValue in enumerate(row):
-                    sheet.write(rowInd+1, fieldInd, cellValue)
-        if os.path.exists(filePath):
-            os.remove(filePath)
-        book.save(filePath)
+        def writeData(data):
+            import xlwt
+            book = xlwt.Workbook()
+            for t in tdf.all_tables :
+                sheet = book.add_sheet(t)
+                for i,f in enumerate(tdf.primary_key_fields.get(t, ()) + tdf.data_fields.get(t, ())) :
+                    sheet.write(0, i, f)
+                for rowInd, row in enumerate(data) :
+                    for fieldInd, cellValue in enumerate(row):
+                        sheet.write(rowInd+1, fieldInd, cellValue)
+            if os.path.exists(filePath):
+                os.remove(filePath)
+            book.save(filePath)
 
+        writeData([(1, 2, 3, 4), (1, 20, 30, 40), (10, 20, 30, 40)])
         ticDatMan = tdf.xls.create_frozen_tic_dat(filePath)
         self.assertTrue(len(ticDatMan.a) == 2 and len(ticDatMan.b) == 3)
         self.assertTrue(ticDatMan.b[(1, 20, 30)]["bData"] == 40)
+        rowCount = tdf.xls.get_row_counts(filePath, keep_only_duplicates=True)
+        self.assertTrue(set(rowCount) == {'a'} and set(rowCount["a"]) == {1} and rowCount["a"][1]==2)
 
         ticDat.a["theboger"] = (1, None, 12)
         tdf.xls.write_file(ticDat, filePath, allow_overwrite=True)
@@ -118,6 +137,12 @@ class TestXls(unittest.TestCase):
         # not sure how to handle this, but documenting for now.
         self.assertFalse(tdf._same_data(ticDat, ticDatNone))
         self.assertTrue(ticDatNone.a["theboger"]["aData2"] == "")
+
+        writeData([(1, 2, 3, 4), (1, 20, 30, 40), (10, 20, 30, 40), (1,20,30,12)])
+        rowCount = tdf.xls.get_row_counts(filePath, keep_only_duplicates=True)
+        self.assertTrue(set(rowCount) == {'a', 'b'} and set(rowCount["a"]) == {1} and rowCount["a"][1]==3)
+        self.assertTrue(set(rowCount["b"]) == {(1,20,30)} and rowCount["b"][1,20,30]==2)
+
 
     def testRowOffsets(self):
         tdf = TicDatFactory(boger = [[],["the", "big", "boger"]],

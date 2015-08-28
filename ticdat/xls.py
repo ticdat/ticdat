@@ -120,6 +120,44 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
             rtn[table] = self._create_generator_obj(xls_file_path, table, row_offsets[table])
         return rtn
 
+    def get_row_counts(self, xls_file_path, row_offsets={}, keep_only_duplicates = False):
+        """
+        Find the row counts indexed by primary key for an Xls file
+        :param xls_file_path: An Excel file containing sheets whose names match
+                              the table names in the schema (non primary key tables ignored).
+        :param row_offsets: (optional) A mapping from table names to initial
+                            number of rows to skip (non primary key tables ignored)
+        :param keep_only_duplicates: (optional) (Boolean) If true, then only
+                                      rowcounts greater than 2 are returned.
+        caveats: Missing sheets resolve to an empty table, but missing primary fields
+                 on matching sheets throw an Exception.
+                 Sheet names are considered case insensitive.
+        :return: A dictionary whose keys are the table names for the primary key tables. Each value
+                 of the return dictionary is itself a dictionary. The inner dictionary is keyed by the
+                 primary key values encountered in the table, and the value is the count of records in the
+                 Excel sheet with this primary key. If keep_only_duplicates then row counts smaller than
+                 2 are pruned off, as they aren't duplicates
+        """
+        verify(utls.dictish(row_offsets) and
+               set(row_offsets).issubset(self.tic_dat_factory.all_tables) and
+               all(utls.numericish(x) and (x>=0) for x in row_offsets.values()),
+               "row_offsets needs to map from table names to non negative row offset")
+        row_offsets = dict({t:0 for t in self.tic_dat_factory.all_tables}, **row_offsets)
+        tdf = self.tic_dat_factory
+        pk_tables = tuple(t for t,_ in tdf.primary_key_fields.items() if _)
+        rtn = {t:defaultdict(int) for t in pk_tables}
+        sheets, fieldIndicies = self._get_sheets_and_fields(xls_file_path, pk_tables, row_offsets)
+        for table, sheet in sheets.items() :
+            fields = tdf.primary_key_fields[table] + tdf.data_fields.get(table, ())
+            indicies = fieldIndicies[table]
+            table_len = min(len(sheet.col_values(indicies[field])) for field in fields)
+            for x in (sheet.row_values(i) for i in range(table_len)[row_offsets[table]+1:]) :
+                rtn[table][self._sub_tuple(tdf.primary_key_fields[table], indicies)(x)] += 1
+        for t in rtn.keys():
+            rtn[t] = {k:v for k,v in rtn[t].items() if v > 1 or not keep_only_duplicates}
+            if keep_only_duplicates and not rtn[t]:
+                del(rtn[t])
+        return rtn
     def _sub_tuple(self, fields, field_indicies) :
         assert set(fields).issubset(field_indicies)
         def rtn(x) :
