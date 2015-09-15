@@ -18,8 +18,8 @@ class TestSql(unittest.TestCase):
     def testDiet(self):
         def doTheTests(tdf) :
             ticDat = tdf.FrozenTicDat(**{t:getattr(dietData(),t) for t in tdf.primary_key_fields})
-            filePath = makeCleanPath(os.path.join(_scratchDir, "diet.sql"))
-            tdf.sql.write_file(ticDat, filePath)
+            filePath = makeCleanPath(os.path.join(_scratchDir, "diet.db"))
+            tdf.sql.write_db_data(ticDat, filePath)
             sqlTicDat = tdf.sql.create_tic_dat(filePath)
             self.assertTrue(tdf._same_data(ticDat, sqlTicDat))
             def changeit() :
@@ -27,12 +27,26 @@ class TestSql(unittest.TestCase):
             changeit()
             self.assertFalse(tdf._same_data(ticDat, sqlTicDat))
 
-            self.assertTrue(self.firesException(lambda : tdf.sql.write_file(ticDat, filePath)))
-            tdf.sql.write_file(ticDat, filePath, allow_overwrite=True)
+            self.assertTrue(self.firesException(lambda : tdf.sql.write_db_data(ticDat, filePath)))
+            tdf.sql.write_db_data(ticDat, filePath, allow_overwrite=True)
             sqlTicDat = tdf.sql.create_frozen_tic_dat(filePath)
             self.assertTrue(tdf._same_data(ticDat, sqlTicDat))
             self.assertTrue(self.firesException(changeit))
             self.assertTrue(tdf._same_data(ticDat, sqlTicDat))
+
+            filePath = makeCleanPath(os.path.join(_scratchDir, "diet.sql"))
+            tdf.sql.write_sql_file(ticDat, filePath)
+            sqlTicDat = tdf.sql.create_tic_dat_from_sql(filePath)
+            self.assertTrue(tdf._same_data(ticDat, sqlTicDat))
+            changeit()
+            self.assertFalse(tdf._same_data(ticDat, sqlTicDat))
+
+            tdf.sql.write_sql_file(ticDat, filePath, include_schema=True)
+            sqlTicDat = tdf.sql.create_frozen_tic_dat_from_sql(filePath, includes_schema=True)
+            self.assertTrue(tdf._same_data(ticDat, sqlTicDat))
+            self.assertTrue(self.firesException(changeit))
+            self.assertTrue(tdf._same_data(ticDat, sqlTicDat))
+
         doTheTests(TicDatFactory(**dietSchema()))
 
         tdf = TicDatFactory(**dietSchema())
@@ -56,7 +70,7 @@ class TestSql(unittest.TestCase):
         self.assertTrue(ordered.index("commodities") < min(ordered.index(_) for _ in ("cost", "inflow")))
         ticDat = tdf.FrozenTicDat(**{t:getattr(netflowData(),t) for t in tdf.primary_key_fields})
         filePath = os.path.join(_scratchDir, "netflow.sql")
-        tdf.sql.write_file(ticDat, filePath)
+        tdf.sql.write_db_data(ticDat, filePath)
         sqlTicDat = tdf.sql.create_frozen_tic_dat(filePath)
         self.assertTrue(tdf._same_data(ticDat, sqlTicDat))
         def changeIt() :
@@ -73,9 +87,9 @@ class TestSql(unittest.TestCase):
         pkHacked["nodes"][0] = ["nimrod"]
         tdfHacked = TicDatFactory(**pkHacked)
         ticDatHacked = tdfHacked.TicDat(**{t : getattr(ticDat, t) for t in tdf.all_tables})
-        tdfHacked.sql.write_file(ticDatHacked, makeCleanPath(filePath))
-        self.assertTrue(self.firesException(lambda : tdfHacked.sql.write_file(ticDat, filePath)))
-        tdfHacked.sql.write_file(ticDat, filePath, allow_overwrite =True)
+        tdfHacked.sql.write_db_data(ticDatHacked, makeCleanPath(filePath))
+        self.assertTrue(self.firesException(lambda : tdfHacked.sql.write_db_data(ticDat, filePath)))
+        tdfHacked.sql.write_db_data(ticDat, filePath, allow_overwrite =True)
         self.assertTrue("Unable to recognize field name in table nodes" in
                         self.firesException(lambda  :tdf.sql.create_tic_dat(filePath)))
 
@@ -100,7 +114,7 @@ class TestSql(unittest.TestCase):
         tdf2, tdf3, tdf4, tdf5, tdf6 = (TicDatFactory(**x) for x in (schema2, schema3, schema4, schema5, schema6))
         tdf5.set_generator_tables(("a","c"))
         filePath = os.path.join(_scratchDir, "silly.sql")
-        tdf.sql.write_file(ticDat, filePath)
+        tdf.sql.write_db_data(ticDat, filePath)
 
         ticDat2 = tdf2.sql.create_tic_dat(filePath)
         self.assertFalse(tdf._same_data(ticDat, ticDat2))
@@ -125,7 +139,7 @@ class TestSql(unittest.TestCase):
         self.assertTrue("table d" in self.firesException(lambda  : tdf6.sql.create_tic_dat(filePath)))
 
         ticDat.a["theboger"] = (1, None, 12)
-        tdf.sql.write_file(ticDat, makeCleanPath(filePath))
+        tdf.sql.write_db_data(ticDat, makeCleanPath(filePath))
         ticDatNone = tdf.sql.create_frozen_tic_dat(filePath)
         self.assertTrue(tdf._same_data(ticDat, ticDatNone))
         self.assertTrue(ticDatNone.a["theboger"]["aData2"] == None)
