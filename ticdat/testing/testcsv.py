@@ -15,11 +15,20 @@ class TestCsv(unittest.TestCase):
         if e :
             self.assertTrue("TicDatError" in e.__class__.__name__)
             return e.message
+    def _testBasicRowCounts(self, dirPath, tdf, ticDat):
+        rowCnts = tdf.csv.get_row_counts(dirPath)
+        self.assertTrue(all(hasattr(ticDat, k) for k in rowCnts) and set(rowCnts) == set(tdf.primary_key_fields))
+        for t in tdf.primary_key_fields:
+            self.assertTrue(len(rowCnts[t]) == len(getattr(ticDat,t)))
+            self.assertTrue(all(v == 1 for v in rowCnts[t].values()))
+
+        self.assertFalse(tdf.csv.get_row_counts(dirPath, keep_only_duplicates=True))
     def testDiet(self):
         tdf = TicDatFactory(**dietSchema())
         ticDat = tdf.FrozenTicDat(**{t:getattr(dietData(),t) for t in tdf.primary_key_fields})
         dirPath = os.path.join(_scratchDir, "diet")
         tdf.csv.write_directory(ticDat,dirPath)
+        self._testBasicRowCounts(dirPath, tdf, ticDat)
         csvTicDat = tdf.csv.create_tic_dat(dirPath)
         self.assertTrue(tdf._same_data(ticDat, csvTicDat))
         def change() :
@@ -43,6 +52,7 @@ class TestCsv(unittest.TestCase):
         dirPath = os.path.join(_scratchDir, "netflow")
         tdf.csv.write_directory(ticDat, dirPath)
         csvTicDat = tdf.csv.create_frozen_tic_dat(dirPath)
+        self._testBasicRowCounts(dirPath, tdf, csvTicDat)
         self.assertTrue(tdf._same_data(ticDat, csvTicDat))
         csvTicDat = tdf.csv.create_frozen_tic_dat(dirPath, headers_present=False)
         self.assertFalse(tdf._same_data(ticDat, csvTicDat))
@@ -129,6 +139,28 @@ class TestCsv(unittest.TestCase):
             self.assertTrue(tdf._same_data(ticDat, ticDat6))
             self.assertTrue(firesException(lambda : tdf6._same_data(ticDat, ticDat6)))
             self.assertTrue(hasattr(ticDat6, "d") and utils.dictish(ticDat6.d))
+            allDataTdf = TicDatFactory(**{t:[[], tdf.primary_key_fields.get(t, ()) + tdf.data_fields.get(t, ())]
+                             for t in tdf.all_tables})
+
+            def writeData(data):
+                td = allDataTdf.TicDat(a = data, b=data, c=data)
+                allDataTdf.csv.write_directory(td, dirPath, allow_overwrite=True, write_header=headersPresent)
+
+            writeData([(1, 2, 3, 4), (1, 20, 30, 40), (10, 20, 30, 40)])
+            ticDatMan = tdf.csv.create_frozen_tic_dat(dirPath, headers_present=headersPresent)
+            self.assertTrue(len(ticDatMan.a) == 2 and len(ticDatMan.b) == 3)
+            self.assertTrue(ticDatMan.b[(1, 20, 30)]["bData"] == 40)
+            rowCount = tdf.csv.get_row_counts(dirPath, headers_present= headersPresent,
+                                              keep_only_duplicates=True)
+            self.assertTrue(set(rowCount) == {'a'} and set(rowCount["a"]) == {1} and rowCount["a"][1]==2)
+
+
+            writeData([(1, 2, 3, 4), (1, 20, 30, 40), (10, 20, 30, 40), (1,20,30,12)])
+            rowCount = tdf.csv.get_row_counts(dirPath, keep_only_duplicates=True, headers_present=headersPresent)
+            self.assertTrue(set(rowCount) == {'a', 'b'} and set(rowCount["a"]) == {1} and rowCount["a"][1]==3)
+            self.assertTrue(set(rowCount["b"]) == {(1,20,30)} and rowCount["b"][1,20,30]==2)
+
+
 
         utils.do_it(doTest(x) for x in (True, False))
 
