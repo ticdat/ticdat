@@ -537,7 +537,7 @@ foreign keys, the code throwing this exception will be removed.
         """
         Finds the foreign key failures for a ticdat object
         :param tic_dat: ticdat object
-        :return: A dictionary indexed by (child parent table name, parent table name) while
+        :return: A dictionary indexed by every (child parent table name, parent table name) which
                  contained a child-to-parent foreign key failure.
                  For each such table, the value for the return dictionary is a list of the child
                  primary key entries that failed to match. The full child primary key is included
@@ -565,7 +565,7 @@ foreign keys, the code throwing this exception will be removed.
                     foreign_pk = foreign_pk[0] if len(foreign_pk) == 1 else foreign_pk
                     if foreign_pk not in getattr(tic_dat, fk["foreignTable"]):
                         rtn[native, fk["foreignTable"]].append(native_pk)
-        return dict(rtn)
+        return {k:list(set(v)) for k,v in rtn.items()}
 
     def remove_foreign_keys_failures(self, tic_dat, propagate=True):
         """

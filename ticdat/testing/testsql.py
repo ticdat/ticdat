@@ -106,6 +106,19 @@ class TestSql(unittest.TestCase):
         self.assertTrue("Unable to recognize field name in table nodes" in
                         self.firesException(lambda  :tdf.sql.create_tic_dat(filePath)))
 
+        ticDatNew = tdf.TicDat(**{t:getattr(netflowData(),t) for t in tdf.primary_key_fields})
+
+        ticDatNew.cost['Pencils', 'booger', 'wooger'] =  10
+        ticDatNew.cost['junker', 'Detroit', 'New York'] =  20
+        ticDatNew.cost['bunker', 'Detroit', 'New Jerk'] =  20
+        ticDatNew.arcs['booger', 'wooger'] =  112
+        self.assertTrue({k:set(v) for k,v in tdf.find_foreign_key_failures(ticDatNew).items()} ==
+                        {('cost', 'commodities'): {('junker', 'Detroit', 'New York'),
+                                                   ('bunker', 'Detroit', 'New Jerk')} ,
+                         ('cost', 'nodes'): {('Pencils', 'booger', 'wooger'),
+                                             ('bunker', 'Detroit', 'New Jerk')},
+                         ('arcs', 'nodes'): {('booger', 'wooger')}})
+
 
     def testSilly(self):
         tdf = TicDatFactory(**sillyMeSchema())
