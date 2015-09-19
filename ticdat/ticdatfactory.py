@@ -537,7 +537,7 @@ foreign keys, the code throwing this exception will be removed.
         """
         Finds the foreign key failures for a ticdat object
         :param tic_dat: ticdat object
-        :return: A dictionary indexed by every (child parent table name, parent table name) which
+        :return: A dictionary indexed by every (child table name, parent table name) which
                  contained a child-to-parent foreign key failure.
                  For each such table, the value for the return dictionary is a list of the child
                  primary key entries that failed to match. The full child primary key is included
