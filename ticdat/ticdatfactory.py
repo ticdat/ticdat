@@ -543,6 +543,7 @@ foreign keys, the code throwing this exception will be removed.
                  primary key entries that failed to match. The full child primary key is included
                  (even if just the sub-portion that participates in the foreign key relationship)
                  for unambigous specification of the offending records.
+                 For child tables with no primary key, the row position is returned instead.
         """
         msg  = []
         verify(self.good_tic_dat_object(tic_dat, msg.append),
@@ -558,8 +559,10 @@ foreign keys, the code throwing this exception will be removed.
                      return native_data_row[field_name]
                  return native_pk[self.primary_key_fields[native].index(field_name)]
             for fk in fks:
-                for native_pk, native_data_row in getattr(tic_dat, native).items() :
-                    foreign_to_native = {v:k for k,v in fk["mappings"].items()}
+                foreign_to_native = {v:k for k,v in fk["mappings"].items()}
+                for native_pk, native_data_row in (getattr(tic_dat, native).items()
+                            if dictish(getattr(tic_dat, native))
+                            else enumerate(getattr(tic_dat, native))):
                     foreign_pk = tuple(getcell(native_pk, native_data_row, foreign_to_native[_fpk])
                                        for _fpk in self.primary_key_fields[fk["foreignTable"]])
                     foreign_pk = foreign_pk[0] if len(foreign_pk) == 1 else foreign_pk

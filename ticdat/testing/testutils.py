@@ -5,7 +5,7 @@ from ticdat.ticdatfactory import TicDatFactory
 from ticdat.testing.ticdattestutils import dietData, dietSchema, netflowData, netflowSchema, firesException
 from ticdat.testing.ticdattestutils import sillyMeData, sillyMeSchema, runSuite, failToDebugger
 from ticdat.testing.ticdattestutils import assertTicDatTablesSame, DEBUG, addNetflowForeignKeys, addDietForeignKeys
-
+import itertools
 
 #uncomment decorator to drop into debugger for assertTrue, assertFalse failures
 #@failToDebugger
@@ -236,6 +236,54 @@ class TestUtils(unittest.TestCase):
         self.assertTrue(tdf.foreign_keys and "appendageBadChild" not in tdf.foreign_keys)
         tdf.clear_foreign_keys()
         self.assertFalse(tdf.foreign_keys)
+
+    def testSix(self):
+        tdf = TicDatFactory(plants = [["name"], ["stuff", "otherstuff"]],
+                            lines = [["name"], ["plant", "weird stuff"]],
+                            products = [["name"],["gover"]],
+                            production = [["line", "product"], ["min", "max"]],
+                            pureTestingTable = [[], ["line", "plant", "product"]])
+        tdf.add_foreign_key("production", "lines", {"line" : "name"})
+        tdf.add_foreign_key("production", "products", {"product" : "name"})
+        tdf.add_foreign_key("lines", "plants", {"plant" : "name"})
+        for f in tdf.data_fields["pureTestingTable"]:
+            tdf.add_foreign_key("pureTestingTable", "%ss"%f, {f:"name"})
+        goodDat = tdf.TicDat()
+        goodDat.plants["Cleveland"] = ["this", "that"]
+        goodDat.plants["Newark"]["otherstuff"] =1
+        goodDat.products["widgets"] = goodDat.products["gadgets"] = "shizzle"
+
+        for i,p in enumerate(goodDat.plants):
+            goodDat.lines[i]["plant"] = p
+        for i,(pl, pd) in enumerate(itertools.product(goodDat.lines, goodDat.products)):
+            goodDat.production[pl, pd] = {"min":1, "max":10+i}
+
+        badDat1 = tdf.copy_tic_dat(goodDat)
+        badDat1.production["notaline", "widgets"] = [0,1]
+        badDat2 = tdf.copy_tic_dat(badDat1)
+
+        self.assertTrue(tdf.find_foreign_key_failures(badDat1) == tdf.find_foreign_key_failures(badDat2) ==
+                        {("production", "lines") : [("notaline", "widgets")]})
+        badDat1.lines["notaline"]["plant"] = badDat2.lines["notaline"]["plant"] = "notnewark"
+        self.assertTrue(tdf.find_foreign_key_failures(badDat1) == tdf.find_foreign_key_failures(badDat2) ==
+                        {("lines", "plants") : ["notaline"]})
+        tdf.remove_foreign_keys_failures(badDat1, propagate=False)
+        tdf.remove_foreign_keys_failures(badDat2, propagate=True)
+        self.assertTrue(tdf._same_data(badDat2, goodDat) and not tdf.find_foreign_key_failures(badDat2))
+        self.assertTrue(tdf.find_foreign_key_failures(badDat1) ==
+                        {("production", "lines") : [("notaline", "widgets")]})
+        tdf.remove_foreign_keys_failures(badDat1, propagate=False)
+        self.assertTrue(tdf._same_data(badDat1, goodDat) and not tdf.find_foreign_key_failures(badDat1))
+
+
+        for l,pl,pdct in itertools.product(goodDat.lines, goodDat.plants, goodDat.products) :
+            goodDat.pureTestingTable.append((l,pl,pdct))
+        self.assertFalse(tdf.find_foreign_key_failures(goodDat))
+        badDat = tdf.copy_tic_dat(goodDat)
+        badDat.pureTestingTable.append(("j", "u", "nk"))
+        self.assertTrue(tdf.find_foreign_key_failures(badDat) ==
+                        {("pureTestingTable",t) : [len(goodDat.pureTestingTable)] for t in
+                            ("lines", "plants", "products")})
 
 
 def runTheTests(fastOnly=True) :
