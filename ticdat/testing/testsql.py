@@ -59,6 +59,19 @@ class TestSql(unittest.TestCase):
         self.assertTrue(ordered.index("categories") < ordered.index("nutritionQuantities"))
         self.assertTrue(ordered.index("foods") < ordered.index("nutritionQuantities"))
 
+        ticDat = tdf.TicDat(**{t:getattr(dietData(),t) for t in tdf.primary_key_fields})
+        origTicDat = tdf.copy_tic_dat(ticDat)
+        self.assertTrue(tdf._same_data(ticDat, origTicDat))
+        self.assertFalse(tdf.find_foreign_key_failures(ticDat))
+        ticDat.nutritionQuantities['hot dog', 'boger'] = ticDat.nutritionQuantities['junk', 'protein'] = -12
+        self.assertTrue(tdf.find_foreign_key_failures(ticDat) ==
+                        {("nutritionQuantities", "categories"):[('hot dog', 'boger')],
+                         ("nutritionQuantities", "foods"):[('junk', 'protein')]})
+        self.assertFalse(tdf._same_data(ticDat, origTicDat))
+        tdf.remove_foreign_keys_failures(ticDat)
+        self.assertFalse(tdf.find_foreign_key_failures(ticDat))
+        self.assertTrue(tdf._same_data(ticDat, origTicDat))
+
         doTheTests(tdf)
 
 

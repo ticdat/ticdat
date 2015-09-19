@@ -523,6 +523,67 @@ foreign keys, the code throwing this exception will be removed.
                "tic_dat not a good object for this factory : %s"%"\n".join(msg))
         rtn = self.TicDat(**{t:getattr(tic_dat, t) for t in self.all_tables})
         return freeze_me(rtn) if freeze_it else rtn
+    def freeze_me(self, tic_dat):
+        """
+        Freezes a ticdat object
+        :param tic_dat: ticdat object
+        :return: tic_dat, after it has been frozen
+        """
+        msg  = []
+        verify(self.good_tic_dat_object(tic_dat, msg.append),
+               "tic_dat not a good object for this factory : %s"%"\n".join(msg))
+        return freeze_me(tic_dat)
+    def find_foreign_key_failures(self, tic_dat):
+        """
+        Finds the foreign key failures for a ticdat object
+        :param tic_dat: ticdat object
+        :return: A dictionary indexed by (child parent table name, parent table name) while
+                 contained a child-to-parent foreign key failure.
+                 For each such table, the value for the return dictionary is a list of the child
+                 primary key entries that failed to match. The full child primary key is included
+                 (even if just the sub-portion that participates in the foreign key relationship)
+                 for unambigous specification of the offending records.
+        """
+        msg  = []
+        verify(self.good_tic_dat_object(tic_dat, msg.append),
+               "tic_dat not a good object for this factory : %s"%"\n".join(msg))
+        rtn = clt.defaultdict(list)
+        for native, fks in self.foreign_keys.items():
+            def getcell(native_pk, native_data_row, field_name):
+                 assert field_name in self.primary_key_fields.get(native, ()) + \
+                                      self.data_fields.get(native, ())
+                 if list(field_name) == list(self.primary_key_fields.get(native, ())):
+                     return native_pk
+                 if field_name in native_data_row:
+                     return native_data_row[field_name]
+                 return native_pk[self.primary_key_fields[native].index(field_name)]
+            for fk in fks:
+                for native_pk, native_data_row in getattr(tic_dat, native).items() :
+                    foreign_to_native = {v:k for k,v in fk["mappings"].items()}
+                    foreign_pk = tuple(getcell(native_pk, native_data_row, foreign_to_native[_fpk])
+                                       for _fpk in self.primary_key_fields[fk["foreignTable"]])
+                    foreign_pk = foreign_pk[0] if len(foreign_pk) == 1 else foreign_pk
+                    if foreign_pk not in getattr(tic_dat, fk["foreignTable"]):
+                        rtn[native, fk["foreignTable"]].append(native_pk)
+        return dict(rtn)
+
+    def remove_foreign_keys_failures(self, tic_dat, propagate=True):
+        """
+        Removes foreign key failures (i.e. child records with no parent table record)
+        :param tic_dat: ticdat object
+        :param propagate boolean: remove cascading failures? (if removing the child record
+                                  results in new failures, should those be removed as well?)
+        :return: tic_dat, with the foreign key failures removed
+        """
+        fk_failures = self.find_foreign_key_failures(tic_dat)
+        for (child_table, _), failures in fk_failures.items():
+            for failed_pk in failures:
+                if failed_pk in getattr(tic_dat, child_table) :
+                    del(getattr(tic_dat, child_table)[failed_pk])
+        if fk_failures and propagate:
+            return self.remove_foreign_keys_failures(tic_dat)
+        return tic_dat
+
 def freeze_me(x) :
     """
     Freezes a ticdat object
