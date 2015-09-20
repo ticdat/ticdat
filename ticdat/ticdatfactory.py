@@ -611,6 +611,7 @@ foreign keys, the code throwing this exception will be removed.
                "tic_dat not a good object for this factory : %s"%"\n".join(msg))
         verify(not self.find_foreign_key_failures(tic_dat),
                "Cannot obfusimplify an object with foreign key failures")
+        verify(not self.generator_tables, "Cannot obfusimplify a tic_dat that uses generators")
 
         for k,v in table_prepends:
             verify(k in self.all_tables, "%s is not a table name")
@@ -642,7 +643,7 @@ foreign keys, the code throwing this exception will be removed.
         reverse_renamings = {}
         for t in table_prepends :
             for i,k in enumerate(getattr(tic_dat, t)) :
-                reverse_renamings[t, k] = "%s%s"%(t,i)
+                reverse_renamings[t, k] = "%s%s"%(table_prepends[t],i)
         foreign_keys = {}
         for nt, fks in self.foreign_keys.items():
             for fk in fks:
@@ -664,12 +665,33 @@ foreign keys, the code throwing this exception will be removed.
         while add_foreign_keys():
             pass
 
+        rtn_dict  = clt.defaultdict(dict)
+        for t in table_prepends:
+            for i,k in enumerate(getattr(tic_dat, t)) :
+                rtn_dict[t][reverse_renamings[t, k]] = getattr(tic_dat, t)[k]
 
+        for t in set(self.all_tables).difference(table_prepends):
+            read_table = getattr(tic_dat, t)
+            def fix_all_row(all_row):
+                return {k: reverse_renamings[foreign_keys[t, k], v] if (t,k) in foreign_keys else v
+                           for k,v in all_row.items()}
+            if dictish(read_table):
+                for pk, data_row in read_table.items():
+                    assert containerish(pk) and len(pk) == len(self.primary_key_fields[t])
+                    new_row = fix_all_row(dict(data_row, **{pkf: pkv for pkf, pkv in
+                                                zip(self.primary_key_fields[t], pk)}))
+                    new_pk = tuple(new_row[_] for _ in self.primary_key_fields[t])
+                    rtn_dict[t][new_pk] = {k:new_row[k] for k in
+                                           set(new_row).difference(self.primary_key_fields[t])}
+            else :
+                rtn_dict[t] = []
+                for data_row in read_table:
+                    rtn_dict[t].append(fix_all_row(data_row))
 
-        return foreign_keys
         RtnType = clt.namedtuple("ObfusimplifyResults", "copy renamings")
-        rtn = RtnType("dummy", "dummy")
+        rtn = RtnType(self.TicDat(**rtn_dict), {v:k for k,v in reverse_renamings.items()})
         assert not self.find_foreign_key_failures(rtn.copy)
+        assert len(rtn.renamings) == len(reverse_renamings)
         return rtn
 def freeze_me(x) :
     """

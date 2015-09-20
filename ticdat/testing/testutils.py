@@ -286,7 +286,10 @@ class TestUtils(unittest.TestCase):
                             ("lines", "plants", "products")})
 
 
-
+#
+# from ticdat import TicDatFactory
+# import itertools
+#
 # tdf = TicDatFactory(plants = [["name"], ["stuff", "otherstuff"]],
 #                             lines = [["name"], ["plant", "weird stuff"]],
 #                             products = [["name"],["gover"]],
@@ -294,6 +297,31 @@ class TestUtils(unittest.TestCase):
 #                             extraProduction = [["line", "product"], ["extramin", "extramax"]],
 #                             weirdProduction = [["line1", "line2", "product"], ["weirdmin", "weirdmax"]],
 #                             pureTestingTable = [[], ["line", "plant", "product"]])
+#
+# tdf.add_foreign_key("production", "lines", {"line" : "name"})
+# tdf.add_foreign_key("production", "products", {"product" : "name"})
+# tdf.add_foreign_key("lines", "plants", {"plant" : "name"})
+# for f in tdf.data_fields["pureTestingTable"]:
+#     tdf.add_foreign_key("pureTestingTable", "%ss"%f, {f:"name"})
+# tdf.add_foreign_key("extraProduction", "production", {"line" : "line", "product":"product"})
+# tdf.add_foreign_key("weirdProduction", "production", {"line1" : "line", "product":"product"})
+# tdf.add_foreign_key("weirdProduction", "extraProduction", {"line2" : "line", "product":"product"})
+#
+# goodDat = tdf.TicDat()
+# goodDat.plants["Cleveland"] = ["this", "that"]
+# goodDat.plants["Newark"]["otherstuff"] =1
+# goodDat.products["widgets"] = goodDat.products["gadgets"] = "shizzle"
+#
+# for i,p in enumerate(goodDat.plants):
+#     goodDat.lines[i]["plant"] = p
+# for i,(pl, pd) in enumerate(itertools.product(goodDat.lines, goodDat.products)):
+#     goodDat.production[pl, pd] = {"min":1, "max":10+i}
+#
+# for l,pl,pdct in itertools.product(goodDat.lines, goodDat.plants, goodDat.products) :
+#     goodDat.pureTestingTable.append((l,pl,pdct))
+#
+#
+# boger = tdf.obfusimplify(goodDat)
 
 def runTheTests(fastOnly=True) :
     runSuite(TestUtils, fastOnly=fastOnly)
