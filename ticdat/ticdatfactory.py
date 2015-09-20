@@ -613,7 +613,7 @@ foreign keys, the code throwing this exception will be removed.
                "Cannot obfusimplify an object with foreign key failures")
         verify(not self.generator_tables, "Cannot obfusimplify a tic_dat that uses generators")
 
-        for k,v in table_prepends:
+        for k,v in table_prepends.items():
             verify(k in self.all_tables, "%s is not a table name")
             verify(len(self.primary_key_fields.get(k, ())) ==1, "%s does not have a single primary key field"%k)
             verify(utils.stringish(v) and  set(v).issubset(uppercase) and not v.endswith("I"),
@@ -666,23 +666,21 @@ foreign keys, the code throwing this exception will be removed.
             pass
 
         rtn_dict  = clt.defaultdict(dict)
-        for t in table_prepends:
-            for i,k in enumerate(getattr(tic_dat, t)) :
-                rtn_dict[t][reverse_renamings[t, k]] = getattr(tic_dat, t)[k]
-
-        for t in set(self.all_tables).difference(table_prepends):
+        for t in self.all_tables:
             read_table = getattr(tic_dat, t)
             def fix_all_row(all_row):
                 return {k: reverse_renamings[foreign_keys[t, k], v] if (t,k) in foreign_keys else v
                            for k,v in all_row.items()}
             if dictish(read_table):
                 for pk, data_row in read_table.items():
-                    assert containerish(pk) and len(pk) == len(self.primary_key_fields[t])
-                    new_row = fix_all_row(dict(data_row, **{pkf: pkv for pkf, pkv in
-                                                zip(self.primary_key_fields[t], pk)}))
-                    new_pk = tuple(new_row[_] for _ in self.primary_key_fields[t])
-                    rtn_dict[t][new_pk] = {k:new_row[k] for k in
-                                           set(new_row).difference(self.primary_key_fields[t])}
+                    if t in table_prepends:
+                        rtn_dict[t][reverse_renamings[t, pk]] = fix_all_row(data_row)
+                    else :
+                        assert containerish(pk) and len(pk) == len(self.primary_key_fields[t])
+                        new_row = fix_all_row(dict(data_row, **{pkf: pkv for pkf, pkv in
+                                                    zip(self.primary_key_fields[t], pk)}))
+                        new_pk = tuple(new_row[_] for _ in self.primary_key_fields[t])
+                        rtn_dict[t][new_pk] = {k:new_row[k] for k in data_row}
             else :
                 rtn_dict[t] = []
                 for data_row in read_table:

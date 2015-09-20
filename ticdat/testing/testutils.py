@@ -242,12 +242,18 @@ class TestUtils(unittest.TestCase):
                             lines = [["name"], ["plant", "weird stuff"]],
                             products = [["name"],["gover"]],
                             production = [["line", "product"], ["min", "max"]],
-                            pureTestingTable = [[], ["line", "plant", "product"]])
+                            pureTestingTable = [[], ["line", "plant", "product"]],
+                            extraProduction = [["line", "product"], ["extramin", "extramax"]],
+                            weirdProduction = [["line1", "line2", "product"], ["weirdmin", "weirdmax"]])
         tdf.add_foreign_key("production", "lines", {"line" : "name"})
         tdf.add_foreign_key("production", "products", {"product" : "name"})
         tdf.add_foreign_key("lines", "plants", {"plant" : "name"})
         for f in tdf.data_fields["pureTestingTable"]:
             tdf.add_foreign_key("pureTestingTable", "%ss"%f, {f:"name"})
+        tdf.add_foreign_key("extraProduction", "production", {"line" : "line", "product":"product"})
+        tdf.add_foreign_key("weirdProduction", "production", {"line1" : "line", "product":"product"})
+        tdf.add_foreign_key("weirdProduction", "extraProduction", {"line2" : "line", "product":"product"})
+
         goodDat = tdf.TicDat()
         goodDat.plants["Cleveland"] = ["this", "that"]
         goodDat.plants["Newark"]["otherstuff"] =1
@@ -285,7 +291,11 @@ class TestUtils(unittest.TestCase):
                         {("pureTestingTable",t) : [len(goodDat.pureTestingTable)] for t in
                             ("lines", "plants", "products")})
 
-
+        obfudat = tdf.obfusimplify(goodDat)
+        self.assertTrue(all(len(getattr(obfudat.copy, t)) == len(getattr(goodDat, t))
+                            for t in tdf.all_tables))
+        obfudat2 = tdf.obfusimplify(goodDat, {"plants": "P", "lines" : "L", "products" :"PR"})
+        self.assertTrue(tdf._same_data(obfudat.copy, obfudat2.copy))
 #
 # from ticdat import TicDatFactory
 # import itertools
