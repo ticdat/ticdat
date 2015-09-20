@@ -28,6 +28,20 @@ def generatorish(x): return all(hasattr(x, _) for _ in ("__iter__", "next")) \
                             and not (containerish(x) or dictish(x))
 def numericish(x) : return isinstance(x, Number) and not isinstance(x, bool)
 
+def baseConverter(number, base):
+    if number < base:
+        return [number]
+    rtn = []
+    power = base
+    while power * base <= number:
+        power *= base
+    while power >= base :
+        rtn.append(number / power)
+        number -= power * (number/power)
+        power /= base
+    rtn.append(number%base)
+    return rtn
+
 def freezable_factory(baseClass, freezeAttr) :
     class _Freezeable(baseClass) :
         def __setattr__(self, key, value):

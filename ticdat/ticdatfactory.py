@@ -6,10 +6,13 @@ import collections as clt
 import utils as utils
 from utils import verify, freezable_factory, FrozenDict, FreezeableDict
 from utils import dictish, containerish, deep_freeze
+from string import uppercase
+from collections import namedtuple
 import xls
 import csvtd as csv
 import sqlitetd as sql
 import mdb
+
 
 
 def _keylen(k) :
@@ -586,6 +589,60 @@ foreign keys, the code throwing this exception will be removed.
         if fk_failures and propagate:
             return self.remove_foreign_keys_failures(tic_dat)
         return tic_dat
+
+    def obfusimplify(self, tic_dat, table_prepends = {}) :
+        """
+        copies the tic_dat object into a new, obfuscated, simplified tic_dat object
+        :param tic_dat: a ticdat object
+        :param table_prepends: a dictionary with mapping each table to the prepend it should apply
+                               when its entries are renamed. The smallest number of capitalized initial
+                               table name characters should be used. A valid table prepend must be all caps and
+                               not end with I.
+        :return: A named tuple with the following components.
+                 copy : a deep copy of the tic_dat argument, with the single field primary key values
+                        renamed to simple "short capital letters followed by numbers" strings.
+                 renamings : a dictionary matching the new entries to their original (table, primary key value)
+                             this entry can be used to cross reference any diagnostic information gleaned from the
+                             obfusimplified copy to the original names. For example, "P5 has no production"
+                             can easily be recognized as "Product KX12212 has no production".
+        """
+        msg  = []
+        verify(self.good_tic_dat_object(tic_dat, msg.append),
+               "tic_dat not a good object for this factory : %s"%"\n".join(msg))
+
+        for k,v in table_prepends:
+            verify(k in self.all_tables, "%s is not a table name")
+            verify(len(self.primary_key_fields.get(k, ())) ==1, "%s does not have a single primary key field"%k)
+            verify(utils.stringish(v) and  set(v).issubset(uppercase) and not v.endswith("I"),
+                   "Your table_prepend string %s is not an all uppercase string ending in a letter other than I")
+        verify(len(set(table_prepends.values())) == len(table_prepends.values()),
+               "You provided duplicate table prepends")
+        table_prepends = dict(table_prepends)
+        for t in sorted(set(self.primary_key_fields).difference(table_prepends)):
+#            utils.debug_break() if t == "products" else None
+            if len(self.primary_key_fields[t]) == 1:
+                def appender():
+                    chars = tuple(_ for _ in uppercase if _ != "I")
+                    from_table = "".join(_ for _ in t.upper() if _ in uppercase if _ != "I")
+                    rtnnum = 0
+                    while True:
+                        if rtnnum < len(from_table):
+                            yield from_table[rtnnum]
+                        else :
+                            yield "".join(chars[_] for _ in
+                                      utils.baseConverter(rtnnum-len(from_table), len(chars)))
+                        rtnnum += 1
+                n = appender()
+                name = n.next()
+                while name in table_prepends.values():
+                    name += n.next()
+                table_prepends[t]=name
+        return table_prepends # temp!!!!
+
+
+
+
+        RtnType = clt.namedtuple("ObfusimplifyResults", "copy renamings")
 
 def freeze_me(x) :
     """
