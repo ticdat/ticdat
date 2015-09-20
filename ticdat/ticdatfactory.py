@@ -609,6 +609,8 @@ foreign keys, the code throwing this exception will be removed.
         msg  = []
         verify(self.good_tic_dat_object(tic_dat, msg.append),
                "tic_dat not a good object for this factory : %s"%"\n".join(msg))
+        verify(not self.find_foreign_key_failures(tic_dat),
+               "Cannot obfusimplify an object with foreign key failures")
 
         for k,v in table_prepends:
             verify(k in self.all_tables, "%s is not a table name")
@@ -619,31 +621,56 @@ foreign keys, the code throwing this exception will be removed.
                "You provided duplicate table prepends")
         table_prepends = dict(table_prepends)
         for t in sorted(set(self.primary_key_fields).difference(table_prepends)):
-#            utils.debug_break() if t == "products" else None
             if len(self.primary_key_fields[t]) == 1:
-                def appender():
+                def getname():
                     chars = tuple(_ for _ in uppercase if _ != "I")
-                    from_table = "".join(_ for _ in t.upper() if _ in uppercase if _ != "I")
-                    rtnnum = 0
+                    from_table = "".join(_ for _ in t.upper() if _ in chars)
+                    rtnnum = 1
                     while True:
-                        if rtnnum < len(from_table):
-                            yield from_table[rtnnum]
+                        if rtnnum <= len(from_table):
+                            yield from_table[:rtnnum]
                         else :
-                            yield "".join(chars[_] for _ in
-                                      utils.baseConverter(rtnnum-len(from_table), len(chars)))
+                            yield from_table + "".join(chars[_] for _ in
+                                      utils.baseConverter(rtnnum-len(from_table)-1, len(chars)))
                         rtnnum += 1
-                n = appender()
-                name = n.next()
+                namegetter = getname()
+                name = namegetter.next()
                 while name in table_prepends.values():
-                    name += n.next()
+                    name = namegetter.next()
                 table_prepends[t]=name
-        return table_prepends # temp!!!!
+
+        reverse_renamings = {}
+        for t in table_prepends :
+            for i,k in enumerate(getattr(tic_dat, t)) :
+                reverse_renamings[t, k] = "%s%s"%(t,i)
+        foreign_keys = {}
+        for nt, fks in self.foreign_keys.items():
+            for fk in fks:
+                if fk["foreignTable"] in table_prepends:
+                    assert (set(fk["mappings"].values()) ==
+                            {self.primary_key_fields[fk["foreignTable"]][0]})
+                    foreign_keys = dict(foreign_keys, **{(nt,nf) : fk["foreignTable"]
+                                        for nf, ff in fk["mappings"].items()})
+        def add_foreign_keys() :
+            orig = len(foreign_keys)
+            for nt, fks in self.foreign_keys.items():
+                for fk in fks:
+                    if fk["foreignTable"] in table_prepends:
+                        for nf, ff in fk["mappings"].items():
+                            if (fk["foreignTable"], ff) in foreign_keys:
+                                assert (nt, nf) not in foreign_keys
+                                foreign_keys[nt, nf] = foreign_keys[fk["foreign_table"], ff]
+            return len(foreign_keys) > orig
+        while add_foreign_keys():
+            pass
 
 
 
-
+        return foreign_keys
         RtnType = clt.namedtuple("ObfusimplifyResults", "copy renamings")
-
+        rtn = RtnType("dummy", "dummy")
+        assert not self.find_foreign_key_failures(rtn.copy)
+        return rtn
 def freeze_me(x) :
     """
     Freezes a ticdat object

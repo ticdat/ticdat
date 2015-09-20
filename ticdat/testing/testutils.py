@@ -286,6 +286,15 @@ class TestUtils(unittest.TestCase):
                             ("lines", "plants", "products")})
 
 
+
+# tdf = TicDatFactory(plants = [["name"], ["stuff", "otherstuff"]],
+#                             lines = [["name"], ["plant", "weird stuff"]],
+#                             products = [["name"],["gover"]],
+#                             production = [["line", "product"], ["min", "max"]],
+#                             extraProduction = [["line", "product"], ["extramin", "extramax"]],
+#                             weirdProduction = [["line1", "line2", "product"], ["weirdmin", "weirdmax"]],
+#                             pureTestingTable = [[], ["line", "plant", "product"]])
+
 def runTheTests(fastOnly=True) :
     runSuite(TestUtils, fastOnly=fastOnly)
 
