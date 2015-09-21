@@ -556,7 +556,7 @@ foreign keys, the code throwing this exception will be removed.
             def getcell(native_pk, native_data_row, field_name):
                  assert field_name in self.primary_key_fields.get(native, ()) + \
                                       self.data_fields.get(native, ())
-                 if list(field_name) == list(self.primary_key_fields.get(native, ())):
+                 if [field_name] == list(self.primary_key_fields.get(native, ())):
                      return native_pk
                  if field_name in native_data_row:
                      return native_data_row[field_name]
@@ -590,14 +590,15 @@ foreign keys, the code throwing this exception will be removed.
             return self.remove_foreign_keys_failures(tic_dat)
         return tic_dat
 
-    def obfusimplify(self, tic_dat, table_prepends = {}) :
+    def obfusimplify(self, tic_dat, table_prepends = {}, skip_tables = ()) :
         """
         copies the tic_dat object into a new, obfuscated, simplified tic_dat object
         :param tic_dat: a ticdat object
         :param table_prepends: a dictionary with mapping each table to the prepend it should apply
-                               when its entries are renamed. The smallest number of capitalized initial
-                               table name characters should be used. A valid table prepend must be all caps and
-                               not end with I.
+                               when its entries are renamed.  A valid table prepend must be all caps and
+                               not end with I. Should be restricted to entity tables (single field primary
+                               that is not a foreign key child)
+        :param skip_tables: a listing of entity tables whose single field primary key shouldn't be renamed
         :return: A named tuple with the following components.
                  copy : a deep copy of the tic_dat argument, with the single field primary key values
                         renamed to simple "short capital letters followed by numbers" strings.
@@ -612,33 +613,44 @@ foreign keys, the code throwing this exception will be removed.
         verify(not self.find_foreign_key_failures(tic_dat),
                "Cannot obfusimplify an object with foreign key failures")
         verify(not self.generator_tables, "Cannot obfusimplify a tic_dat that uses generators")
+        verify(not set(table_prepends).intersection(skip_tables),
+               "Can't specify a table prepend for an entity that you're skipping")
+
+        entity_tables = {t for t,v in self.primary_key_fields.items() if len(v) == 1}
+        for nt in entity_tables.intersection(self.foreign_keys):
+            for fk in self.foreign_keys[nt]:
+                if set(fk["mappings"].keys()) == set(self.primary_key_fields[nt]) :
+                    entity_tables = entity_tables.difference({nt})
+        verify(entity_tables.issuperset(skip_tables), "should only specify entity tables to skip")
+        entity_tables = entity_tables.difference(skip_tables)
 
         for k,v in table_prepends.items():
             verify(k in self.all_tables, "%s is not a table name")
             verify(len(self.primary_key_fields.get(k, ())) ==1, "%s does not have a single primary key field"%k)
+            verify(k in entity_tables, "%s is not an entity table due to child foreign key relationship"%k)
             verify(utils.stringish(v) and  set(v).issubset(uppercase) and not v.endswith("I"),
                    "Your table_prepend string %s is not an all uppercase string ending in a letter other than I")
         verify(len(set(table_prepends.values())) == len(table_prepends.values()),
                "You provided duplicate table prepends")
         table_prepends = dict(table_prepends)
-        for t in sorted(set(self.primary_key_fields).difference(table_prepends)):
-            if len(self.primary_key_fields[t]) == 1:
-                def getname():
-                    chars = tuple(_ for _ in uppercase if _ != "I")
-                    from_table = "".join(_ for _ in t.upper() if _ in chars)
-                    rtnnum = 1
-                    while True:
-                        if rtnnum <= len(from_table):
-                            yield from_table[:rtnnum]
-                        else :
-                            yield from_table + "".join(chars[_] for _ in
-                                      utils.baseConverter(rtnnum-len(from_table)-1, len(chars)))
-                        rtnnum += 1
-                namegetter = getname()
+        for t in entity_tables.difference(table_prepends):
+            def getname():
+                chars = tuple(_ for _ in uppercase if _ != "I")
+                from_table = "".join(_ for _ in t.upper() if _ in chars)
+                rtnnum = 1
+                while True:
+                    if rtnnum <= len(from_table):
+                        yield from_table[:rtnnum]
+                    else :
+                        yield from_table + "".join(chars[_] for _ in
+                                  utils.baseConverter(rtnnum-len(from_table)-1, len(chars)))
+                    rtnnum += 1
+            namegetter = getname()
+            name = namegetter.next()
+            while name in table_prepends.values():
                 name = namegetter.next()
-                while name in table_prepends.values():
-                    name = namegetter.next()
-                table_prepends[t]=name
+            table_prepends[t]=name
+        assert set(entity_tables) == set(table_prepends)
 
         reverse_renamings = {}
         for t in table_prepends :
@@ -673,8 +685,13 @@ foreign keys, the code throwing this exception will be removed.
                            for k,v in all_row.items()}
             if dictish(read_table):
                 for pk, data_row in read_table.items():
-                    if t in table_prepends:
-                        rtn_dict[t][reverse_renamings[t, pk]] = fix_all_row(data_row)
+                    if len(self.primary_key_fields.get(t, ())) == 1:
+                        pkf = self.primary_key_fields[t][0]
+                        if (t,pkf) in foreign_keys:
+                            new_pk = reverse_renamings[foreign_keys[t,pkf], pk]
+                        else:
+                            new_pk = reverse_renamings.get((t, pk), pk)
+                        rtn_dict[t][new_pk] = fix_all_row(data_row)
                     else :
                         assert containerish(pk) and len(pk) == len(self.primary_key_fields[t])
                         new_row = fix_all_row(dict(data_row, **{pkf: pkv for pkf, pkv in

@@ -240,6 +240,7 @@ class TestUtils(unittest.TestCase):
     def testSix(self):
         tdf = TicDatFactory(plants = [["name"], ["stuff", "otherstuff"]],
                             lines = [["name"], ["plant", "weird stuff"]],
+                            line_descriptor = [["name"], ["booger"]],
                             products = [["name"],["gover"]],
                             production = [["line", "product"], ["min", "max"]],
                             pureTestingTable = [[], ["line", "plant", "product"]],
@@ -248,6 +249,7 @@ class TestUtils(unittest.TestCase):
         tdf.add_foreign_key("production", "lines", {"line" : "name"})
         tdf.add_foreign_key("production", "products", {"product" : "name"})
         tdf.add_foreign_key("lines", "plants", {"plant" : "name"})
+        tdf.add_foreign_key("line_descriptor", "lines", {"name" : "name"})
         for f in tdf.data_fields["pureTestingTable"]:
             tdf.add_foreign_key("pureTestingTable", "%ss"%f, {f:"name"})
         tdf.add_foreign_key("extraProduction", "production", {"line" : "line", "product":"product"})
@@ -261,6 +263,7 @@ class TestUtils(unittest.TestCase):
 
         for i,p in enumerate(goodDat.plants):
             goodDat.lines[i]["plant"] = p
+
         for i,(pl, pd) in enumerate(itertools.product(goodDat.lines, goodDat.products)):
             goodDat.production[pl, pd] = {"min":1, "max":10+i}
 
@@ -282,6 +285,11 @@ class TestUtils(unittest.TestCase):
         self.assertTrue(tdf._same_data(badDat1, goodDat) and not tdf.find_foreign_key_failures(badDat1))
 
 
+        for i,p in enumerate(goodDat.plants):
+            goodDat.lines[i+len(goodDat.lines)]["plant"] = p
+        for i,l in enumerate(goodDat.lines):
+            if i%2:
+                goodDat.line_descriptor[l] = i+10
         for l,pl,pdct in itertools.product(goodDat.lines, goodDat.plants, goodDat.products) :
             goodDat.pureTestingTable.append((l,pl,pdct))
         self.assertFalse(tdf.find_foreign_key_failures(goodDat))
@@ -294,8 +302,18 @@ class TestUtils(unittest.TestCase):
         obfudat = tdf.obfusimplify(goodDat)
         self.assertTrue(all(len(getattr(obfudat.copy, t)) == len(getattr(goodDat, t))
                             for t in tdf.all_tables))
+        self.assertFalse(tdf._same_data(obfudat.copy, goodDat))
         obfudat2 = tdf.obfusimplify(goodDat, {"plants": "P", "lines" : "L", "products" :"PR"})
         self.assertTrue(tdf._same_data(obfudat.copy, obfudat2.copy))
+
+        obfudat3 = tdf.obfusimplify(goodDat, skip_tables=["plants", "lines", "products"])
+        self.assertTrue(tdf._same_data(obfudat3.copy, goodDat))
+
+        obfudat4 = tdf.obfusimplify(goodDat, skip_tables=["lines", "products"])
+        self.assertFalse(tdf._same_data(obfudat4.copy, goodDat))
+        self.assertFalse(tdf._same_data(obfudat4.copy, obfudat.copy))
+
+
 #
 # from ticdat import TicDatFactory
 # import itertools
