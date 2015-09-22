@@ -187,6 +187,17 @@ class TestUtils(unittest.TestCase):
                     self.assertTrue(fk in fk2[t])
         tdf = TicDatFactory(**netflowSchema())
         addNetflowForeignKeys(tdf)
+        dat = tdf.FrozenTicDat(**{t : getattr(netflowData(), t) for t in tdf.all_tables})
+        obfudat = tdf.obfusimplify(dat, freeze_it=1)
+        self.assertFalse(tdf._same_data(dat, obfudat.copy))
+        for (s,d),r in obfudat.copy.arcs.items():
+            self.assertFalse((s,d) in dat.arcs)
+            self.assertTrue(dat.arcs[obfudat.renamings[s][1], obfudat.renamings[d][1]]["capacity"] == r["capacity"])
+        obfudat = tdf.obfusimplify(dat, freeze_it=1, skip_tables=["commodities", "nodes"])
+        self.assertTrue(tdf._same_data(obfudat.copy, dat))
+
+        tdf = TicDatFactory(**netflowSchema())
+        addNetflowForeignKeys(tdf)
         fksSame(tdf.foreign_keys, dict(arcs =  ({'foreignTable': u'nodes','mappings': {u'source': u'name'}},
                             {'foreignTable': u'nodes', 'mappings': {u'destination': u'name'}}),
                             cost = ({'foreignTable': u'nodes','mappings': {u'source': u'name'}},
@@ -243,14 +254,14 @@ class TestUtils(unittest.TestCase):
                             line_descriptor = [["name"], ["booger"]],
                             products = [["name"],["gover"]],
                             production = [["line", "product"], ["min", "max"]],
-                            pureTestingTable = [[], ["line", "plant", "product"]],
+                            pureTestingTable = [[], ["line", "plant", "product", "something"]],
                             extraProduction = [["line", "product"], ["extramin", "extramax"]],
                             weirdProduction = [["line1", "line2", "product"], ["weirdmin", "weirdmax"]])
         tdf.add_foreign_key("production", "lines", {"line" : "name"})
         tdf.add_foreign_key("production", "products", {"product" : "name"})
         tdf.add_foreign_key("lines", "plants", {"plant" : "name"})
         tdf.add_foreign_key("line_descriptor", "lines", {"name" : "name"})
-        for f in tdf.data_fields["pureTestingTable"]:
+        for f in set(tdf.data_fields["pureTestingTable"]).difference({"something"}):
             tdf.add_foreign_key("pureTestingTable", "%ss"%f, {f:"name"})
         tdf.add_foreign_key("extraProduction", "production", {"line" : "line", "product":"product"})
         tdf.add_foreign_key("weirdProduction", "production", {"line1" : "line", "product":"product"})
@@ -284,25 +295,34 @@ class TestUtils(unittest.TestCase):
         tdf.remove_foreign_keys_failures(badDat1, propagate=False)
         self.assertTrue(tdf._same_data(badDat1, goodDat) and not tdf.find_foreign_key_failures(badDat1))
 
-
-        for i,p in enumerate(goodDat.plants):
-            goodDat.lines[i+len(goodDat.lines)]["plant"] = p
-        for i,l in enumerate(goodDat.lines):
+        _ = len(goodDat.lines)
+        for i,p in enumerate(goodDat.plants.keys() + goodDat.plants.keys()):
+            goodDat.lines[i+_]["plant"] = p
+        for l in goodDat.lines:
             if i%2:
                 goodDat.line_descriptor[l] = i+10
-        for l,pl,pdct in itertools.product(goodDat.lines, goodDat.plants, goodDat.products) :
-            goodDat.pureTestingTable.append((l,pl,pdct))
+
+        for i,(l,pl,pdct) in enumerate(sorted(itertools.product(goodDat.lines, goodDat.plants, goodDat.products))):
+            goodDat.pureTestingTable.append((l,pl,pdct,i))
         self.assertFalse(tdf.find_foreign_key_failures(goodDat))
         badDat = tdf.copy_tic_dat(goodDat)
-        badDat.pureTestingTable.append(("j", "u", "nk"))
+        badDat.pureTestingTable.append(("j", "u", "nk", "ay"))
         self.assertTrue(tdf.find_foreign_key_failures(badDat) ==
                         {("pureTestingTable",t) : [len(goodDat.pureTestingTable)] for t in
                             ("lines", "plants", "products")})
 
-        obfudat = tdf.obfusimplify(goodDat)
+        obfudat = tdf.obfusimplify(goodDat, freeze_it=True)
         self.assertTrue(all(len(getattr(obfudat.copy, t)) == len(getattr(goodDat, t))
                             for t in tdf.all_tables))
+        for n in goodDat.plants.keys() + goodDat.lines.keys() + goodDat.products.keys() :
+            self.assertTrue(n in {_[1] for _ in obfudat.renamings.values()})
+            self.assertFalse(n in obfudat.renamings)
+        self.assertTrue(obfudat.copy.plants['P2']['otherstuff'] == 1)
         self.assertFalse(tdf._same_data(obfudat.copy, goodDat))
+        for k,r in obfudat.copy.line_descriptor.items():
+            i = r.values()[0] - 10
+            self.assertTrue(i%2 and (goodDat.line_descriptor[i].values()[0] == i+10))
+
         obfudat2 = tdf.obfusimplify(goodDat, {"plants": "P", "lines" : "L", "products" :"PR"})
         self.assertTrue(tdf._same_data(obfudat.copy, obfudat2.copy))
 
@@ -312,6 +332,7 @@ class TestUtils(unittest.TestCase):
         obfudat4 = tdf.obfusimplify(goodDat, skip_tables=["lines", "products"])
         self.assertFalse(tdf._same_data(obfudat4.copy, goodDat))
         self.assertFalse(tdf._same_data(obfudat4.copy, obfudat.copy))
+
 
 
 #

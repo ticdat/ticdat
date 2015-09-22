@@ -525,7 +525,7 @@ foreign keys, the code throwing this exception will be removed.
         verify(self.good_tic_dat_object(tic_dat, msg.append),
                "tic_dat not a good object for this factory : %s"%"\n".join(msg))
         rtn = self.TicDat(**{t:getattr(tic_dat, t) for t in self.all_tables})
-        return freeze_me(rtn) if freeze_it else rtn
+        return self.freeze_me(rtn) if freeze_it else rtn
     def freeze_me(self, tic_dat):
         """
         Freezes a ticdat object
@@ -590,7 +590,7 @@ foreign keys, the code throwing this exception will be removed.
             return self.remove_foreign_keys_failures(tic_dat)
         return tic_dat
 
-    def obfusimplify(self, tic_dat, table_prepends = {}, skip_tables = ()) :
+    def obfusimplify(self, tic_dat, table_prepends = {}, skip_tables = (), freeze_it = False) :
         """
         copies the tic_dat object into a new, obfuscated, simplified tic_dat object
         :param tic_dat: a ticdat object
@@ -599,6 +599,7 @@ foreign keys, the code throwing this exception will be removed.
                                not end with I. Should be restricted to entity tables (single field primary
                                that is not a foreign key child)
         :param skip_tables: a listing of entity tables whose single field primary key shouldn't be renamed
+        :param freeze_it: boolean. should the returned copy be frozen?
         :return: A named tuple with the following components.
                  copy : a deep copy of the tic_dat argument, with the single field primary key values
                         renamed to simple "short capital letters followed by numbers" strings.
@@ -654,8 +655,8 @@ foreign keys, the code throwing this exception will be removed.
 
         reverse_renamings = {}
         for t in table_prepends :
-            for i,k in enumerate(getattr(tic_dat, t)) :
-                reverse_renamings[t, k] = "%s%s"%(table_prepends[t],i)
+            for i,k in enumerate(sorted(getattr(tic_dat, t))) :
+                reverse_renamings[t, k] = "%s%s"%(table_prepends[t],i+1)
         foreign_keys = {}
         for nt, fks in self.foreign_keys.items():
             for fk in fks:
@@ -704,7 +705,9 @@ foreign keys, the code throwing this exception will be removed.
                     rtn_dict[t].append(fix_all_row(data_row))
 
         RtnType = clt.namedtuple("ObfusimplifyResults", "copy renamings")
-        rtn = RtnType(self.TicDat(**rtn_dict), {v:k for k,v in reverse_renamings.items()})
+
+        rtn = RtnType(self.freeze_me(self.TicDat(**rtn_dict)) if freeze_it else self.TicDat(**rtn_dict),
+                      {v:k for k,v in reverse_renamings.items()})
         assert not self.find_foreign_key_failures(rtn.copy)
         assert len(rtn.renamings) == len(reverse_renamings)
         return rtn
