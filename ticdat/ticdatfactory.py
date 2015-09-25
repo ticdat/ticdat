@@ -5,7 +5,7 @@ PEP8
 import collections as clt
 import utils as utils
 from utils import verify, freezable_factory, FrozenDict, FreezeableDict
-from utils import dictish, containerish, deep_freeze
+from utils import dictish, containerish, deep_freeze, lupish
 from string import uppercase
 from collections import namedtuple
 import xls
@@ -13,8 +13,6 @@ import csvtd as csv
 import sqlitetd as sql
 import mdb
 
-
-#ping
 def _keylen(k) :
     if not utils.containerish(k) :
         return 1
@@ -24,6 +22,8 @@ def _keylen(k) :
         rtn = 0
     return rtn
 
+_ForeignKey = namedtuple("ForeignKey", ("native_table", "foreign_table", "mapping"))
+_ForeignKeyMapping = namedtuple("FKMapping", ("native_field", "foreign_field"))
 
 class TicDatFactory(freezable_factory(object, "_isFrozen")) :
     """
@@ -41,19 +41,6 @@ class TicDatFactory(freezable_factory(object, "_isFrozen")) :
     @property
     def generator_tables(self):
         return deep_freeze(self._generator_tables)
-    @property
-    def foreign_keys(self):
-        rtn = clt.defaultdict(list)
-        for (native,foreign), nativefieldtuples in self._foreign_keys.items():
-            for nativefields in nativefieldtuples :
-                fk = {"foreignTable" : foreign,
-                      "mappings" : {nf:ff for nf,ff in
-                                    zip(nativefields, self.primary_key_fields[foreign])}}
-                fk["cardinality"] = "one-to-one" if set(fk["mappings"].keys()) == \
-                                                    set(self.primary_key_fields.get(native, ())) \
-                                    else "many-to-one"
-                rtn[native].append(fk)
-        return deep_freeze(rtn)
     @property
     def default_values(self):
         return deep_freeze(self._default_values)
@@ -90,26 +77,51 @@ class TicDatFactory(freezable_factory(object, "_isFrozen")) :
                 deleteme.append((nt,ft))
         for nt, ft in deleteme:
             del(self._foreign_keys[nt,ft])
+    @property
+    def foreign_keys(self):
+        rtn = []
+        for (native,foreign), nativefieldtuples in self._foreign_keys.items():
+            for nativefields in nativefieldtuples :
+                mappings = tuple(_ForeignKeyMapping(nf,ff) for nf,ff in
+                                 zip(nativefields, self.primary_key_fields[foreign]))
+                mappings = mappings[0] if len(mappings)==1 else mappings
+                rtn.append(_ForeignKey(native, foreign, mappings))
+        assert len(rtn) == len(set(rtn))
+        return tuple(rtn)
+    def _foreign_keys_by_native(self):
+        rtn = clt.defaultdict(list)
+        for fk in self.foreign_keys:
+            rtn[fk.native_table].append(_ForeignKey(fk.native_table, fk.foreign_table,
+                            (fk.mapping,) if type(fk.mapping) is _ForeignKeyMapping else fk.mapping))
+        return deep_freeze(rtn)
     def add_foreign_key(self, native_table, foreign_table, mappings):
         verify(not self._has_been_used,
                 "The foreign keys can't be changed after a TicDatFactory has been used.")
         for t in (native_table, foreign_table):
             verify(t in self.all_tables, "%s is not a table name"%t)
-        verify(dictish(mappings) and mappings,
-               "mappings should map native_table fields to foreign_table fields")
-        for k,v in mappings.items() :
+        verify(lupish(mappings) and mappings, "mappings needs to be a non empty list or a tuple")
+        if lupish(mappings[0]):
+            verify(all(len(_) == 2 for _ in mappings),
+"""when making a compound foreign key, mappings should contain sublists of format
+[native field, foreign field]""")
+            _mappings = {k:v for k,v in mappings}
+        else :
+            verify(len(mappings) == 2,
+"""when making a simple foreign key, mappings should be a list of the form [native field, foreign field]""")
+            _mappings = {mappings[0]:mappings[1]}
+        for k,v in _mappings.items() :
             verify(k in self._allFields(native_table),
                    "%s does not refer to one of %s 's fields"%(k, native_table))
             verify(v in self._allFields(foreign_table),
                    "%s does not refer to one of %s 's fields"%(k, foreign_table))
-        verify(set(self.primary_key_fields.get(foreign_table, ())) == set(mappings.values()),
+        verify(set(self.primary_key_fields.get(foreign_table, ())) == set(_mappings.values()),
             """%s is not the primary key for %s.
 This exception is being thrown because ticDat doesn't currently support many-to-many
 foreign key relationships. The ticDat API is forward compatible with re: to many-to-many
 relationships. When a future version of ticDat is released that supports many-to-many
 foreign keys, the code throwing this exception will be removed.
-            """%(",".join(mappings.values()), foreign_table))
-        reverseMapping = {v:k for k,v in mappings.items()}
+            """%(",".join(_mappings.values()), foreign_table))
+        reverseMapping = {v:k for k,v in _mappings.items()}
         self._foreign_keys[native_table, foreign_table].add(tuple(reverseMapping[pkf]
                             for pkf in self.primary_key_fields[foreign_table]))
     def _trigger_has_been_used(self):
@@ -552,7 +564,7 @@ foreign keys, the code throwing this exception will be removed.
         verify(self.good_tic_dat_object(tic_dat, msg.append),
                "tic_dat not a good object for this factory : %s"%"\n".join(msg))
         rtn = clt.defaultdict(list)
-        for native, fks in self.foreign_keys.items():
+        for native, fks in self._foreign_keys_by_native().items():
             def getcell(native_pk, native_data_row, field_name):
                  assert field_name in self.primary_key_fields.get(native, ()) + \
                                       self.data_fields.get(native, ())
@@ -562,14 +574,14 @@ foreign keys, the code throwing this exception will be removed.
                      return native_data_row[field_name]
                  return native_pk[self.primary_key_fields[native].index(field_name)]
             for fk in fks:
-                foreign_to_native = {v:k for k,v in fk["mappings"].items()}
+                foreign_to_native = {v:k for k,v in fk.mapping}
                 for native_pk, native_data_row in (getattr(tic_dat, native).items()
                             if dictish(getattr(tic_dat, native))
                             else enumerate(getattr(tic_dat, native))):
                     foreign_pk = tuple(getcell(native_pk, native_data_row, foreign_to_native[_fpk])
-                                       for _fpk in self.primary_key_fields[fk["foreignTable"]])
+                                       for _fpk in self.primary_key_fields[fk.foreign_table])
                     foreign_pk = foreign_pk[0] if len(foreign_pk) == 1 else foreign_pk
-                    if foreign_pk not in getattr(tic_dat, fk["foreignTable"]):
+                    if foreign_pk not in getattr(tic_dat, fk.foreign_table):
                         rtn[native, fk["foreignTable"]].append(native_pk)
         return {k:list(set(v)) for k,v in rtn.items()}
 
@@ -704,7 +716,7 @@ foreign keys, the code throwing this exception will be removed.
                 for data_row in read_table:
                     rtn_dict[t].append(fix_all_row(data_row))
 
-        RtnType = clt.namedtuple("ObfusimplifyResults", "copy renamings")
+        RtnType = namedtuple("ObfusimplifyResults", "copy renamings")
 
         rtn = RtnType(self.freeze_me(self.TicDat(**rtn_dict)) if freeze_it else self.TicDat(**rtn_dict),
                       {v:k for k,v in reverse_renamings.items()})
