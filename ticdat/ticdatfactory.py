@@ -14,7 +14,7 @@ import sqlitetd as sql
 import mdb
 
 
-
+#ping
 def _keylen(k) :
     if not utils.containerish(k) :
         return 1
