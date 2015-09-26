@@ -8,7 +8,7 @@ from ticdat.testing.ticdattestutils import assertTicDatTablesSame, DEBUG, addNet
 import itertools
 
 #uncomment decorator to drop into debugger for assertTrue, assertFalse failures
-#@failToDebugger
+@failToDebugger
 class TestUtils(unittest.TestCase):
     def firesException(self, f):
         e = firesException(f)
@@ -257,15 +257,15 @@ class TestUtils(unittest.TestCase):
                             pureTestingTable = [[], ["line", "plant", "product", "something"]],
                             extraProduction = [["line", "product"], ["extramin", "extramax"]],
                             weirdProduction = [["line1", "line2", "product"], ["weirdmin", "weirdmax"]])
-        tdf.add_foreign_key("production", "lines", {"line" : "name"})
-        tdf.add_foreign_key("production", "products", {"product" : "name"})
-        tdf.add_foreign_key("lines", "plants", {"plant" : "name"})
-        tdf.add_foreign_key("line_descriptor", "lines", {"name" : "name"})
+        tdf.add_foreign_key("production", "lines", ("line", "name"))
+        tdf.add_foreign_key("production", "products", ("product", "name"))
+        tdf.add_foreign_key("lines", "plants", ("plant", "name"))
+        tdf.add_foreign_key("line_descriptor", "lines", ("name", "name"))
         for f in set(tdf.data_fields["pureTestingTable"]).difference({"something"}):
-            tdf.add_foreign_key("pureTestingTable", "%ss"%f, {f:"name"})
-        tdf.add_foreign_key("extraProduction", "production", {"line" : "line", "product":"product"})
-        tdf.add_foreign_key("weirdProduction", "production", {"line1" : "line", "product":"product"})
-        tdf.add_foreign_key("weirdProduction", "extraProduction", {"line2" : "line", "product":"product"})
+            tdf.add_foreign_key("pureTestingTable", "%ss"%f, (f,"name"))
+        tdf.add_foreign_key("extraProduction", "production", (("line", "line"), ("product","product")))
+        tdf.add_foreign_key("weirdProduction", "production", (("line1", "line"), ("product","product")))
+        tdf.add_foreign_key("weirdProduction", "extraProduction", (("line2","line"), ("product","product")))
 
         goodDat = tdf.TicDat()
         goodDat.plants["Cleveland"] = ["this", "that"]

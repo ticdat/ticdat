@@ -22,8 +22,16 @@ def _keylen(k) :
         rtn = 0
     return rtn
 
-_ForeignKey = namedtuple("ForeignKey", ("native_table", "foreign_table", "mapping"))
+_ForeignKey = namedtuple("ForeignKey", ("native_table", "foreign_table", "mapping", "cardinality"))
 _ForeignKeyMapping = namedtuple("FKMapping", ("native_field", "foreign_field"))
+def _nativefields(fk):
+    return (fk.mapping.native_field,) if type(fk.mapping) is _ForeignKeyMapping \
+                                       else tuple(_.native_field for _ in fk.mapping)
+def _foreigntonativemapping(fk):
+    if type(fk.mapping) is _ForeignKeyMapping :
+        return {fk.mapping.foreign_field:fk.mapping.native_field}
+    else :
+        return {_.foreign_field:_.native_field for _ in fk.mapping}
 
 class TicDatFactory(freezable_factory(object, "_isFrozen")) :
     """
@@ -85,14 +93,18 @@ class TicDatFactory(freezable_factory(object, "_isFrozen")) :
                 mappings = tuple(_ForeignKeyMapping(nf,ff) for nf,ff in
                                  zip(nativefields, self.primary_key_fields[foreign]))
                 mappings = mappings[0] if len(mappings)==1 else mappings
-                rtn.append(_ForeignKey(native, foreign, mappings))
+                if set(nativefields) == set(self.primary_key_fields.get(native, ())) :
+                    cardinality = "one-to-one"
+                else:
+                   cardinality = "many-to-one"
+                rtn.append(_ForeignKey(native, foreign, mappings, cardinality))
         assert len(rtn) == len(set(rtn))
         return tuple(rtn)
     def _foreign_keys_by_native(self):
         rtn = clt.defaultdict(list)
         for fk in self.foreign_keys:
-            rtn[fk.native_table].append(_ForeignKey(fk.native_table, fk.foreign_table,fk.mapping))
-        return deep_freeze(rtn)
+            rtn[fk.native_table].append(fk)
+        return utils.FrozenDict({k:frozenset(v) for k,v in rtn.items()})
     def add_foreign_key(self, native_table, foreign_table, mappings):
         verify(not self._has_been_used,
                 "The foreign keys can't be changed after a TicDatFactory has been used.")
@@ -127,18 +139,19 @@ foreign keys, the code throwing this exception will be removed.
         if self._has_been_used :
             return # idempotent
         def findderivedforeignkey() :
-            curFKs = self.foreign_keys
+            curFKs = self._foreign_keys_by_native()
             for (nativetable, bridgetable), nativefieldstuples in self._foreign_keys.items():
                 for nativefieldtuple in nativefieldstuples :
                     for bfk in curFKs.get(bridgetable,()):
-                        if set(bfk["mappings"].keys())\
+                        nativefields = _nativefields(bfk)
+                        if set(nativefields)\
                                 .issubset(self.primary_key_fields[bridgetable]):
                             bridgetonative = {pkf:nf for pkf,nf in
                                     zip(self.primary_key_fields[bridgetable], nativefieldtuple)}
-                            foreigntobridge = {v:k for k,v in bfk["mappings"].items()}
+                            foreigntobridge = _foreigntonativemapping(bfk)
                             newnativeft = tuple(bridgetonative[foreigntobridge[pkf]] for pkf in
-                                            self.primary_key_fields[bfk["foreignTable"]])
-                            fkSet = self._foreign_keys[nativetable, bfk["foreignTable"]]
+                                            self.primary_key_fields[bfk.foreign_table])
+                            fkSet = self._foreign_keys[nativetable, bfk.foreign_table]
                             if newnativeft not in fkSet :
                                 return fkSet.add(newnativeft) or True
         while findderivedforeignkey():
@@ -321,20 +334,23 @@ foreign keys, the code throwing this exception will be removed.
                 self._made_foreign_links = True
                 can_link_w_me = lambda t : t not in superself.generator_tables and \
                                            superself.primary_key_fields.get(t)
-                for t, fks in superself.foreign_keys.items() :
-                  if can_link_w_me(t):
-                    for fk in fks:
-                      if can_link_w_me(fk["foreignTable"])  :
-                        linkname = superself._linkName[t, fk["foreignTable"],
-                                                       frozenset(fk["mappings"].keys())]
+                for fk in superself.foreign_keys :
+                    t = fk.native_table
+                    if can_link_w_me(t):
+                      if can_link_w_me(fk.foreign_table)  :
+                        nativefields = _nativefields(fk)
+                        linkname = superself._linkName[t, fk.foreign_table, frozenset(nativefields)]
                         if linkname not in ("keys", "items", "values") :
-                            ft = getattr(self, fk["foreignTable"])
-                            foreign_pk = superself.primary_key_fields[fk["foreignTable"]]
+                            ft = getattr(self, fk.foreign_table)
+                            foreign_pk = superself.primary_key_fields[fk.foreign_table]
                             local_pk = superself.primary_key_fields[t]
                             assert all(pk for pk in (foreign_pk, local_pk))
-                            assert set(foreign_pk) == set(fk["mappings"].values())
-                            appendage_fk = fk["cardinality"] == "one-to-one"
-                            reversemapping  = {v:k for k,v in fk["mappings"].items()}
+                            reversemapping  = _foreigntonativemapping(fk)
+                            if len(nativefields) == 1:
+                                assert set(foreign_pk) =={fk.mapping.foreign_field}
+                            else:
+                                assert set(foreign_pk) == {_.foreign_field for _ in fk.mapping}
+                            appendage_fk = fk.cardinality == "one-to-one"
                             tablefields = superself.primary_key_fields.get(t, ()) + \
                                           superself.data_fields.get(t, ())
                             local_posn = {x:tablefields.index(reversemapping[x])
@@ -342,7 +358,7 @@ foreign keys, the code throwing this exception will be removed.
                             unused_local_posn = {i for i,_ in enumerate(tablefields) if i not in
                                                     local_posn.values()}
                             if not appendage_fk :
-                                new_pk = tuple(x for x in local_pk if x not in fk["mappings"].keys())
+                                new_pk = tuple(x for x in local_pk if x not in nativefields)
                                 new_data_dct = ticdattablefactory(self._all_data_dicts, linkname,
                                                 new_pk, lambda x : x)
                                 for row in ft.values() :
@@ -566,7 +582,7 @@ foreign keys, the code throwing this exception will be removed.
         msg  = []
         verify(self.good_tic_dat_object(tic_dat, msg.append),
                "tic_dat not a good object for this factory : %s"%"\n".join(msg))
-        rtn_values, rtn_pks = clt.defaultdict(set), clt.defaultdict
+        rtn_values, rtn_pks = clt.defaultdict(set), clt.defaultdict(set)
         for native, fks in self._foreign_keys_by_native().items():
             def getcell(native_pk, native_data_row, field_name):
                  assert field_name in self.primary_key_fields.get(native, ()) + \
@@ -641,6 +657,8 @@ foreign keys, the code throwing this exception will be removed.
         verify(not self.generator_tables, "Cannot obfusimplify a tic_dat that uses generators")
         verify(not set(table_prepends).intersection(skip_tables),
                "Can't specify a table prepend for an entity that you're skipping")
+        verify(self._has_been_used,
+               "The cascading foreign keys won't necessarily be present until the factory is used")
 
         entity_tables = {t for t,v in self.primary_key_fields.items() if len(v) == 1}
         foreign_keys_by_native = self._foreign_keys_by_native()
@@ -688,34 +706,15 @@ foreign keys, the code throwing this exception will be removed.
             for i,k in enumerate(sorted(getattr(tic_dat, t))) :
                 reverse_renamings[t, k] = "%s%s"%(table_prepends[t],i+1)
         foreign_keys = {}
-        for fks in self.foreign_keys:
-            for fk in fks:
-                nt = fk.native_table
-                if fk.foreign_table in table_prepends:
-                    if type(fk.mapping) is _ForeignKeyMapping:
-                        foreign_keys = dict(foreign_keys, **{(nt,fk.mapping.native_field) : fk.foreign_table})
-                    else:
-                        foreign_keys = dict(foreign_keys, **{(nt,nf) : fk.foreign_table
-                                        for nf, ff in fk.mappings})
-
-        def add_foreign_keys() :
-            orig = len(foreign_keys)
-            for fks in self.foreign_keys:
-                for fk in fks:
-                    nt = fk.native_table
-                    if fk.foreign_table in table_prepends:
-                        for nf, ff in ((fk.mapping,) if
-                                      type(fk.mapping) is _ForeignKeyMapping else fk.mapping) :
-                            if (fk.foreign_table, ff) in foreign_keys:
-                                assert (nt, nf) not in foreign_keys
-                                foreign_keys[nt, nf] = foreign_keys[fk.foreign_table, ff]
-            return len(foreign_keys) > orig
-        while add_foreign_keys():
-            pass
-
-        ### !!!!!!!!!! RIGHT HERE !!!!!!!!!!!!!!!!!!
-        # broke away because it seems like add_foreign_keys should never do anything
-        #### !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        for fk in self.foreign_keys:
+            nt = fk.native_table
+            if fk.foreign_table in table_prepends:
+                if type(fk.mapping) is _ForeignKeyMapping:
+                    foreign_keys = dict(foreign_keys, **{(nt,fk.mapping.native_field) : fk.foreign_table})
+                else:
+                    foreign_keys = dict(foreign_keys, **{(nt,nf) : fk.foreign_table
+                                    for nf, ff in fk.mappings})
+        # remember -- we've used this factory so any cascading foreign keys are present
         rtn_dict  = clt.defaultdict(dict)
         for t in self.all_tables:
             read_table = getattr(tic_dat, t)
