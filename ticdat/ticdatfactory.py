@@ -33,6 +33,10 @@ def _foreigntonativemapping(fk):
     else :
         return {_.foreign_field:_.native_field for _ in fk.mapping}
 
+_ForeignKey.nativefields = _nativefields
+_ForeignKey.foreigntonativemapping = _foreigntonativemapping
+_ForeignKey.nativetoforeignmapping = lambda self : {v:k for k,v in self.foreigntonativemapping().items()}
+
 class TicDatFactory(freezable_factory(object, "_isFrozen")) :
     """
     Primary class for ticdat library. This class is constructed with a schema,
@@ -143,12 +147,12 @@ foreign keys, the code throwing this exception will be removed.
             for (nativetable, bridgetable), nativefieldstuples in self._foreign_keys.items():
                 for nativefieldtuple in nativefieldstuples :
                     for bfk in curFKs.get(bridgetable,()):
-                        nativefields = _nativefields(bfk)
+                        nativefields = bfk.nativefields()
                         if set(nativefields)\
                                 .issubset(self.primary_key_fields[bridgetable]):
                             bridgetonative = {pkf:nf for pkf,nf in
                                     zip(self.primary_key_fields[bridgetable], nativefieldtuple)}
-                            foreigntobridge = _foreigntonativemapping(bfk)
+                            foreigntobridge = bfk.foreigntonativemapping()
                             newnativeft = tuple(bridgetonative[foreigntobridge[pkf]] for pkf in
                                             self.primary_key_fields[bfk.foreign_table])
                             fkSet = self._foreign_keys[nativetable, bfk.foreign_table]
@@ -338,14 +342,14 @@ foreign keys, the code throwing this exception will be removed.
                     t = fk.native_table
                     if can_link_w_me(t):
                       if can_link_w_me(fk.foreign_table)  :
-                        nativefields = _nativefields(fk)
+                        nativefields = fk.nativefields()
                         linkname = superself._linkName[t, fk.foreign_table, frozenset(nativefields)]
                         if linkname not in ("keys", "items", "values") :
                             ft = getattr(self, fk.foreign_table)
                             foreign_pk = superself.primary_key_fields[fk.foreign_table]
                             local_pk = superself.primary_key_fields[t]
                             assert all(pk for pk in (foreign_pk, local_pk))
-                            reversemapping  = _foreigntonativemapping(fk)
+                            reversemapping  = fk.foreigntonativemapping()
                             if len(nativefields) == 1:
                                 assert set(foreign_pk) =={fk.mapping.foreign_field}
                             else:
@@ -593,8 +597,7 @@ foreign keys, the code throwing this exception will be removed.
                      return native_data_row[field_name]
                  return native_pk[self.primary_key_fields[native].index(field_name)]
             for fk in fks:
-                foreign_to_native = {v:k for k,v in ((fk.mapping,)
-                                     if type(fk.mapping) is _ForeignKeyMapping else fk.mapping)}
+                foreign_to_native = fk.foreigntonativemapping()
                 for native_pk, native_data_row in (getattr(tic_dat, native).items()
                             if dictish(getattr(tic_dat, native))
                             else enumerate(getattr(tic_dat, native))):
@@ -664,12 +667,9 @@ foreign keys, the code throwing this exception will be removed.
         foreign_keys_by_native = self._foreign_keys_by_native()
         # if a native table is one-to-one with a foreign table, it isn't an entity table
         for nt in entity_tables.intersection(foreign_keys_by_native):
-            for fk in foreign_keys_by_native[nt]:
-                if (((type(fk.mapping) is _ForeignKeyMapping) and
-                     (fk.mapping.native_field == self.primary_key_fields[nt])) or
-                    ((type(fk.mapping) is not _ForeignKeyMapping) and
-                     ({_.native_field for _ in fk.mapping} == set(self.primary_key_fields[nt])))) :
-                    entity_tables = entity_tables.difference({nt})
+            if any(ft.cardinality == "one-to-one" for ft in foreign_keys_by_native[nt]):
+                entity_tables.discard(nt)
+
         verify(entity_tables.issuperset(skip_tables), "should only specify entity tables to skip")
         entity_tables = entity_tables.difference(skip_tables)
 
@@ -709,11 +709,8 @@ foreign keys, the code throwing this exception will be removed.
         for fk in self.foreign_keys:
             nt = fk.native_table
             if fk.foreign_table in table_prepends:
-                if type(fk.mapping) is _ForeignKeyMapping:
-                    foreign_keys = dict(foreign_keys, **{(nt,fk.mapping.native_field) : fk.foreign_table})
-                else:
-                    foreign_keys = dict(foreign_keys, **{(nt,nf) : fk.foreign_table
-                                    for nf, ff in fk.mappings})
+                foreign_keys = dict(foreign_keys, **{(nt,nf) : fk.foreign_table
+                                    for nf, ff in fk.nativetoforeignmapping().items()})
         # remember -- we've used this factory so any cascading foreign keys are present
         rtn_dict  = clt.defaultdict(dict)
         for t in self.all_tables:
@@ -748,6 +745,7 @@ foreign keys, the code throwing this exception will be removed.
         assert not self.find_foreign_key_failures(rtn.copy)
         assert len(rtn.renamings) == len(reverse_renamings)
         return rtn
+
 def freeze_me(x) :
     """
     Freezes a ticdat object

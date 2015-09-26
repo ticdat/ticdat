@@ -42,6 +42,11 @@ def failToDebugger(cls) :
     cls.failToDebugger = True
     return cls
 
+def flaggedAsRunAlone(f):
+    f.runAlone = True
+    return f
+
+
 def runSuite(cls, **kwargs ):
     # call with fastOnly = True or fastOnly = False as the only args
     assert (len(kwargs) == 1) and ('fastOnly' in kwargs)
@@ -50,11 +55,17 @@ def runSuite(cls, **kwargs ):
     _rtn = [getattr(cls, x) for x in dir(cls)
            if x.startswith("test")]
     assert all(callable(x) for x in _rtn)
-    _rtn = [x.__name__ for x in _rtn if
-             ((not fastOnly) or
-              (not getattr(x, "slow", False))) and
-             ((DEBUG()) or
-              (not getattr(x, "skipForRelease", False)))]
+
+    runalones = [x for x in _rtn if  hasattr(x, "runAlone")]
+    assert len(runalones) <= 1
+    if runalones:
+        _rtn = [runalones[0].__name__]
+    else:
+        _rtn = [x.__name__ for x in _rtn if
+                 ((not fastOnly) or
+                  (not getattr(x, "slow", False))) and
+                 ((DEBUG()) or
+                  (not getattr(x, "skipForRelease", False)))]
 
     suite = unittest.TestSuite()
     for x in _rtn :

@@ -3,8 +3,9 @@ Read/write ticDat objects from SQLite files. Requires the sqlite3 module
 PEP8
 """
 import os
-import utils
+from collections import defaultdict
 from utils import freezable_factory, TicDatError, verify, stringish, dictish, containerish
+from utils import FrozenDict
 
 try:
     import sqlite3 as sql
@@ -49,6 +50,10 @@ class SQLiteTicFactory(freezable_factory(object, "_isFrozen")) :
         """
         assert import_worked, "don't create this otherwise"
         self.tic_dat_factory = tic_dat_factory
+        self._fks = defaultdict(set)
+        for fk in self.tic_dat_factory.foreign_keys:
+            self._fks[fk.native_table].add(fk)
+        self._fks = FrozenDict({k:tuple(v) for k,v in self._fks.items()})
         self._isFrozen = True
     def create_tic_dat(self, db_file_path):
         """
@@ -153,8 +158,8 @@ class SQLiteTicFactory(freezable_factory(object, "_isFrozen")) :
         rtn = []
         def processTable(t) :
             if t not in rtn:
-                for fks in self.tic_dat_factory.foreign_keys.get(t, ()) :
-                    processTable(fks["foreignTable"])
+                for fk in self._fks.get(t, ()) :
+                    processTable(fk.foreign_table)
                 rtn.append(t)
         map(processTable, self.tic_dat_factory.all_tables)
         return tuple(rtn)
@@ -165,8 +170,8 @@ class SQLiteTicFactory(freezable_factory(object, "_isFrozen")) :
             strl = [f for f in self.tic_dat_factory.primary_key_fields.get(t, ())] + \
                    [f + " default %s"%self.tic_dat_factory.default_values.get(t, {}).get(f, 0)
                     for f in self.tic_dat_factory.data_fields.get(t, ())]
-            for fks in self.tic_dat_factory.foreign_keys.get(t, ()) :
-                nativefields, foreignfields = zip(* (fks["mappings"].items()))
+            for fks in self._fks.get(t, ()) :
+                nativefields, foreignfields = zip(* (fks.nativetoforeignmapping.items()))
                 strl.append("FOREIGN KEY(%s) REFERENCES %s(%s)"%(",".join(nativefields),
                              fks["foreignTable"], ",".join(foreignfields)))
             if self.tic_dat_factory.primary_key_fields.get(t) :

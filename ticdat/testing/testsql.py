@@ -8,7 +8,7 @@ from ticdat.testing.ticdattestutils import makeCleanPath, addNetflowForeignKeys,
 import shutil
 
 #uncomment decorator to drop into debugger for assertTrue, assertFalse failures
-#@failToDebugger
+@failToDebugger
 class TestSql(unittest.TestCase):
     def firesException(self, f):
         e = firesException(f)

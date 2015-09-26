@@ -3,12 +3,12 @@ import unittest
 import ticdat.utils as utils
 from ticdat.ticdatfactory import TicDatFactory, _ForeignKey, _ForeignKeyMapping
 from ticdat.testing.ticdattestutils import dietData, dietSchema, netflowData, netflowSchema, firesException
-from ticdat.testing.ticdattestutils import sillyMeData, sillyMeSchema, runSuite, failToDebugger
+from ticdat.testing.ticdattestutils import sillyMeData, sillyMeSchema, runSuite, failToDebugger, flaggedAsRunAlone
 from ticdat.testing.ticdattestutils import assertTicDatTablesSame, DEBUG, addNetflowForeignKeys, addDietForeignKeys
 import itertools
 
 #uncomment decorator to drop into debugger for assertTrue, assertFalse failures
-@failToDebugger
+#@failToDebugger
 class TestUtils(unittest.TestCase):
     def firesException(self, f):
         e = firesException(f)
