@@ -610,7 +610,7 @@ foreign keys, the code throwing this exception will be removed.
                             rtn_values[fk].add(tuple(getcell(native_pk,
                                     native_data_row, _.native_field) for _ in fk.mapping))
         assert set(rtn_pks) == set(rtn_values)
-        RtnType = namedtuple("ForeignKeyFailures", "native_values", "native_pks")
+        RtnType = namedtuple("ForeignKeyFailures", ("native_values", "native_pks"))
 
         return {k:RtnType(tuple(rtn_values[k]), tuple(rtn_pks[k])) for k in rtn_pks}
 
