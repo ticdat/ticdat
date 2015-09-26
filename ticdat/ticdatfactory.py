@@ -91,8 +91,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen")) :
     def _foreign_keys_by_native(self):
         rtn = clt.defaultdict(list)
         for fk in self.foreign_keys:
-            rtn[fk.native_table].append(_ForeignKey(fk.native_table, fk.foreign_table,
-                            (fk.mapping,) if type(fk.mapping) is _ForeignKeyMapping else fk.mapping))
+            rtn[fk.native_table].append(_ForeignKey(fk.native_table, fk.foreign_table,fk.mapping))
         return deep_freeze(rtn)
     def add_foreign_key(self, native_table, foreign_table, mappings):
         verify(not self._has_been_used,
@@ -552,18 +551,22 @@ foreign keys, the code throwing this exception will be removed.
         """
         Finds the foreign key failures for a ticdat object
         :param tic_dat: ticdat object
-        :return: A dictionary indexed by every (child table name, parent table name) which
+        :return: A dictionary constructed as follow:
+                 The keys are namedTuples with members "native_table", "foreign_table", "mapping"
+                 The key data matches the arguments to add_foreign_key that constructed the foreign key.
+                 The values are namedTuples with the following members.
+                 --> native_values - the values of the native fields that failed to match
+                 --> native_pks - the primary key entries of the native table rows
+                                  corresponding to the native_values.
+                 That is to say, native_values tells you which values in the native table
+                 can't find a foreign key match, and thus generate a foreign key failure.
+                 native_pks tells you which native table rows will be removed if you call remove_foreign_keys_failures.
                  contained a child-to-parent foreign key failure.
-                 For each such table, the value for the return dictionary is a list of the child
-                 primary key entries that failed to match. The full child primary key is included
-                 (even if just the sub-portion that participates in the foreign key relationship)
-                 for unambigous specification of the offending records.
-                 For child tables with no primary key, the row position is returned instead.
         """
         msg  = []
         verify(self.good_tic_dat_object(tic_dat, msg.append),
                "tic_dat not a good object for this factory : %s"%"\n".join(msg))
-        rtn = clt.defaultdict(list)
+        rtn_values, rtn_pks = clt.defaultdict(set), clt.defaultdict
         for native, fks in self._foreign_keys_by_native().items():
             def getcell(native_pk, native_data_row, field_name):
                  assert field_name in self.primary_key_fields.get(native, ()) + \
@@ -574,7 +577,8 @@ foreign keys, the code throwing this exception will be removed.
                      return native_data_row[field_name]
                  return native_pk[self.primary_key_fields[native].index(field_name)]
             for fk in fks:
-                foreign_to_native = {v:k for k,v in fk.mapping}
+                foreign_to_native = {v:k for k,v in ((fk.mapping,)
+                                     if type(fk.mapping) is _ForeignKeyMapping else fk.mapping)}
                 for native_pk, native_data_row in (getattr(tic_dat, native).items()
                             if dictish(getattr(tic_dat, native))
                             else enumerate(getattr(tic_dat, native))):
@@ -582,8 +586,17 @@ foreign keys, the code throwing this exception will be removed.
                                        for _fpk in self.primary_key_fields[fk.foreign_table])
                     foreign_pk = foreign_pk[0] if len(foreign_pk) == 1 else foreign_pk
                     if foreign_pk not in getattr(tic_dat, fk.foreign_table):
-                        rtn[native, fk["foreignTable"]].append(native_pk)
-        return {k:list(set(v)) for k,v in rtn.items()}
+                        rtn_pks[fk].add(native_pk)
+                        if type(fk.mapping) is _ForeignKeyMapping :
+                            rtn_values[fk].add(getcell(native_pk, native_data_row,
+                                                       fk.mapping.native_field))
+                        else:
+                            rtn_values[fk].add(tuple(getcell(native_pk,
+                                    native_data_row, _.native_field) for _ in fk.mapping))
+        assert set(rtn_pks) == set(rtn_values)
+        RtnType = namedtuple("ForeignKeyFailures", "native_values", "native_pks")
+
+        return {k:RtnType(tuple(rtn_values[k]), tuple(rtn_pks[k])) for k in rtn_pks}
 
     def remove_foreign_keys_failures(self, tic_dat, propagate=True):
         """
@@ -594,10 +607,10 @@ foreign keys, the code throwing this exception will be removed.
         :return: tic_dat, with the foreign key failures removed
         """
         fk_failures = self.find_foreign_key_failures(tic_dat)
-        for (child_table, _), failures in fk_failures.items():
-            for failed_pk in failures:
-                if failed_pk in getattr(tic_dat, child_table) :
-                    del(getattr(tic_dat, child_table)[failed_pk])
+        for fk, (_, failed_pks) in fk_failures.items():
+            for failed_pk in failed_pks:
+                if failed_pk in getattr(tic_dat, fk.native_table) :
+                    del(getattr(tic_dat, fk.native_table)[failed_pk])
         if fk_failures and propagate:
             return self.remove_foreign_keys_failures(tic_dat)
         return tic_dat
@@ -630,9 +643,14 @@ foreign keys, the code throwing this exception will be removed.
                "Can't specify a table prepend for an entity that you're skipping")
 
         entity_tables = {t for t,v in self.primary_key_fields.items() if len(v) == 1}
-        for nt in entity_tables.intersection(self.foreign_keys):
-            for fk in self.foreign_keys[nt]:
-                if set(fk["mappings"].keys()) == set(self.primary_key_fields[nt]) :
+        foreign_keys_by_native = self._foreign_keys_by_native()
+        # if a native table is one-to-one with a foreign table, it isn't an entity table
+        for nt in entity_tables.intersection(foreign_keys_by_native):
+            for fk in foreign_keys_by_native[nt]:
+                if (((type(fk.mapping) is _ForeignKeyMapping) and
+                     (fk.mapping.native_field == self.primary_key_fields[nt])) or
+                    ((type(fk.mapping) is not _ForeignKeyMapping) and
+                     ({_.native_field for _ in fk.mapping} == set(self.primary_key_fields[nt])))) :
                     entity_tables = entity_tables.difference({nt})
         verify(entity_tables.issuperset(skip_tables), "should only specify entity tables to skip")
         entity_tables = entity_tables.difference(skip_tables)
@@ -670,26 +688,34 @@ foreign keys, the code throwing this exception will be removed.
             for i,k in enumerate(sorted(getattr(tic_dat, t))) :
                 reverse_renamings[t, k] = "%s%s"%(table_prepends[t],i+1)
         foreign_keys = {}
-        for nt, fks in self.foreign_keys.items():
+        for fks in self.foreign_keys:
             for fk in fks:
-                if fk["foreignTable"] in table_prepends:
-                    assert (set(fk["mappings"].values()) ==
-                            {self.primary_key_fields[fk["foreignTable"]][0]})
-                    foreign_keys = dict(foreign_keys, **{(nt,nf) : fk["foreignTable"]
-                                        for nf, ff in fk["mappings"].items()})
+                nt = fk.native_table
+                if fk.foreign_table in table_prepends:
+                    if type(fk.mapping) is _ForeignKeyMapping:
+                        foreign_keys = dict(foreign_keys, **{(nt,fk.mapping.native_field) : fk.foreign_table})
+                    else:
+                        foreign_keys = dict(foreign_keys, **{(nt,nf) : fk.foreign_table
+                                        for nf, ff in fk.mappings})
+
         def add_foreign_keys() :
             orig = len(foreign_keys)
-            for nt, fks in self.foreign_keys.items():
+            for fks in self.foreign_keys:
                 for fk in fks:
-                    if fk["foreignTable"] in table_prepends:
-                        for nf, ff in fk["mappings"].items():
-                            if (fk["foreignTable"], ff) in foreign_keys:
+                    nt = fk.native_table
+                    if fk.foreign_table in table_prepends:
+                        for nf, ff in ((fk.mapping,) if
+                                      type(fk.mapping) is _ForeignKeyMapping else fk.mapping) :
+                            if (fk.foreign_table, ff) in foreign_keys:
                                 assert (nt, nf) not in foreign_keys
-                                foreign_keys[nt, nf] = foreign_keys[fk["foreign_table"], ff]
+                                foreign_keys[nt, nf] = foreign_keys[fk.foreign_table, ff]
             return len(foreign_keys) > orig
         while add_foreign_keys():
             pass
 
+        ### !!!!!!!!!! RIGHT HERE !!!!!!!!!!!!!!!!!!
+        # broke away because it seems like add_foreign_keys should never do anything
+        #### !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         rtn_dict  = clt.defaultdict(dict)
         for t in self.all_tables:
             read_table = getattr(tic_dat, t)
