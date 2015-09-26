@@ -8,7 +8,7 @@ from ticdat.testing.ticdattestutils import makeCleanPath, addNetflowForeignKeys,
 import shutil
 
 #uncomment decorator to drop into debugger for assertTrue, assertFalse failures
-@failToDebugger
+#@failToDebugger
 class TestSql(unittest.TestCase):
     def firesException(self, f):
         e = firesException(f)
@@ -65,8 +65,10 @@ class TestSql(unittest.TestCase):
         self.assertFalse(tdf.find_foreign_key_failures(ticDat))
         ticDat.nutritionQuantities['hot dog', 'boger'] = ticDat.nutritionQuantities['junk', 'protein'] = -12
         self.assertTrue(tdf.find_foreign_key_failures(ticDat) ==
-                        {("nutritionQuantities", "categories"):[('hot dog', 'boger')],
-                         ("nutritionQuantities", "foods"):[('junk', 'protein')]})
+        {('nutritionQuantities', 'foods', ('food', 'name'), 'many-to-one'): (('junk',), (('junk', 'protein'),)),
+         ('nutritionQuantities', 'categories', ('category', 'name'), 'many-to-one'):
+             (('boger',), (('hot dog', 'boger'),))})
+
         self.assertFalse(tdf._same_data(ticDat, origTicDat))
         tdf.remove_foreign_keys_failures(ticDat)
         self.assertFalse(tdf.find_foreign_key_failures(ticDat))
@@ -112,12 +114,16 @@ class TestSql(unittest.TestCase):
         ticDatNew.cost['junker', 'Detroit', 'New York'] =  20
         ticDatNew.cost['bunker', 'Detroit', 'New Jerk'] =  20
         ticDatNew.arcs['booger', 'wooger'] =  112
-        self.assertTrue({k:set(v) for k,v in tdf.find_foreign_key_failures(ticDatNew).items()} ==
-                        {('cost', 'commodities'): {('junker', 'Detroit', 'New York'),
-                                                   ('bunker', 'Detroit', 'New Jerk')} ,
-                         ('cost', 'nodes'): {('Pencils', 'booger', 'wooger'),
-                                             ('bunker', 'Detroit', 'New Jerk')},
-                         ('arcs', 'nodes'): {('booger', 'wooger')}})
+        self.assertTrue({f[:2] + f[2][:1] : set(v.native_pks) for
+                         f,v in tdf.find_foreign_key_failures(ticDatNew).items()} ==
+        {('arcs', 'nodes', u'destination'): {('booger', 'wooger')},
+         ('arcs', 'nodes', u'source'): {('booger', 'wooger')},
+         ('cost', 'commodities', u'commodity'): {('bunker', 'Detroit', 'New Jerk'),
+                                                 ('junker', 'Detroit', 'New York')},
+         ('cost', 'nodes', u'destination'): {('bunker', 'Detroit', 'New Jerk'),
+                                             ('Pencils', 'booger', 'wooger')},
+         ('cost', 'nodes', u'source'): {('Pencils', 'booger', 'wooger')}})
+
 
 
     def testSilly(self):
