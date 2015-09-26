@@ -616,6 +616,8 @@ foreign keys, the code throwing this exception will be removed.
         verify(not self.generator_tables, "Cannot obfusimplify a tic_dat that uses generators")
         verify(not set(table_prepends).intersection(skip_tables),
                "Can't specify a table prepend for an entity that you're skipping")
+        verify(self._has_been_used,
+               "The cascading foreign keys won't necessarily be present until the factory is used")
 
         entity_tables = {t for t,v in self.primary_key_fields.items() if len(v) == 1}
         for nt in entity_tables.intersection(self.foreign_keys):
@@ -665,19 +667,8 @@ foreign keys, the code throwing this exception will be removed.
                             {self.primary_key_fields[fk["foreignTable"]][0]})
                     foreign_keys = dict(foreign_keys, **{(nt,nf) : fk["foreignTable"]
                                         for nf, ff in fk["mappings"].items()})
-        def add_foreign_keys() :
-            orig = len(foreign_keys)
-            for nt, fks in self.foreign_keys.items():
-                for fk in fks:
-                    if fk["foreignTable"] in table_prepends:
-                        for nf, ff in fk["mappings"].items():
-                            if (fk["foreignTable"], ff) in foreign_keys:
-                                assert (nt, nf) not in foreign_keys
-                                foreign_keys[nt, nf] = foreign_keys[fk["foreign_table"], ff]
-            return len(foreign_keys) > orig
-        while add_foreign_keys():
-            pass
 
+        # remember -- we've used this factory so any cascading foreign keys are present
         rtn_dict  = clt.defaultdict(dict)
         for t in self.all_tables:
             read_table = getattr(tic_dat, t)
