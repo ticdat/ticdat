@@ -3,8 +3,9 @@ Read/write ticDat objects from SQLite files. Requires the sqlite3 module
 PEP8
 """
 import os
-import utils
+from collections import defaultdict
 from utils import freezable_factory, TicDatError, verify, stringish, dictish, containerish
+from utils import FrozenDict
 
 try:
     import sqlite3 as sql
@@ -75,6 +76,11 @@ class SQLiteTicFactory(freezable_factory(object, "_isFrozen")) :
         """
         return self.tic_dat_factory.TicDat(**self._create_tic_dat_from_sql(
                     sql_file_path, includes_schema))
+    def _fks(self):
+        rtn = defaultdict(set)
+        for fk in self.tic_dat_factory.foreign_keys:
+            rtn[fk.native_table].add(fk)
+        return FrozenDict({k:tuple(v) for k,v in rtn.items()})
     def create_frozen_tic_dat_from_sql(self, sql_file_path, includes_schema = False):
         """
         Create a FrozenTicDat object from an SQLite sql text file
@@ -151,24 +157,26 @@ class SQLiteTicFactory(freezable_factory(object, "_isFrozen")) :
         return rtn
     def _ordered_tables(self):
         rtn = []
+        fks = self._fks()
         def processTable(t) :
             if t not in rtn:
-                for fks in self.tic_dat_factory.foreign_keys.get(t, ()) :
-                    processTable(fks["foreignTable"])
+                for fk in fks.get(t, ()) :
+                    processTable(fk.foreign_table)
                 rtn.append(t)
         map(processTable, self.tic_dat_factory.all_tables)
         return tuple(rtn)
     def _get_schema_sql(self):
         rtn = []
+        fks = self._fks()
         for t in self._ordered_tables() :
             str = "Create TABLE %s (\n"%t
             strl = [f for f in self.tic_dat_factory.primary_key_fields.get(t, ())] + \
                    [f + " default %s"%self.tic_dat_factory.default_values.get(t, {}).get(f, 0)
                     for f in self.tic_dat_factory.data_fields.get(t, ())]
-            for fks in self.tic_dat_factory.foreign_keys.get(t, ()) :
-                nativefields, foreignfields = zip(* (fks["mappings"].items()))
+            for fk in fks.get(t, ()) :
+                nativefields, foreignfields = zip(* (fk.nativetoforeignmapping().items()))
                 strl.append("FOREIGN KEY(%s) REFERENCES %s(%s)"%(",".join(nativefields),
-                             fks["foreignTable"], ",".join(foreignfields)))
+                             fk.foreign_table, ",".join(foreignfields)))
             if self.tic_dat_factory.primary_key_fields.get(t) :
                 strl.append("PRIMARY KEY(%s)"%(",".join
                                                (self.tic_dat_factory.primary_key_fields[t])))

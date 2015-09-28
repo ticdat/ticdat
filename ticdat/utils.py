@@ -27,6 +27,7 @@ def containerish(x): return all(hasattr(x, _) for _ in ("__iter__", "__len__", "
 def generatorish(x): return all(hasattr(x, _) for _ in ("__iter__", "next")) \
                             and not (containerish(x) or dictish(x))
 def numericish(x) : return isinstance(x, Number) and not isinstance(x, bool)
+def lupish(x) : return containerish(x) and hasattr(x, "__getitem__") and not dictish(x)
 
 def baseConverter(number, base):
     if number < base:
