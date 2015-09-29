@@ -39,7 +39,7 @@ _ForeignKey.nativetoforeignmapping = lambda self : {v:k for k,v in self.foreignt
 
 
 _TypeDictionary = namedtuple("TypeDictionary", ("inclusive_min", "inclusive_max", "min", "max", "must_be_int",
-                                                "number_allowed", "strings_allowed"))
+                                                "number_allowed", "strings_allowed", "nullabe"))
 
 class TicDatFactory(freezable_factory(object, "_isFrozen")) :
     """
@@ -62,19 +62,28 @@ class TicDatFactory(freezable_factory(object, "_isFrozen")) :
         return deep_freeze(self._default_values)
     def set_data_type(self, table, field, number_allowed = True,
                       inclusive_min = True, inclusive_max = True, min = 0, max = float("inf"),
-                      must_be_int = False):
+                      must_be_int = False, strings_allowed= (), nullable = False):
         """
         sets the data type for a field
-        :param table: a field in the schema
-        :param field:
-        :param number_allowed:
-        :param inclusive_min:
-        :param inclusive_max:
-        :param min:
-        :param max:
-        :param must_be_int:
+        :param table: a table in the schema
+        :param field: a data field for this table
+        :param number_allowed: boolean does this field allow numbers?
+        :param inclusive_min: boolean : if number allowed, is the min inclusive?
+        :param inclusive_max: boolean : if number allowed, is the max inclusive?
+        :param min: if number allowed, the minimum value
+        :param max: if number allowed, the maximum value
+        :param must_be_int: boolean : if number allowed, must the number be integral?
+        :param strings_allowed: boolean : a collection of strings allowed.
+        :param nullable : boolean : can this value contain null (aka None)
         :return:
         """
+        verify(table in self.all_tables, "Unrecognized table name %s"%table)
+        verify(field in self.data_fields[table], "%s does not refer to a data field for %s"%(field, table))
+        verify(containerish(strings_allowed) and all(utils.stringish(x) for x in strings_allowed),
+"""The strings_allowed argument should be a container of strings.
+For fields that can't tolerate strings, pass an empty container (the default) for this argument.""")
+        if not number_allowed:
+            pass # maybe do some verifications that other arguments not specified
 
     def set_default_values(self, **tableDefaults):
         """
