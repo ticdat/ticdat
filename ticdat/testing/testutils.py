@@ -333,6 +333,34 @@ class TestUtils(unittest.TestCase):
         self.assertFalse(tdf._same_data(obfudat4.copy, goodDat))
         self.assertFalse(tdf._same_data(obfudat4.copy, obfudat.copy))
 
+    def testSeven(self):
+        tdf = TicDatFactory(**dietSchema())
+        def makeIt() :
+            rtn = tdf.TicDat()
+            rtn.foods["a"] = {}
+            rtn.categories["1"] = {}
+            rtn.categories["2"] = [0,1]
+            self.assertTrue(rtn.categories["2"]["minNutrition"] == 0)
+            self.assertTrue(rtn.categories["2"]["maxNutrition"] == 1)
+            rtn.nutritionQuantities['junk',1] = {}
+            return tdf.freeze_me(rtn)
+        td = makeIt()
+        self.assertTrue(td.foods["a"]["cost"]==0 and td.categories["1"].values() == (0,0) and
+                        td.nutritionQuantities['junk',1]["qty"] == 0)
+        tdf = TicDatFactory(**dietSchema())
+        tdf.set_default_values(foods = {"cost":"dontcare"},nutritionQuantities = {"qty":100} )
+        td = makeIt()
+        self.assertTrue(td.foods["a"]["cost"]=='dontcare' and td.categories["1"].values() == (0,0) and
+                        td.nutritionQuantities['junk',1]["qty"] == 100)
+        tdf = TicDatFactory(**dietSchema())
+        tdf.set_default_value("categories", "minNutrition", 1)
+        tdf.set_default_value("categories", "maxNutrition", 2)
+        td = makeIt()
+        self.assertTrue(td.foods["a"]["cost"]==0 and td.categories["1"].values() == (1,2) and
+                        td.nutritionQuantities['junk',1]["qty"] == 0)
+
+
+
 #
 # from ticdat import TicDatFactory
 # import itertools

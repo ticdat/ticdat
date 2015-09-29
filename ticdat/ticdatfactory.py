@@ -13,6 +13,9 @@ import csvtd as csv
 import sqlitetd as sql
 import mdb
 
+def _acceptable_default(v) :
+    return utils.numericish(v) or utils.stringish(v) or (v is None)
+
 def _keylen(k) :
     if not utils.containerish(k) :
         return 1
@@ -22,24 +25,44 @@ def _keylen(k) :
         rtn = 0
     return rtn
 
-_ForeignKey = namedtuple("ForeignKey", ("native_table", "foreign_table", "mapping", "cardinality"))
+class _ForeignKey(namedtuple("ForeignKey", ("native_table", "foreign_table", "mapping", "cardinality"))) :
+    def nativefields(self):
+        return (self.mapping.native_field,) if type(self.mapping) is _ForeignKeyMapping \
+                                           else tuple(_.native_field for _ in self.mapping)
+    def foreigntonativemapping(self):
+        if type(self.mapping) is _ForeignKeyMapping :
+            return {self.mapping.foreign_field:self.mapping.native_field}
+        else :
+            return {_.foreign_field:_.native_field for _ in self.mapping}
+    def nativetoforeignmapping(self):
+        return {v:k for k,v in self.foreigntonativemapping().items()}
+
 _ForeignKeyMapping = namedtuple("FKMapping", ("native_field", "foreign_field"))
-def _nativefields(fk):
-    return (fk.mapping.native_field,) if type(fk.mapping) is _ForeignKeyMapping \
-                                       else tuple(_.native_field for _ in fk.mapping)
-def _foreigntonativemapping(fk):
-    if type(fk.mapping) is _ForeignKeyMapping :
-        return {fk.mapping.foreign_field:fk.mapping.native_field}
-    else :
-        return {_.foreign_field:_.native_field for _ in fk.mapping}
 
-_ForeignKey.nativefields = _nativefields
-_ForeignKey.foreigntonativemapping = _foreigntonativemapping
-_ForeignKey.nativetoforeignmapping = lambda self : {v:k for k,v in self.foreigntonativemapping().items()}
+class _TypeDictionary(namedtuple("TypeDictionary", ("number_allowed", "strings_allowed", "nullable",
+                                        "min", "max", "inclusive_min", "inclusive_max","must_be_int"))):
+    def valid_data(self, data):
+        if utils.numericish(data):
+            if not self.number_allowed:
+                return False
+            if (data < self.min) or (data > self.max):
+                return False
+            if (not self.inclusive_min) and (data == self.inclusive_min):
+                return False
+            if (not self.inclusive_max) and (data  == self.inclusive_max) :
+                return False
+            if (self.must_be_int) and (int(data) != data):
+                return False
+            return True
+        if utils.stringish(data):
+            if self.strings_allowed == "*":
+                return True
+            assert utils.containerish(self.strings_allowed)
+            return data in self.strings_allowed
+        if data is None:
+            return bool(self.nullable)
+        return False
 
-
-_TypeDictionary = namedtuple("TypeDictionary", ("inclusive_min", "inclusive_max", "min", "max", "must_be_int",
-                                                "number_allowed", "strings_allowed", "nullabe"))
 
 class TicDatFactory(freezable_factory(object, "_isFrozen")) :
     """
@@ -60,11 +83,17 @@ class TicDatFactory(freezable_factory(object, "_isFrozen")) :
     @property
     def default_values(self):
         return deep_freeze(self._default_values)
+    @property
+    def data_types(self):
+        return utils.FrozenDict({t : utils.FrozenDict({k :v for k,v in vd.items()})
+                                for t,vd in self._data_fields.items()})
     def set_data_type(self, table, field, number_allowed = True,
                       inclusive_min = True, inclusive_max = True, min = 0, max = float("inf"),
                       must_be_int = False, strings_allowed= (), nullable = False):
         """
-        sets the data type for a field
+        sets the data type for a field. By default, fields don't have types. Adding a data type doesn't block
+        data of the wrong type from being entered. Data types are useful for recognizing errant data types
+        with find_data_type_failures(). Errant data types can be replaced with
         :param table: a table in the schema
         :param field: a data field for this table
         :param number_allowed: boolean does this field allow numbers?
@@ -73,17 +102,61 @@ class TicDatFactory(freezable_factory(object, "_isFrozen")) :
         :param min: if number allowed, the minimum value
         :param max: if number allowed, the maximum value
         :param must_be_int: boolean : if number allowed, must the number be integral?
-        :param strings_allowed: boolean : a collection of strings allowed.
+        :param strings_allowed: if a collection - then a list of the strings allowed.
+                                The empty collection prohibits strings.
+                                If a "*", then any string is accepted.
         :param nullable : boolean : can this value contain null (aka None)
         :return:
         """
+        verify(not self._has_been_used,
+               "The data types can't be changed after a TicDatFactory has been used.")
         verify(table in self.all_tables, "Unrecognized table name %s"%table)
         verify(field in self.data_fields[table], "%s does not refer to a data field for %s"%(field, table))
-        verify(containerish(strings_allowed) and all(utils.stringish(x) for x in strings_allowed),
-"""The strings_allowed argument should be a container of strings.
-For fields that can't tolerate strings, pass an empty container (the default) for this argument.""")
-        if not number_allowed:
-            pass # maybe do some verifications that other arguments not specified
+
+        verify((strings_allowed == '*') or
+               (containerish(strings_allowed) and all(utils.stringish(x) for x in strings_allowed)),
+"""The strings_allowed argument should be a container of strings, or the single '*' character.""")
+        if number_allowed:
+            verify(utils.numericish(max), "max should be numeric")
+            verify(utils.numericish(min), "min should be numeric")
+            verify(max >= min, "max cannot be smaller than min")
+            self._data_types[table][field] = _TypeDictionary(number_allowed=True,
+                strings_allowed=tuple(strings_allowed),  nullabe = bool(nullable),
+                min = min, max = max, inclusive_min= bool(inclusive_min), inclusive_max = bool(inclusive_max),
+                must_be_int = bool(must_be_int))
+        else :
+            self._data_types[table][field] = _TypeDictionary(number_allowed=False,
+                strings_allowed=tuple(strings_allowed),  nullabe = bool(nullable),
+                min = 0, max = float("inf"), inclusive_min= True, inclusive_max = True,
+                must_be_int = False)
+    def clear_data_type(self, table, field):
+        """
+        clears the data type for a field. By default, fields don't types.  Adding a data type doesn't block
+        data of the wrong type from being entered. Data types are useful for recognizing errant data types.
+        If no data type is specified (the default) then no errant data will be recognized.
+        :param table: table in the schema
+        :param field:
+        :return:
+        """
+        if field not in self._data_types.get(table, ()):
+            return
+        verify(not self._has_been_used,
+               "The data types can't be changed after a TicDatFactory has been used.")
+        del(self._data_types[table][field])
+    def set_default_value(self, table, field, default_value):
+        """
+        sets the default value for a specific field
+        :param table: a table in the schema
+        :param field: a field in the table
+        :param default_value: the default value to apply
+        :return:
+        """
+        verify(not self._has_been_used,
+               "The default values can't be changed after a TicDatFactory has been used.")
+        verify(table in self.all_tables, "Unrecognized table name %s"%table)
+        verify(field in self.data_fields[table], "%s does not refer to a data field for %s"%(field, table))
+        verify(_acceptable_default(default_value), "%s can not be used as a default value"%default_value)
+        self._default_values[table][field] = default_value
 
     def set_default_values(self, **tableDefaults):
         """
@@ -102,8 +175,16 @@ For fields that can't tolerate strings, pass an empty container (the default) fo
             verify(dictish(v) and set(v).issubset(self.data_fields[k]),
                 "Default values for %s should be a dictionary mapping data field names to values"
                 %k)
+            verify(all(_acceptable_default(_v) for _v in v.values()), "some default values are unacceptable")
             self._default_values[k] = dict(self._default_values[k], **v)
     def set_generator_tables(self, g):
+        """
+        sets which tables are to be generator tables. Generator tables are represented as generators
+        pulled from the actual data store. This prevents them from being fulled loaded into memory.
+        Generator tables are only appropriate for truly massive data tables with no primary key.
+        :param g:
+        :return:
+        """
         verify(not self._has_been_used,
                "The generator tables can't be changed after a TicDatFactory has been used.")
         verify(containerish(g) and set(g).issubset(self.all_tables),
@@ -148,6 +229,18 @@ For fields that can't tolerate strings, pass an empty container (the default) fo
             rtn[fk.native_table].append(fk)
         return utils.FrozenDict({k:frozenset(v) for k,v in rtn.items()})
     def add_foreign_key(self, native_table, foreign_table, mappings):
+        """
+        Adds a foreign key relationship to the schema.  Adding a foreign key doesn't block
+        the entry of child records that fail to find a parent match. It does make it easy
+        to recognize such records (with find_foreign_key_failures()) and to remove such records
+        (with remove_foreign_keys_failures())
+        :param native_table: (aka child table). The table with fields that must match some other table.
+        :param foreign_table: (aka parent table). The table providing the matching entries.
+        :param mappings: For simple foreign keys, a [native_field, foreign_field] pair.
+                         For compound foreign keys an iterable of [native_field, foreign_field]
+                         pairs.
+        :return:
+        """
         verify(not self._has_been_used,
                 "The foreign keys can't be changed after a TicDatFactory has been used.")
         for t in (native_table, foreign_table):
@@ -257,6 +350,7 @@ foreign keys, the code throwing this exception will be removed.
         self._primary_key_fields = FrozenDict({k : tuple(v[0])for k,v in init_fields.items()})
         self._data_fields = FrozenDict({k : tuple(v[1]) for k,v in init_fields.items()})
         self._default_values = clt.defaultdict(dict)
+        self._data_types = clt.defaultdict(dict)
         self._generator_tables = []
         self._foreign_keys = clt.defaultdict(set)
         self.all_tables = frozenset(init_fields)
@@ -618,8 +712,8 @@ foreign keys, the code throwing this exception will be removed.
                                   corresponding to the native_values.
                  That is to say, native_values tells you which values in the native table
                  can't find a foreign key match, and thus generate a foreign key failure.
-                 native_pks tells you which native table rows will be removed if you call remove_foreign_keys_failures.
-                 contained a child-to-parent foreign key failure.
+                 native_pks tells you which native table rows will be removed if you call
+                 remove_foreign_keys_failures().
         """
         msg  = []
         verify(self.good_tic_dat_object(tic_dat, msg.append),
@@ -672,7 +766,8 @@ foreign keys, the code throwing this exception will be removed.
             return self.remove_foreign_keys_failures(tic_dat)
         return tic_dat
 
-    def obfusimplify(self, tic_dat, table_prepends = {}, skip_tables = (), freeze_it = False) :
+    def obfusimplify(self, tic_dat, table_prepends = utils.FrozenDict(), skip_tables = (),
+                     freeze_it = False) :
         """
         copies the tic_dat object into a new, obfuscated, simplified tic_dat object
         :param tic_dat: a ticdat object
