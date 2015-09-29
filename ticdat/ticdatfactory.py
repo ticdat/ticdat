@@ -37,6 +37,10 @@ _ForeignKey.nativefields = _nativefields
 _ForeignKey.foreigntonativemapping = _foreigntonativemapping
 _ForeignKey.nativetoforeignmapping = lambda self : {v:k for k,v in self.foreigntonativemapping().items()}
 
+
+_TypeDictionary = namedtuple("TypeDictionary", ("inclusive_min", "inclusive_max", "min", "max", "must_be_int",
+                                                "number_allowed", "strings_allowed"))
+
 class TicDatFactory(freezable_factory(object, "_isFrozen")) :
     """
     Primary class for ticdat library. This class is constructed with a schema,
@@ -56,7 +60,32 @@ class TicDatFactory(freezable_factory(object, "_isFrozen")) :
     @property
     def default_values(self):
         return deep_freeze(self._default_values)
+    def set_data_type(self, table, field, number_allowed = True,
+                      inclusive_min = True, inclusive_max = True, min = 0, max = float("inf"),
+                      must_be_int = False):
+        """
+        sets the data type for a field
+        :param table: a field in the schema
+        :param field:
+        :param number_allowed:
+        :param inclusive_min:
+        :param inclusive_max:
+        :param min:
+        :param max:
+        :param must_be_int:
+        :return:
+        """
+
     def set_default_values(self, **tableDefaults):
+        """
+        sets the default values for the fields
+        :param tableDefaults:
+             A dictionary of named arguments. Each argument name (i.e. each key) should be a table name
+             Each value should itself be a dictionary mapping data field names to default values
+             Ex: tdf.set_default_values(categories = {"minNutrition":0, "maxNutrition":float("inf")},
+                         foods = {"cost":0}, nutritionQuantities = {"qty":0})
+        :return:
+        """
         verify(not self._has_been_used,
                "The default values can't be changed after a TicDatFactory has been used.")
         for k,v in tableDefaults.items():
