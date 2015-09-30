@@ -47,9 +47,9 @@ class _TypeDictionary(namedtuple("TypeDictionary", ("number_allowed", "strings_a
                 return False
             if (data < self.min) or (data > self.max):
                 return False
-            if (not self.inclusive_min) and (data == self.inclusive_min):
+            if (not self.inclusive_min) and (data == self.min):
                 return False
-            if (not self.inclusive_max) and (data  == self.inclusive_max) :
+            if (not self.inclusive_max) and (data  == self.max):
                 return False
             if (self.must_be_int) and (int(data) != data):
                 return False
@@ -86,7 +86,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen")) :
     @property
     def data_types(self):
         return utils.FrozenDict({t : utils.FrozenDict({k :v for k,v in vd.items()})
-                                for t,vd in self._data_fields.items()})
+                                for t,vd in self._data_types.items()})
     def set_data_type(self, table, field, number_allowed = True,
                       inclusive_min = True, inclusive_max = True, min = 0, max = float("inf"),
                       must_be_int = False, strings_allowed= (), nullable = False):
@@ -116,17 +116,19 @@ class TicDatFactory(freezable_factory(object, "_isFrozen")) :
         verify((strings_allowed == '*') or
                (containerish(strings_allowed) and all(utils.stringish(x) for x in strings_allowed)),
 """The strings_allowed argument should be a container of strings, or the single '*' character.""")
+        if utils.containerish(strings_allowed):
+            strings_allowed = tuple(strings_allowed) # defensive copy
         if number_allowed:
             verify(utils.numericish(max), "max should be numeric")
             verify(utils.numericish(min), "min should be numeric")
             verify(max >= min, "max cannot be smaller than min")
             self._data_types[table][field] = _TypeDictionary(number_allowed=True,
-                strings_allowed=tuple(strings_allowed),  nullabe = bool(nullable),
+                strings_allowed=strings_allowed,  nullable = bool(nullable),
                 min = min, max = max, inclusive_min= bool(inclusive_min), inclusive_max = bool(inclusive_max),
                 must_be_int = bool(must_be_int))
         else :
             self._data_types[table][field] = _TypeDictionary(number_allowed=False,
-                strings_allowed=tuple(strings_allowed),  nullabe = bool(nullable),
+                strings_allowed=strings_allowed,  nullable = bool(nullable),
                 min = 0, max = float("inf"), inclusive_min= True, inclusive_max = True,
                 must_be_int = False)
     def clear_data_type(self, table, field):
@@ -764,6 +766,82 @@ foreign keys, the code throwing this exception will be removed.
                     del(getattr(tic_dat, fk.native_table)[failed_pk])
         if fk_failures and propagate:
             return self.remove_foreign_keys_failures(tic_dat)
+        return tic_dat
+
+    def find_data_type_failures(self, tic_dat):
+        """
+        Finds the data type failures for a ticdat object
+        :param tic_dat: ticdat object
+        :return: A dictionary constructed as follow:
+
+                 The keys are namedTuples with members "table", "field". Each (table,field) pair
+                 has data values that are inconsistent with its data type. (table, field) pairs
+                 with no data type at all are never part of the returned dictionary.
+
+                 The values of the returned dictionary are namedTuples with the following attributes.
+                 --> bad_values - the distinct values for the (table, field) pair that are inconsistent
+                                  with the data type for (table, field).
+                 --> pks - the distinct primary key entries of the table containing the bad_values
+                                  data
+                 That is to say, bad_values tells you which values in field are failing the data type check,
+                 and  tells you which table rows will have their field entry changed if you call
+                 replace_data_type_failures().
+        """
+        msg  = []
+        verify(self.good_tic_dat_object(tic_dat, msg.append),
+               "tic_dat not a good object for this factory : %s"%"\n".join(msg))
+
+
+        rtn_values, rtn_pks = clt.defaultdict(set), clt.defaultdict(set)
+        for table, type_row in self._data_types.items():
+            for pk, data_row in getattr(tic_dat, table).items():
+                for field, data_type in type_row.items():
+                    if not data_type.valid_data(data_row[field]) :
+                        rtn_values[(table, field)].add(data_row[field])
+                        rtn_pks[(table, field)].add(pk)
+        assert set(rtn_values) == set(rtn_pks)
+        TableField = clt.namedtuple("TableField", ["table", "field"])
+        ValuesPks = clt.namedtuple("ValuesPks", ["bad_values", "pks"])
+        return {TableField(*tf):ValuesPks(tuple(rtn_values[tf]), tuple(rtn_pks[tf])) for tf in rtn_values}
+
+    def replace_data_type_failures(self, tic_dat, replacement_values = FrozenDict()):
+        """
+        :param tic_dat:
+        :param replacement_values: a dictionary mapping (table, field) to replacement value.
+               the default value will be used for (table, field) pairs not in replacement_values
+        :return: the tic_dat object with replacements made. The tic_dat object itself will be edited in place.
+        Replaces any of the data failures found in find_data_type_failures() with the appropriate
+        replacement_value.
+        """
+        msg  = []
+        verify(self.good_tic_dat_object(tic_dat, msg.append),
+               "tic_dat not a good object for this factory : %s"%"\n".join(msg))
+        verify(dictish(replacement_values) and all(len(k)==2 for k in replacement_values),
+               "replacement_values should be a dictionary mapping (table, field) to valid replacement value")
+        for (table,field), v in replacement_values.items():
+            verify(table in self.all_tables, "%s is not a table for this schema"%table)
+            verify(field in self.data_fields.get(table, ()), "%s is not a data field for %s"%(field, table))
+
+        replacements_needed = self.find_data_type_failures()
+        if not replacements_needed:
+            return tic_dat
+
+        real_replacements = {}
+        for table, replace_dict in self._default_values.items():
+            for field, replace in replace_dict.items():
+                real_replacements[table, field] = replace
+        real_replacements = {(table, field): replace for (table, field),replace in
+                             dict(real_replacements, **replacement_values).items()
+                             if field in self._data_types.get(table, ())}
+        for (table, field), value in real_replacements:
+            verify(self._data_types[table][field].valid_data(value),
+                   "The replacement value %s is not itself valid for %s : %s"%(value, table, field))
+
+        for (table, field), (_, pks) in real_replacements.items() :
+            for pk in pks:
+                getattr(tic_dat, table)[pk][field] = real_replacements[table, field]
+
+        assert not self.find_data_type_failures(tic_dat)
         return tic_dat
 
     def obfusimplify(self, tic_dat, table_prepends = utils.FrozenDict(), skip_tables = (),

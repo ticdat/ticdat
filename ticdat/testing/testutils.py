@@ -359,6 +359,61 @@ class TestUtils(unittest.TestCase):
         self.assertTrue(td.foods["a"]["cost"]==0 and td.categories["1"].values() == (1,2) and
                         td.nutritionQuantities['junk',1]["qty"] == 0)
 
+    def testEight(self):
+        tdf = TicDatFactory(**dietSchema())
+        def makeIt() :
+            rtn = tdf.TicDat()
+            rtn.foods["a"] = 12
+            rtn.foods["b"] = None
+            rtn.categories["1"] = {"maxNutrition":100, "minNutrition":40}
+            rtn.categories["2"] = [10,20]
+            for f, p in itertools.product(rtn.foods, rtn.categories):
+                rtn.nutritionQuantities[f,p] = 5
+            rtn.nutritionQuantities['a', 2] = 12
+            return tdf.freeze_me(rtn)
+        dat = makeIt()
+        self.assertFalse(tdf.find_data_type_failures(dat))
+
+        tdf = TicDatFactory(**dietSchema())
+        tdf.set_data_type("foods", "cost", nullable=False)
+        tdf.set_data_type("nutritionQuantities", "qty", min=5, inclusive_min=False, max=12, inclusive_max=True)
+        dat = makeIt()
+        failed = tdf.find_data_type_failures(dat)
+        self.assertTrue(set(failed) == {('foods', 'cost'), ('nutritionQuantities', 'qty')})
+        self.assertTrue(set(failed['nutritionQuantities', 'qty'].pks) ==
+                        {('b', '1'), ('a', '2'), ('a', '1'), ('b', '2')})
+        self.assertTrue(failed['nutritionQuantities', 'qty'].bad_values == (5,))
+
+        tdf = TicDatFactory(**dietSchema())
+        tdf.set_data_type("foods", "cost", nullable=True)
+        tdf.set_data_type("nutritionQuantities", "qty",number_allowed=False)
+        failed = tdf.find_data_type_failures(dat)
+        self.assertTrue(set(failed) == {('nutritionQuantities', 'qty')})
+        self.assertTrue(set(failed['nutritionQuantities', 'qty'].pks) == set(dat.nutritionQuantities))
+
+        tdf = TicDatFactory(**netflowSchema())
+        def makeIt() :
+            addNetflowForeignKeys(tdf)
+            orig = netflowData()
+            rtn = tdf.copy_tic_dat(orig)
+            for n in rtn.nodes["Detroit"].arcs_source:
+                rtn.arcs["Detroit", n] = n
+            self.assertTrue(all(len(getattr(rtn, t)) == len(getattr(orig, t)) for t in tdf.all_tables))
+            return tdf.freeze_me(rtn)
+        dat = makeIt()
+        self.assertFalse(tdf.find_data_type_failures(dat))
+
+        tdf = TicDatFactory(**netflowSchema())
+        tdf.set_data_type("arcs", "capacity", strings_allowed="*")
+        dat = makeIt()
+        self.assertFalse(tdf.find_data_type_failures(dat))
+
+        tdf = TicDatFactory(**netflowSchema())
+        tdf.set_data_type("arcs", "capacity", strings_allowed=["Boston", "Seattle", "crapper"])
+        dat = makeIt()
+        failed = tdf.find_data_type_failures(dat)
+        self.assertTrue(failed == {('arcs', 'capacity'):(("New York",), (("Detroit", "New York"),))})
+
 
 
 #
