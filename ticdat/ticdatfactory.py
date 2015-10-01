@@ -92,8 +92,8 @@ class TicDatFactory(freezable_factory(object, "_isFrozen")) :
                       must_be_int = False, strings_allowed= (), nullable = False):
         """
         sets the data type for a field. By default, fields don't have types. Adding a data type doesn't block
-        data of the wrong type from being entered. Data types are useful for recognizing errant data types
-        with find_data_type_failures(). Errant data types can be replaced with
+        data of the wrong type from being entered. Data types are useful for recognizing errant data entries
+        with find_data_type_failures(). Errant data entries can be replaced with replace_data_type_failures().
         :param table: a table in the schema
         :param field: a data field for this table
         :param number_allowed: boolean does this field allow numbers?
@@ -134,7 +134,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen")) :
     def clear_data_type(self, table, field):
         """
         clears the data type for a field. By default, fields don't types.  Adding a data type doesn't block
-        data of the wrong type from being entered. Data types are useful for recognizing errant data types.
+        data of the wrong type from being entered. Data types are useful for recognizing errant data entries.
         If no data type is specified (the default) then no errant data will be recognized.
         :param table: table in the schema
         :param field:
