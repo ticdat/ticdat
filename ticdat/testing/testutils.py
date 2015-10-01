@@ -377,12 +377,29 @@ class TestUtils(unittest.TestCase):
         tdf = TicDatFactory(**dietSchema())
         tdf.set_data_type("foods", "cost", nullable=False)
         tdf.set_data_type("nutritionQuantities", "qty", min=5, inclusive_min=False, max=12, inclusive_max=True)
+        tdf.set_default_value("foods", "cost", 2)
         dat = makeIt()
         failed = tdf.find_data_type_failures(dat)
         self.assertTrue(set(failed) == {('foods', 'cost'), ('nutritionQuantities', 'qty')})
         self.assertTrue(set(failed['nutritionQuantities', 'qty'].pks) ==
                         {('b', '1'), ('a', '2'), ('a', '1'), ('b', '2')})
         self.assertTrue(failed['nutritionQuantities', 'qty'].bad_values == (5,))
+        ex = self.firesException(lambda : tdf.replace_data_type_failures(tdf.copy_tic_dat(dat)))
+        self.assertTrue(all(_ in ex for _ in ("replacement value", "nutritionQuantities", "qty")))
+        fixedDat = tdf.replace_data_type_failures(tdf.copy_tic_dat(dat),
+                            replacement_values={("nutritionQuantities", "qty"):5.001})
+        self.assertFalse(tdf.find_data_type_failures(fixedDat) or tdf._same_data(fixedDat, dat))
+        self.assertTrue(all(fixedDat.nutritionQuantities[pk]["qty"] == 5.001 for pk in
+                            failed['nutritionQuantities', 'qty'].pks))
+        self.assertTrue(fixedDat.foods["a"]["cost"] == 12 and fixedDat.foods["b"]["cost"] == 2 and
+                        fixedDat.nutritionQuantities['a', 2]["qty"] == 12)
+
+        tdf = TicDatFactory(**dietSchema())
+        tdf.set_data_type("foods", "cost", nullable=False)
+        tdf.set_data_type("nutritionQuantities", "qty", min=5, inclusive_min=False, max=12, inclusive_max=True)
+        fixedDat2 = tdf.replace_data_type_failures(tdf.copy_tic_dat(dat),
+                            replacement_values={("nutritionQuantities", "qty"):5.001, ("foods", "cost") : 2})
+        self.assertTrue(tdf._same_data(fixedDat, fixedDat2))
 
         tdf = TicDatFactory(**dietSchema())
         tdf.set_data_type("foods", "cost", nullable=True)
@@ -390,10 +407,17 @@ class TestUtils(unittest.TestCase):
         failed = tdf.find_data_type_failures(dat)
         self.assertTrue(set(failed) == {('nutritionQuantities', 'qty')})
         self.assertTrue(set(failed['nutritionQuantities', 'qty'].pks) == set(dat.nutritionQuantities))
+        ex = self.firesException(lambda : tdf.replace_data_type_failures(tdf.copy_tic_dat(dat)))
+        self.assertTrue(all(_ in ex for _ in ("replacement value", "nutritionQuantities", "qty")))
+
+        tdf = TicDatFactory(**dietSchema())
+        tdf.set_data_type("foods", "cost")
+        fixedDat = tdf.replace_data_type_failures(tdf.copy_tic_dat(makeIt()))
+        self.assertTrue(fixedDat.foods["a"]["cost"] == 12 and fixedDat.foods["b"]["cost"] == 0)
 
         tdf = TicDatFactory(**netflowSchema())
         def makeIt() :
-            addNetflowForeignKeys(tdf)
+            addNetflowForeignKeys(tdf) if not tdf.foreign_keys else None
             orig = netflowData()
             rtn = tdf.copy_tic_dat(orig)
             for n in rtn.nodes["Detroit"].arcs_source:
@@ -409,10 +433,18 @@ class TestUtils(unittest.TestCase):
         self.assertFalse(tdf.find_data_type_failures(dat))
 
         tdf = TicDatFactory(**netflowSchema())
-        tdf.set_data_type("arcs", "capacity", strings_allowed=["Boston", "Seattle", "crapper"])
+        tdf.set_data_type("arcs", "capacity", strings_allowed=["Boston", "Seattle", "lumberjack"])
         dat = makeIt()
         failed = tdf.find_data_type_failures(dat)
         self.assertTrue(failed == {('arcs', 'capacity'):(("New York",), (("Detroit", "New York"),))})
+        fixedDat = tdf.replace_data_type_failures(tdf.copy_tic_dat(makeIt()))
+        netflowData_ = tdf.copy_tic_dat(netflowData())
+        self.assertFalse(tdf.find_data_type_failures(fixedDat) or tdf._same_data(dat, netflowData_))
+        fixedDat = tdf.copy_tic_dat(tdf.replace_data_type_failures(tdf.copy_tic_dat(makeIt()),
+                                        {("arcs", "capacity"):80, ("cost","cost") :"imok"}))
+        fixedDat.arcs["Detroit", "Boston"] = 100
+        fixedDat.arcs["Detroit", "Seattle"] = 120
+        self.assertTrue(tdf._same_data(fixedDat, netflowData_))
 
 
 

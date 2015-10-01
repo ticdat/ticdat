@@ -822,22 +822,20 @@ foreign keys, the code throwing this exception will be removed.
             verify(table in self.all_tables, "%s is not a table for this schema"%table)
             verify(field in self.data_fields.get(table, ()), "%s is not a data field for %s"%(field, table))
 
-        replacements_needed = self.find_data_type_failures()
+        replacements_needed = self.find_data_type_failures(tic_dat)
         if not replacements_needed:
             return tic_dat
 
         real_replacements = {}
-        for table, replace_dict in self._default_values.items():
-            for field, replace in replace_dict.items():
-                real_replacements[table, field] = replace
-        real_replacements = {(table, field): replace for (table, field),replace in
-                             dict(real_replacements, **replacement_values).items()
-                             if field in self._data_types.get(table, ())}
-        for (table, field), value in real_replacements:
+        for table, type_row in self._data_types.items():
+            for field in type_row:
+                real_replacements[table, field] = replacement_values.get((table, field),
+                        self._default_values.get(table, {}).get(field, 0))
+        for (table, field), value in real_replacements.items():
             verify(self._data_types[table][field].valid_data(value),
                    "The replacement value %s is not itself valid for %s : %s"%(value, table, field))
 
-        for (table, field), (_, pks) in real_replacements.items() :
+        for (table, field), (_, pks) in replacements_needed.items() :
             for pk in pks:
                 getattr(tic_dat, table)[pk][field] = real_replacements[table, field]
 
