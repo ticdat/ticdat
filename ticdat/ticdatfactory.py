@@ -88,7 +88,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen")) :
         return utils.FrozenDict({t : utils.FrozenDict({k :v for k,v in vd.items()})
                                 for t,vd in self._data_types.items()})
     def set_data_type(self, table, field, number_allowed = True,
-                      inclusive_min = True, inclusive_max = True, min = 0, max = float("inf"),
+                      inclusive_min = True, inclusive_max = False, min = 0, max = float("inf"),
                       must_be_int = False, strings_allowed= (), nullable = False):
         """
         sets the data type for a field. By default, fields don't have types. Adding a data type doesn't block
