@@ -31,32 +31,24 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
         assert import_worked, "don't create this otherwise"
         self.tic_dat_factory = tic_dat_factory
         self._isFrozen = True
-    def create_tic_dat(self, xls_file_path, row_offsets={}):
+    def create_tic_dat(self, xls_file_path, row_offsets={},
+                       freeze_it = False):
         """
         Create a TicDat object from an Excel file
         :param xls_file_path: An Excel file containing sheets whose names match
                               the table names in the schema.
         :param row_offsets: (optional) A mapping from table names to initial
                             number of rows to skip
+        :param freeze_it: boolean. should the returned object be frozen?
         :return: a TicDat object populated by the matching sheets.
         caveats: Missing sheets resolve to an empty table, but missing fields
                  on matching sheets throw an Exception.
                  Sheet names are considered case insensitive
         """
-        return self.tic_dat_factory.TicDat(**self._create_tic_dat(xls_file_path, row_offsets))
-    def create_frozen_tic_dat(self, xls_file_path, row_offsets={}):
-        """
-        Create a FrozenTicDat object from an Excel file
-        :param xls_file_path: An Excel file containing sheets whose names match
-                              the table names in the schema.
-        :param row_offsets: (optional) A mapping from table names to initial
-                            number of rows to skip
-        caveats: Missing sheets resolve to an empty table, but missing fields
-                 on matching sheets throw an Exception.
-                 Sheet names are considered case insensitive
-        :return:
-        """
-        return self.tic_dat_factory.FrozenTicDat(**self._create_tic_dat(xls_file_path, row_offsets))
+        Rtn = self.tic_dat_factory.TicDat
+        if freeze_it:
+            Rtn = self.tic_dat_factory.FrozenTicDat
+        return Rtn(**self._create_tic_dat(xls_file_path, row_offsets))
     def _get_sheets_and_fields(self, xls_file_path, all_tables, row_offsets):
         try :
             book = xlrd.open_workbook(xls_file_path)

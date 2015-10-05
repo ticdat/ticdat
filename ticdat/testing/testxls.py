@@ -41,7 +41,7 @@ class TestXls(unittest.TestCase):
         ticDat = tdf.FrozenTicDat(**{t:getattr(netflowData(),t) for t in tdf.primary_key_fields})
         filePath = os.path.join(_scratchDir, "netflow.xls")
         tdf.xls.write_file(ticDat, filePath)
-        xlsTicDat = tdf.xls.create_frozen_tic_dat(filePath)
+        xlsTicDat = tdf.xls.create_tic_dat(filePath, freeze_it=True)
         self.assertTrue(tdf._same_data(ticDat, xlsTicDat))
         def changeIt() :
             xlsTicDat.inflow['Pencils', 'Boston']["quantity"] = 12
@@ -124,7 +124,7 @@ class TestXls(unittest.TestCase):
             book.save(filePath)
 
         writeData([(1, 2, 3, 4), (1, 20, 30, 40), (10, 20, 30, 40)])
-        ticDatMan = tdf.xls.create_frozen_tic_dat(filePath)
+        ticDatMan = tdf.xls.create_tic_dat(filePath, freeze_it=True)
         self.assertTrue(len(ticDatMan.a) == 2 and len(ticDatMan.b) == 3)
         self.assertTrue(ticDatMan.b[(1, 20, 30)]["bData"] == 40)
         rowCount = tdf.xls.get_row_counts(filePath, keep_only_duplicates=True)
@@ -132,7 +132,7 @@ class TestXls(unittest.TestCase):
 
         ticDat.a["theboger"] = (1, None, 12)
         tdf.xls.write_file(ticDat, filePath, allow_overwrite=True)
-        ticDatNone = tdf.xls.create_frozen_tic_dat(filePath)
+        ticDatNone = tdf.xls.create_tic_dat(filePath, freeze_it=True)
         # THIS IS A FLAW - but a minor one. None's are hard to represent. It is turning into the empty string here.
         # not sure how to handle this, but documenting for now.
         self.assertFalse(tdf._same_data(ticDat, ticDatNone))
