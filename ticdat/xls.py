@@ -39,6 +39,7 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
                               the table names in the schema.
         :param row_offsets: (optional) A mapping from table names to initial
                             number of rows to skip
+                            negative one offset indicates no header row
         :param freeze_it: boolean. should the returned object be frozen?
         :return: a TicDat (or FrozenTicDat)  object populated by the matching sheets.
         caveats: Missing sheets resolve to an empty table, but missing fields
@@ -86,17 +87,17 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
     def _create_tic_dat(self, xls_file_path, row_offsets):
         verify(utls.dictish(row_offsets) and
                set(row_offsets).issubset(self.tic_dat_factory.all_tables) and
-               all(utls.numericish(x) and (x>=0) for x in row_offsets.values()),
-               "row_offsets needs to map from table names to non negative row offset")
+               all(utls.numericish(x) and (x>=-1) for x in row_offsets.values()),
+               "row_offsets needs to map from table names to valid row offset")
         row_offsets = dict({t:0 for t in self.tic_dat_factory.all_tables}, **row_offsets)
         tdf = self.tic_dat_factory
         rtn = {}
-        sheets, fieldIndicies = self._get_sheets_and_fields(xls_file_path,
+        sheets, field_indicies = self._get_sheets_and_fields(xls_file_path,
                                     set(tdf.all_tables).difference(tdf.generator_tables),
                                     row_offsets)
         for table, sheet in sheets.items() :
             fields = tdf.primary_key_fields.get(table, ()) + tdf.data_fields.get(table, ())
-            indicies = fieldIndicies[table]
+            indicies = field_indicies[table]
             table_len = min(len(sheet.col_values(indicies[field])) for field in fields)
             if tdf.primary_key_fields.get(table, ()) :
                 tableObj = {self._sub_tuple(tdf.primary_key_fields[table], indicies)(x) :
@@ -119,6 +120,7 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
                               the table names in the schema (non primary key tables ignored).
         :param row_offsets: (optional) A mapping from table names to initial
                             number of rows to skip (non primary key tables ignored)
+                            negative one offset indicates no header row
         :param keep_only_duplicates: (optional) (Boolean) If true, then only
                                       rowcounts greater than 2 are returned.
         caveats: Missing sheets resolve to an empty table, but missing primary fields
@@ -132,8 +134,8 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
         """
         verify(utls.dictish(row_offsets) and
                set(row_offsets).issubset(self.tic_dat_factory.all_tables) and
-               all(utls.numericish(x) and (x>=0) for x in row_offsets.values()),
-               "row_offsets needs to map from table names to non negative row offset")
+               all(utls.numericish(x) and (x>=-1) for x in row_offsets.values()),
+               "row_offsets needs to map from table names to valid row offset")
         row_offsets = dict({t:0 for t in self.tic_dat_factory.all_tables}, **row_offsets)
         tdf = self.tic_dat_factory
         pk_tables = tuple(t for t,_ in tdf.primary_key_fields.items() if _)
@@ -161,6 +163,10 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
     def _get_field_indicies(self, table, sheet, row_offset) :
         fields = self.tic_dat_factory.primary_key_fields.get(table, ()) + \
                  self.tic_dat_factory.data_fields.get(table, ())
+        if row_offset == -1 :
+            row_len = len(sheet.row_values(0)) if sheet.nrows > 0  else len(fields)
+            return ({f : i for i,f in enumerate(fields) if i < row_len},
+                    [f for i,f in enumerate(fields) if i >= row_len])
         if sheet.nrows - row_offset <= 0 :
             return {}, fields
         temp_rtn = {field:list() for field in fields}
