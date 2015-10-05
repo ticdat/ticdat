@@ -16,6 +16,7 @@ try:
 except:
     import_worked=False
 
+
 class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
     """
     Primary class for reading/writing Excel files with ticDat objects.
@@ -74,6 +75,7 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
         return sheets, field_indicies
     def _create_generator_obj(self, xlsFilePath, table, row_offset, headers_present):
         tdf = self.tic_dat_factory
+        ho = 1 if headers_present else 0
         def tableObj() :
             sheets, field_indicies = self._get_sheets_and_fields(xlsFilePath,
                                         (table,), {table:row_offset}, headers_present)
@@ -81,7 +83,7 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
                 sheet = sheets[table]
                 table_len = min(len(sheet.col_values(field_indicies[table][field]))
                                for field in tdf.data_fields[table])
-                for x in (sheet.row_values(i) for i in range(table_len)[row_offset+1:]) :
+                for x in (sheet.row_values(i) for i in range(table_len)[row_offset+ho:]) :
                     yield self._sub_tuple(tdf.data_fields[table], field_indicies[table])(x)
         return tableObj
 
@@ -96,6 +98,7 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
         sheets, field_indicies = self._get_sheets_and_fields(xls_file_path,
                                     set(tdf.all_tables).difference(tdf.generator_tables),
                                     row_offsets, headers_present)
+        ho = 1 if headers_present else 0
         for table, sheet in sheets.items() :
             fields = tdf.primary_key_fields.get(table, ()) + tdf.data_fields.get(table, ())
             indicies = field_indicies[table]
@@ -104,11 +107,11 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
                 tableObj = {self._sub_tuple(tdf.primary_key_fields[table], indicies)(x) :
                             self._sub_tuple(tdf.data_fields.get(table, ()), indicies)(x)
                             for x in (sheet.row_values(i) for i in
-                                        range(table_len)[row_offsets[table]+1:])}
+                                        range(table_len)[row_offsets[table]+ho:])}
             else :
                 tableObj = [self._sub_tuple(tdf.data_fields.get(table, ()), indicies)(x)
                             for x in (sheet.row_values(i) for i in
-                                        range(table_len)[row_offsets[table]+1:])]
+                                        range(table_len)[row_offsets[table]+ho:])]
             rtn[table] = tableObj
         for table in tdf.generator_tables :
             rtn[table] = self._create_generator_obj(xls_file_path, table, row_offsets[table],
@@ -146,11 +149,12 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
         rtn = {t:defaultdict(int) for t in pk_tables}
         sheets, fieldIndicies = self._get_sheets_and_fields(xls_file_path, pk_tables,
                                         row_offsets, headers_present)
+        ho = 1 if headers_present else 0
         for table, sheet in sheets.items() :
             fields = tdf.primary_key_fields[table] + tdf.data_fields.get(table, ())
             indicies = fieldIndicies[table]
             table_len = min(len(sheet.col_values(indicies[field])) for field in fields)
-            for x in (sheet.row_values(i) for i in range(table_len)[row_offsets[table]+1:]) :
+            for x in (sheet.row_values(i) for i in range(table_len)[row_offsets[table]+ho:]) :
                 rtn[table][self._sub_tuple(tdf.primary_key_fields[table], indicies)(x)] += 1
         for t in rtn.keys():
             rtn[t] = {k:v for k,v in rtn[t].items() if v > 1 or not keep_only_duplicates}
