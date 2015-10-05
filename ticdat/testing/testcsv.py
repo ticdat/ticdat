@@ -41,8 +41,8 @@ class TestCsv(unittest.TestCase):
                                                                         "Invalid dialect excel_t"))
 
         tdf.csv.write_directory(ticDat, dirPath, dialect="excel-tab", allow_overwrite=True)
-        self.assertTrue(self.firesException(lambda : tdf.csv.create_frozen_tic_dat(dirPath)))
-        csvTicDat = tdf.csv.create_frozen_tic_dat(dirPath, dialect="excel-tab")
+        self.assertTrue(self.firesException(lambda : tdf.csv.create_tic_dat(dirPath, freeze_it=True)))
+        csvTicDat = tdf.csv.create_tic_dat(dirPath, freeze_it=True, dialect="excel-tab")
         self.assertTrue(firesException(change))
         self.assertTrue(tdf._same_data(ticDat, csvTicDat))
 
@@ -51,19 +51,19 @@ class TestCsv(unittest.TestCase):
         ticDat = tdf.TicDat(**{t:getattr(netflowData(),t) for t in tdf.primary_key_fields})
         dirPath = os.path.join(_scratchDir, "netflow")
         tdf.csv.write_directory(ticDat, dirPath)
-        csvTicDat = tdf.csv.create_frozen_tic_dat(dirPath)
+        csvTicDat = tdf.csv.create_tic_dat(dirPath, freeze_it=True)
         self._testBasicRowCounts(dirPath, tdf, csvTicDat)
         self.assertTrue(tdf._same_data(ticDat, csvTicDat))
-        csvTicDat = tdf.csv.create_frozen_tic_dat(dirPath, headers_present=False)
+        csvTicDat = tdf.csv.create_tic_dat(dirPath, freeze_it= True, headers_present=False)
         self.assertFalse(tdf._same_data(ticDat, csvTicDat))
         tdf.csv.write_directory(ticDat, dirPath, write_header=False,allow_overwrite=True)
-        self.assertTrue(self.firesException(lambda  : tdf.csv.create_frozen_tic_dat(dirPath)))
-        csvTicDat = tdf.csv.create_frozen_tic_dat(dirPath, headers_present=False)
+        self.assertTrue(self.firesException(lambda : tdf.csv.create_tic_dat(dirPath, freeze_it=True)))
+        csvTicDat = tdf.csv.create_tic_dat(dirPath, headers_present=False, freeze_it=True)
         self.assertTrue(tdf._same_data(ticDat, csvTicDat))
 
         ticDat.nodes[12] = {}
         tdf.csv.write_directory(ticDat, dirPath, allow_overwrite=True)
-        csvTicDat = tdf.csv.create_frozen_tic_dat(dirPath)
+        csvTicDat = tdf.csv.create_tic_dat(dirPath, freeze_it=True)
         self.assertTrue(tdf._same_data(ticDat, csvTicDat))
 
         # minor flaw - strings that are floatable get turned into floats when reading csvs
@@ -71,7 +71,7 @@ class TestCsv(unittest.TestCase):
         ticDat.nodes['12'] = {}
         self.assertTrue(firesException(lambda : tdf.csv.write_directory(ticDat, dirPath)))
         tdf.csv.write_directory(ticDat, dirPath, allow_overwrite=True)
-        csvTicDat = tdf.csv.create_frozen_tic_dat(dirPath)
+        csvTicDat = tdf.csv.create_tic_dat(dirPath, freeze_it=True)
         self.assertFalse(tdf._same_data(ticDat, csvTicDat))
 
     def testSilly(self):
@@ -147,7 +147,7 @@ class TestCsv(unittest.TestCase):
                 allDataTdf.csv.write_directory(td, dirPath, allow_overwrite=True, write_header=headersPresent)
 
             writeData([(1, 2, 3, 4), (1, 20, 30, 40), (10, 20, 30, 40)])
-            ticDatMan = tdf.csv.create_frozen_tic_dat(dirPath, headers_present=headersPresent)
+            ticDatMan = tdf.csv.create_tic_dat(dirPath, headers_present=headersPresent, freeze_it=True)
             self.assertTrue(len(ticDatMan.a) == 2 and len(ticDatMan.b) == 3)
             self.assertTrue(ticDatMan.b[(1, 20, 30)]["bData"] == 40)
             rowCount = tdf.csv.get_row_counts(dirPath, headers_present= headersPresent,

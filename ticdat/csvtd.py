@@ -35,36 +35,25 @@ class CsvTicFactory(freezable_factory(object, "_isFrozen")) :
         assert import_worked, "don't create this otherwise"
         self.tic_dat_factory = tic_dat_factory
         self._isFrozen = True
-    def create_tic_dat(self, dir_path, dialect='excel', headers_present = True):
+    def create_tic_dat(self, dir_path, dialect='excel', headers_present = True,
+                       freeze_it = False):
         """
         Create a TicDat object from the csv files in a directory
         :param dir_path: the directory containing the .csv files.
         :param dialect: the csv dialect. Consult csv documentation for details.
         :param headers_present: Boolean. Does the first row of data contain the
                                 column headers?
-        :return: a TicDat object populated by the matching files.
+        :param freeze_it: boolean. should the returned object be frozen?
+        :return: a TicDat (or FrozenTicDat) object populated by the matching files.
         caveats: Missing files resolve to an empty table, but missing fields on
                  matching files throw an Exception.
                  Data field values (but not primary key values) will be coerced
                  into floats if possible.
         """
-        return self.tic_dat_factory.TicDat(**self._create_tic_dat(dir_path, dialect,
-                                                                  headers_present))
-    def create_frozen_tic_dat(self, dir_path, dialect='excel', headers_present = True):
-        """
-        Create a FrozenTicDat object from the csv files in a directory
-        :param dir_path: the directory containing .csv files.
-        :param dialect: the csv dialect. Consult csv documentation for details.
-        :param headers_present: Boolean. Does the first row of data contain
-                                the column headers?
-        :return: a TicDat object populated by the matching files.
-        caveats: Missing files resolve to an empty table, but missing fields on
-                 matching files throw an Exception.
-                 Data field values (but not primary key values) will be coerced
-                 into floats if possible.
-        """
-        return self.tic_dat_factory.FrozenTicDat(**self._create_tic_dat(dir_path, dialect,
-                                                    headers_present))
+        Rtn = self.tic_dat_factory.TicDat
+        if freeze_it:
+            Rtn = self.tic_dat_factory.FrozenTicDat
+        return Rtn(**self._create_tic_dat(dir_path, dialect, headers_present))
     def _create_tic_dat(self, dir_path, dialect, headers_present):
         verify(dialect in csv.list_dialects(), "Invalid dialect %s"%dialect)
         verify(os.path.isdir(dir_path), "Invalid directory path %s"%dir_path)
