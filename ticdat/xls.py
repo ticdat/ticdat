@@ -40,7 +40,7 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
         :param row_offsets: (optional) A mapping from table names to initial
                             number of rows to skip
         :param freeze_it: boolean. should the returned object be frozen?
-        :return: a TicDat object populated by the matching sheets.
+        :return: a TicDat (or FrozenTicDat)  object populated by the matching sheets.
         caveats: Missing sheets resolve to an empty table, but missing fields
                  on matching sheets throw an Exception.
                  Sheet names are considered case insensitive

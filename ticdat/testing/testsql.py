@@ -29,7 +29,7 @@ class TestSql(unittest.TestCase):
 
             self.assertTrue(self.firesException(lambda : tdf.sql.write_db_data(ticDat, filePath)))
             tdf.sql.write_db_data(ticDat, filePath, allow_overwrite=True)
-            sqlTicDat = tdf.sql.create_frozen_tic_dat(filePath)
+            sqlTicDat = tdf.sql.create_tic_dat(filePath, freeze_it=True)
             self.assertTrue(tdf._same_data(ticDat, sqlTicDat))
             self.assertTrue(self.firesException(changeit))
             self.assertTrue(tdf._same_data(ticDat, sqlTicDat))
@@ -42,7 +42,7 @@ class TestSql(unittest.TestCase):
             self.assertFalse(tdf._same_data(ticDat, sqlTicDat))
 
             tdf.sql.write_sql_file(ticDat, filePath, include_schema=True)
-            sqlTicDat = tdf.sql.create_frozen_tic_dat_from_sql(filePath, includes_schema=True)
+            sqlTicDat = tdf.sql.create_tic_dat_from_sql(filePath, includes_schema=True, freeze_it=True)
             self.assertTrue(tdf._same_data(ticDat, sqlTicDat))
             self.assertTrue(self.firesException(changeit))
             self.assertTrue(tdf._same_data(ticDat, sqlTicDat))
@@ -86,7 +86,7 @@ class TestSql(unittest.TestCase):
         ticDat = tdf.FrozenTicDat(**{t:getattr(netflowData(),t) for t in tdf.primary_key_fields})
         filePath = os.path.join(_scratchDir, "netflow.sql")
         tdf.sql.write_db_data(ticDat, filePath)
-        sqlTicDat = tdf.sql.create_frozen_tic_dat(filePath)
+        sqlTicDat = tdf.sql.create_tic_dat(filePath, freeze_it=True)
         self.assertTrue(tdf._same_data(ticDat, sqlTicDat))
         def changeIt() :
             sqlTicDat.inflow['Pencils', 'Boston']["quantity"] = 12
@@ -172,7 +172,7 @@ class TestSql(unittest.TestCase):
 
         ticDat.a["theboger"] = (1, None, 12)
         tdf.sql.write_db_data(ticDat, makeCleanPath(filePath))
-        ticDatNone = tdf.sql.create_frozen_tic_dat(filePath)
+        ticDatNone = tdf.sql.create_tic_dat(filePath, freeze_it=True)
         self.assertTrue(tdf._same_data(ticDat, ticDatNone))
         self.assertTrue(ticDatNone.a["theboger"]["aData2"] == None)
 

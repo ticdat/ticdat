@@ -51,45 +51,35 @@ class SQLiteTicFactory(freezable_factory(object, "_isFrozen")) :
         assert import_worked, "don't create this otherwise"
         self.tic_dat_factory = tic_dat_factory
         self._isFrozen = True
-    def create_tic_dat(self, db_file_path):
+    def _Rtn(self, freeze_it):
+        if freeze_it:
+            return self.tic_dat_factory.FrozenTicDat
+        return self.tic_dat_factory.TicDat
+    def create_tic_dat(self, db_file_path, freeze_it = False):
         """
         Create a TicDat object from a SQLite database file
         :param db_file_path: A SQLite db with a consistent schema.
-        :return: a TicDat object populated by the matching tables.
+        :param freeze_it: boolean. should the returned object be frozen?
+        :return: a TicDat (or FrozenTicDat) object populated by the matching tables.
         caveats : "inf" and "-inf" (case insensitive) are read as floats
         """
-        return self.tic_dat_factory.TicDat(**self._create_tic_dat(db_file_path))
-    def create_frozen_tic_dat(self, db_file_path):
-        """
-        Create a FrozenTicDat object from an SQLite database file
-        :param db_file_path:A SQLite db with a consistent schema.
-        :return: a TicDat object populated by the matching table.
-        caveats : "inf" and "-inf" (case insensitive) are read as floats
-        """
-        return self.tic_dat_factory.FrozenTicDat(**self._create_tic_dat(db_file_path))
-    def create_tic_dat_from_sql(self, sql_file_path, includes_schema = False):
+        return self._Rtn(freeze_it)(**self._create_tic_dat(db_file_path))
+    def create_tic_dat_from_sql(self, sql_file_path, includes_schema = False,
+                                freeze_it = False):
         """
         Create a TicDat object from an SQLite sql text file
         :param sql_file_path: A text file containing SQLite compatible SQL statements delimited by ;
         :param includes_schema: boolean - does the sql_file_path contain schema generating SQL?
-        :return: a TicDat object populated by the db created from the SQL
+        :param freeze_it: boolean. should the returned object be frozen?
+        :return: a TicDat (or FrozenTicDat) object populated by the db created from the SQL
         """
-        return self.tic_dat_factory.TicDat(**self._create_tic_dat_from_sql(
+        return self._Rtn(freeze_it)(**self._create_tic_dat_from_sql(
                     sql_file_path, includes_schema))
     def _fks(self):
         rtn = defaultdict(set)
         for fk in self.tic_dat_factory.foreign_keys:
             rtn[fk.native_table].add(fk)
         return FrozenDict({k:tuple(v) for k,v in rtn.items()})
-    def create_frozen_tic_dat_from_sql(self, sql_file_path, includes_schema = False):
-        """
-        Create a FrozenTicDat object from an SQLite sql text file
-        :param sql_file_path: A text file containing SQLite compatible SQL statements delimited by ;
-        :param includes_schema: boolean - does the sql_file_path contain schema generating SQL?
-        :return: a FrozenTicDat object populated by the db created from the SQL
-        """
-        return self.tic_dat_factory.FrozenTicDat(**self._create_tic_dat_from_sql(
-                    sql_file_path, includes_schema))
     def _create_tic_dat_from_sql(self, sql_file_path, includes_schema):
         verify(os.path.exists(sql_file_path), "%s isn't a valid file path"%sql_file_path)
         verify(not self.tic_dat_factory.generator_tables,
