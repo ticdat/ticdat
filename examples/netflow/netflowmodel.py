@@ -40,8 +40,8 @@ dataFactory.set_data_type("cost", "cost")
 # except quantity which allows negatives
 dataFactory.set_data_type("inflow", "quantity", min=-float("inf"), inclusive_min=False)
 
-
-solutionFactory = TicDatFactory()
+solutionFactory = TicDatFactory(
+        flow = [["commodity", "source", "destination"], ["quantity"]])
 
 def solve(dat):
     assert dataFactory.good_tic_dat_object(dat)
@@ -74,3 +74,12 @@ def solve(dat):
 
     # Compute optimal solution
     m.optimize()
+
+    if m.status == GRB.status.OPTIMAL:
+        rtn = solutionFactory.TicDat()
+        solution = m.getAttr('x', flow)
+        for h, i, j in flow:
+            if solution[h,i,j] > 0:
+                rtn.flow[h,i,j] = solution[h,i,j]
+        return rtn
+
