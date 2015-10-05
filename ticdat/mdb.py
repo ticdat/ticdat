@@ -48,24 +48,19 @@ class MdbTicFactory(freezable_factory(object, "_isFrozen")) :
         assert import_worked, "don't create this otherwise"
         self.tic_dat_factory = tic_dat_factory
         self._isFrozen = True
-    def create_tic_dat(self, mdb_file_path):
+    def create_tic_dat(self, mdb_file_path, freeze_it = False):
         """
         Create a TicDat object from an Access MDB file
         :param mdb_file_path: An Access db with a consistent schema.
+        :param freeze_it: boolean. should the returned object be frozen?
         :return: a TicDat object populated by the matching tables.
         caveats : Numbers with absolute values larger than 1e+100 will
                   be read as float("inf") or float("-inf")
         """
-        return self.tic_dat_factory.TicDat(**self._create_tic_dat(mdb_file_path))
-    def create_frozen_tic_dat(self, mdb_file_path):
-        """
-        Create a FrozenTicDat object from an Access MDB file
-        :param mdb_file_path:An Access db with a consistent schema.
-        :return: a TicDat object populated by the matching table.
-        caveats : Numbers with absolute values larger than 1e+100 will
-                  be read as float("inf") or float("-inf")
-        """
-        return self.tic_dat_factory.FrozenTicDat(**self._create_tic_dat(mdb_file_path))
+        Rtn = self.tic_dat_factory.TicDat
+        if freeze_it:
+            Rtn = self.tic_dat_factory.FrozenTicDat
+        return Rtn(**self._create_tic_dat(mdb_file_path))
     def _check_tables_fields(self, mdb_file_path, tables):
         tdf = self.tic_dat_factory
         TDE = TicDatError
