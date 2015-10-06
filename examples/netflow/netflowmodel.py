@@ -62,15 +62,21 @@ def solve(dat):
         m.addConstr(quicksum(flow[h,i,j] for h in dat.commodities if (h,i,j) in flow) <= dat.arcs[i,j]["capacity"],
                     'cap_%s_%s' % (i, j))
 
-    arcs = tuplelist(dat.arcs)
-    # Flow conservation constraints
-    for h in dat.commodities:
-        for j in dat.nodes:
-            m.addConstr(
-              quicksum(flow[h,i,j] for i,j in arcs.select('*',j) if (h,i,j) in flow) +
-                  dat.inflow[h,j]["quantity"] ==
-              quicksum(flow[h,j,k] for j,k in arcs.select(j,'*') if (h,j,k) in flow),
-                       'node_%s_%s' % (h, j))
+
+    # due to using older gurobi version, including a dummy forced to zero var
+    zero = m.addVar(lb=0, ub=0, name = "forcedToZero")
+    m.update()
+
+    flowselect = tuplelist(flow)
+
+    # Flow conservation constraints - use only relevant pairs for extreme sparsity
+    for h_,j_ in set(k for k,v in dat.inflow.items() if abs(v["quantity"]) > 0).union(
+            {(h,i) for h,i,j in flow}, {(h,j) for h,i,j in flow}) :
+        m.addConstr(
+          (quicksum(flow[h,i,j] for h,i,j in flowselect.select(h_,'*',j_)) or zero) +
+              dat.inflow.get((h_,j_), {"quantity":0})["quantity"] ==
+          (quicksum(flow[h,i,j] for h,i,j in flowselect.select(h_, j_, '*')) or zero),
+                   'node_%s_%s' % (h_, j_))
 
     # Compute optimal solution
     m.optimize()
