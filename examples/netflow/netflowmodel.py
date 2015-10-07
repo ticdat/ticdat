@@ -4,14 +4,7 @@
 #
 # edited with permission from Gurobi Optimization, Inc.
 
-# Solve a multi-commodity flow problem.  Two products ('Pencils' and 'Pens')
-# are produced in 2 cities ('Detroit' and 'Denver') and must be sent to
-# warehouses in 3 cities ('Boston', 'New York', and 'Seattle') to
-# satisfy demand ('inflow[h,i]').
-#
-# Flows on the transportation network must respect arc capacity constraints
-# ('capacity[i,j]'). The objective is to minimize the sum of the arc
-# transportation costs ('cost[i,j]').
+# Solve a multi-commodity flow problem.
 
 from gurobipy import *
 from ticdat import TicDatFactory
@@ -43,8 +36,16 @@ dataFactory.set_data_type("inflow", "quantity", min=-float("inf"), inclusive_min
 solutionFactory = TicDatFactory(
         flow = [["commodity", "source", "destination"], ["quantity"]])
 
-def solve(dat):
+
+
+def create_model(dat):
+    '''
+    :param dat: a good ticdat for the dataFactory
+    :return: a gurobi model and dictionary of gurboi flow variables
+    '''
     assert dataFactory.good_tic_dat_object(dat)
+    assert not dataFactory.find_foreign_key_failures(dat)
+    assert not dataFactory.find_data_type_failures(dat)
 
     # Create optimization model
     m = Model('netflow')
@@ -77,6 +78,10 @@ def solve(dat):
               dat.inflow.get((h_,j_), {"quantity":0})["quantity"] ==
           (quicksum(flow[h,i,j] for h,i,j in flowselect.select(h_, j_, '*')) or zero),
                    'node_%s_%s' % (h_, j_))
+    return m, flow
+
+def solve(dat):
+    m, flow = create_model(dat)
 
     # Compute optimal solution
     m.optimize()
