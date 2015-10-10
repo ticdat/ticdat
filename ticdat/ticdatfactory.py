@@ -230,6 +230,19 @@ class TicDatFactory(freezable_factory(object, "_isFrozen")) :
         for fk in self.foreign_keys:
             rtn[fk.native_table].append(fk)
         return utils.FrozenDict({k:frozenset(v) for k,v in rtn.items()})
+    def enable_foreign_key_links(self):
+        """
+        call to enable foreign key links. For ex. a TicDat object made from
+        a factory with foreign key enabled will pass the following assert
+        assert (dat.foods["chicken"].nutritionQuantities["protein"] is
+                dat.categories["protein"].nutritionQuantities["chicken"] is
+                dat.nutritionQuantities["chicken", "protein"])
+        Note that by default, TicDatFactories don't create foreign key links since doing so
+        can slow down TicDat creation.
+        :return:
+        """
+        self._foreign_key_links_enabled[:] = [True]
+
     def add_foreign_key(self, native_table, foreign_table, mappings):
         """
         Adds a foreign key relationship to the schema.  Adding a foreign key doesn't block
@@ -356,6 +369,7 @@ foreign keys, the code throwing this exception will be removed.
         self._generator_tables = []
         self._foreign_keys = clt.defaultdict(set)
         self.all_tables = frozenset(init_fields)
+        self._foreign_key_links_enabled = [] # using list for truthiness to work around freezing headaches
 
         datarowfactory = lambda t :  utils.td_row_factory(t, self.primary_key_fields.get(t, ()),
                         self.data_fields.get(t, ()), self.default_values.get(t, {}))
@@ -468,6 +482,8 @@ foreign keys, the code throwing this exception will be removed.
                 if init_tables :
                     self._try_make_foreign_links()
             def _try_make_foreign_links(self):
+                if not superself._foreign_key_links_enabled:
+                    return
                 assert not self._made_foreign_links, "call once"
                 self._made_foreign_links = True
                 can_link_w_me = lambda t : t not in superself.generator_tables and \

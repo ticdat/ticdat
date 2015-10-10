@@ -416,8 +416,21 @@ class TestUtils(unittest.TestCase):
         self.assertTrue(fixedDat.foods["a"]["cost"] == 12 and fixedDat.foods["b"]["cost"] == 0)
 
         tdf = TicDatFactory(**netflowSchema())
+        addNetflowForeignKeys(tdf)
+        dat = tdf.copy_tic_dat(netflowData(), freeze_it=1)
+        self.assertFalse(hasattr(dat.nodes["Detroit"], "arcs_source"))
+
+        tdf = TicDatFactory(**netflowSchema())
+        addNetflowForeignKeys(tdf)
+        tdf.enable_foreign_key_links()
+        dat = tdf.copy_tic_dat(netflowData(), freeze_it=1)
+        self.assertTrue(hasattr(dat.nodes["Detroit"], "arcs_source"))
+
+        tdf = TicDatFactory(**netflowSchema())
         def makeIt() :
-            addNetflowForeignKeys(tdf) if not tdf.foreign_keys else None
+            if not tdf.foreign_keys:
+                tdf.enable_foreign_key_links()
+                addNetflowForeignKeys(tdf)
             orig = netflowData()
             rtn = tdf.copy_tic_dat(orig)
             for n in rtn.nodes["Detroit"].arcs_source:
