@@ -17,7 +17,7 @@ class TestMdb(unittest.TestCase):
             return e.message
     def testDiet(self):
         tdf = TicDatFactory(**dietSchema())
-        ticDat = tdf.FrozenTicDat(**{t:getattr(dietData(),t) for t in tdf.primary_key_fields})
+        ticDat = tdf.freeze_me(tdf.TicDat(**{t:getattr(dietData(),t) for t in tdf.primary_key_fields}))
         filePath = makeCleanPath(os.path.join(_scratchDir, "diet.mdb"))
         tdf.mdb.write_file(ticDat, filePath)
         mdbTicDat = tdf.mdb.create_tic_dat(filePath)
@@ -37,7 +37,7 @@ class TestMdb(unittest.TestCase):
     def testNetflow(self):
         tdf = TicDatFactory(**netflowSchema())
         addNetflowForeignKeys(tdf)
-        ticDat = tdf.FrozenTicDat(**{t:getattr(netflowData(),t) for t in tdf.all_tables})
+        ticDat = tdf.freeze_me(tdf.TicDat(**{t:getattr(netflowData(),t) for t in tdf.all_tables}))
         filePath = os.path.join(_scratchDir, "netflow.mdb")
         tdf.mdb.write_file(ticDat, filePath)
         mdbTicDat = tdf.mdb.create_tic_dat(filePath, freeze_it=True)

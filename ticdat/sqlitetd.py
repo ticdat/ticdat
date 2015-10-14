@@ -53,14 +53,15 @@ class SQLiteTicFactory(freezable_factory(object, "_isFrozen")) :
         self._isFrozen = True
     def _Rtn(self, freeze_it):
         if freeze_it:
-            return self.tic_dat_factory.FrozenTicDat
+            return lambda *args, **kwargs : self.tic_dat_factory.freeze_me(
+                    self.tic_dat_factory.TicDat(*args, **kwargs))
         return self.tic_dat_factory.TicDat
     def create_tic_dat(self, db_file_path, freeze_it = False):
         """
         Create a TicDat object from a SQLite database file
         :param db_file_path: A SQLite db with a consistent schema.
         :param freeze_it: boolean. should the returned object be frozen?
-        :return: a TicDat (or FrozenTicDat) object populated by the matching tables.
+        :return: a TicDat object populated by the matching tables.
         caveats : "inf" and "-inf" (case insensitive) are read as floats
         """
         return self._Rtn(freeze_it)(**self._create_tic_dat(db_file_path))
@@ -71,7 +72,7 @@ class SQLiteTicFactory(freezable_factory(object, "_isFrozen")) :
         :param sql_file_path: A text file containing SQLite compatible SQL statements delimited by ;
         :param includes_schema: boolean - does the sql_file_path contain schema generating SQL?
         :param freeze_it: boolean. should the returned object be frozen?
-        :return: a TicDat (or FrozenTicDat) object populated by the db created from the SQL
+        :return: a TicDat object populated by the db created from the SQL
         """
         return self._Rtn(freeze_it)(**self._create_tic_dat_from_sql(
                     sql_file_path, includes_schema))

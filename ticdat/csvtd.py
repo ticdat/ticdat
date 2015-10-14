@@ -44,16 +44,17 @@ class CsvTicFactory(freezable_factory(object, "_isFrozen")) :
         :param headers_present: Boolean. Does the first row of data contain the
                                 column headers?
         :param freeze_it: boolean. should the returned object be frozen?
-        :return: a TicDat (or FrozenTicDat) object populated by the matching files.
+        :return: a TicDat object populated by the matching files.
         caveats: Missing files resolve to an empty table, but missing fields on
                  matching files throw an Exception.
                  Data field values (but not primary key values) will be coerced
                  into floats if possible.
         """
-        Rtn = self.tic_dat_factory.TicDat
+        rtn =  self.tic_dat_factory.TicDat(**self._create_tic_dat(dir_path, dialect,
+                                                                  headers_present))
         if freeze_it:
-            Rtn = self.tic_dat_factory.FrozenTicDat
-        return Rtn(**self._create_tic_dat(dir_path, dialect, headers_present))
+            return self.tic_dat_factory.freeze_me(rtn)
+        return rtn
     def _create_tic_dat(self, dir_path, dialect, headers_present):
         verify(dialect in csv.list_dialects(), "Invalid dialect %s"%dialect)
         verify(os.path.isdir(dir_path), "Invalid directory path %s"%dir_path)

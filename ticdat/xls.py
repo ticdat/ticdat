@@ -43,15 +43,16 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
         :param headers_present: Boolean. Does the first row of data contain the
                                 column headers?
         :param freeze_it: boolean. should the returned object be frozen?
-        :return: a TicDat (or FrozenTicDat)  object populated by the matching sheets.
+        :return: a TicDat object populated by the matching sheets.
         caveats: Missing sheets resolve to an empty table, but missing fields
                  on matching sheets throw an Exception.
                  Sheet names are considered case insensitive
         """
-        Rtn = self.tic_dat_factory.TicDat
+        rtn =  self.tic_dat_factory.TicDat(**self._create_tic_dat
+                                          (xls_file_path, row_offsets, headers_present))
         if freeze_it:
-            Rtn = self.tic_dat_factory.FrozenTicDat
-        return Rtn(**self._create_tic_dat(xls_file_path, row_offsets, headers_present))
+            return self.tic_dat_factory.freeze_me(rtn)
+        return rtn
     def _get_sheets_and_fields(self, xls_file_path, all_tables, row_offsets, headers_present):
         try :
             book = xlrd.open_workbook(xls_file_path)

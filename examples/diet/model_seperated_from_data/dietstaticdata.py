@@ -15,7 +15,7 @@
 
 from dietmodel import solve, dataFactory
 
-dat = dataFactory.FrozenTicDat(
+dat = dataFactory.freeze_me(dataFactory.TicDat(
     categories = {
       'calories': [1800, 2200],
       'protein':  [91, float("inf")],
@@ -70,7 +70,7 @@ dat = dataFactory.FrozenTicDat(
       ('ice cream', 'calories'): 330,
       ('ice cream', 'protein'):  8,
       ('ice cream', 'fat'):      10,
-      ('ice cream', 'sodium'):   180 })
+      ('ice cream', 'sodium'):   180 }))
 
 solution =  solve(dat)
 

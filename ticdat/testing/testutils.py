@@ -52,8 +52,9 @@ class TestUtils(unittest.TestCase):
                          tdf.good_tic_dat_object(dataObj, bad_message_handler=msg.append))
         self.assertTrue({'foods : Inconsistent key lengths',
                          'categories : Inconsistent data field name keys.'} == set(msg))
-        self.assertTrue("categories cannot be treated as a ticDat table : Inconsistent data field name keys" in
-            firesException(lambda : tdf.FrozenTicDat(**{t:getattr(dataObj,t) for t in tdf.primary_key_fields})).message)
+        ex = firesException(lambda : tdf.freeze_me(tdf.TicDat(**{t:getattr(dataObj,t)
+                                                                for t in tdf.primary_key_fields}))).message
+        self.assertTrue("categories cannot be treated as a ticDat table : Inconsistent data field name keys" in ex)
 
     def _assertSame(self, t1, t2, goodTicDatTable):
 
@@ -72,7 +73,7 @@ class TestUtils(unittest.TestCase):
         objOrig = dietData()
         staticFactory = TicDatFactory(**dietSchema())
         tables = set(staticFactory.primary_key_fields)
-        ticDat = staticFactory.FrozenTicDat(**{t:getattr(objOrig,t) for t in tables})
+        ticDat = staticFactory.freeze_me(staticFactory.TicDat(**{t:getattr(objOrig,t) for t in tables}))
         self.assertTrue(staticFactory.good_tic_dat_object(ticDat))
         for t in tables :
             self._assertSame(getattr(objOrig, t), getattr(ticDat,t),
@@ -83,7 +84,7 @@ class TestUtils(unittest.TestCase):
         staticFactory = TicDatFactory(**netflowSchema())
         goodTable = lambda t : lambda _t : staticFactory.good_tic_dat_table(_t, t)
         tables = set(staticFactory.primary_key_fields)
-        ticDat = staticFactory.FrozenTicDat(**{t:getattr(objOrig,t) for t in tables})
+        ticDat = staticFactory.freeze_me(staticFactory.TicDat(**{t:getattr(objOrig,t) for t in tables}))
         self.assertTrue(staticFactory.good_tic_dat_object(ticDat))
         for t in tables :
             self._assertSame(getattr(objOrig, t), getattr(ticDat,t), goodTable(t))
@@ -97,7 +98,7 @@ class TestUtils(unittest.TestCase):
         self.assertTrue(firesException(lambda : self._assertSame(
             objOrig.arcs, ticDat.arcs, goodTable("arcs")) ))
 
-        ticDat = staticFactory.FrozenTicDat(**{t:getattr(objOrig,t) for t in tables})
+        ticDat = staticFactory.freeze_me(staticFactory.TicDat(**{t:getattr(objOrig,t) for t in tables}))
         for t in tables :
             self._assertSame(getattr(objOrig, t), getattr(ticDat,t), goodTable(t))
 
@@ -107,7 +108,8 @@ class TestUtils(unittest.TestCase):
         objOrig.cost[5]=5
 
         self.assertTrue("cost cannot be treated as a ticDat table : Inconsistent key lengths" in
-            firesException(lambda : staticFactory.FrozenTicDat(**{t:getattr(objOrig,t) for t in tables})))
+            firesException(lambda : staticFactory.freeze_me(staticFactory.TicDat
+                                    (**{t:getattr(objOrig,t) for t in tables}))))
 
         objOrig = netflowData()
         def editMeBadly(t) :
@@ -119,14 +121,15 @@ class TestUtils(unittest.TestCase):
                 t.cost["hack", "my", "balls"] = 12.12
             return rtn
         self.assertTrue(all(firesException(editMeWell(t)) and firesException(editMeBadly(t)) for t in
-                            (ticDat, staticFactory.FrozenTicDat())))
+                            (ticDat, staticFactory.freeze_me(staticFactory.TicDat()))))
 
         def attributeMe(t) :
             def rtn() :
                 t.boger="bogerwoger"
             return rtn
 
-        self.assertTrue(firesException(attributeMe(ticDat)) and firesException(attributeMe(staticFactory.FrozenTicDat())))
+        self.assertTrue(firesException(attributeMe(ticDat)) and firesException(attributeMe(
+                staticFactory.freeze_me(staticFactory.TicDat()))))
 
         mutable = staticFactory.TicDat(**{t:getattr(objOrig,t) for t in tables})
         for t in tables :
@@ -142,7 +145,7 @@ class TestUtils(unittest.TestCase):
         staticFactory = TicDatFactory(**sillyMeSchema())
         goodTable = lambda t : lambda _t : staticFactory.good_tic_dat_table(_t, t)
         tables = set(staticFactory.primary_key_fields)
-        ticDat = staticFactory.FrozenTicDat(**objOrig)
+        ticDat = staticFactory.freeze_me(staticFactory.TicDat(**objOrig))
         self.assertTrue(staticFactory.good_tic_dat_object(ticDat))
         for t in tables :
             self._assertSame(objOrig[t], getattr(ticDat,t), goodTable(t))
@@ -176,7 +179,7 @@ class TestUtils(unittest.TestCase):
     def testFive(self):
         tdf = TicDatFactory(**netflowSchema())
         addNetflowForeignKeys(tdf)
-        dat = tdf.FrozenTicDat(**{t : getattr(netflowData(), t) for t in tdf.all_tables})
+        dat = tdf.freeze_me(tdf.TicDat(**{t : getattr(netflowData(), t) for t in tdf.all_tables}))
         obfudat = tdf.obfusimplify(dat, freeze_it=1)
         self.assertFalse(tdf._same_data(dat, obfudat.copy))
         for (s,d),r in obfudat.copy.arcs.items():

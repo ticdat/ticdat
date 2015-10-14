@@ -57,10 +57,10 @@ class MdbTicFactory(freezable_factory(object, "_isFrozen")) :
         caveats : Numbers with absolute values larger than 1e+100 will
                   be read as float("inf") or float("-inf")
         """
-        Rtn = self.tic_dat_factory.TicDat
+        rtn =  self.tic_dat_factory.TicDat(**self._create_tic_dat(mdb_file_path))
         if freeze_it:
-            Rtn = self.tic_dat_factory.FrozenTicDat
-        return Rtn(**self._create_tic_dat(mdb_file_path))
+            return self.tic_dat_factory.freeze_me(rtn)
+        return rtn
     def _check_tables_fields(self, mdb_file_path, tables):
         tdf = self.tic_dat_factory
         TDE = TicDatError

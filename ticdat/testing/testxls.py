@@ -25,7 +25,7 @@ class TestXls(unittest.TestCase):
 
     def testDiet(self):
         tdf = TicDatFactory(**dietSchema())
-        ticDat = tdf.FrozenTicDat(**{t:getattr(dietData(),t) for t in tdf.primary_key_fields})
+        ticDat = tdf.freeze_me(tdf.TicDat(**{t:getattr(dietData(),t) for t in tdf.primary_key_fields}))
         filePath = os.path.join(_scratchDir, "diet.xls")
         tdf.xls.write_file(ticDat, filePath)
         xlsTicDat = tdf.xls.create_tic_dat(filePath)
@@ -46,7 +46,7 @@ class TestXls(unittest.TestCase):
 
     def testNetflow(self):
         tdf = TicDatFactory(**netflowSchema())
-        ticDat = tdf.FrozenTicDat(**{t:getattr(netflowData(),t) for t in tdf.primary_key_fields})
+        ticDat = tdf.freeze_me(tdf.TicDat(**{t:getattr(netflowData(),t) for t in tdf.primary_key_fields}))
         filePath = os.path.join(_scratchDir, "netflow.xls")
         tdf.xls.write_file(ticDat, filePath)
         xlsTicDat = tdf.xls.create_tic_dat(filePath, freeze_it=True)
@@ -164,9 +164,9 @@ class TestXls(unittest.TestCase):
     def testRowOffsets(self):
         tdf = TicDatFactory(boger = [[],["the", "big", "boger"]],
                             woger = [[], ["the", "real", "big", "woger"]])
-        td = tdf.FrozenTicDat(boger = ([1, 2, 3], [12, 24, 36], tdf.data_fields["boger"], [100, 200, 400]),
+        td = tdf.freeze_me(tdf.TicDat(boger = ([1, 2, 3], [12, 24, 36], tdf.data_fields["boger"], [100, 200, 400]),
                               woger = ([[1, 2, 3, 4]]*4) + [tdf.data_fields["woger"]] +
-                                      ([[100, 200, 300, 400]]*5))
+                                      ([[100, 200, 300, 400]]*5)))
         filePath = os.path.join(_scratchDir, "rowoff.xls")
         tdf.xls.write_file(td, filePath)
 

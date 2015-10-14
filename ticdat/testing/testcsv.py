@@ -25,7 +25,7 @@ class TestCsv(unittest.TestCase):
         self.assertFalse(tdf.csv.get_row_counts(dirPath, keep_only_duplicates=True))
     def testDiet(self):
         tdf = TicDatFactory(**dietSchema())
-        ticDat = tdf.FrozenTicDat(**{t:getattr(dietData(),t) for t in tdf.primary_key_fields})
+        ticDat = tdf.freeze_me(tdf.TicDat(**{t:getattr(dietData(),t) for t in tdf.primary_key_fields}))
         dirPath = os.path.join(_scratchDir, "diet")
         tdf.csv.write_directory(ticDat,dirPath)
         self._testBasicRowCounts(dirPath, tdf, ticDat)

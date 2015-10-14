@@ -15,8 +15,8 @@
 from dietmodel import solve, dataFactory, solutionFactory
 import os
 
-# read the data from diet.xls into the FrozenTicDat object dat
-dat = dataFactory.xls.create_frozen_tic_dat("diet.xls")
+# read the data from diet.xls into TicDat object dat
+dat = dataFactory.xls.create_tic_dat("diet.xls", freeze_it=True)
 
 solution =  solve(dat)
 

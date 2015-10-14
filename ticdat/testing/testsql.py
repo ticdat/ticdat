@@ -17,7 +17,7 @@ class TestSql(unittest.TestCase):
             return e.message
     def testDiet(self):
         def doTheTests(tdf) :
-            ticDat = tdf.FrozenTicDat(**{t:getattr(dietData(),t) for t in tdf.primary_key_fields})
+            ticDat = tdf.freeze_me(tdf.TicDat(**{t:getattr(dietData(),t) for t in tdf.primary_key_fields}))
             filePath = makeCleanPath(os.path.join(_scratchDir, "diet.db"))
             tdf.sql.write_db_data(ticDat, filePath)
             sqlTicDat = tdf.sql.create_tic_dat(filePath)
@@ -83,7 +83,7 @@ class TestSql(unittest.TestCase):
         ordered = tdf.sql._ordered_tables()
         self.assertTrue(ordered.index("nodes") < min(ordered.index(_) for _ in ("arcs", "cost", "inflow")))
         self.assertTrue(ordered.index("commodities") < min(ordered.index(_) for _ in ("cost", "inflow")))
-        ticDat = tdf.FrozenTicDat(**{t:getattr(netflowData(),t) for t in tdf.primary_key_fields})
+        ticDat = tdf.freeze_me(tdf.TicDat(**{t:getattr(netflowData(),t) for t in tdf.primary_key_fields}))
         filePath = os.path.join(_scratchDir, "netflow.sql")
         tdf.sql.write_db_data(ticDat, filePath)
         sqlTicDat = tdf.sql.create_tic_dat(filePath, freeze_it=True)

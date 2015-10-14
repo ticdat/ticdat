@@ -322,13 +322,13 @@ foreign keys, the code throwing this exception will be removed.
     def as_dict(self, ticdat):
         '''
         Returns the ticdat object as a dictionary.
-        Note that, as a nested class, TicDat and FrozenTicDat objects cannot be pickled
+        Note that, as a nested class, TicDat  objects cannot be pickled
         directly. Instead, the dictionary returned by this function can be pickled.
         For unpickling, first unpickle the pickled dictionary, and then pass it,
-        unpacked, to the TicDat/FrozenTicDat constructor.
-        :param ticdat: a TicDat or FrozenTicDat object whose data is to be returned as a dict
+        unpacked, to the TicDat constructor.
+        :param ticdat: a TicDat object whose data is to be returned as a dict
         :return: A dictionary that can either be pickled, or unpacked to a
-                TicDat/FrozenTicDat constructor
+                TicDat constructor
         '''
         verify(not self.generator_tables, "as_dict doesn't work with generator tables.")
         rtn = {}
@@ -536,11 +536,6 @@ foreign keys, the code throwing this exception will be removed.
                                             [_key[0] if len(_key) == 1 else _key] = row
 
         self.TicDat = TicDat
-        class FrozenTicDat(TicDat) :
-            def __init__(self, **init_tables):
-                super(FrozenTicDat, self).__init__(**init_tables)
-                self._freeze()
-        self.FrozenTicDat = FrozenTicDat
         if xls.import_worked :
             self.xls = xls.XlsTicFactory(self)
         if csv.import_worked :
