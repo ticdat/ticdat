@@ -319,17 +319,18 @@ foreign keys, the code throwing this exception will be removed.
                     self._linkName[nativetable, foreigntable, nativeFields] = \
                         "_".join([nativetable] + [x for x in trialLinkName or nativeFields])
         self._has_been_used[:] = [True]
-    def pickle_this(self, ticdat):
+    def as_dict(self, ticdat):
         '''
-        As a nested class, TicDat and FrozenTicDat objects cannot be pickled
+        Returns the ticdat object as a dictionary.
+        Note that, as a nested class, TicDat and FrozenTicDat objects cannot be pickled
         directly. Instead, the dictionary returned by this function can be pickled.
-        For unpickling, first unpickle the pickled 'pickle_this' dictionary, and then pass it,
+        For unpickling, first unpickle the pickled dictionary, and then pass it,
         unpacked, to the TicDat/FrozenTicDat constructor.
-        :param ticdat: a TicDat or FrozenTicDat object whose data is to be returned as a pickleable dict
+        :param ticdat: a TicDat or FrozenTicDat object whose data is to be returned as a dict
         :return: A dictionary that can either be pickled, or unpacked to a
                 TicDat/FrozenTicDat constructor
         '''
-        verify(not self.generator_tables, "Can't pickle generator tables.")
+        verify(not self.generator_tables, "as_dict doesn't work with generator tables.")
         rtn = {}
         dict_tables = {t for t,pk in self.primary_key_fields.items() if pk}
         for t in dict_tables:
