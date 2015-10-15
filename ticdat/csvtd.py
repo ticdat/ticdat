@@ -61,21 +61,18 @@ class CsvTicFactory(freezable_factory(object, "_isFrozen")) :
         rtn =  {t : self._create_table(dir_path, t, dialect, headers_present)
                 for t in self.tic_dat_factory.all_tables}
         return {k:v for k,v in rtn.items() if v}
-    def get_row_counts(self, dir_path, dialect='excel', headers_present = True, keep_only_duplicates = False):
+    def get_duplicates(self, dir_path, dialect='excel', headers_present = True):
         """
-        Find the row counts indexed by primary key from the csv files in a directory
+        Find the row counts indexed by primary key for duplicated primary key records.
         :param dir_path: the directory containing .csv files.
         :param dialect: the csv dialect. Consult csv documentation for details.
         :param headers_present: Boolean. Does the first row of data contain
                                 the column headers?
-        :param keep_only_duplicates: (optional) (Boolean) If true, then only
-                                      rowcounts greater than 2 are returned.
-
         :return: A dictionary whose keys are the table names for the primary key tables. Each value
                  of the return dictionary is itself a dictionary. The inner dictionary is keyed by the
                  primary key values encountered in the table, and the value is the count of records in the
-                 Excel sheet with this primary key. If keep_only_duplicates then row counts smaller than
-                 2 are pruned off, as they aren't duplicates
+                 Excel sheet with this primary key. Row counts smaller than 2 are pruned off, as they
+                 aren't duplicates
         caveats: Missing files resolve to an empty table, but missing fields (data or primary key) on
                  matching files throw an Exception.
         """
@@ -99,8 +96,8 @@ class CsvTicFactory(freezable_factory(object, "_isFrozen")) :
                             tuple(_try_float(r[_]) for _ in tdf.primary_key_fields[t])
                     rtn[t][p_key] += 1
         for t in rtn.keys():
-            rtn[t] = {k:v for k,v in rtn[t].items() if v > 1 or not keep_only_duplicates}
-            if keep_only_duplicates and not rtn[t]:
+            rtn[t] = {k:v for k,v in rtn[t].items() if v > 1}
+            if not rtn[t]:
                 del(rtn[t])
         return rtn
     def _verify_fields_by_cnt(self, dir_path, table, dialect) :
