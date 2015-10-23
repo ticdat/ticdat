@@ -16,6 +16,7 @@ try:
 except:
     import_worked=False
 
+
 class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
     """
     Primary class for reading/writing Excel files with ticDat objects.
@@ -31,33 +32,28 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
         assert import_worked, "don't create this otherwise"
         self.tic_dat_factory = tic_dat_factory
         self._isFrozen = True
-    def create_tic_dat(self, xls_file_path, row_offsets={}):
+    def create_tic_dat(self, xls_file_path, row_offsets={}, headers_present = True,
+                       freeze_it = False):
         """
         Create a TicDat object from an Excel file
         :param xls_file_path: An Excel file containing sheets whose names match
                               the table names in the schema.
         :param row_offsets: (optional) A mapping from table names to initial
                             number of rows to skip
+        :param headers_present: Boolean. Does the first row of data contain the
+                                column headers?
+        :param freeze_it: boolean. should the returned object be frozen?
         :return: a TicDat object populated by the matching sheets.
         caveats: Missing sheets resolve to an empty table, but missing fields
                  on matching sheets throw an Exception.
                  Sheet names are considered case insensitive
         """
-        return self.tic_dat_factory.TicDat(**self._create_tic_dat(xls_file_path, row_offsets))
-    def create_frozen_tic_dat(self, xls_file_path, row_offsets={}):
-        """
-        Create a FrozenTicDat object from an Excel file
-        :param xls_file_path: An Excel file containing sheets whose names match
-                              the table names in the schema.
-        :param row_offsets: (optional) A mapping from table names to initial
-                            number of rows to skip
-        caveats: Missing sheets resolve to an empty table, but missing fields
-                 on matching sheets throw an Exception.
-                 Sheet names are considered case insensitive
-        :return:
-        """
-        return self.tic_dat_factory.FrozenTicDat(**self._create_tic_dat(xls_file_path, row_offsets))
-    def _get_sheets_and_fields(self, xls_file_path, all_tables, row_offsets):
+        rtn =  self.tic_dat_factory.TicDat(**self._create_tic_dat
+                                          (xls_file_path, row_offsets, headers_present))
+        if freeze_it:
+            return self.tic_dat_factory.freeze_me(rtn)
+        return rtn
+    def _get_sheets_and_fields(self, xls_file_path, all_tables, row_offsets, headers_present):
         try :
             book = xlrd.open_workbook(xls_file_path)
         except Exception as e:
@@ -73,25 +69,26 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
         field_indicies, bad_fields = {}, {}
         for table, sheet in sheets.items() :
             field_indicies[table], bad_fields[table] = self._get_field_indicies(
-                                                        table, sheet, row_offsets[table])
+                                                table, sheet, row_offsets[table], headers_present)
         verify(not any(_ for _ in bad_fields.values()),
                "The following field names could not be found : \n" +
                "\n".join("%s : "%t + ",".join(bf) for t,bf in bad_fields.items() if bf))
         return sheets, field_indicies
-    def _create_generator_obj(self, xlsFilePath, table, row_offset):
+    def _create_generator_obj(self, xlsFilePath, table, row_offset, headers_present):
         tdf = self.tic_dat_factory
+        ho = 1 if headers_present else 0
         def tableObj() :
             sheets, field_indicies = self._get_sheets_and_fields(xlsFilePath,
-                                                                 (table,), {table:row_offset})
+                                        (table,), {table:row_offset}, headers_present)
             if table in sheets :
                 sheet = sheets[table]
                 table_len = min(len(sheet.col_values(field_indicies[table][field]))
                                for field in tdf.data_fields[table])
-                for x in (sheet.row_values(i) for i in range(table_len)[row_offset+1:]) :
+                for x in (sheet.row_values(i) for i in range(table_len)[row_offset+ho:]) :
                     yield self._sub_tuple(tdf.data_fields[table], field_indicies[table])(x)
         return tableObj
 
-    def _create_tic_dat(self, xls_file_path, row_offsets):
+    def _create_tic_dat(self, xls_file_path, row_offsets, headers_present):
         verify(utls.dictish(row_offsets) and
                set(row_offsets).issubset(self.tic_dat_factory.all_tables) and
                all(utls.numericish(x) and (x>=0) for x in row_offsets.values()),
@@ -99,44 +96,46 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
         row_offsets = dict({t:0 for t in self.tic_dat_factory.all_tables}, **row_offsets)
         tdf = self.tic_dat_factory
         rtn = {}
-        sheets, fieldIndicies = self._get_sheets_and_fields(xls_file_path,
+        sheets, field_indicies = self._get_sheets_and_fields(xls_file_path,
                                     set(tdf.all_tables).difference(tdf.generator_tables),
-                                    row_offsets)
+                                    row_offsets, headers_present)
+        ho = 1 if headers_present else 0
         for table, sheet in sheets.items() :
             fields = tdf.primary_key_fields.get(table, ()) + tdf.data_fields.get(table, ())
-            indicies = fieldIndicies[table]
+            indicies = field_indicies[table]
             table_len = min(len(sheet.col_values(indicies[field])) for field in fields)
             if tdf.primary_key_fields.get(table, ()) :
                 tableObj = {self._sub_tuple(tdf.primary_key_fields[table], indicies)(x) :
                             self._sub_tuple(tdf.data_fields.get(table, ()), indicies)(x)
                             for x in (sheet.row_values(i) for i in
-                                        range(table_len)[row_offsets[table]+1:])}
+                                        range(table_len)[row_offsets[table]+ho:])}
             else :
                 tableObj = [self._sub_tuple(tdf.data_fields.get(table, ()), indicies)(x)
                             for x in (sheet.row_values(i) for i in
-                                        range(table_len)[row_offsets[table]+1:])]
+                                        range(table_len)[row_offsets[table]+ho:])]
             rtn[table] = tableObj
         for table in tdf.generator_tables :
-            rtn[table] = self._create_generator_obj(xls_file_path, table, row_offsets[table])
+            rtn[table] = self._create_generator_obj(xls_file_path, table, row_offsets[table],
+                                                    headers_present)
         return rtn
 
-    def get_row_counts(self, xls_file_path, row_offsets={}, keep_only_duplicates = False):
+    def get_duplicates(self, xls_file_path, row_offsets={}, headers_present = True):
         """
-        Find the row counts indexed by primary key for an Xls file
+        Find the row counts indexed by primary key for an Xls file for duplicated primary keys
         :param xls_file_path: An Excel file containing sheets whose names match
                               the table names in the schema (non primary key tables ignored).
         :param row_offsets: (optional) A mapping from table names to initial
                             number of rows to skip (non primary key tables ignored)
-        :param keep_only_duplicates: (optional) (Boolean) If true, then only
-                                      rowcounts greater than 2 are returned.
+        :param headers_present: Boolean. Does the first row of data contain the
+                                column headers?
         caveats: Missing sheets resolve to an empty table, but missing primary fields
                  on matching sheets throw an Exception.
                  Sheet names are considered case insensitive.
         :return: A dictionary whose keys are the table names for the primary key tables. Each value
                  of the return dictionary is itself a dictionary. The inner dictionary is keyed by the
                  primary key values encountered in the table, and the value is the count of records in the
-                 Excel sheet with this primary key. If keep_only_duplicates then row counts smaller than
-                 2 are pruned off, as they aren't duplicates
+                 Excel sheet with this primary key. Row counts smaller than 2 are pruned off,
+                 as they aren't duplicates
         """
         verify(utls.dictish(row_offsets) and
                set(row_offsets).issubset(self.tic_dat_factory.all_tables) and
@@ -146,16 +145,18 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
         tdf = self.tic_dat_factory
         pk_tables = tuple(t for t,_ in tdf.primary_key_fields.items() if _)
         rtn = {t:defaultdict(int) for t in pk_tables}
-        sheets, fieldIndicies = self._get_sheets_and_fields(xls_file_path, pk_tables, row_offsets)
+        sheets, fieldIndicies = self._get_sheets_and_fields(xls_file_path, pk_tables,
+                                        row_offsets, headers_present)
+        ho = 1 if headers_present else 0
         for table, sheet in sheets.items() :
             fields = tdf.primary_key_fields[table] + tdf.data_fields.get(table, ())
             indicies = fieldIndicies[table]
             table_len = min(len(sheet.col_values(indicies[field])) for field in fields)
-            for x in (sheet.row_values(i) for i in range(table_len)[row_offsets[table]+1:]) :
+            for x in (sheet.row_values(i) for i in range(table_len)[row_offsets[table]+ho:]) :
                 rtn[table][self._sub_tuple(tdf.primary_key_fields[table], indicies)(x)] += 1
         for t in rtn.keys():
-            rtn[t] = {k:v for k,v in rtn[t].items() if v > 1 or not keep_only_duplicates}
-            if keep_only_duplicates and not rtn[t]:
+            rtn[t] = {k:v for k,v in rtn[t].items() if v > 1}
+            if not rtn[t]:
                 del(rtn[t])
         return rtn
     def _sub_tuple(self, fields, field_indicies) :
@@ -166,9 +167,13 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
             return tuple(x[field_indicies[field]] for field in fields)
         return rtn
 
-    def _get_field_indicies(self, table, sheet, row_offset) :
+    def _get_field_indicies(self, table, sheet, row_offset, headers_present) :
         fields = self.tic_dat_factory.primary_key_fields.get(table, ()) + \
                  self.tic_dat_factory.data_fields.get(table, ())
+        if not headers_present:
+            row_len = len(sheet.row_values(row_offset)) if sheet.nrows > 0  else len(fields)
+            return ({f : i for i,f in enumerate(fields) if i < row_len},
+                    [f for i,f in enumerate(fields) if i >= row_len])
         if sheet.nrows - row_offset <= 0 :
             return {}, fields
         temp_rtn = {field:list() for field in fields}
@@ -216,5 +221,4 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
         if os.path.exists(file_path):
             os.remove(file_path)
         book.save(file_path)
-
 

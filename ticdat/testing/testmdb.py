@@ -17,7 +17,7 @@ class TestMdb(unittest.TestCase):
             return e.message
     def testDiet(self):
         tdf = TicDatFactory(**dietSchema())
-        ticDat = tdf.FrozenTicDat(**{t:getattr(dietData(),t) for t in tdf.primary_key_fields})
+        ticDat = tdf.freeze_me(tdf.TicDat(**{t:getattr(dietData(),t) for t in tdf.primary_key_fields}))
         filePath = makeCleanPath(os.path.join(_scratchDir, "diet.mdb"))
         tdf.mdb.write_file(ticDat, filePath)
         mdbTicDat = tdf.mdb.create_tic_dat(filePath)
@@ -29,7 +29,7 @@ class TestMdb(unittest.TestCase):
 
         self.assertTrue(self.firesException(lambda : tdf.mdb.write_file(ticDat, filePath)))
         tdf.mdb.write_file(ticDat, filePath, allow_overwrite=True)
-        mdbTicDat = tdf.mdb.create_frozen_tic_dat(filePath)
+        mdbTicDat = tdf.mdb.create_tic_dat(filePath, freeze_it=True)
         self.assertTrue(tdf._same_data(ticDat, mdbTicDat))
         self.assertTrue(self.firesException(changeit))
         self.assertTrue(tdf._same_data(ticDat, mdbTicDat))
@@ -37,10 +37,10 @@ class TestMdb(unittest.TestCase):
     def testNetflow(self):
         tdf = TicDatFactory(**netflowSchema())
         addNetflowForeignKeys(tdf)
-        ticDat = tdf.FrozenTicDat(**{t:getattr(netflowData(),t) for t in tdf.all_tables})
+        ticDat = tdf.freeze_me(tdf.TicDat(**{t:getattr(netflowData(),t) for t in tdf.all_tables}))
         filePath = os.path.join(_scratchDir, "netflow.mdb")
         tdf.mdb.write_file(ticDat, filePath)
-        mdbTicDat = tdf.mdb.create_frozen_tic_dat(filePath)
+        mdbTicDat = tdf.mdb.create_tic_dat(filePath, freeze_it=True)
         self.assertTrue(tdf._same_data(ticDat, mdbTicDat))
         def changeIt() :
             mdbTicDat.inflow['Pencils', 'Boston']["quantity"] = 12
@@ -124,7 +124,7 @@ class TestMdb(unittest.TestCase):
 
         ticDat.a["theboger"] = (1, None, "twelve")
         tdf.mdb.write_file(ticDat, makeCleanSchema())
-        ticDatNone = tdf.mdb.create_frozen_tic_dat(filePath)
+        ticDatNone = tdf.mdb.create_tic_dat(filePath, freeze_it=True)
         self.assertTrue(tdf._same_data(ticDat, ticDatNone))
         self.assertTrue(ticDatNone.a["theboger"]["aData2"] == None)
 

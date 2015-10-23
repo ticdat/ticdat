@@ -19,8 +19,8 @@ if os.path.exists("cog.stop"):
     print "Add cog.stop whenever you want to stop the optimization"
     os.remove("cog.stop")
 
-# read the data from cog.xls into the FrozenTicDat object dat
-dat = dataFactory.xls.create_frozen_tic_dat("cog.xls")
+# read the data from cog.xls into a TicDat object dat
+dat = dataFactory.xls.create_tic_dat("cog.xls", freeze_it=True)
 
 def percentError(lb, ub):
     assert lb<=ub
