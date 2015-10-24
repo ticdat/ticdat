@@ -26,3 +26,5 @@ larger, more realistic data sets. In addition, [Opalytics Inc](http://www.opalyt
 The ticDat library is distributed under the BSD2 open source license.
 
 To explore more, we reocmmned examining a few example notebooks. We show how `ticdat` can be used to [explore](https://github.com/opalytics/opalytics-ticdat/blob/master/examples/notebooks/diet.ipynb) a data set that has minor integrity problems. We also use `ticdat` to facilitate the diagnosis of [infeasible](https://github.com/opalytics/opalytics-ticdat/blob/master/examples/notebooks/netflow.ipynb) models.
+
+It should be noted that `ticdat` is in no way meant to be a replacement to [pandas](https://github.com/pydata/pandas). In fact, it is very easy to create DataFrames for each of the tables in a `TicDat` object. Developers who are new to Python might prefer the "just like a `dict`" functionality of a `TicDat` table.
