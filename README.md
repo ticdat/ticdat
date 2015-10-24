@@ -1,7 +1,6 @@
 # ticdat
 
-`ticdat` is a lightweight, relational, data library. It is partly inspired by csv.DictReader
-and csv.DictWriter.  
+`ticdat` is a lightweight, relational, data library. 
 
 When primary keys are specified, each table is a dictionary of dictionaries.
 Otherwise, each table is an enumerable of dictionaries (as in DictReader/DictWriter). 
