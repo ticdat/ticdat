@@ -23,8 +23,7 @@ Alternately, `TicDat` data objects can be frozen. This facilitates good software
 Although `ticdat` was specifically designed with Mixed Integer Programming data sets in mind, it can be used for
 rapidly developing a wide variety of mathematical engines. It facilitates creating one definition of your
 input data schema and one solve module, and reusing this same code, unchanged, on data from different
-sources. This "separation of model from data" enables a user to move easily from toy, hard coded data to
-larger, more realistic data sets. In addition, [Opalytics Inc](http://www.opalytics.com/) (the developer of  `ticdat`) can support cloud deployments of solve engines that use `ticdat` data objects library.
+sources. This "separation of model from data" enables a user to move easily from small, testing data sets to larger, more realistic examples. In addition, [Opalytics Inc](http://www.opalytics.com/) (the developer of  `ticdat`) can support cloud deployments of solve engines that use `ticdat` data objects library.
 
 The `ticdat` library is distributed under the BSD2 open source license.
 
