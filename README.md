@@ -1,6 +1,10 @@
 # ticdat
 
-`ticdat` is a lightweight, relational, data library. 
+`ticdat` is an easy-to-use, lightweight, relational, data library. It provides a simple interface for defining a data schema, and a factory class for creating `TicDat` data objects that confirm to this schema.
+
+It is primarily intended to simplify the process of developing proof-of-concept mathematical engines that read from one schema and write to another. It provides easy routines for reading and/or writing an entire data set for a range of stand-alone file types (Excel, .csv, Access or SQLite). For Access or SQLite, it can be used as a very condensed represeentation of the database schema.
+
+For archiving test suites, `ticdat` is a useful way to convert data instances into .sql text files that can be archived in source code control systems.
 
 When primary keys are specified, each table is a dictionary of dictionaries.
 Otherwise, each table is an enumerable of dictionaries (as in DictReader/DictWriter). 
