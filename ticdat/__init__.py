@@ -14,7 +14,7 @@ sources. This "separation of model from data" enables a user to move easily from
 larger, more realistic data sets. In addition, Opalytics Inc. (the developer of the ticDat library) can support
 cloud deployments of solve engines that use the ticDat library.
 
-The ticDat library is distributed freely and without liability. ??LEGAL BALLIWICK??
+The ticDat library is distributed under the BSD2 open source license.
 """
 
 from ticdatfactory import TicDatFactory, freeze_me
