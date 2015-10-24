@@ -58,19 +58,22 @@ def create_model(dat):
                                    name='flow_%s_%s_%s' % (h, i, j))
     m.update()
 
+    flowselect = tuplelist(flow)
+
     # Arc capacity constraints
-    for i,j in dat.arcs:
-        m.addConstr(quicksum(flow[h,i,j] for h in dat.commodities if (h,i,j) in flow) <= dat.arcs[i,j]["capacity"],
-                    'cap_%s_%s' % (i, j))
+    for i_,j_ in dat.arcs:
+        m.addConstr(quicksum(flow[h,i,j] for h,i,j in flowselect.select('*',i_, j_)) <= dat.arcs[i_,j_]["capacity"],
+                    'cap_%s_%s' % (i_, j_))
 
 
-    # due to using older gurobi version, including a dummy forced to zero var
+    # for readability purposes (and also backwards compatibility with gurobipy) using a dummy variable
+    # thats always zero
     zero = m.addVar(lb=0, ub=0, name = "forcedToZero")
     m.update()
 
-    flowselect = tuplelist(flow)
-
-    # Flow conservation constraints - use only relevant pairs for extreme sparsity
+    # Flow conservation constraints. Constraints are generated only for relevant pairs.
+    # So we generate a conservation of flow constraint if there is negative or positive inflow
+    # quantity, or at least one inbound flow variable, or at least one outbound flow variable.
     for h_,j_ in set(k for k,v in dat.inflow.items() if abs(v["quantity"]) > 0).union(
             {(h,i) for h,i,j in flow}, {(h,j) for h,i,j in flow}) :
         m.addConstr(
