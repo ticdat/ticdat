@@ -14,9 +14,9 @@ When foreign keys are specified, they can be used for a variety of purposes.
   * `obfusimplify` can be used to cascade entity renaming throughout the data set. This can facilitate troubleshooting by shortening and simplifying entity names. It can also be used to anonymize data sets in order to remove proprietary information.
   * When `enable_foreign_key_links` is true, links are automatically created between the data rows of the parent table and the matching data rows of the child table.
     * For example, `dat.foods["bacon"].nutritionQuantities` is an easy way to find all the nutritional properties of bacon. 
-    * Essentially, the option allows `ticdat` to automatically perform all the foreign key joins for you.
+    * Essentially, the option allows `ticdat` to automatically perform the inner joins most common to your data set.
 
-When default values are provided, unfrozen `TicDat` objects will use them, as needed, when new rows are added. In general, unfrozen `TicDat` data tables behave like `defaultdict`s.  There are a variety of overrides to facilitate the addition of new data rows.
+When default values are provided, unfrozen `TicDat` objects will use them during the addition of new rows. In general, unfrozen `TicDat` data tables behave like `defaultdict`s.  There are a variety of other overrides to facilitate the addition of new data rows.
 
 Alternately, `TicDat` data objects can be frozen. This facilitates good software development by insuring that code that is supposed to read from a data set without editing it behaves properly.
 
@@ -28,6 +28,6 @@ larger, more realistic data sets. In addition, [Opalytics Inc](http://www.opalyt
 
 The `ticdat` library is distributed under the BSD2 open source license.
 
-To explore more, we recommend examining a few example notebooks. We show how `ticdat` can be used to [explore](https://github.com/opalytics/opalytics-ticdat/blob/master/examples/notebooks/diet.ipynb) a data set that has minor integrity problems. We also use `ticdat` to facilitate the diagnosis of [infeasible](https://github.com/opalytics/opalytics-ticdat/blob/master/examples/notebooks/netflow.ipynb) models.
+To learn more, we recommend examining a few example notebooks. We show how `ticdat` can be used to [explore](https://github.com/opalytics/opalytics-ticdat/blob/master/examples/notebooks/diet.ipynb) a data set that has minor integrity problems. We also use `ticdat` to facilitate the diagnosis of [infeasible](https://github.com/opalytics/opalytics-ticdat/blob/master/examples/notebooks/netflow.ipynb) models.
 
-It should be noted that `ticdat` is in no way meant to be a replacement to [pandas](https://github.com/pydata/pandas). In fact, it is very easy to create DataFrames for each of the tables in a `TicDat` object. One of the goals of `ticdat` is to appeal to developers who want the data wrangling power of Python without the overhead of learning pandas. For this reason, `ticdat` strives to hews closely to the behavior of standard Python `dict`s. 
+It should be noted that `ticdat` is in no way meant to be a replacement to [pandas](https://github.com/pydata/pandas). In fact, it is very easy to create DataFrames for each of the tables in a `TicDat` object. One of the goals of `ticdat` is to appeal to developers who want the data wrangling power of Python without the additional training requirement of learning pandas. For this reason, `ticdat` strives to hew closely to the behavior of standard Python `dict`s. 
