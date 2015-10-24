@@ -1,1 +1,0 @@
-# opalytics-ticdat
