@@ -7,12 +7,13 @@ It is primarily intended to simplify the process of developing proof-of-concept 
 For archiving test suites, `ticdat` is a useful way to convert data instances into .sql text files that can be archived in source code control systems.
 
 When primary keys are specified, each table is a dictionary of dictionaries.
-Otherwise, each table is an enumerable of dictionaries (as in DictReader/DictWriter). 
+Otherwise, each table is an enumerable of dictionaries (as in `csv.DictReader/csv.DictWriter`). 
 
 When foreign keys are specified, they can be used to for a variety of purposes.
   * `find_foreign_key_failures` can be find the data rows in child tables that fail to cross reference with their parent table
   * `obfusimplify` can be used to cascade entity renaming throughout the data set. This can facilitate troubleshooting by shortening and simplifying entity names. It can also be used to anonymize data sets in order to remove proprietary information.
   * When `enable_foreign_key_links` is true, links are automatically created between the "row dictionaries" of the parent table and the matching "row dictionaries" of the child table.
+    * For example, `dat.foods["bacon"].nutritionQuantities` is an easy way to find all the nutritional properties of bacon. Essentially, `ticdat` will automatically perform all the foreign key joins for you.
 
 When default values are provided, unfrozen `TicDat` objects will use them, as needed, when new rows are added. In general, unfrozen `TicDat` data tables behave like `defaultdict`s.  There are a variety of overrides to facilitate the addition of new data rows.
 
