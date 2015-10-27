@@ -2,6 +2,8 @@
 
 Go [here](https://github.com/opalytics/opalytics-ticdat/wiki/ticdat-status) for project status and installation instructions.
 
+Go  [here](https://github.com/opalytics/opalytics-ticdat/blob/master/examples/notebooks/diet.ipynb) for a demo of `ticdat` being used to clean a data set that has minor integrity problems. Go [here](https://github.com/opalytics/opalytics-ticdat/blob/master/examples/notebooks/netflow.ipynb) for a demo of `ticdat` being used to help diagnose an infeasible model by creating a more readable `.ilp` file.
+
 `ticdat` is an easy-to-use, lightweight, relational, data library. It provides a simple interface for defining a data schema, and a factory class for creating `TicDat` data objects that confirm to this schema.
 
 It is primarily intended to simplify the process of developing proof-of-concept mathematical engines that read from one schema and write to another. It provides easy routines for reading and/or writing an entire data set for a range of stand-alone file types (Excel, .csv, Access or SQLite). For Access or SQLite, it can be used as a very condensed representation of the database schema.
@@ -29,7 +31,7 @@ sources. This "separation of model from data" enables a user to move easily from
 
 The `ticdat` library is distributed under the BSD2 open source license.
 
-To learn more, we recommend examining a few example notebooks. We show how `ticdat` can be used to [explore](https://github.com/opalytics/opalytics-ticdat/blob/master/examples/notebooks/diet.ipynb) a data set that has minor integrity problems. We also use `ticdat` to facilitate the diagnosis of [infeasible](https://github.com/opalytics/opalytics-ticdat/blob/master/examples/notebooks/netflow.ipynb) models.
+
 
 
 
