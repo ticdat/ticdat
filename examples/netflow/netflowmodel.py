@@ -91,9 +91,9 @@ def solve(dat):
 
     if m.status == GRB.status.OPTIMAL:
         rtn = solutionFactory.TicDat()
-        solution = m.getAttr('x', flow)
-        for h, i, j in flow:
-            if solution[h,i,j] > 0:
-                rtn.flow[h,i,j] = solution[h,i,j]
+        for (h, i, j),var in flow.items():
+            if var.x > 0:
+                # ticdat recognizes flow as a one-data-field table, thus making write through easy
+                rtn.flow[h,i,j] = var.x
         return rtn
 
