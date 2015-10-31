@@ -462,7 +462,10 @@ class TestUtils(unittest.TestCase):
         fixedDat.arcs["Detroit", "Seattle"] = 120
         self.assertTrue(tdf._same_data(fixedDat, netflowData_))
 
-
+    def testNine(self):
+        for schema in (dietSchema(), sillyMeSchema(), netflowSchema()) :
+            d = TicDatFactory(**schema).schema()
+            assert d == {k : map(list, v) for k,v in schema.items()}
 
 #
 # from ticdat import TicDatFactory
