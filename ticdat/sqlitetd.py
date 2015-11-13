@@ -160,17 +160,10 @@ class SQLiteTicFactory(freezable_factory(object, "_isFrozen")) :
         rtn = []
         fks = self._fks()
         for t in self._ordered_tables() :
-            str = "Create TABLE %s (\n"%t
-            strl = [f for f in self.tic_dat_factory.primary_key_fields.get(t, ())] + \
                    [f + " default %s"%self.tic_dat_factory.default_values.get(t, {}).get(f, 0)
                     for f in self.tic_dat_factory.data_fields.get(t, ())]
             for fk in fks.get(t, ()) :
-                nativefields, foreignfields = zip(* (fk.nativetoforeignmapping().items()))
-                strl.append("FOREIGN KEY(%s) REFERENCES %s(%s)"%(",".join(nativefields),
-                             fk.foreign_table, ",".join(foreignfields)))
             if self.tic_dat_factory.primary_key_fields.get(t) :
-                strl.append("PRIMARY KEY(%s)"%(",".join
-                                               (self.tic_dat_factory.primary_key_fields[t])))
             str += ",\n".join(strl) + "\n);"
             rtn.append(str)
         return tuple(rtn)

@@ -4,7 +4,7 @@ import ticdat.utils as utils
 from ticdat.ticdatfactory import TicDatFactory
 from ticdat.testing.ticdattestutils import dietData, dietSchema, netflowData, netflowSchema, firesException
 from ticdat.testing.ticdattestutils import sillyMeData, sillyMeSchema, makeCleanDir, failToDebugger, runSuite
-from ticdat.testing.ticdattestutils import makeCleanPath, addNetflowForeignKeys, addDietForeignKeys
+from ticdat.testing.ticdattestutils import makeCleanPath, addNetflowForeignKeys, addDietForeignKeys, flaggedAsRunAlone
 import shutil
 
 #uncomment decorator to drop into debugger for assertTrue, assertFalse failures
@@ -76,7 +76,6 @@ class TestSql(unittest.TestCase):
 
         doTheTests(tdf)
 
-
     def testNetflow(self):
         tdf = TicDatFactory(**netflowSchema())
         addNetflowForeignKeys(tdf)
@@ -125,7 +124,6 @@ class TestSql(unittest.TestCase):
          ('cost', 'nodes', u'source'): {('Pencils', 'booger', 'wooger')}})
 
 
-
     def testSilly(self):
         tdf = TicDatFactory(**sillyMeSchema())
         ticDat = tdf.TicDat(**sillyMeData())
@@ -145,7 +143,7 @@ class TestSql(unittest.TestCase):
 
         tdf2, tdf3, tdf4, tdf5, tdf6 = (TicDatFactory(**x) for x in (schema2, schema3, schema4, schema5, schema6))
         tdf5.set_generator_tables(("a","c"))
-        filePath = os.path.join(_scratchDir, "silly.sql")
+        filePath = os.path.join(_scratchDir, "silly.db")
         tdf.sql.write_db_data(ticDat, filePath)
 
         ticDat2 = tdf2.sql.create_tic_dat(filePath)
