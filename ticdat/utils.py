@@ -19,6 +19,14 @@ def memo(x) :
     do_it(_memo.pop() for _ in list(_memo))
     _memo.append(x)
 
+def safe_apply(f) :
+    def _rtn (*args, **kwargs) :
+        try :
+            return f(*args, **kwargs)
+        except :
+            return None
+    return _rtn
+
 def dictish(x): return all(hasattr(x, _) for _ in
                            ("__getitem__", "keys", "values", "items", "__contains__", "__len__"))
 def stringish(x): return all(hasattr(x, _) for _ in ("lower", "upper", "strip"))

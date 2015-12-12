@@ -5,7 +5,7 @@ PEP8
 import collections as clt
 import utils as utils
 from utils import verify, freezable_factory, FrozenDict, FreezeableDict
-from utils import dictish, containerish, deep_freeze, lupish
+from utils import dictish, containerish, deep_freeze, lupish, safe_apply
 from string import uppercase
 from collections import namedtuple
 import xls
@@ -51,7 +51,8 @@ class _TypeDictionary(namedtuple("TypeDictionary", ("number_allowed", "strings_a
                 return False
             if (not self.inclusive_max) and (data  == self.max):
                 return False
-            if (self.must_be_int) and (int(data) != data):
+            if (self.must_be_int) and (safe_apply(int)(data) != data) and \
+               not (data == self.max == float("inf") and self.inclusive_max):
                 return False
             return True
         if utils.stringish(data):
