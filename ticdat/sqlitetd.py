@@ -36,6 +36,9 @@ def _sql_con(dbFile, foreign_keys = True) :
     con.commit() # remember - either close or commit to push changes!!
     return con
 
+def _brackets(l) :
+    return ["[%s]"%_ for _ in l]
+
 class SQLiteTicFactory(freezable_factory(object, "_isFrozen")) :
     """
     Primary class for reading/writing SQLite files with ticDat objects.
@@ -104,13 +107,13 @@ class SQLiteTicFactory(freezable_factory(object, "_isFrozen")) :
         with sql.connect(db_file_path) as con:
             for table in tables :
                 try :
-                    con.execute("Select * from %s"%table)
+                    con.execute("Select * from [%s]"%table)
                 except :
                     raise TDE("Unable to recognize table %s in SQLite file %s"%
                               (table, db_file_path))
                 for field in tdf.primary_key_fields.get(table, ()) + tdf.data_fields.get(table, ()):
                     try :
-                        con.execute("Select %s from %s"%(field,table))
+                        con.execute("Select [%s] from [%s]"%(field,table))
                     except :
                         raise TDE("Unable to recognize field %s in table %s for file %s"%
                                   (field, table, db_file_path))
@@ -120,8 +123,8 @@ class SQLiteTicFactory(freezable_factory(object, "_isFrozen")) :
             self._check_tables_fields(db_file_path, (table,))
             assert (not tdf.primary_key_fields.get(table)) and (tdf.data_fields.get(table))
             with sql.connect(db_file_path) as con:
-                for row in con.execute("Select %s from %s"%
-                                        (", ".join(tdf.data_fields[table]), table)):
+                for row in con.execute("Select %s from [%s]"%
+                                        (", ".join(_brackets(tdf.data_fields[table])), table)):
                     yield map(_read_data_format, row)
         return tableObj
     def _create_tic_dat(self, db_file_path):
@@ -138,7 +141,7 @@ class SQLiteTicFactory(freezable_factory(object, "_isFrozen")) :
         for table in set(tdf.all_tables).difference(tdf.generator_tables) :
             fields = tdf.primary_key_fields.get(table, ()) + tdf.data_fields.get(table, ())
             rtn[table]= {} if tdf.primary_key_fields.get(table, ())  else []
-            for row in con.execute("Select %s from %s"%(", ".join(fields), table)) :
+            for row in con.execute("Select %s from [%s]"%(", ".join(_brackets(fields)), table)) :
                 pk = row[:len(tdf.primary_key_fields.get(table, ()))]
                 data = map(_read_data_format, row[len(tdf.primary_key_fields.get(table, ())):])
                 if dictish(rtn[table]) :
@@ -160,17 +163,16 @@ class SQLiteTicFactory(freezable_factory(object, "_isFrozen")) :
         rtn = []
         fks = self._fks()
         for t in self._ordered_tables() :
-            str = "Create TABLE %s (\n"%t
-            strl = [f for f in self.tic_dat_factory.primary_key_fields.get(t, ())] + \
-                   [f + " default %s"%self.tic_dat_factory.default_values.get(t, {}).get(f, 0)
+            str = "Create TABLE [%s] (\n"%t
+            strl = _brackets(self.tic_dat_factory.primary_key_fields.get(t, ())) + \
+                   ["[%s]"%f + " default [%s]"%self.tic_dat_factory.default_values.get(t, {}).get(f, 0)
                     for f in self.tic_dat_factory.data_fields.get(t, ())]
             for fk in fks.get(t, ()) :
-                nativefields, foreignfields = zip(* (fk.nativetoforeignmapping().items()))
-                strl.append("FOREIGN KEY(%s) REFERENCES %s(%s)"%(",".join(nativefields),
-                             fk.foreign_table, ",".join(foreignfields)))
+                nativefields, foreignfields = zip(*(fk.nativetoforeignmapping().items()))
+                strl.append("FOREIGN KEY(%s) REFERENCES [%s](%s)"%(",".join(_brackets(nativefields)),
+                             fk.foreign_table, ",".join(_brackets(foreignfields))))
             if self.tic_dat_factory.primary_key_fields.get(t) :
-                strl.append("PRIMARY KEY(%s)"%(",".join
-                                               (self.tic_dat_factory.primary_key_fields[t])))
+                strl.append("PRIMARY KEY(%s)"%(",".join(_brackets(self.tic_dat_factory.primary_key_fields[t]))))
             str += ",\n".join(strl) + "\n);"
             rtn.append(str)
         return tuple(rtn)
@@ -186,14 +188,15 @@ class SQLiteTicFactory(freezable_factory(object, "_isFrozen")) :
                     dataRow = ((pkRow,) if len(primarykeys)==1 else pkRow) + \
                               tuple(x[1] for x in _items)
                     assert len(dataRow) == len(fields)
-                    str = "INSERT INTO %s (%s) VALUES (%s)"%(t, ",".join(fields),
+                    str = "INSERT INTO [%s] (%s) VALUES (%s)"%(t, ",".join(_brackets(fields)),
                           ",".join("%s" for _ in fields))
                     rtn.append((str%tuple(map(_insert_format, dataRow))) + ";")
             else :
                 for sqldatarow in (_t if containerish(_t) else _t()) :
-                    str = "INSERT INTO %s (%s) VALUES (%s)"%(t, ",".join(sqldatarow.keys()),
-                      ",".join(["%s"]*len(sqldatarow)))
-                    rtn.append((str%tuple(map(_insert_format, sqldatarow.values()))) + ";")
+                    k,v = zip(*sqldatarow.items())
+                    str = "INSERT INTO [%s] (%s) VALUES (%s)"%\
+                             (t, ",".join(_brackets(k)), ",".join(["%s"]*len(sqldatarow)))
+                    rtn.append((str%tuple(map(_insert_format, v))) + ";")
         return tuple(rtn)
     def write_db_schema(self, db_file_path):
         """

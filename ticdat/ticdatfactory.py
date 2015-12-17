@@ -77,6 +77,14 @@ class TicDatFactory(freezable_factory(object, "_isFrozen")) :
     @property
     def data_fields(self):
         return self._data_fields
+    def schema(self):
+        """
+        :return: a dictionary with table name mapping to a list of lists
+                 defining primary key fields and data fields
+        """
+        return {t: [list(self.primary_key_fields.get(t, [])),
+                    list(self.data_fields.get(t, []))]
+                for t in set(self.primary_key_fields).union(self.data_fields)}
     @property
     def generator_tables(self):
         return deep_freeze(self._generator_tables)
