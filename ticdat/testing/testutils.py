@@ -7,9 +7,26 @@ from ticdat.testing.ticdattestutils import sillyMeData, sillyMeSchema, runSuite,
 from ticdat.testing.ticdattestutils import assertTicDatTablesSame, DEBUG, addNetflowForeignKeys, addDietForeignKeys
 import itertools
 
+def _deep_anonymize(x)  :
+    if not hasattr(x, "__contains__") or utils.stringish(x):
+        return x
+    if utils.dictish(x) :
+        return {_deep_anonymize(k):_deep_anonymize(v) for k,v in x.items()}
+    return map(_deep_anonymize,x)
+
 #uncomment decorator to drop into debugger for assertTrue, assertFalse failures
 #@failToDebugger
 class TestUtils(unittest.TestCase):
+    def _testTdfReproduction(self, tdf):
+        def _tdfs_same(tdf, tdf2):
+            self.assertTrue(tdf.schema() == tdf2.schema())
+            self.assertTrue(set(tdf.foreign_keys) == set(tdf2.foreign_keys))
+            self.assertTrue(tdf.data_types == tdf2.data_types)
+            self.assertTrue(tdf.default_values == tdf2.default_values)
+        _tdfs_same(tdf, TicDatFactory.create_from_full_schema(tdf.schema(True)))
+        _tdfs_same(tdf, TicDatFactory.create_from_full_schema(_deep_anonymize(tdf.schema(True))))
+
+
     def firesException(self, f):
         e = firesException(f)
         if e :
@@ -262,6 +279,7 @@ class TestUtils(unittest.TestCase):
         tdf.add_foreign_key("extraProduction", "production", (("line", "line"), ("product","product")))
         tdf.add_foreign_key("weirdProduction", "production", (("line1", "line"), ("product","product")))
         tdf.add_foreign_key("weirdProduction", "extraProduction", (("line2","line"), ("product","product")))
+        self._testTdfReproduction(tdf)
 
         goodDat = tdf.TicDat()
         goodDat.plants["Cleveland"] = ["this", "that"]
@@ -352,12 +370,14 @@ class TestUtils(unittest.TestCase):
                         td.nutritionQuantities['junk',1]["qty"] == 0)
         tdf = TicDatFactory(**dietSchema())
         tdf.set_default_values(foods = {"cost":"dontcare"},nutritionQuantities = {"qty":100} )
+        self._testTdfReproduction(tdf)
         td = makeIt()
         self.assertTrue(td.foods["a"]["cost"]=='dontcare' and td.categories["1"].values() == (0,0) and
                         td.nutritionQuantities['junk',1]["qty"] == 100)
         tdf = TicDatFactory(**dietSchema())
         tdf.set_default_value("categories", "minNutrition", 1)
         tdf.set_default_value("categories", "maxNutrition", 2)
+        self._testTdfReproduction(tdf)
         td = makeIt()
         self.assertTrue(td.foods["a"]["cost"]==0 and td.categories["1"].values() == (1,2) and
                         td.nutritionQuantities['junk',1]["qty"] == 0)
@@ -380,7 +400,9 @@ class TestUtils(unittest.TestCase):
         tdf = TicDatFactory(**dietSchema())
         tdf.set_data_type("foods", "cost", nullable=False)
         tdf.set_data_type("nutritionQuantities", "qty", min=5, inclusive_min=False, max=12, inclusive_max=True)
+
         tdf.set_default_value("foods", "cost", 2)
+        self._testTdfReproduction(tdf)
         dat = makeIt()
         failed = tdf.find_data_type_failures(dat)
         self.assertTrue(set(failed) == {('foods', 'cost'), ('nutritionQuantities', 'qty')})
@@ -415,11 +437,13 @@ class TestUtils(unittest.TestCase):
 
         tdf = TicDatFactory(**dietSchema())
         tdf.set_data_type("foods", "cost")
+        self._testTdfReproduction(tdf)
         fixedDat = tdf.replace_data_type_failures(tdf.copy_tic_dat(makeIt()))
         self.assertTrue(fixedDat.foods["a"]["cost"] == 12 and fixedDat.foods["b"]["cost"] == 0)
 
         tdf = TicDatFactory(**netflowSchema())
         addNetflowForeignKeys(tdf)
+        self._testTdfReproduction(tdf)
         dat = tdf.copy_tic_dat(netflowData(), freeze_it=1)
         self.assertFalse(hasattr(dat.nodes["Detroit"], "arcs_source"))
 
@@ -464,45 +488,14 @@ class TestUtils(unittest.TestCase):
 
     def testNine(self):
         for schema in (dietSchema(), sillyMeSchema(), netflowSchema()) :
-            d = TicDatFactory(**schema).schema()
-            assert d == {k : map(list, v) for k,v in schema.items()}
+            tdf = TicDatFactory(**schema)
+            tdf2 = TicDatFactory.create_from_full_schema(tdf.schema(True))
+            self.assertTrue(tdf.schema() == tdf.schema(True)["tables_fields"] == tdf2.schema() ==
+                            {k : map(list, v) for k,v in schema.items()})
 
-#
-# from ticdat import TicDatFactory
-# import itertools
-#
-# tdf = TicDatFactory(plants = [["name"], ["stuff", "otherstuff"]],
-#                             lines = [["name"], ["plant", "weird stuff"]],
-#                             products = [["name"],["gover"]],
-#                             production = [["line", "product"], ["min", "max"]],
-#                             extraProduction = [["line", "product"], ["extramin", "extramax"]],
-#                             weirdProduction = [["line1", "line2", "product"], ["weirdmin", "weirdmax"]],
-#                             pureTestingTable = [[], ["line", "plant", "product"]])
-#
-# tdf.add_foreign_key("production", "lines", {"line" : "name"})
-# tdf.add_foreign_key("production", "products", {"product" : "name"})
-# tdf.add_foreign_key("lines", "plants", {"plant" : "name"})
-# for f in tdf.data_fields["pureTestingTable"]:
-#     tdf.add_foreign_key("pureTestingTable", "%ss"%f, {f:"name"})
-# tdf.add_foreign_key("extraProduction", "production", {"line" : "line", "product":"product"})
-# tdf.add_foreign_key("weirdProduction", "production", {"line1" : "line", "product":"product"})
-# tdf.add_foreign_key("weirdProduction", "extraProduction", {"line2" : "line", "product":"product"})
-#
-# goodDat = tdf.TicDat()
-# goodDat.plants["Cleveland"] = ["this", "that"]
-# goodDat.plants["Newark"]["otherstuff"] =1
-# goodDat.products["widgets"] = goodDat.products["gadgets"] = "shizzle"
-#
-# for i,p in enumerate(goodDat.plants):
-#     goodDat.lines[i]["plant"] = p
-# for i,(pl, pd) in enumerate(itertools.product(goodDat.lines, goodDat.products)):
-#     goodDat.production[pl, pd] = {"min":1, "max":10+i}
-#
-# for l,pl,pdct in itertools.product(goodDat.lines, goodDat.plants, goodDat.products) :
-#     goodDat.pureTestingTable.append((l,pl,pdct))
-#
-#
-# boger = tdf.obfusimplify(goodDat)
+
+
+
 
 def runTheTests(fastOnly=True) :
     runSuite(TestUtils, fastOnly=fastOnly)

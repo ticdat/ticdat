@@ -39,8 +39,9 @@ class _ForeignKey(namedtuple("ForeignKey", ("native_table", "foreign_table", "ma
 
 _ForeignKeyMapping = namedtuple("FKMapping", ("native_field", "foreign_field"))
 
-class _TypeDictionary(namedtuple("TypeDictionary", ("number_allowed", "strings_allowed", "nullable",
-                                        "min", "max", "inclusive_min", "inclusive_max","must_be_int"))):
+# can I get away with ordering this consistently with the function? hopefully I can!
+class _TypeDictionary(namedtuple("TypeDictionary", ("number_allowed", "inclusive_min", "inclusive_max", "min", "max",
+                                                    "must_be_int", "strings_allowed", "nullable",))):
     def valid_data(self, data):
         if utils.numericish(data):
             if not self.number_allowed:
@@ -78,14 +79,57 @@ class TicDatFactory(freezable_factory(object, "_isFrozen")) :
     @property
     def data_fields(self):
         return self._data_fields
-    def schema(self):
+    def schema(self, include_ancillary_info = False):
         """
+        :param include_ancillary_info: if True, include all the foreign key, default, and data type information
+                                       as well. Otherwise, just return table-fields dictionary
         :return: a dictionary with table name mapping to a list of lists
                  defining primary key fields and data fields
+                 If include_ancillary_info, this table-fields dictionary is just one entry in a more comprehensive
+                 dictionary.
         """
-        return {t: [list(self.primary_key_fields.get(t, [])),
-                    list(self.data_fields.get(t, []))]
-                for t in set(self.primary_key_fields).union(self.data_fields)}
+        tables_fields = {t: [list(self.primary_key_fields.get(t, [])),
+                             list(self.data_fields.get(t, []))]
+                          for t in set(self.primary_key_fields).union(self.data_fields)}
+        if not include_ancillary_info:
+            return tables_fields
+        return {"tables_fields" : tables_fields,
+                "foreign_keys" : self.foreign_keys,
+                "default_values" : self.default_values,
+                "data_types" : self.data_types}
+    @staticmethod
+    def create_from_full_schema(full_schema):
+        """
+        create a TicDatFactory complete with default values, data types, and foreign keys
+        :param full_schema: a dictionary consistent with the data returned by a call to schema()
+                            with include_ancillary_info = True
+        :return: a TicDatFactory reflecting the tables, fields, default values, data types,
+                 and foreign keys consistent with the full_schema argument
+        """
+        verify(dictish(full_schema) and set(full_schema) == {"tables_fields", "foreign_keys",
+                                                             "default_values", "data_types"},
+               "full_schema should be the result of calling schema(True) for some TicDatFactory")
+        fks = full_schema["foreign_keys"]
+        verify( (not fks) or (lupish(fks) and all(lupish(_) and len(_) >= 3 for _ in fks)),
+                "foreign_keys entry poorly formed")
+        dts = full_schema["data_types"]
+        verify( (not dts) or (dictish(dts) and all(map(dictish, dts.values())) and
+                              all(all(map(lupish, _.values())) for _ in dts.values())),
+                "data_types entry poorly formatted")
+        dvs = full_schema["default_values"]
+        verify( (not dvs) or (dictish(dvs) and all(map(dictish, dvs.values()))),
+                "default_values entry poorly formatted")
+
+        rtn = TicDatFactory(**full_schema["tables_fields"])
+        for fk in (fks or []):
+            rtn.add_foreign_key(*fk[:3])
+        for t,fds in (dts or {}).items():
+            for f,dt in fds.items():
+                rtn.set_data_type(t, f, *dt)
+        for t,fdvs in (dvs or {}).items():
+            for f, dv in fdvs.items():
+                rtn.set_default_value(t,f,dv)
+        return rtn
     @property
     def generator_tables(self):
         return deep_freeze(self._generator_tables)
