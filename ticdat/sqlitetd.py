@@ -22,10 +22,27 @@ def _read_data_format(x) :
         return False
     return x
 
+def _fix_str(x):
+    """
+    can't fix all the strings. won't work right if some jerk wants to insert '' or some other multiple
+    of consecutive of '. need bound parameters for that, which precludes storing things in readable sql
+    """
+    rtn = []
+    for i,c in enumerate(x):
+        preceeding = x[i-1] if x else ""
+        following = x[i+1] if i < len(x)-1 else ""
+        if c != "'" or "'" in (preceeding, following):
+            rtn.append(c)
+        else:
+            rtn.append("''")
+    return "".join(rtn)
+
 def _insert_format(x) :
     # note that [1==True, 0==False, 1 is not True, 0 is not False] is all part of Python
-    if x in (float("inf"), -float("inf")) or stringish(x) or (x is True) or (x is False):
-        return  "'%s'"%x
+    if stringish(x):
+        return "'%s'"%_fix_str(x)
+    if x in (float("inf"), -float("inf")) or (x is True) or (x is False):
+        return "'%s'"%x
     if x is None:
         return "null"
     return  str(x)
