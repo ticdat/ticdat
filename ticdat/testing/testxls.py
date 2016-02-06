@@ -145,6 +145,12 @@ class TestXls(unittest.TestCase):
         # not sure how to handle this, but documenting for now.
         self.assertFalse(tdf._same_data(ticDat, ticDatNone))
         self.assertTrue(ticDatNone.a["theboger"]["aData2"] == "")
+        # the workaround for this flaw is to set the data type to be nullabe but not allow the empty string
+        tdfwa = TicDatFactory(**sillyMeSchema())
+        tdfwa.set_data_type("a", "aData2", nullable=True)
+        ticDatNone = tdfwa.xls.create_tic_dat(filePath, freeze_it=True)
+        self.assertTrue(tdf._same_data(ticDat, ticDatNone))
+        self.assertTrue(ticDatNone.a["theboger"]["aData2"] == None)
 
         writeData([(1, 2, 3, 4), (1, 20, 30, 40), (10, 20, 30, 40), (1,20,30,12)])
         rowCount = tdf.xls.get_duplicates(filePath)
