@@ -1,3 +1,16 @@
+#!/usr/bin/python
+#
+# Copyright 2016, Opalytics, Inc.
+#
+# Small driver script for the netflowmodel.py script.
+#
+# This file solves the model with the data provided by csv files in the "csv_data" directory.
+# It prints the summary information to the screen, and writes the solution into a
+# a "solution" subdirectory of "csv_data", overwriting any pre-existing solution.
+#
+# Creating a similar driver file for the other ticdat formats (xls, SQLite, mdb, static data) would be
+# trivial. See the diet example for more details.
+
 import os
 from netflowmodel import dataFactory, solve, solutionFactory
 
