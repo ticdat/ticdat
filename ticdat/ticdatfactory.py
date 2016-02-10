@@ -12,6 +12,7 @@ import xls
 import csvtd as csv
 import sqlitetd as sql
 import mdb
+pd = utils.pd # if pandas not installed this will be falsey
 
 def _acceptable_default(v) :
     return utils.numericish(v) or utils.stringish(v) or (v is None)
@@ -756,6 +757,43 @@ foreign keys, the code throwing this exception will be removed.
                "tic_dat not a good object for this factory : %s"%"\n".join(msg))
         rtn = self.TicDat(**{t:getattr(tic_dat, t) for t in self.all_tables})
         return self.freeze_me(rtn) if freeze_it else rtn
+    def copy_to_pandas(self, tic_dat, table_restrictions = None):
+        """
+        copies the tic_dat object into a new tic_dat object populated with data_frames
+        performs a deep copy
+        :param tic_dat: a ticdat object
+        :param table_restrictions: boolean. should the returned object be frozen?
+        :return: a deep copy of the tic_dat argument into DataFrames
+        """
+        verify(pd, "pandas needs to be installed in order to enable pandas functionality")
+        msg  = []
+        verify(self.good_tic_dat_object(tic_dat, msg.append),
+               "tic_dat not a good object for this factory : %s"%"\n".join(msg))
+        table_restrictions = table_restrictions or self.all_tables
+        verify(containerish(table_restrictions) and
+               set(table_restrictions).issubset(self.all_tables),
+           "if provided, table_restrictions should be a subset of the table names")
+        class PandasTicDat(object):
+            def __repr__(self):
+                return "td:" + tuple(table_restrictions).__repr__()
+        rtn = PandasTicDat()
+        for tname in table_restrictions:
+            tdtable = getattr(tic_dat, tname)
+            if dictish(tdtable):
+                pks = self.primary_key_fields[tname]
+                df = pd.DataFrame([ (list(k) if containerish(k) else [k]) +
+                                [v[_] for _ in self.data_fields.get(tname,[])]
+                              for k,v in sorted(getattr(tic_dat, tname).items())],
+                              columns = pks + self.data_fields.get(tname, tuple()))
+                df.index= pd.MultiIndex.from_tuples(tuple(map(tuple, df[list(pks)].values)), names=pks)
+                for pk in pks:
+                    df = df.drop(pk, 1)
+                utils.Sloc.add_sloc(df)
+            else :
+                df = None # TEMP
+                verify(False, "not impemented yet!!!")
+            setattr(rtn, tname, df)
+        return rtn
     def freeze_me(self, tic_dat):
         """
         Freezes a ticdat object

@@ -3,6 +3,10 @@ general utility module
 PEP8
 """
 from numbers import Number
+try:
+    import pandas as pd
+except:
+    pd = None
 
 def do_it(g): # just walks through everything in a gen - I like the syntax this enables
     for x in g :
@@ -166,3 +170,25 @@ def td_row_factory(table, key_field_names, data_field_names, default_values={}):
             return "_td:" + {k:v for k,v in self.items()}.__repr__()
     assert dictish(TicDatDataRow)
     return TicDatDataRow
+
+
+class Sloc(object):
+    """
+    **All** credit for this class goes to the inimitable IL.
+    https://github.com/pydata/pandas/issues/10695
+    """
+    def __init__(self, s):
+        verify(pd, "pandas needs to be installed in order to enable pandas functionality")
+        self._s = s
+    def __getitem__(self, key):
+        try:
+            return self._s.loc[key]
+        except KeyError:
+            return pd.Series([])
+    @staticmethod
+    def add_sloc(s):
+        if isinstance(s, pd.DataFrame):
+            for c in s.columns:
+                Sloc.add_sloc(getattr(s,c))
+        else: # !!!!!!!!!!!!!!! DO WE NEED THIS ELSE!!!!!! CAN WE JUST HAVE AN SLOC ON THE DF?
+            s.sloc = Sloc(s)
