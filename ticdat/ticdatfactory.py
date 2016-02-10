@@ -769,9 +769,9 @@ foreign keys, the code throwing this exception will be removed.
         msg  = []
         verify(self.good_tic_dat_object(tic_dat, msg.append),
                "tic_dat not a good object for this factory : %s"%"\n".join(msg))
-        table_restrictions = table_restrictions or self.all_tables
-        verify(containerish(table_restrictions) and
-               set(table_restrictions).issubset(self.all_tables),
+        normal_tables = set(self.all_tables).difference(self.generator_tables)
+        table_restrictions = table_restrictions or normal_tables
+        verify(containerish(table_restrictions) and normal_tables.issuperset(table_restrictions),
            "if provided, table_restrictions should be a subset of the table names")
         class PandasTicDat(object):
             def __repr__(self):
@@ -779,7 +779,10 @@ foreign keys, the code throwing this exception will be removed.
         rtn = PandasTicDat()
         for tname in table_restrictions:
             tdtable = getattr(tic_dat, tname)
-            if dictish(tdtable):
+            if len(tdtable) == 0 :
+                df = pd.DataFrame([], columns = self.primary_key_fields.get(tname,tuple()) +
+                                                self.data_fields.get(tname, tuple()))
+            elif dictish(tdtable):
                 pks = self.primary_key_fields[tname]
                 df = pd.DataFrame([ (list(k) if containerish(k) else [k]) +
                                 [v[_] for _ in self.data_fields.get(tname,[])]
@@ -790,8 +793,9 @@ foreign keys, the code throwing this exception will be removed.
                     df = df.drop(pk, 1)
                 utils.Sloc.add_sloc(df)
             else :
-                df = None # TEMP
-                verify(False, "not impemented yet!!!")
+                df = pd.DataFrame([[v[_] for _ in self.data_fields[tname]]
+                                  for v in sorted(getattr(tic_dat, tname))],
+                                  columns = self.data_fields[tname])
             setattr(rtn, tname, df)
         return rtn
     def freeze_me(self, tic_dat):
