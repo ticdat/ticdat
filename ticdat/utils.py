@@ -186,7 +186,8 @@ class Sloc(object):
         try:
             return self._s.loc[key]
         except Exception as e:
-            if containerish(key) and any(isinstance(k, slice) for k in key):
+            if containerish(key) and any(isinstance(k, slice) and
+                                         (k.start == k.step == k.stop == None) for k in key):
                 return pd.Series([])
             raise e
     @staticmethod

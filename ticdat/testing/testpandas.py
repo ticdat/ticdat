@@ -48,15 +48,17 @@ class TestPandas(unittest.TestCase):
 
     def testSilly(self):
         tdf = TicDatFactory(**dict({"d" : [("dData1", "dData2", "dData3", "dData4"),[]],
-                                    "e" : [["eData"],["voger"]]}, **sillyMeSchema()))
-        oldDat = tdf.freeze_me(tdf.TicDat(**sillyMeData()))
+                                    "e" : [["eData"],[]]}, **sillyMeSchema()))
+        ticDat = tdf.copy_to_pandas(tdf.TicDat(**sillyMeData()))
+        self.assertFalse(len(ticDat.d) + len(ticDat.e))
+        oldDat = tdf.freeze_me(tdf.TicDat(**dict({"d" : {(1,2,3,4):{}, (1, "b","c","d"):{}, ("a", 2,"c","d"):{}},
+                                                  "e" : {11:{},"boger":{}}},
+                                **sillyMeData())))
         ticDat = tdf.copy_to_pandas(oldDat)
-        utils.memo((oldDat, ticDat))
-
-
-# !!! issues !!!!!
-# what about only primary key tables?? (delete all the columns and have a MutiIndex?? have a dummy truthy column?)
-# what about no primary key tables??
+        self.assertTrue(set(ticDat.d.index.values) == {(1,2,3,4), (1, "b","c","d"), ("a", 2,"c","d")})
+        self.assertTrue(set(ticDat.e.index.values) == {11,"boger"})
+        self.assertTrue(len(ticDat.c) == len(oldDat.c) == 3)
+        self.assertTrue(ticDat.c.loc[i] == oldDat.c[i] for i in range(3))
 
 
 def runTheTests(fastOnly=True) :

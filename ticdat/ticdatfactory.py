@@ -500,7 +500,7 @@ foreign keys, the code throwing this exception will be removed.
                         _t._attributesFrozen = True
                 self._isFrozen = True
             def __repr__(self):
-                return "td:" + tuple(superself.all_tables).__repr__()
+                return "td:" + tuple(sorted(superself.all_tables)).__repr__()
         class TicDat(_TicDat) :
             def _generatorfactory(self, data, tableName):
                 return generatorfactory(data, tableName)
@@ -784,12 +784,15 @@ foreign keys, the code throwing this exception will be removed.
                                                 self.data_fields.get(tname, tuple()))
             elif dictish(tdtable):
                 pks = self.primary_key_fields[tname]
+                dfs = self.data_fields.get(tname, tuple())
+                cols =  pks + dfs if dfs else (list(range(len(pks))) + ["Row Present"])
                 df = pd.DataFrame([ (list(k) if containerish(k) else [k]) +
-                                [v[_] for _ in self.data_fields.get(tname,[])]
+                                    ([v[_] for _ in dfs] or [True])
                               for k,v in sorted(getattr(tic_dat, tname).items())],
-                              columns = pks + self.data_fields.get(tname, tuple()))
-                df.index= pd.MultiIndex.from_tuples(tuple(map(tuple, df[list(pks)].values)), names=pks)
-                for pk in pks:
+                              columns =cols)
+                df.index= pd.MultiIndex.from_tuples(tuple(map(tuple, df[list(cols[:len(pks)])].values)),
+                                                    names=pks)
+                for pk in cols[:len(pks)]:
                     df = df.drop(pk, 1)
                 utils.Sloc.add_sloc(df)
             else :
