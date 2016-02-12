@@ -7,6 +7,7 @@
 # Solve a multi-commodity flow problem.
 
 from gurobipy import *
+import pandas as pd
 from netflowticdatfactories import dataFactory, solutionFactory
 
 def create_model(dat):
@@ -17,6 +18,10 @@ def create_model(dat):
     assert dataFactory.good_tic_dat_object(dat)
     assert not dataFactory.find_foreign_key_failures(dat)
     assert not dataFactory.find_data_type_failures(dat)
+
+    dat = dataFactory.copy_to_pandas(dat)
+
+    assert False
 
     # Create optimization model
     m = Model('netflow')
