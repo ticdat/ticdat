@@ -55,10 +55,19 @@ class TestPandas(unittest.TestCase):
                                                   "e" : {11:{},"boger":{}}},
                                 **sillyMeData())))
         ticDat = tdf.copy_to_pandas(oldDat)
-        self.assertTrue(set(ticDat.d.index.values) == {(1,2,3,4), (1, "b","c","d"), ("a", 2,"c","d")})
-        self.assertTrue(set(ticDat.e.index.values) == {11,"boger"})
-        self.assertTrue(len(ticDat.c) == len(oldDat.c) == 3)
-        self.assertTrue(ticDat.c.loc[i] == oldDat.c[i] for i in range(3))
+        def checkTicDat():
+            self.assertTrue(len(ticDat.d) ==3 and len(ticDat.e) == 2)
+            self.assertTrue(set(ticDat.d.index.values) == {(1,2,3,4), (1, "b","c","d"), ("a", 2,"c","d")})
+            self.assertTrue(set(ticDat.e.index.values) == {11,"boger"})
+            self.assertTrue(len(ticDat.c) == len(oldDat.c) == 3)
+            self.assertTrue(ticDat.c.loc[i] == oldDat.c[i] for i in range(3))
+        checkTicDat()
+        self.assertFalse(hasattr(ticDat.d, "dData1") or hasattr(ticDat.e, "eData"))
+
+        ticDat = tdf.copy_to_pandas(oldDat, drop_pk_columns=False)
+        checkTicDat()
+        self.assertTrue(len(ticDat.d.dData1.sloc[1,:,:,:]) == 2 and ticDat.e.loc[11].values[0] == 11)
+
 
 
 def runTheTests(fastOnly=True) :

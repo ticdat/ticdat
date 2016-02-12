@@ -757,12 +757,16 @@ foreign keys, the code throwing this exception will be removed.
                "tic_dat not a good object for this factory : %s"%"\n".join(msg))
         rtn = self.TicDat(**{t:getattr(tic_dat, t) for t in self.all_tables})
         return self.freeze_me(rtn) if freeze_it else rtn
-    def copy_to_pandas(self, tic_dat, table_restrictions = None):
+    def copy_to_pandas(self, tic_dat, table_restrictions = None, drop_pk_columns = True):
         """
         copies the tic_dat object into a new tic_dat object populated with data_frames
         performs a deep copy
         :param tic_dat: a ticdat object
-        :param table_restrictions: boolean. should the returned object be frozen?
+        :param table_restrictions: If truthy, a list of tables to turn into
+                                   data frames. Defaults to all tables.
+        :param drop_pk_columns: boolean. should the primary key columns be dropped
+                                from the data frames after they have been incorporated
+                                into the index
         :return: a deep copy of the tic_dat argument into DataFrames
         """
         verify(pd, "pandas needs to be installed in order to enable pandas functionality")
@@ -785,15 +789,15 @@ foreign keys, the code throwing this exception will be removed.
             elif dictish(tdtable):
                 pks = self.primary_key_fields[tname]
                 dfs = self.data_fields.get(tname, tuple())
-                cols =  pks + dfs if dfs else (list(range(len(pks))) + ["Row Present"])
-                df = pd.DataFrame([ (list(k) if containerish(k) else [k]) +
-                                    ([v[_] for _ in dfs] or [True])
+                cols = pks + dfs
+                df = pd.DataFrame([ (list(k) if containerish(k) else [k]) + [v[_] for _ in dfs]
                               for k,v in sorted(getattr(tic_dat, tname).items())],
                               columns =cols)
-                df.index= pd.MultiIndex.from_tuples(tuple(map(tuple, df[list(cols[:len(pks)])].values)),
-                                                    names=pks)
-                for pk in cols[:len(pks)]:
-                    df = df.drop(pk, 1)
+                # there might be a set_index way to do this but this also works
+                df.index= pd.MultiIndex.from_tuples(map(tuple, df[list(pks)].values), names=pks)
+                if drop_pk_columns:
+                    for pk in cols[:len(pks)]:
+                        df = df.drop(pk, 1)
                 utils.Sloc.add_sloc(df)
             else :
                 df = pd.DataFrame([[v[_] for _ in self.data_fields[tname]]
