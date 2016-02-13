@@ -53,7 +53,7 @@ def create_model(dat):
     # Create optimization model
     m = Model('netflow')
 
-    flow = Sloc.add_sloc(dat.cost.join(dat.arcs, on = ["source", "destination"], rsuffix="_arcs").
+    flow = Sloc.add_sloc(dat.cost.join(dat.arcs, on = ["source", "destination"], how = "inner", rsuffix="_arcs").
               apply(lambda r : m.addVar(ub=r.capacity, obj=r.cost,
                                         name='flow_%s_%s_%s' % (r.commodity, r.source, r.destination)),
                     axis=1, reduce=True))
