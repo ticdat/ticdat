@@ -500,7 +500,7 @@ foreign keys, the code throwing this exception will be removed.
                         _t._attributesFrozen = True
                 self._isFrozen = True
             def __repr__(self):
-                return "td:" + tuple(superself.all_tables).__repr__()
+                return "td:" + tuple(sorted(superself.all_tables)).__repr__()
         class TicDat(_TicDat) :
             def _generatorfactory(self, data, tableName):
                 return generatorfactory(data, tableName)
@@ -757,21 +757,25 @@ foreign keys, the code throwing this exception will be removed.
                "tic_dat not a good object for this factory : %s"%"\n".join(msg))
         rtn = self.TicDat(**{t:getattr(tic_dat, t) for t in self.all_tables})
         return self.freeze_me(rtn) if freeze_it else rtn
-    def copy_to_pandas(self, tic_dat, table_restrictions = None):
+    def copy_to_pandas(self, tic_dat, table_restrictions = None, drop_pk_columns = True):
         """
         copies the tic_dat object into a new tic_dat object populated with data_frames
         performs a deep copy
         :param tic_dat: a ticdat object
-        :param table_restrictions: boolean. should the returned object be frozen?
+        :param table_restrictions: If truthy, a list of tables to turn into
+                                   data frames. Defaults to all tables.
+        :param drop_pk_columns: boolean. should the primary key columns be dropped
+                                from the data frames after they have been incorporated
+                                into the index
         :return: a deep copy of the tic_dat argument into DataFrames
         """
         verify(pd, "pandas needs to be installed in order to enable pandas functionality")
         msg  = []
         verify(self.good_tic_dat_object(tic_dat, msg.append),
                "tic_dat not a good object for this factory : %s"%"\n".join(msg))
-        table_restrictions = table_restrictions or self.all_tables
-        verify(containerish(table_restrictions) and
-               set(table_restrictions).issubset(self.all_tables),
+        normal_tables = set(self.all_tables).difference(self.generator_tables)
+        table_restrictions = table_restrictions or normal_tables
+        verify(containerish(table_restrictions) and normal_tables.issuperset(table_restrictions),
            "if provided, table_restrictions should be a subset of the table names")
         class PandasTicDat(object):
             def __repr__(self):
@@ -779,19 +783,26 @@ foreign keys, the code throwing this exception will be removed.
         rtn = PandasTicDat()
         for tname in table_restrictions:
             tdtable = getattr(tic_dat, tname)
-            if dictish(tdtable):
+            if len(tdtable) == 0 :
+                df = pd.DataFrame([], columns = self.primary_key_fields.get(tname,tuple()) +
+                                                self.data_fields.get(tname, tuple()))
+            elif dictish(tdtable):
                 pks = self.primary_key_fields[tname]
-                df = pd.DataFrame([ (list(k) if containerish(k) else [k]) +
-                                [v[_] for _ in self.data_fields.get(tname,[])]
+                dfs = self.data_fields.get(tname, tuple())
+                cols = pks + dfs
+                df = pd.DataFrame([ (list(k) if containerish(k) else [k]) + [v[_] for _ in dfs]
                               for k,v in sorted(getattr(tic_dat, tname).items())],
-                              columns = pks + self.data_fields.get(tname, tuple()))
-                df.index= pd.MultiIndex.from_tuples(tuple(map(tuple, df[list(pks)].values)), names=pks)
-                for pk in pks:
-                    df = df.drop(pk, 1)
+                              columns =cols)
+                # there might be a set_index way to do this but this also works
+                df.index= pd.MultiIndex.from_tuples(map(tuple, df[list(pks)].values), names=pks)
+                if drop_pk_columns:
+                    for pk in cols[:len(pks)]:
+                        df = df.drop(pk, 1)
                 utils.Sloc.add_sloc(df)
             else :
-                df = None # TEMP
-                verify(False, "not impemented yet!!!")
+                df = pd.DataFrame([[v[_] for _ in self.data_fields[tname]]
+                                  for v in sorted(getattr(tic_dat, tname))],
+                                  columns = self.data_fields[tname])
             setattr(rtn, tname, df)
         return rtn
     def freeze_me(self, tic_dat):

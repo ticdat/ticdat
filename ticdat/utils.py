@@ -179,16 +179,30 @@ class Sloc(object):
     """
     def __init__(self, s):
         verify(pd, "pandas needs to be installed in order to enable pandas functionality")
+        # as of this writing, the DataFrame doesn't handle references like df[:,"item"] correctly
+        verify(isinstance(s, pd.Series), "sloc only implemented for Series")
         self._s = s
     def __getitem__(self, key):
         try:
             return self._s.loc[key]
-        except KeyError:
-            return pd.Series([])
+        except Exception as e:
+            if containerish(key) and any(isinstance(k, slice) and
+                                         (k.start == k.step == k.stop == None) for k in key):
+                return pd.Series([])
+            raise e
     @staticmethod
     def add_sloc(s):
-        if isinstance(s, pd.DataFrame):
-            for c in s.columns:
-                Sloc.add_sloc(getattr(s,c))
-        else: # !!!!!!!!!!!!!!! DO WE NEED THIS ELSE!!!!!! CAN WE JUST HAVE AN SLOC ON THE DF?
-            s.sloc = Sloc(s)
+        """
+        adds an .sloc attribute to a the series or to every column of the data frame
+        :param s: either a series or a data frame
+        :return: s if .sloc could be added, None otherwise
+        """
+        if isinstance(s.index, pd.MultiIndex) :
+        # sloc functionality really makes sense only for a MultiIndex
+            if isinstance(s, pd.DataFrame):
+            # adding sloc just to the columns of the DataFrame and not to the DataFrame itself.
+                for c in s.columns:
+                    Sloc.add_sloc(getattr(s,c))
+            else:
+                s.sloc = Sloc(s)
+            return s
