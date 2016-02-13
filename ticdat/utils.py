@@ -192,6 +192,11 @@ class Sloc(object):
             raise e
     @staticmethod
     def add_sloc(s):
+        """
+        adds an .sloc attribute to a the series or to every column of the data frame
+        :param s: either a series or a data frame
+        :return: s if .sloc could be added, None otherwise
+        """
         if isinstance(s.index, pd.MultiIndex) :
         # sloc functionality really makes sense only for a MultiIndex
             if isinstance(s, pd.DataFrame):
@@ -200,3 +205,4 @@ class Sloc(object):
                     Sloc.add_sloc(getattr(s,c))
             else:
                 s.sloc = Sloc(s)
+            return s

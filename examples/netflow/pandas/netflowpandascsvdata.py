@@ -2,7 +2,7 @@
 #
 # Copyright 2016, Opalytics, Inc.
 #
-# Small driver script for the netflowmodel.py script.
+# Small driver script for the netflowpandasmodel.py script.
 #
 # This file solves the model with the data provided by csv files in the "csv_data" directory.
 # It prints the summary information to the screen, and writes the solution into a
@@ -12,7 +12,7 @@
 # trivial. See the diet example for more details.
 
 import os
-from netflowmodel import dataFactory, solve, solutionFactory
+from netflowpandasmodel import dataFactory, solve, solutionFactory
 
 assert not dataFactory.csv.get_duplicates("csv_data")
 dat = dataFactory.csv.create_tic_dat("csv_data", freeze_it=True)

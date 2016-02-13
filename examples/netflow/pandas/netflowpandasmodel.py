@@ -4,10 +4,11 @@
 #
 # edited with permission from Gurobi Optimization, Inc.
 
-# Solve a multi-commodity flow problem.
+# Solve a multi-commodity flow problem. pandas version
 
 from gurobipy import *
-from ticdat import TicDatFactory
+from ticdat import TicDatFactory, Sloc
+import pandas as pd
 
 # define the input schema.
 dataFactory = TicDatFactory (
@@ -47,40 +48,39 @@ def create_model(dat):
     assert not dataFactory.find_foreign_key_failures(dat)
     assert not dataFactory.find_data_type_failures(dat)
 
+    dat = dataFactory.copy_to_pandas(dat, drop_pk_columns=False)
+
     # Create optimization model
     m = Model('netflow')
 
-    # Create variables
-    flow = {}
-    for h, i, j in dat.cost:
-        if (i,j) in dat.arcs:
-            flow[h,i,j] = m.addVar(ub=dat.arcs[i,j]["capacity"], obj=dat.cost[h,i,j]["cost"],
-                                   name='flow_%s_%s_%s' % (h, i, j))
+    flow = Sloc.add_sloc(dat.cost.join(dat.arcs, on = ["source", "destination"], rsuffix="_arcs").
+              apply(lambda r : m.addVar(ub=r.capacity, obj=r.cost,
+                                        name='flow_%s_%s_%s' % (r.commodity, r.source, r.destination)),
+                    axis=1, reduce=True))
+    flow.name = "flow"
+
     m.update()
 
-    flowselect = tuplelist(flow)
-
-    # Arc capacity constraints
-    for i_,j_ in dat.arcs:
-        m.addConstr(quicksum(flow[h,i,j] for h,i,j in flowselect.select('*',i_, j_)) <= dat.arcs[i_,j_]["capacity"],
-                    'cap_%s_%s' % (i_, j_))
-
+    dat.arcs.join(flow.groupby(level=["source", "destination"]).sum()).apply(
+        lambda r : m.addConstr(r.flow <= r.capacity, 'cap_%s_%s' % (r.source, r.destination)), axis =1)
 
     # for readability purposes (and also backwards compatibility with gurobipy) using a dummy variable
     # thats always zero
     zero = m.addVar(lb=0, ub=0, name = "forcedToZero")
+
     m.update()
 
-    # Flow conservation constraints. Constraints are generated only for relevant pairs.
-    # So we generate a conservation of flow constraint if there is negative or positive inflow
-    # quantity, or at least one inbound flow variable, or at least one outbound flow variable.
-    for h_,j_ in set(k for k,v in dat.inflow.items() if abs(v["quantity"]) > 0).union(
-            {(h,i) for h,i,j in flow}, {(h,j) for h,i,j in flow}) :
-        m.addConstr(
-          (quicksum(flow[h,i,j] for h,i,j in flowselect.select(h_,'*',j_)) or zero) +
-              dat.inflow.get((h_,j_), {"quantity":0})["quantity"] ==
-          (quicksum(flow[h,i,j] for h,i,j in flowselect.select(h_, j_, '*')) or zero),
-                   'node_%s_%s' % (h_, j_))
+    # there is a more pandonic way to do this group of constraints, but lets
+    # demonstrate .sloc for those who think it might be more intuitive
+    # at some point we can make yet another netflow example that is more fully pandonic
+    # and compare all three netflows
+    for h_,j_ in sorted(set(dat.inflow[abs(dat.inflow.quantity) > 0].index).union(
+        flow.groupby(level=['commodity','source']).groups.keys(),
+        flow.groupby(level=['commodity','destination']).groups.keys())):
+            m.addConstr((quicksum(flow.sloc[h_,:,j_]) or zero) + dat.inflow.quantity.loc[h_,j_] ==
+                        (quicksum(flow.sloc[h_,j_,:]) or zero), 'node_%s_%s' % (h_, j_))
+
+    m.update()
     return m, flow
 
 def solve(dat):
@@ -89,10 +89,11 @@ def solve(dat):
     # Compute optimal solution
     m.optimize()
 
-    if m.status == GRB.status.OPTIMAL:
-        rtn = solutionFactory.TicDat()
-        for (h, i, j),var in flow.items():
-            if var.x > 0:
-                # ticdat recognizes flow as a one-data-field table, thus making write through easy
-                rtn.flow[h,i,j] = var.x
-        return rtn
+    rtn = solutionFactory.TicDat()
+    def add_row_as_needed(r):
+        if r.flow.x > 0:
+            # ticdat recognizes flow as a one-data-field table, thus making write through easy
+            rtn.flow[r.commodity, r.source, r.destination] = r.flow.x
+    pd.DataFrame(flow).reset_index().apply(add_row_as_needed, axis=1)
+    return solutionFactory.freeze_me(rtn)
+

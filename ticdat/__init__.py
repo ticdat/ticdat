@@ -19,4 +19,5 @@ The ticDat library is distributed under the BSD2 open source license.
 
 from ticdatfactory import TicDatFactory, freeze_me
 from logfile import LogFactory
-__all__ = ["TicDatFactory", "freeze_me", "LogFactory"]
+from utils import Sloc
+__all__ = ["TicDatFactory", "freeze_me", "LogFactory", "Sloc"]
