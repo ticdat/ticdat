@@ -53,10 +53,10 @@ def create_model(dat):
     # Create optimization model
     m = Model('netflow')
 
-    flow = Sloc.add_sloc(dat.cost.join(dat.arcs, on = ["source", "destination"], rsuffix="_arcs").
+    flow = dat.cost.join(dat.arcs, on = ["source", "destination"], how = "inner", rsuffix="_arcs").\
               apply(lambda r : m.addVar(ub=r.capacity, obj=r.cost,
                                         name='flow_%s_%s_%s' % (r.commodity, r.source, r.destination)),
-                    axis=1, reduce=True))
+                    axis=1, reduce=True)
     flow.name = "flow"
 
     m.update()
@@ -67,20 +67,22 @@ def create_model(dat):
     # for readability purposes (and also backwards compatibility with gurobipy) using a dummy variable
     # thats always zero
     zero = m.addVar(lb=0, ub=0, name = "forcedToZero")
+    # !!! NB !!! this isn't working with fillna !!!!
+    # after upgrading the gurobi version see if still broken
+
+    m.update()
+    def flow_subtotal(field):
+    # I had trouble figuring out how to rename just one field in the multiindex,
+    # so I move the multi-index in and out of the data columns just for renaming
+        return flow.groupby(level=['commodity',field]).sum().reset_index().\
+            rename(columns={field:"node"}).set_index(["commodity", "node"])
+
+    flow_subtotal("destination").join(dat.inflow[abs(dat.inflow.quantity) > 0].quantity, how="outer").join(
+        flow_subtotal("source"), how = "outer", lsuffix = "_in", rsuffix = "_out").fillna(0).apply(
+        lambda r : m.addConstr(r.flow_in + r.quantity  - r.flow_out == 0, 'cap_%s_%s' % r.name), axis =1)
 
     m.update()
 
-    # there is a more pandonic way to do this group of constraints, but lets
-    # demonstrate .sloc for those who think it might be more intuitive
-    # at some point we can make yet another netflow example that is more fully pandonic
-    # and compare all three netflows
-    for h_,j_ in sorted(set(dat.inflow[abs(dat.inflow.quantity) > 0].index).union(
-        flow.groupby(level=['commodity','source']).groups.keys(),
-        flow.groupby(level=['commodity','destination']).groups.keys())):
-            m.addConstr((quicksum(flow.sloc[h_,:,j_]) or zero) + dat.inflow.quantity.loc[h_,j_] ==
-                        (quicksum(flow.sloc[h_,j_,:]) or zero), 'node_%s_%s' % (h_, j_))
-
-    m.update()
     return m, flow
 
 def solve(dat):
