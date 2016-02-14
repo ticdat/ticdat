@@ -797,7 +797,7 @@ foreign keys, the code throwing this exception will be removed.
                 df.index= pd.MultiIndex.from_tuples(map(tuple, df[list(pks)].values), names=pks)
                 if drop_pk_columns:
                     for pk in cols[:len(pks)]:
-                        df = df.drop(pk, 1)
+                        df.drop(pk, 1, inplace=True)
                 utils.Sloc.add_sloc(df)
             else :
                 df = pd.DataFrame([[v[_] for _ in self.data_fields[tname]]
