@@ -793,11 +793,7 @@ foreign keys, the code throwing this exception will be removed.
                 df = pd.DataFrame([ (list(k) if containerish(k) else [k]) + [v[_] for _ in dfs]
                               for k,v in sorted(getattr(tic_dat, tname).items())],
                               columns =cols)
-                # there might be a set_index way to do this but this also works
-                df.index= pd.MultiIndex.from_tuples(map(tuple, df[list(pks)].values), names=pks)
-                if drop_pk_columns:
-                    for pk in cols[:len(pks)]:
-                        df.drop(pk, 1, inplace=True)
+                df.set_index(list(pks), inplace=True, drop=drop_pk_columns)
                 utils.Sloc.add_sloc(df)
             else :
                 df = pd.DataFrame([[v[_] for _ in self.data_fields[tname]]
