@@ -655,7 +655,7 @@ foreign keys, the code throwing this exception will be removed.
                    "Expecting a container of rows or a generator function of rows for %s"%table_name)
             return self._good_data_rows(data_table if containerish(data_table) else data_table(),
                                       table_name, bad_message_handler)
-        if pd and isinstance(data_table, pd.Series) and len(self.data_fields.get(table_name)) == 1:
+        if pd and isinstance(data_table, pd.Series) and len(self.data_fields.get(table_name, ())) == 1:
             data_table = DataFrame(data_table)
             data_table.rename(columns = {data_table.columns[0] : self.data_fields[table_name][0]},
                               inplace=True)
