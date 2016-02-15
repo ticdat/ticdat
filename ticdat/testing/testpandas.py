@@ -58,6 +58,9 @@ class TestPandas(unittest.TestCase):
         ticDat = tdf.copy_to_pandas(oldDat)
         rebornTicDat = tdf.TicDat(**{t:getattr(ticDat, t) for t in tdf.all_tables})
         self.assertTrue(tdf._same_data(rebornTicDat, oldDat))
+        self.assertTrue(set(ticDat.inflow.columns) == {"quantity"})
+        self.assertTrue(set(ticDat.nodes.columns) == {"name"})
+
 
 
     def testSilly(self):
@@ -82,6 +85,10 @@ class TestPandas(unittest.TestCase):
         checkTicDat()
         self.assertTrue(len(ticDat.d.dData1.sloc[1,:,:,:]) == 2 and ticDat.e.loc[11].values[0] == 11)
 
+        ticDat = tdf.copy_to_pandas(oldDat)
+        checkTicDat()
+        self.assertTrue(len(ticDat.d.dData1.sloc[1,:,:,:]) == 2 and ticDat.e.loc[11].values[0] == 11)
+        self.assertTrue(set(ticDat.d.columns) == {"dData%s"%s for s in range(5)[1:]})
 
 
 def runTheTests(fastOnly=True) :
