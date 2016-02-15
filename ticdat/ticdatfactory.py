@@ -12,7 +12,7 @@ import xls
 import csvtd as csv
 import sqlitetd as sql
 import mdb
-DataFrame = utils.DataFrame # if pandas not installed will be falsey
+pd, DataFrame = utils.pd, utils.DataFrame # if pandas not installed will be falsey
 
 def _acceptable_default(v) :
     return utils.numericish(v) or utils.stringish(v) or (v is None)
@@ -515,15 +515,18 @@ foreign keys, the code throwing this exception will be removed.
                     if not (goodticdattable(v, t, lambda x : badticdattable.append(x))) :
                         raise utils.TicDatError(t + " cannot be treated as a ticDat table : " +
                                                 badticdattable[-1])
+                    if pd.Series and isinstance(v, pd.Series):
+                        v = DataFrame(v)
+                        v.rename(columns = {v.columns[0] : superself.data_fields[t][0]}, inplace=True)
                     if DataFrame and isinstance(v, DataFrame):
                       row_dict = lambda r : {df:getattr(r, df) for df in superself.data_fields.get(t, ())}
+                      setattr(self, t, ticdattablefactory(self._all_data_dicts, t)())
                       if superself.primary_key_fields.get(t) :
-                          setattr(self, t, ticdattablefactory(self._all_data_dicts, t)({}))
                           def add_row(r):
                               getattr(self, t)[r.name] = row_dict(r)
                           v.apply(add_row, axis=1)
                       else :
-                          v.apply(lambda r : getattr(self, t).append(row_dict(r)))
+                          v.apply(lambda r : getattr(self, t).append(row_dict(r)), axis=1)
                     elif superself.primary_key_fields.get(t) :
                      for _k in v :
                         verify((hasattr(_k, "__len__") and
@@ -652,6 +655,10 @@ foreign keys, the code throwing this exception will be removed.
                    "Expecting a container of rows or a generator function of rows for %s"%table_name)
             return self._good_data_rows(data_table if containerish(data_table) else data_table(),
                                       table_name, bad_message_handler)
+        if pd and isinstance(data_table, pd.Series) and len(self.data_fields.get(table_name)) == 1:
+            data_table = DataFrame(data_table)
+            data_table.rename(columns = {data_table.columns[0] : self.data_fields[table_name][0]},
+                              inplace=True)
         if DataFrame and isinstance(data_table, DataFrame):
             if table_name in self.generator_tables:
                 bad_message_handler("%s is a generator table and can not be populated with a DataFrame"

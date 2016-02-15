@@ -90,6 +90,16 @@ class TestPandas(unittest.TestCase):
         self.assertTrue(len(ticDat.d.dData1.sloc[1,:,:,:]) == 2 and ticDat.e.loc[11].values[0] == 11)
         self.assertTrue(set(ticDat.d.columns) == {"dData%s"%s for s in range(5)[1:]})
 
+        rebornTicDat = tdf.TicDat(**{t:getattr(ticDat, t) for t in tdf.all_tables})
+        self.assertTrue(tdf._same_data(rebornTicDat, oldDat))
+
+        ticDat.b = ticDat.b.bData
+        rebornTicDat = tdf.TicDat(**{t:getattr(ticDat, t) for t in tdf.all_tables})
+        self.assertTrue(tdf._same_data(rebornTicDat, oldDat))
+
+
+
+
 
 def runTheTests(fastOnly=True) :
     if not DataFrame :
