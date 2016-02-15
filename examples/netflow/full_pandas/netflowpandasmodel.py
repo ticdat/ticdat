@@ -64,12 +64,6 @@ def create_model(dat):
     dat.arcs.join(flow.groupby(level=["source", "destination"]).sum()).apply(
         lambda r : m.addConstr(r.flow <= r.capacity, 'cap_%s_%s' % (r.source, r.destination)), axis =1)
 
-    # for readability purposes (and also backwards compatibility with gurobipy) using a dummy variable
-    # thats always zero
-    zero = m.addVar(lb=0, ub=0, name = "forcedToZero")
-    # !!! NB !!! this isn't working with fillna !!!!
-    # after upgrading the gurobi version see if still broken
-
     m.update()
     def flow_subtotal(field):
     # I had trouble figuring out how to rename just one field in the multiindex,
