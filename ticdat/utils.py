@@ -5,8 +5,9 @@ PEP8
 from numbers import Number
 try:
     import pandas as pd
+    from pandas import DataFrame
 except:
-    pd = None
+    pd = DataFrame =  None
 
 def do_it(g): # just walks through everything in a gen - I like the syntax this enables
     for x in g :
@@ -197,6 +198,7 @@ class Sloc(object):
         :param s: either a series or a data frame
         :return: s if .sloc could be added, None otherwise
         """
+        verify(pd, "pandas needs to be installed in order to enable pandas functionality")
         if isinstance(s.index, pd.MultiIndex) :
         # sloc functionality really makes sense only for a MultiIndex
             if isinstance(s, pd.DataFrame):

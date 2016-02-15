@@ -89,11 +89,8 @@ def solve(dat):
     # Compute optimal solution
     m.optimize()
 
-    rtn = solutionFactory.TicDat()
-    def add_row_as_needed(r):
-        if r.flow.x > 0:
-            # ticdat recognizes flow as a one-data-field table, thus making write through easy
-            rtn.flow[r.commodity, r.source, r.destination] = r.flow.x
-    pd.DataFrame(flow).reset_index().apply(add_row_as_needed, axis=1)
-    return solutionFactory.freeze_me(rtn)
+    if m.status == GRB.status.OPTIMAL:
+        t = flow.apply(lambda r : r.x)
+        # TicDat is smart enough to handle a Series for a single data field table
+        return solutionFactory.freeze_me(solutionFactory.TicDat(flow = t[t > 0]))
 
