@@ -53,7 +53,7 @@ def create_model(dat):
     # Create optimization model
     m = Model('netflow')
 
-    flow = Sloc.add_sloc(dat.cost.join(dat.arcs, on = ["source", "destination"], rsuffix="_arcs").
+    flow = Sloc.add_sloc(dat.cost.join(dat.arcs, on = ["source", "destination"], how = "inner", rsuffix="_arcs").
               apply(lambda r : m.addVar(ub=r.capacity, obj=r.cost,
                                         name='flow_%s_%s_%s' % (r.commodity, r.source, r.destination)),
                     axis=1, reduce=True))
@@ -89,11 +89,8 @@ def solve(dat):
     # Compute optimal solution
     m.optimize()
 
-    rtn = solutionFactory.TicDat()
-    def add_row_as_needed(r):
-        if r.flow.x > 0:
-            # ticdat recognizes flow as a one-data-field table, thus making write through easy
-            rtn.flow[r.commodity, r.source, r.destination] = r.flow.x
-    pd.DataFrame(flow).reset_index().apply(add_row_as_needed, axis=1)
-    return solutionFactory.freeze_me(rtn)
+    if m.status == GRB.status.OPTIMAL:
+        t = flow.apply(lambda r : r.x)
+        # TicDat is smart enough to handle a Series for a single data field table
+        return solutionFactory.freeze_me(solutionFactory.TicDat(flow = t[t > 0]))
 

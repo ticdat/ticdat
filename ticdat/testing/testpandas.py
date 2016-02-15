@@ -2,7 +2,7 @@ import os
 import unittest
 import ticdat.utils as utils
 import shutil
-from ticdat.ticdatfactory import TicDatFactory, pd
+from ticdat.ticdatfactory import TicDatFactory, DataFrame
 from ticdat.testing.ticdattestutils import dietData, dietSchema, netflowData
 from ticdat.testing.ticdattestutils import  netflowSchema, firesException
 from ticdat.testing.ticdattestutils import sillyMeData, sillyMeSchema, failToDebugger
@@ -33,6 +33,10 @@ class TestPandas(unittest.TestCase):
         self.assertTrue(sum(nut.qty.sloc["chicken",:]) == sum(nut.qty.loc["chicken",:]) ==
                         sum(r["qty"] for (f,c),r in oldDat.nutritionQuantities.items() if f == "chicken"))
 
+        rebornTicDat = tdf.TicDat(**{t:getattr(ticDat, t) for t in tdf.all_tables})
+        self.assertTrue(tdf._same_data(rebornTicDat, oldDat))
+
+
 
     def testNetflow(self):
         tdf = TicDatFactory(**netflowSchema())
@@ -45,6 +49,19 @@ class TestPandas(unittest.TestCase):
         self.assertTrue(len(ticDat.arcs.capacity.sloc[:,"Boston"]) == len(oldDat.nodes["Boston"].arcs_destination) == 2)
         self.assertTrue(all(ticDat.arcs.capacity.sloc[:,"Boston"][src] == r["capacity"]
                             for src, r in oldDat.nodes["Boston"].arcs_destination.items()))
+        ticDat = tdf.copy_to_pandas(oldDat, drop_pk_columns=True)
+        rebornTicDat = tdf.TicDat(**{t:getattr(ticDat, t) for t in tdf.all_tables})
+        # because we have single pk field tables, dropping the pk columns is probelmatic
+        self.assertFalse(tdf._same_data(rebornTicDat, oldDat))
+
+        # but with the default argument all is well
+        ticDat = tdf.copy_to_pandas(oldDat)
+        rebornTicDat = tdf.TicDat(**{t:getattr(ticDat, t) for t in tdf.all_tables})
+        self.assertTrue(tdf._same_data(rebornTicDat, oldDat))
+        self.assertTrue(set(ticDat.inflow.columns) == {"quantity"})
+        self.assertTrue(set(ticDat.nodes.columns) == {"name"})
+
+
 
     def testSilly(self):
         tdf = TicDatFactory(**dict({"d" : [("dData1", "dData2", "dData3", "dData4"),[]],
@@ -54,7 +71,7 @@ class TestPandas(unittest.TestCase):
         oldDat = tdf.freeze_me(tdf.TicDat(**dict({"d" : {(1,2,3,4):{}, (1, "b","c","d"):{}, ("a", 2,"c","d"):{}},
                                                   "e" : {11:{},"boger":{}}},
                                 **sillyMeData())))
-        ticDat = tdf.copy_to_pandas(oldDat)
+        ticDat = tdf.copy_to_pandas(oldDat, drop_pk_columns=True)
         def checkTicDat():
             self.assertTrue(len(ticDat.d) ==3 and len(ticDat.e) == 2)
             self.assertTrue(set(ticDat.d.index.values) == {(1,2,3,4), (1, "b","c","d"), ("a", 2,"c","d")})
@@ -68,10 +85,24 @@ class TestPandas(unittest.TestCase):
         checkTicDat()
         self.assertTrue(len(ticDat.d.dData1.sloc[1,:,:,:]) == 2 and ticDat.e.loc[11].values[0] == 11)
 
+        ticDat = tdf.copy_to_pandas(oldDat)
+        checkTicDat()
+        self.assertTrue(len(ticDat.d.dData1.sloc[1,:,:,:]) == 2 and ticDat.e.loc[11].values[0] == 11)
+        self.assertTrue(set(ticDat.d.columns) == {"dData%s"%s for s in range(5)[1:]})
+
+        rebornTicDat = tdf.TicDat(**{t:getattr(ticDat, t) for t in tdf.all_tables})
+        self.assertTrue(tdf._same_data(rebornTicDat, oldDat))
+
+        ticDat.b = ticDat.b.bData
+        rebornTicDat = tdf.TicDat(**{t:getattr(ticDat, t) for t in tdf.all_tables})
+        self.assertTrue(tdf._same_data(rebornTicDat, oldDat))
+
+
+
 
 
 def runTheTests(fastOnly=True) :
-    if not pd :
+    if not DataFrame :
         print "!!!!!!!!!FAILING PANDAS UNIT TESTS DUE TO FAILURE TO LOAD PANDAS LIBRARIES!!!!!!!!"
         return
     runSuite(TestPandas, fastOnly=fastOnly)

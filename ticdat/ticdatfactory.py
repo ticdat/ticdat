@@ -12,7 +12,7 @@ import xls
 import csvtd as csv
 import sqlitetd as sql
 import mdb
-pd = utils.pd # if pandas not installed this will be falsey
+pd, DataFrame = utils.pd, utils.DataFrame # if pandas not installed will be falsey
 
 def _acceptable_default(v) :
     return utils.numericish(v) or utils.stringish(v) or (v is None)
@@ -515,7 +515,19 @@ foreign keys, the code throwing this exception will be removed.
                     if not (goodticdattable(v, t, lambda x : badticdattable.append(x))) :
                         raise utils.TicDatError(t + " cannot be treated as a ticDat table : " +
                                                 badticdattable[-1])
-                    if superself.primary_key_fields.get(t) :
+                    if pd.Series and isinstance(v, pd.Series):
+                        v = DataFrame(v)
+                        v.rename(columns = {v.columns[0] : superself.data_fields[t][0]}, inplace=True)
+                    if DataFrame and isinstance(v, DataFrame):
+                      row_dict = lambda r : {df:getattr(r, df) for df in superself.data_fields.get(t, ())}
+                      setattr(self, t, ticdattablefactory(self._all_data_dicts, t)())
+                      if superself.primary_key_fields.get(t) :
+                          def add_row(r):
+                              getattr(self, t)[r.name] = row_dict(r)
+                          v.apply(add_row, axis=1)
+                      else :
+                          v.apply(lambda r : getattr(self, t).append(row_dict(r)), axis=1)
+                    elif superself.primary_key_fields.get(t) :
                      for _k in v :
                         verify((hasattr(_k, "__len__") and
                                 (len(_k) == len(superself.primary_key_fields.get(t, ())) > 1)
@@ -616,6 +628,10 @@ foreign keys, the code throwing this exception will be removed.
             if not hasattr(data_obj, t) :
                 bad_message_handler(t + " not an attribute.")
                 return False
+            if DataFrame and isinstance(getattr(data_obj, t), DataFrame):
+                bad_message_handler(t + " is a DataFrame. " +
+                                    "Currently, DataFrames can only be used to construct a TicDat")
+                return False
             rtn = rtn and  self.good_tic_dat_table(getattr(data_obj, t), t,
                     lambda x : bad_message_handler(t + " : " + x))
         return rtn
@@ -639,11 +655,36 @@ foreign keys, the code throwing this exception will be removed.
                    "Expecting a container of rows or a generator function of rows for %s"%table_name)
             return self._good_data_rows(data_table if containerish(data_table) else data_table(),
                                       table_name, bad_message_handler)
+        if pd and isinstance(data_table, pd.Series) and len(self.data_fields.get(table_name)) == 1:
+            data_table = DataFrame(data_table)
+            data_table.rename(columns = {data_table.columns[0] : self.data_fields[table_name][0]},
+                              inplace=True)
+        if DataFrame and isinstance(data_table, DataFrame):
+            if table_name in self.generator_tables:
+                bad_message_handler("%s is a generator table and can not be populated with a DataFrame"
+                                    %table_name)
+                return False
+            if "name" in self.data_fields.get(table_name, ()):
+                bad_message_handler("%s has the string 'name' as a data field "%table_name +
+                                    "and thus cannot be populated with a DataFrame")
+                return False
+            pks = self.primary_key_fields.get(table_name, ())
+            if "name" in pks and len(pks) > 1:
+                bad_message_handler("%s has the string 'name' as part of a multi-field "%table_name +
+                                    "primary key and thus cannot be populated with a DataFrame")
+                return False
+            if pks and (pks != utils.safe_apply(lambda : tuple(data_table.index.names))()) :
+                bad_message_handler("Could not find a pandas index matching the primary key for %s"%table_name)
+                return False
+            if not set(data_table.columns).issuperset(self.data_fields.get(table_name, ())) :
+                bad_message_handler("Could not find pandas columns for all the data fields for %s"%table_name)
+                return False
+            return True
         if self.primary_key_fields.get(table_name) :
             if utils.dictish(data_table) :
                 return self._good_ticdat_dict_table(data_table, table_name, bad_message_handler)
             if utils.containerish(data_table):
-                return  self._good_ticdat_key_container(data_table, table_name, bad_message_handler)
+                return self._good_ticdat_key_container(data_table, table_name, bad_message_handler)
         else :
             verify(utils.containerish(data_table),
                    "Unexpected ticDat table type for %s."%table_name)
@@ -757,19 +798,20 @@ foreign keys, the code throwing this exception will be removed.
                "tic_dat not a good object for this factory : %s"%"\n".join(msg))
         rtn = self.TicDat(**{t:getattr(tic_dat, t) for t in self.all_tables})
         return self.freeze_me(rtn) if freeze_it else rtn
-    def copy_to_pandas(self, tic_dat, table_restrictions = None, drop_pk_columns = True):
+    def copy_to_pandas(self, tic_dat, table_restrictions = None, drop_pk_columns = None):
         """
         copies the tic_dat object into a new tic_dat object populated with data_frames
         performs a deep copy
         :param tic_dat: a ticdat object
         :param table_restrictions: If truthy, a list of tables to turn into
                                    data frames. Defaults to all tables.
-        :param drop_pk_columns: boolean. should the primary key columns be dropped
+        :param drop_pk_columns: boolean or None. should the primary key columns be dropped
                                 from the data frames after they have been incorporated
-                                into the index
+                                into the index.
+                                If None, then pk fields will be dropped only for tables with data fields
         :return: a deep copy of the tic_dat argument into DataFrames
         """
-        verify(pd, "pandas needs to be installed in order to enable pandas functionality")
+        verify(DataFrame, "pandas needs to be installed in order to enable pandas functionality")
         msg  = []
         verify(self.good_tic_dat_object(tic_dat, msg.append),
                "tic_dat not a good object for this factory : %s"%"\n".join(msg))
@@ -784,23 +826,20 @@ foreign keys, the code throwing this exception will be removed.
         for tname in table_restrictions:
             tdtable = getattr(tic_dat, tname)
             if len(tdtable) == 0 :
-                df = pd.DataFrame([], columns = self.primary_key_fields.get(tname,tuple()) +
+                df = DataFrame([], columns = self.primary_key_fields.get(tname,tuple()) +
                                                 self.data_fields.get(tname, tuple()))
             elif dictish(tdtable):
                 pks = self.primary_key_fields[tname]
                 dfs = self.data_fields.get(tname, tuple())
                 cols = pks + dfs
-                df = pd.DataFrame([ (list(k) if containerish(k) else [k]) + [v[_] for _ in dfs]
+                df = DataFrame([ (list(k) if containerish(k) else [k]) + [v[_] for _ in dfs]
                               for k,v in sorted(getattr(tic_dat, tname).items())],
                               columns =cols)
-                # there might be a set_index way to do this but this also works
-                df.index= pd.MultiIndex.from_tuples(map(tuple, df[list(pks)].values), names=pks)
-                if drop_pk_columns:
-                    for pk in cols[:len(pks)]:
-                        df = df.drop(pk, 1)
+                df.set_index(list(pks), inplace=True,
+                             drop= bool(dfs if drop_pk_columns == None else drop_pk_columns))
                 utils.Sloc.add_sloc(df)
             else :
-                df = pd.DataFrame([[v[_] for _ in self.data_fields[tname]]
+                df = DataFrame([[v[_] for _ in self.data_fields[tname]]
                                   for v in sorted(getattr(tic_dat, tname))],
                                   columns = self.data_fields[tname])
             setattr(rtn, tname, df)
