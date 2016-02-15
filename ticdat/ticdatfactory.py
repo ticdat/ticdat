@@ -515,7 +515,7 @@ foreign keys, the code throwing this exception will be removed.
                     if not (goodticdattable(v, t, lambda x : badticdattable.append(x))) :
                         raise utils.TicDatError(t + " cannot be treated as a ticDat table : " +
                                                 badticdattable[-1])
-                    if pd.Series and isinstance(v, pd.Series):
+                    if pd and isinstance(v, pd.Series):
                         v = DataFrame(v)
                         v.rename(columns = {v.columns[0] : superself.data_fields[t][0]}, inplace=True)
                     if DataFrame and isinstance(v, DataFrame):
