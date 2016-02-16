@@ -64,10 +64,9 @@ def create_model(dat):
 
     m.update()
     def flow_subtotal(node_fld, sum_field_name):
-    # I had trouble figuring out how to rename just one field in the multiindex,
-    # so I move the multi-index in and out of the data columns just for renaming
-         return flow.groupby(level=['commodity',node_fld]).aggregate({sum_field_name : quicksum}).\
-            reset_index().rename(columns={node_fld:"node"}).set_index(["commodity", "node"])
+        rtn = flow.groupby(level=['commodity',node_fld]).aggregate({sum_field_name : quicksum})
+        rtn.index.names = [u'commodity', u'node']
+        return rtn
 
     flow_subtotal("destination", "flow_in").join(dat.inflow[abs(dat.inflow.quantity) > 0].quantity, how="outer").\
         join(flow_subtotal("source", "flow_out"), how = "outer").fillna(0).\
@@ -76,6 +75,7 @@ def create_model(dat):
     m.update()
 
     return m, flow
+
 
 
 def solve(dat):
