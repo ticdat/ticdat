@@ -69,7 +69,7 @@ def create_model(dat):
         return rtn
 
     flow_subtotal("destination", "flow_in").join(dat.inflow[abs(dat.inflow.quantity) > 0].quantity, how="outer").\
-        join(flow_subtotal("source", "flow_out"), how = "outer").fillna(0).\
+        join(flow_subtotal("source", "flow_out"), how = "outer").fillna(quicksum([])).\
         apply(lambda r : m.addConstr(r.flow_in + r.quantity  - r.flow_out == 0, 'cap_%s_%s' % r.name), axis =1)
 
     m.update()
