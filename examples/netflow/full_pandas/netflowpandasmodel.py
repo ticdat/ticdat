@@ -37,8 +37,6 @@ dataFactory.set_data_type("inflow", "quantity", min=-float("inf"), inclusive_min
 solutionFactory = TicDatFactory(
         flow = [["commodity", "source", "destination"], ["quantity"]])
 
-
-
 def create_model(dat):
     '''
     :param dat: a good ticdat for the dataFactory
@@ -57,27 +55,27 @@ def create_model(dat):
               apply(lambda r : m.addVar(ub=r.capacity, obj=r.cost,
                                         name='flow_%s_%s_%s' % (r.commodity, r.source, r.destination)),
                     axis=1, reduce=True)
-    flow.name = "flow"
 
     m.update()
 
-    dat.arcs.join(flow.groupby(level=["source", "destination"]).sum()).apply(
+    dat.arcs.join(flow.groupby(level=["source", "destination"]).aggregate({"flow": quicksum})).apply(
         lambda r : m.addConstr(r.flow <= r.capacity, 'cap_%s_%s' % (r.source, r.destination)), axis =1)
 
-    m.update()
-    def flow_subtotal(field):
-    # I had trouble figuring out how to rename just one field in the multiindex,
-    # so I move the multi-index in and out of the data columns just for renaming
-        return flow.groupby(level=['commodity',field]).sum().reset_index().\
-            rename(columns={field:"node"}).set_index(["commodity", "node"])
 
-    flow_subtotal("destination").join(dat.inflow[abs(dat.inflow.quantity) > 0].quantity, how="outer").join(
-        flow_subtotal("source"), how = "outer", lsuffix = "_in", rsuffix = "_out").fillna(0).apply(
-        lambda r : m.addConstr(r.flow_in + r.quantity  - r.flow_out == 0, 'cap_%s_%s' % r.name), axis =1)
+    m.update()
+    def flow_subtotal(node_fld, sum_field_name):
+        rtn = flow.groupby(level=['commodity',node_fld]).aggregate({sum_field_name : quicksum})
+        rtn.index.names = [u'commodity', u'node']
+        return rtn
+
+    flow_subtotal("destination", "flow_in").join(dat.inflow[abs(dat.inflow.quantity) > 0].quantity, how="outer").\
+        join(flow_subtotal("source", "flow_out"), how = "outer").fillna(0).\
+        apply(lambda r : m.addConstr(r.flow_in + r.quantity  - r.flow_out == 0, 'cap_%s_%s' % r.name), axis =1)
 
     m.update()
 
     return m, flow
+
 
 
 def solve(dat):
