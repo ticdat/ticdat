@@ -38,53 +38,78 @@ def populateTd(td, p1Len, p2Len):
                 rtn[0]+=1
             if j == 3 and k == 2:
                 rtn[1] += 1
+    ticdat.freeze_me(td)
     return rtn
 
-def checkChildDf(df, chk1, chk2):
+def checkChildDfLen(df, chk1, chk2):
     assert chk1 and chk2
     verify(len(df.dummy.sloc[:,:,3]) == chk1)
     verify(len(df.dummy.sloc[:,3,2]) == chk2)
     verify(len(df.dummy.sloc[:,3,1]) == 0)
     verify(len(df.dummy.sloc[:,3,3]) == 0)
 
-def checkTupleList(tl, chk1, chk2):
+def checkChildDfSum(df, chk1, chk2):
+    assert chk1 and chk2
+    verify(df.dummy.sloc[:,:,3].sum() == chk1*2.)
+    verify(df.dummy.sloc[:,3,2].sum() == chk2*2.)
+    verify(df.dummy.sloc[:,3,1].sum() == 0)
+    verify(df.dummy.sloc[:,3,3].sum() == 0)
+
+
+def checkTupleListLen(tl, chk1, chk2):
     assert chk1 and chk2
     verify(len(tl.select("*", "*", 3)) == chk1)
     verify(len(tl.select("*", 3, 2)) == chk2)
     verify(len(tl.select("*", 3, 1)) == 0)
     verify(len(tl.select("*", 3, 3)) == 0)
 
+def checkTupleListSum(tl, td, chk1, chk2):
+    assert chk1 and chk2
+    verify(sum(td.childTable[k]["dummy"] for k in tl.select("*", "*", 3)) == chk1*2.)
+    verify(sum(td.childTable[k]["dummy"] for k in tl.select("*", 3, 2)) == chk2*2.)
+    verify(sum(td.childTable[k]["dummy"] for k in tl.select("*", 3, 1)) == 0)
+    verify(sum(td.childTable[k]["dummy"] for k in tl.select("*", 3, 3)) == 0)
 
 
 # make a simple schema
 tdf = ticdat.TicDatFactory(p1 = [["id"],[]], p2 = [["id"],[]], childTable = [["p1_1", "p1_2", "p2"],["dummy"]])
+tdf.set_default_value("childTable", "dummy", 2.)
 
 smallTd = tdf.TicDat()
 smallChk =  populateTd(smallTd, 30, 20)
 smallSmartTupleList = tuplelist(smallTd.childTable)
 smallDumbTupleList = DumbTupleList(smallTd.childTable)
 smallChildDf = tdf.copy_to_pandas(smallTd,["childTable"]).childTable
-checkChildDf(smallChildDf, *smallChk)
-checkTupleList(smallSmartTupleList, *smallChk)
-checkTupleList(smallDumbTupleList, *smallChk)
+checkChildDfLen(smallChildDf, *smallChk)
+checkTupleListLen(smallSmartTupleList, *smallChk)
+checkTupleListLen(smallDumbTupleList, *smallChk)
+checkChildDfSum(smallChildDf, *smallChk)
+checkTupleListSum(smallSmartTupleList, smallTd, *smallChk)
+checkTupleListSum(smallDumbTupleList, smallTd, *smallChk)
 
 medTd = tdf.TicDat()
 medChk =  populateTd(medTd, 80, 75)
 medSmartTupleList = tuplelist(medTd.childTable)
 medDumbTupleList = DumbTupleList(medTd.childTable)
 medChildDf = tdf.copy_to_pandas(medTd,["childTable"]).childTable
-checkChildDf(medChildDf, *medChk)
-checkTupleList(medSmartTupleList, *medChk)
-checkTupleList(medDumbTupleList, *medChk)
+checkChildDfLen(medChildDf, *medChk)
+checkTupleListLen(medSmartTupleList, *medChk)
+checkTupleListLen(medDumbTupleList, *medChk)
+checkChildDfSum(medChildDf, *medChk)
+checkTupleListSum(medSmartTupleList, medTd, *medChk)
+checkTupleListSum(medDumbTupleList, medTd, *medChk)
 
 bigTd = tdf.TicDat()
 bigChk =  populateTd(bigTd, 180, 125)
 bigSmartTupleList = tuplelist(bigTd.childTable)
 bigDumbTupleList = DumbTupleList(bigTd.childTable)
 bigChildDf = tdf.copy_to_pandas(bigTd,["childTable"]).childTable
-checkChildDf(bigChildDf, *bigChk)
-checkTupleList(bigSmartTupleList, *bigChk)
-checkTupleList(bigDumbTupleList, *bigChk)
+checkChildDfLen(bigChildDf, *bigChk)
+checkTupleListLen(bigSmartTupleList, *bigChk)
+checkTupleListLen(bigDumbTupleList, *bigChk)
+checkChildDfSum(bigChildDf, *bigChk)
+checkTupleListSum(bigSmartTupleList, bigTd, *bigChk)
+checkTupleListSum(bigDumbTupleList, bigTd, *bigChk)
 
 
 
