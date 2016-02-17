@@ -6,7 +6,7 @@ import collections as clt
 import utils as utils
 from utils import verify, freezable_factory, FrozenDict, FreezeableDict
 from utils import dictish, containerish, deep_freeze, lupish, safe_apply
-from string import uppercase
+from string import ascii_uppercase as uppercase
 from collections import namedtuple
 import xls
 import csvtd as csv
