@@ -4,8 +4,8 @@ PEP8
 """
 
 import os
-from utils import freezable_factory, TicDatError, verify, containerish, dictish
-import utils
+from ticdat.utils import freezable_factory, TicDatError, verify, containerish, dictish
+import ticdat.utils
 from collections import defaultdict
 
 try:

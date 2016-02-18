@@ -4,8 +4,8 @@ PEP8
 """
 import os
 from collections import defaultdict
-from utils import freezable_factory, TicDatError, verify, stringish, dictish, containerish
-from utils import FrozenDict
+from ticdat.utils import freezable_factory, TicDatError, verify, stringish, dictish, containerish
+from ticdat.utils import FrozenDict
 
 try:
     import sqlite3 as sql
