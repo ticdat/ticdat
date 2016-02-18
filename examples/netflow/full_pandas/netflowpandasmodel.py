@@ -51,16 +51,19 @@ def create_model(dat):
     # Create optimization model
     m = Model('netflow')
 
-    flow = dat.cost.join(dat.arcs, on = ["source", "destination"], how = "inner", rsuffix="_arcs").\
-              apply(lambda r : m.addVar(ub=r.capacity, obj=r.cost,
-                                        name='flow_%s_%s_%s' % (r.commodity, r.source, r.destination)),
-                    axis=1, reduce=True)
-
+    flow = dat.cost.join(dat.arcs, on = ["source", "destination"], how = "inner", rsuffix="_arcs")\
+        .apply(lambda r : m.addVar(ub=r.capacity, obj=r.cost,
+                                   name='flow_%s_%s_%s' % (r.commodity, r.source, r.destination)),
+               axis=1, reduce=True)
     m.update()
 
-    dat.arcs.join(flow.groupby(level=["source", "destination"]).aggregate({"flow": quicksum})).apply(
-        lambda r : m.addConstr(r.flow <= r.capacity, 'cap_%s_%s' % (r.source, r.destination)), axis =1)
-
+    # combining aggregate with gurobipy.quicksum is more efficient than using sum
+    flow.groupby(level=["source", "destination"])\
+        .aggregate({"flow": quicksum})\
+        .join(dat.arcs)\
+        .apply(lambda r : m.addConstr(r.flow <= r.capacity,
+                                      'cap_%s_%s' %(r.source, r.destination)),
+               axis =1)
 
     m.update()
     def flow_subtotal(node_fld, sum_field_name):
@@ -68,9 +71,15 @@ def create_model(dat):
         rtn.index.names = [u'commodity', u'node']
         return rtn
 
-    flow_subtotal("destination", "flow_in").join(dat.inflow[abs(dat.inflow.quantity) > 0].quantity, how="outer").\
-        join(flow_subtotal("source", "flow_out"), how = "outer").fillna(quicksum([])).\
-        apply(lambda r : m.addConstr(r.flow_in + r.quantity  - r.flow_out == 0, 'cap_%s_%s' % r.name), axis =1)
+    # quicksum([]) instead of the number 0 insures proper gurobipy constraints are created
+    zero_proxy = quicksum([])
+    flow_subtotal("destination", "flow_in")\
+        .join(dat.inflow[abs(dat.inflow.quantity) > 0].quantity, how="outer")\
+        .join(flow_subtotal("source", "flow_out"), how = "outer")\
+        .fillna(zero_proxy)\
+        .apply(lambda r : m.addConstr(r.flow_in + r.quantity  - r.flow_out == 0,
+                                      'cap_%s_%s' % r.name),
+               axis =1)
 
     m.update()
 
