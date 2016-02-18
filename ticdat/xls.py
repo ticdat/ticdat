@@ -2,8 +2,8 @@
 Read/write ticDat objects from xls files. Requires the xlrd/xlrt module.
 PEP8
 """
-import utils as utls
-from utils import freezable_factory, TicDatError, verify, containerish, do_it, FrozenDict
+import ticdat.utils as utils
+from ticdat.utils import freezable_factory, TicDatError, verify, containerish, do_it, FrozenDict
 import os
 from collections import defaultdict
 from itertools import product
