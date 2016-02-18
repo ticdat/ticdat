@@ -4,9 +4,9 @@ PEP8
 """
 import os
 import sys
-import utils
-from utils import freezable_factory, TicDatError, verify, stringish, dictish, containerish
-from utils import  debug_break, numericish
+import ticdat.utils
+from ticdat.utils import freezable_factory, TicDatError, verify, stringish, dictish, containerish
+from ticdat.utils import  debug_break, numericish
 
 try:
     import pypyodbc as py

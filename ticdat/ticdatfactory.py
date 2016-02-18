@@ -3,15 +3,15 @@ Create TicDatFactory. Main entry point for ticdat library.
 PEP8
 """
 import collections as clt
-import utils as utils
-from utils import verify, freezable_factory, FrozenDict, FreezeableDict
-from utils import dictish, containerish, deep_freeze, lupish, safe_apply
+import ticdat.utils as utils
+from ticdat.utils import verify, freezable_factory, FrozenDict, FreezeableDict
+from ticdat.utils import dictish, containerish, deep_freeze, lupish, safe_apply
 from string import ascii_uppercase as uppercase
 from collections import namedtuple
-import xls
-import csvtd as csv
-import sqlitetd as sql
-import mdb
+import ticdat.xls as xls
+import ticdat.csvtd as csv
+import ticdat.sqlitetd as sql
+import ticdat.mdb as mdb
 pd, DataFrame = utils.pd, utils.DataFrame # if pandas not installed will be falsey
 
 def _acceptable_default(v) :
