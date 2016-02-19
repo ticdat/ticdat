@@ -7,8 +7,7 @@
 # Solve a multi-commodity flow problem. pandas version
 
 from gurobipy import *
-from ticdat import TicDatFactory, Sloc
-import pandas as pd
+from ticdat import TicDatFactory
 
 # define the input schema.
 dataFactory = TicDatFactory (
