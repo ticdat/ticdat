@@ -28,7 +28,7 @@ dataFactory.add_foreign_key("cost", "commodities", ['commodity', 'name'])
 dataFactory.add_foreign_key("inflow", "commodities", ['commodity', 'name'])
 dataFactory.add_foreign_key("inflow", "nodes", ['node', 'name'])
 
-# the whole schema has only three data fields to type
+# the whole schema has only three data fields to type - two are default type
 dataFactory.set_data_type("arcs", "capacity")
 dataFactory.set_data_type("cost", "cost")
 # except quantity which allows negatives
