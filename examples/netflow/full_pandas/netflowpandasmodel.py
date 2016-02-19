@@ -78,7 +78,7 @@ def create_model(dat):
         .join(flow_subtotal("source", "flow_out"), how = "outer")\
         .fillna(zero_proxy)\
         .apply(lambda r : m.addConstr(r.flow_in + r.quantity  - r.flow_out == 0,
-                                      'cap_%s_%s' % r.name),
+                                      'cons_flow_%s_%s' % r.name),
                axis =1)
 
     m.update()
