@@ -12,7 +12,7 @@
 
 from cogmodel import solve, dataFactory, solutionFactory
 import os
-from ticdat import LogFactory
+from ticdat import LogFile
 
 if os.path.exists("cog.stop"):
     print "Removing the cog.stop file so that solve can proceed."
@@ -36,7 +36,9 @@ def progressFunction(progDict):
     return not os.path.exists("cog.stop")
 
 # solve the model using a generic LogFactory object
-solution = solve(dat, LogFactory(), progressFunction)
+with LogFile("output.txt") as out :
+    with LogFile("error.txt") as err :
+        solution = solve(dat, out, err, progressFunction)
 
 if solution :
     print('\n\nUpper Bound   : %g' % solution.parameters["Upper Bound"]["value"])
