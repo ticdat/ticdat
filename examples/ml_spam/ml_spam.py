@@ -72,7 +72,7 @@ def run(td, output, error):
     soln = solnFactory.TicDat()
 
     if params["mode"] == "fit":
-        spam_detector = svm_detector = _grid_svm(messages.label).fit(messages.message, messages.label)
+        spam_detector  = _grid_svm(messages.label).fit(messages.message, messages.label)
         soln.parameters["fitted CLOB"] = cPickle.dumps(spam_detector)
         output.write("Fitted %s records\n"%len(messages))
         return soln
