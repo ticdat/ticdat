@@ -18,6 +18,6 @@ The ticDat library is distributed under the BSD2 open source license.
 """
 
 from ticdat.ticdatfactory import TicDatFactory, freeze_me
-from ticdat.logfile import LogFactory
+from ticdat.logfile import LogFile, GurobiCallBackAndLog
 from ticdat.utils import Sloc
-__all__ = ["TicDatFactory", "freeze_me", "LogFactory", "Sloc"]
+__all__ = ["TicDatFactory", "freeze_me", "LogFile", "Sloc", "GurobiCallBackAndLog"]
