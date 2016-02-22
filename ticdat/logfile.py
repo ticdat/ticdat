@@ -3,7 +3,7 @@ Simple logging override for ticdat
 PEP8
 """
 
-class _Logfile(object) :
+class LogFile(object) :
     def __init__(self, path):
         self._f = open(path, "w")
     def write(self, *args, **kwargs):
@@ -21,11 +21,11 @@ class _Logfile(object) :
             self.write(formatter(b) + "\n")
         self.write("\n")
 
-class _GurobiCallBackAndLog(object):
+class GurobiCallBackAndLog(object):
     def __init__(self, file_path = None, call_back_handler = lambda l,u : True):
         self.call_back_handler = call_back_handler
         if file_path:
-            self._log_file = _Logfile(file_path)
+            self._log_file = Logfile(file_path)
     def __enter__(self):
         return self
     def __exit__(self, exc_type, exc_val, exc_tb):
@@ -52,11 +52,4 @@ class _GurobiCallBackAndLog(object):
                 self._log_file.write(msg)
         return gurobi_call_back
 
-class LogFactory(object):
-    @property
-    def LogFile(self):
-        return _Logfile
-    @property
-    def GurobiCallBackAndLog(self):
-        return _GurobiCallBackAndLog
 
