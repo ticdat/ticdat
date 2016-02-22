@@ -67,7 +67,7 @@ def run(td, output, error):
     messages = dataFactory.copy_to_pandas(td).messages
 
     # it's hard to get the type just right when reading with the csv routines.
-    # to be save, casting to strings to insure that purely numeric strings are still strings
+    # to be safe, casting to strings to insure that purely numeric strings are still strings
     # this is needed for a text analysis like this example, not generally needed
     messages.message = messages.message.apply(str)
 
