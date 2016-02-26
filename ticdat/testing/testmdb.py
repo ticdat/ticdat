@@ -10,6 +10,12 @@ import shutil
 #uncomment decorator to drop into debugger for assertTrue, assertFalse failures
 #@failToDebugger
 class TestMdb(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        makeCleanDir(_scratchDir)
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(_scratchDir)
     def firesException(self, f):
         e = firesException(f)
         if e :
@@ -138,9 +144,7 @@ def runTheTests(fastOnly=True) :
     if not td.mdb.can_write_new_file :
         print "!!!!!!!!!FAILING MDB UNIT TESTS DUE TO FAILURE TO WRITE NEW MDB FILES!!!!!!!!"
         return
-    makeCleanDir(_scratchDir)
     runSuite(TestMdb, fastOnly=fastOnly)
-    shutil.rmtree(_scratchDir)
 
 # Run the tests.
 if __name__ == "__main__":
