@@ -5,15 +5,15 @@ PEP8
 
 class LogFile(object) :
     def __init__(self, path):
-        self._f = open(path, "w")
+        self._f = open(path, "w") if path else None
     def write(self, *args, **kwargs):
-        self._f.write(*args, **kwargs)
+        self._f.write(*args, **kwargs) if self._f else None
     def __enter__(self):
         return self
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
     def close(self):
-        self._f.close()
+        self._f.close()if self._f else None
     def long_sequence(self, seq, formatter = lambda _ : "%s"%_, max_write = 10) :
         if len(seq) > max_write:
           self.write("(Showing first %s entries out of %s in total)\n"%(max_write, len(seq)))
@@ -25,7 +25,7 @@ class GurobiCallBackAndLog(object):
     def __init__(self, file_path = None, call_back_handler = lambda l,u : True):
         self.call_back_handler = call_back_handler
         if file_path:
-            self._log_file = Logfile(file_path)
+            self._log_file = LogFile(file_path)
     def __enter__(self):
         return self
     def __exit__(self, exc_type, exc_val, exc_tb):
