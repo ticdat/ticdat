@@ -47,9 +47,19 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
         caveats: Missing sheets resolve to an empty table, but missing fields
                  on matching sheets throw an Exception.
                  Sheet names are considered case insensitive
+                 Any field for which an empty string is invalid data and None is valid data
+                 will replace the empty string with None. (This caveat requires the data_types
+                 to be set for the ticDatFactory)
         """
         rtn =  self.tic_dat_factory.TicDat(**self._create_tic_dat
                                           (xls_file_path, row_offsets, headers_present))
+        for t, dfs in self.tic_dat_factory.data_types.items():
+            replaceable = {df for df, dt in dfs.items()
+                           if (not dt.valid_data('')) and dt.valid_data(None)}
+            for r in getattr(rtn, t).values():
+                for k in replaceable:
+                    if r[k] == '':
+                        r[k] = None
         if freeze_it:
             return self.tic_dat_factory.freeze_me(rtn)
         return rtn

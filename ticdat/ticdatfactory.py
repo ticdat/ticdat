@@ -5,13 +5,14 @@ PEP8
 import collections as clt
 import utils as utils
 from utils import verify, freezable_factory, FrozenDict, FreezeableDict
-from utils import dictish, containerish, deep_freeze, lupish
+from utils import dictish, containerish, deep_freeze, lupish, safe_apply
 from string import uppercase
 from collections import namedtuple
 import xls
 import csvtd as csv
 import sqlitetd as sql
 import mdb
+pd = utils.pd # if pandas not installed this will be falsey
 
 def _acceptable_default(v) :
     return utils.numericish(v) or utils.stringish(v) or (v is None)
@@ -39,8 +40,9 @@ class _ForeignKey(namedtuple("ForeignKey", ("native_table", "foreign_table", "ma
 
 _ForeignKeyMapping = namedtuple("FKMapping", ("native_field", "foreign_field"))
 
-class _TypeDictionary(namedtuple("TypeDictionary", ("number_allowed", "strings_allowed", "nullable",
-                                        "min", "max", "inclusive_min", "inclusive_max","must_be_int"))):
+# can I get away with ordering this consistently with the function? hopefully I can!
+class _TypeDictionary(namedtuple("TypeDictionary", ("number_allowed", "inclusive_min", "inclusive_max", "min", "max",
+                                                    "must_be_int", "strings_allowed", "nullable",))):
     def valid_data(self, data):
         if utils.numericish(data):
             if not self.number_allowed:
@@ -51,7 +53,8 @@ class _TypeDictionary(namedtuple("TypeDictionary", ("number_allowed", "strings_a
                 return False
             if (not self.inclusive_max) and (data  == self.max):
                 return False
-            if (self.must_be_int) and (int(data) != data):
+            if (self.must_be_int) and (safe_apply(int)(data) != data) and \
+               not (data == self.max == float("inf") and self.inclusive_max):
                 return False
             return True
         if utils.stringish(data):
@@ -77,14 +80,57 @@ class TicDatFactory(freezable_factory(object, "_isFrozen")) :
     @property
     def data_fields(self):
         return self._data_fields
-    def schema(self):
+    def schema(self, include_ancillary_info = False):
         """
+        :param include_ancillary_info: if True, include all the foreign key, default, and data type information
+                                       as well. Otherwise, just return table-fields dictionary
         :return: a dictionary with table name mapping to a list of lists
                  defining primary key fields and data fields
+                 If include_ancillary_info, this table-fields dictionary is just one entry in a more comprehensive
+                 dictionary.
         """
-        return {t: [list(self.primary_key_fields.get(t, [])),
-                    list(self.data_fields.get(t, []))]
-                for t in set(self.primary_key_fields).union(self.data_fields)}
+        tables_fields = {t: [list(self.primary_key_fields.get(t, [])),
+                             list(self.data_fields.get(t, []))]
+                          for t in set(self.primary_key_fields).union(self.data_fields)}
+        if not include_ancillary_info:
+            return tables_fields
+        return {"tables_fields" : tables_fields,
+                "foreign_keys" : self.foreign_keys,
+                "default_values" : self.default_values,
+                "data_types" : self.data_types}
+    @staticmethod
+    def create_from_full_schema(full_schema):
+        """
+        create a TicDatFactory complete with default values, data types, and foreign keys
+        :param full_schema: a dictionary consistent with the data returned by a call to schema()
+                            with include_ancillary_info = True
+        :return: a TicDatFactory reflecting the tables, fields, default values, data types,
+                 and foreign keys consistent with the full_schema argument
+        """
+        verify(dictish(full_schema) and set(full_schema) == {"tables_fields", "foreign_keys",
+                                                             "default_values", "data_types"},
+               "full_schema should be the result of calling schema(True) for some TicDatFactory")
+        fks = full_schema["foreign_keys"]
+        verify( (not fks) or (lupish(fks) and all(lupish(_) and len(_) >= 3 for _ in fks)),
+                "foreign_keys entry poorly formed")
+        dts = full_schema["data_types"]
+        verify( (not dts) or (dictish(dts) and all(map(dictish, dts.values())) and
+                              all(all(map(lupish, _.values())) for _ in dts.values())),
+                "data_types entry poorly formatted")
+        dvs = full_schema["default_values"]
+        verify( (not dvs) or (dictish(dvs) and all(map(dictish, dvs.values()))),
+                "default_values entry poorly formatted")
+
+        rtn = TicDatFactory(**full_schema["tables_fields"])
+        for fk in (fks or []):
+            rtn.add_foreign_key(*fk[:3])
+        for t,fds in (dts or {}).items():
+            for f,dt in fds.items():
+                rtn.set_data_type(t, f, *dt)
+        for t,fdvs in (dvs or {}).items():
+            for f, dv in fdvs.items():
+                rtn.set_default_value(t,f,dv)
+        return rtn
     @property
     def generator_tables(self):
         return deep_freeze(self._generator_tables)
@@ -711,6 +757,43 @@ foreign keys, the code throwing this exception will be removed.
                "tic_dat not a good object for this factory : %s"%"\n".join(msg))
         rtn = self.TicDat(**{t:getattr(tic_dat, t) for t in self.all_tables})
         return self.freeze_me(rtn) if freeze_it else rtn
+    def copy_to_pandas(self, tic_dat, table_restrictions = None):
+        """
+        copies the tic_dat object into a new tic_dat object populated with data_frames
+        performs a deep copy
+        :param tic_dat: a ticdat object
+        :param table_restrictions: boolean. should the returned object be frozen?
+        :return: a deep copy of the tic_dat argument into DataFrames
+        """
+        verify(pd, "pandas needs to be installed in order to enable pandas functionality")
+        msg  = []
+        verify(self.good_tic_dat_object(tic_dat, msg.append),
+               "tic_dat not a good object for this factory : %s"%"\n".join(msg))
+        table_restrictions = table_restrictions or self.all_tables
+        verify(containerish(table_restrictions) and
+               set(table_restrictions).issubset(self.all_tables),
+           "if provided, table_restrictions should be a subset of the table names")
+        class PandasTicDat(object):
+            def __repr__(self):
+                return "td:" + tuple(table_restrictions).__repr__()
+        rtn = PandasTicDat()
+        for tname in table_restrictions:
+            tdtable = getattr(tic_dat, tname)
+            if dictish(tdtable):
+                pks = self.primary_key_fields[tname]
+                df = pd.DataFrame([ (list(k) if containerish(k) else [k]) +
+                                [v[_] for _ in self.data_fields.get(tname,[])]
+                              for k,v in sorted(getattr(tic_dat, tname).items())],
+                              columns = pks + self.data_fields.get(tname, tuple()))
+                df.index= pd.MultiIndex.from_tuples(tuple(map(tuple, df[list(pks)].values)), names=pks)
+                for pk in pks:
+                    df = df.drop(pk, 1)
+                utils.Sloc.add_sloc(df)
+            else :
+                df = None # TEMP
+                verify(False, "not impemented yet!!!")
+            setattr(rtn, tname, df)
+        return rtn
     def freeze_me(self, tic_dat):
         """
         Freezes a ticdat object
