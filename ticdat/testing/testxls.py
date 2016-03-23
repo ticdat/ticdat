@@ -9,6 +9,12 @@ import shutil
 #uncomment decorator to drop into debugger for assertTrue, assertFalse failures
 #@failToDebugger
 class TestXls(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        makeCleanDir(_scratchDir)
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(_scratchDir)
     def firesException(self, f):
         e = firesException(f)
         if e :
@@ -185,9 +191,8 @@ def runTheTests(fastOnly=True) :
     if not hasattr(td, "xls") :
         print "!!!!!!!!!FAILING XLS UNIT TESTS DUE TO FAILURE TO LOAD XLS LIBRARIES!!!!!!!!"
         return
-    makeCleanDir(_scratchDir)
     runSuite(TestXls, fastOnly=fastOnly)
-    shutil.rmtree(_scratchDir)
+
 # Run the tests.
 if __name__ == "__main__":
     runTheTests()

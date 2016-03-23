@@ -10,6 +10,12 @@ from ticdat.testing.ticdattestutils import  makeCleanDir, runSuite
 
 #@failToDebugger
 class TestCsv(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        makeCleanDir(_scratchDir)
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(_scratchDir)
     def firesException(self, f):
         e = firesException(f)
         if e :
@@ -162,9 +168,7 @@ def runTheTests(fastOnly=True) :
     if not hasattr(td, "csv") :
         print "!!!!!!!!!FAILING CSV UNIT TESTS DUE TO FAILURE TO LOAD CSV LIBRARIES!!!!!!!!"
         return
-    makeCleanDir(_scratchDir)
     runSuite(TestCsv, fastOnly=fastOnly)
-    shutil.rmtree(_scratchDir)
 # Run the tests.
 if __name__ == "__main__":
     runTheTests()

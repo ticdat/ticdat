@@ -96,4 +96,3 @@ def solve(dat):
                 # ticdat recognizes flow as a one-data-field table, thus making write through easy
                 rtn.flow[h,i,j] = var.x
         return rtn
-

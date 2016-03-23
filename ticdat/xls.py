@@ -2,8 +2,8 @@
 Read/write ticDat objects from xls files. Requires the xlrd/xlrt module.
 PEP8
 """
-import utils as utls
-from utils import freezable_factory, TicDatError, verify, containerish, do_it, FrozenDict
+import ticdat.utils as utils
+from ticdat.utils import freezable_factory, TicDatError, verify, containerish, do_it, FrozenDict
 import os
 from collections import defaultdict
 from itertools import product
@@ -99,9 +99,9 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
         return tableObj
 
     def _create_tic_dat(self, xls_file_path, row_offsets, headers_present):
-        verify(utls.dictish(row_offsets) and
+        verify(utils.dictish(row_offsets) and
                set(row_offsets).issubset(self.tic_dat_factory.all_tables) and
-               all(utls.numericish(x) and (x>=0) for x in row_offsets.values()),
+               all(utils.numericish(x) and (x>=0) for x in row_offsets.values()),
                "row_offsets needs to map from table names to non negative row offset")
         row_offsets = dict({t:0 for t in self.tic_dat_factory.all_tables}, **row_offsets)
         tdf = self.tic_dat_factory
@@ -147,9 +147,9 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
                  Excel sheet with this primary key. Row counts smaller than 2 are pruned off,
                  as they aren't duplicates
         """
-        verify(utls.dictish(row_offsets) and
+        verify(utils.dictish(row_offsets) and
                set(row_offsets).issubset(self.tic_dat_factory.all_tables) and
-               all(utls.numericish(x) and (x>=0) for x in row_offsets.values()),
+               all(utils.numericish(x) and (x>=0) for x in row_offsets.values()),
                "row_offsets needs to map from table names to non negative row offset")
         row_offsets = dict({t:0 for t in self.tic_dat_factory.all_tables}, **row_offsets)
         tdf = self.tic_dat_factory
@@ -219,7 +219,7 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
             for i,f in enumerate(tdf.primary_key_fields.get(t,()) + tdf.data_fields.get(t, ())) :
                 sheet.write(0, i, f)
             _t = getattr(tic_dat, t)
-            if utls.dictish(_t) :
+            if utils.dictish(_t) :
                 for row_ind, (p_key, data) in enumerate(_t.items()) :
                     for field_ind, cell in enumerate( (p_key if containerish(p_key) else (p_key,)) +
                                         tuple(data[_f] for _f in tdf.data_fields.get(t, ()))):
