@@ -519,7 +519,7 @@ foreign keys, the code throwing this exception will be removed.
                         v = DataFrame(v)
                         v.rename(columns = {v.columns[0] : superself.data_fields[t][0]}, inplace=True)
                     if DataFrame and isinstance(v, DataFrame):
-                      row_dict = lambda r : {df:getattr(r, df) for df in superself.data_fields.get(t, ())}
+                      row_dict = lambda r : {df:r[df] for df in superself.data_fields.get(t, ())}
                       setattr(self, t, ticdattablefactory(self._all_data_dicts, t)())
                       if superself.primary_key_fields.get(t) :
                           def add_row(r):
