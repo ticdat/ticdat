@@ -38,7 +38,7 @@ solutionFactory = TicDatFactory(
 
 
 
-def create_model(dat):
+def _create_model(dat):
     '''
     :param dat: a good ticdat for the dataFactory
     :return: a gurobi model and dictionary of gurboi flow variables
@@ -84,7 +84,7 @@ def create_model(dat):
     return m, flow
 
 def solve(dat):
-    m, flow = create_model(dat)
+    m, flow = _create_model(dat)
 
     # Compute optimal solution
     m.optimize()

@@ -12,6 +12,5 @@ anonymize and archive your testing data.
 
 This directory is meant to demonstrate a standalone repo. As such, it duplicates the `netflowmodel.py` file.
 
-To run the `testnetflow.py` you need your Python path to include the directory that contains this README file,
-or you need your current directory to symbolically link to the `netflow` subdirectory.
+To run the `testnetflow.py` you need your Python path to include the directory that contains this README file.
 
