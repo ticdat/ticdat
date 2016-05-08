@@ -369,6 +369,6 @@ def xlsExamine(xls_file_path):
         raise ticdat.utils.TicDatError("Unable to open %s as xls file : %s"%(xls_file_path, e.message))
     rtn = {}
     for sheet in book.sheets():
-        rtn[sheet.name] = sheet.row_values(0)
+        rtn[sheet.name.replace(" ", "_")] = sheet.row_values(0)
     return rtn
 
