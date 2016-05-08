@@ -343,3 +343,32 @@ def sillyMeData() :
         "b" : {(1, 2, 3) : 1, ("a", "b", "b") : 12},
         "c" : ((1, 2, 3, 4), ("a", "b", "c", "d"), ("a", "b", 12, 24) )
     }
+
+def spacesSchema() :
+    return {"a_table" : [("a Field",),("a Data 1", "a Data 2", "a Data 3") ],
+            "b_table" : [("b Field 1", "b Field 2", "b Field 3"), ["b Data"]],
+            "c_table" : [[],("c Data 1", "c Data 2", "c Data 3", "c Data 4")]}
+
+def spacesData() :
+    return {
+        "a_table" : {1 : {"a Data 3":3, "a Data 2":2, "a Data 1":1},
+                     "b" : ("b", "d", 12), 0.23 : (11, 12, "thirt")},
+        "b_table" : {(1, 2, 3) : 1, ("a", "b", "b") : 12},
+        "c_table" : ((1, 2, 3, 4),
+                      {"c Data 4":"d", "c Data 2":"b", "c Data 3":"c", "c Data 1":"a"},
+                      ("a", "b", 12, 24) )
+    }
+
+def xlsExamine(xls_file_path):
+    assert os.path.isfile(xls_file_path)
+    import xlrd
+    import ticdat.utils
+    try :
+        book = xlrd.open_workbook(xls_file_path)
+    except Exception as e:
+        raise ticdat.utils.TicDatError("Unable to open %s as xls file : %s"%(xls_file_path, e.message))
+    rtn = {}
+    for sheet in book.sheets():
+        rtn[sheet.name] = sheet.row_values(0)
+    return rtn
+

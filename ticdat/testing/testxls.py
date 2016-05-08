@@ -4,6 +4,7 @@ import ticdat.utils as utils
 from ticdat.ticdatfactory import TicDatFactory
 from ticdat.testing.ticdattestutils import dietData, dietSchema, netflowData, netflowSchema, firesException
 from ticdat.testing.ticdattestutils import sillyMeData, sillyMeSchema, makeCleanDir, failToDebugger, runSuite
+from ticdat.testing.ticdattestutils import spacesData, spacesSchema
 import shutil
 
 #uncomment decorator to drop into debugger for assertTrue, assertFalse failures
@@ -162,6 +163,38 @@ class TestXls(unittest.TestCase):
         rowCount = tdf.xls.get_duplicates(filePath)
         self.assertTrue(set(rowCount) == {'a', 'b'} and set(rowCount["a"]) == {1} and rowCount["a"][1]==3)
         self.assertTrue(set(rowCount["b"]) == {(1,20,30)} and rowCount["b"][1,20,30]==2)
+
+    def testSpacey(self):
+        tdf = TicDatFactory(**spacesSchema())
+        ticDat = tdf.TicDat(**spacesData())
+        def writeData(insert_spaces):
+            import xlwt
+            book = xlwt.Workbook()
+            for t in tdf.all_tables :
+                sheet = book.add_sheet(t.replace("_", " " if insert_spaces else "_"))
+                for i,f in enumerate(tdf.primary_key_fields.get(t, ()) + tdf.data_fields.get(t, ())) :
+                    sheet.write(0, i, f)
+                _t = getattr(ticDat, t)
+                containerish = utils.containerish
+                if utils.dictish(_t) :
+                    for row_ind, (p_key, data) in enumerate(_t.items()) :
+                        for field_ind, cell in enumerate( (p_key if containerish(p_key) else (p_key,)) +
+                                            tuple(data[_f] for _f in tdf.data_fields.get(t, ()))):
+                            sheet.write(row_ind+1, field_ind, cell)
+                else :
+                    for row_ind, data in enumerate(_t if containerish(_t) else _t()) :
+                        for field_ind, cell in enumerate(tuple(data[_f] for _f in tdf.data_fields[t])) :
+                            sheet.write(row_ind+1, field_ind, cell)
+            if os.path.exists(filePath):
+                os.remove(filePath)
+            book.save(filePath)
+        filePath = os.path.join(_scratchDir, "spaces.xls")
+        writeData(insert_spaces=False)
+        ticDat2 = tdf.xls.create_tic_dat(filePath)
+        self.assertTrue(tdf._same_data(ticDat, ticDat2))
+        writeData(insert_spaces=True)
+        ticDat3 = tdf.xls.create_tic_dat(filePath)
+        self.assertTrue(tdf._same_data(ticDat, ticDat3))
 
 
     def testRowOffsets(self):
