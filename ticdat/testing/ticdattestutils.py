@@ -359,3 +359,16 @@ def spacesData() :
                       ("a", "b", 12, 24) )
     }
 
+def xlsExamine(xls_file_path):
+    assert os.path.isfile(xls_file_path)
+    import xlrd
+    import ticdat.utils
+    try :
+        book = xlrd.open_workbook(xls_file_path)
+    except Exception as e:
+        raise ticdat.utils.TicDatError("Unable to open %s as xls file : %s"%(xls_file_path, e.message))
+    rtn = {}
+    for sheet in book.sheets():
+        rtn[sheet.name] = sheet.row_values(0)
+    return rtn
+
