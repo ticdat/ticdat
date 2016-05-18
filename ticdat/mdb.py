@@ -40,8 +40,8 @@ class MdbTicFactory(freezable_factory(object, "_isFrozen")) :
     def __init__(self, tic_dat_factory):
         """
         Don't create this object explicitly. A MdbTicDatFactory will
-        automatically be associated with the parent TicDatFactory if your
-        system has the required pypyodbc packages.
+        automatically be associated with the mdb attribute of the parent
+        TicDatFactory if your system has the required pypyodbc packages.
         :param tic_dat_factory:
         :return:
         """

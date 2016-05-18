@@ -24,8 +24,8 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
     def __init__(self, tic_dat_factory):
         """
         Don't create this object explicitly. A XlsTicDatFactory will
-        automatically be associated with the parent TicDatFactory if your system
-        has the required xlrd, xlwt packages.
+        automatically be associated with the xls attribute of the parent
+        TicDatFactory if your system has the required xlrd, xlwt packages.
         :param tic_dat_factory:
         :return:
         """
