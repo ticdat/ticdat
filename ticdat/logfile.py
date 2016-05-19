@@ -4,6 +4,10 @@ PEP8
 """
 
 class LogFile(object) :
+    """
+    Utility class for writing log files to the Opalytics Cloud Platform.
+    Also enables writing on-the-fly tables into log files.
+    """
     def __init__(self, path):
         self._f = open(path, "w") if path else None
     def write(self, *args, **kwargs):
@@ -14,7 +18,24 @@ class LogFile(object) :
         self.close()
     def close(self):
         self._f.close()if self._f else None
-    def long_sequence(self, seq, formatter = lambda _ : "%s"%_, max_write = 10) :
+    def log_table(self, table_name, seq, formatter = lambda _ : "%s"%_,
+                  max_write = 10) :
+        """
+        Writes a table to the log file. Extremely useful functionality for
+        on the fly errors, warnings and diagnostics.
+        :param log_table : the name to be given to the logged table
+        :param seq: An iterable of iterables. The first iterable
+                    lists the field names for the table. The remaining iterables
+                    list the column values for each row. The outer iterable
+                    is thus of length num_rows - 1, while each of the inner
+                    iterables are of length num_cols - 1.
+        :param formatter: a function used to turn column entries into strings
+        :param max_write: the maximum number of table entries to write
+                          to the actual log file. In the Opalytics Cloud Platform,
+                          the log file will link to a scrollable, sortable grid
+                          with all the table entries.
+        :return:
+        """
         if len(seq) > max_write:
           self.write("(Showing first %s entries out of %s in total)\n"%(max_write, len(seq)))
         for b in list(seq)[:max_write]:
