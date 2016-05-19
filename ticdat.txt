@@ -507,7 +507,8 @@ CLASSES
      |               If include_ancillary_info, this table-fields dictionary is just one entry in a more comprehensive
      |               dictionary.
      |  
-     |  set_data_type(self, table, field, number_allowed=True, inclusive_min=True, inclusive_max=False, min=0, max=inf, must_be_int=False, strings_allowed=(), nullable=False)
+     |  set_data_type(self, table, field, number_allowed=True, inclusive_min=True, inclusive_max=False, 
+     |                      min=0, max=inf, must_be_int=False, strings_allowed=(), nullable=False)
      |      sets the data type for a field. By default, fields don't have types. Adding a data type doesn't block
      |      data of the wrong type from being entered. Data types are useful for recognizing errant data entries
      |      with find_data_type_failures(). Errant data entries can be replaced with replace_data_type_failures().
