@@ -1,15 +1,18 @@
 import os
-import unittest
+
 import ticdat.utils as utils
 import shutil
 from ticdat.ticdatfactory import TicDatFactory
 from ticdat.testing.ticdattestutils import dietData, dietSchema, netflowData
 from ticdat.testing.ticdattestutils import  netflowSchema, firesException
 from ticdat.testing.ticdattestutils import sillyMeData, sillyMeSchema, failToDebugger
-from ticdat.testing.ticdattestutils import  makeCleanDir, runSuite
+from ticdat.testing.ticdattestutils import  makeCleanDir
 
-#@failToDebugger
-class TestCsv(unittest.TestCase):
+td = TicDatFactory()
+if hasattr(td, "csv") :
+ import unittest
+ #@failToDebugger
+ class TestCsv(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         makeCleanDir(_scratchDir)
@@ -161,15 +164,12 @@ class TestCsv(unittest.TestCase):
 
         utils.do_it(doTest(x) for x in (True, False))
 
-_scratchDir = TestCsv.__name__ + "_scratch"
+ _scratchDir = TestCsv.__name__ + "_scratch"
 
-def runTheTests(fastOnly=True) :
-    td = TicDatFactory()
-    if not hasattr(td, "csv") :
-        print "!!!!!!!!!FAILING CSV UNIT TESTS DUE TO FAILURE TO LOAD CSV LIBRARIES!!!!!!!!"
-        return
-    runSuite(TestCsv, fastOnly=fastOnly)
 # Run the tests.
 if __name__ == "__main__":
-    runTheTests()
+    if not hasattr(td, "csv") :
+        print "!!!!!!!!!FAILING CSV UNIT TESTS DUE TO FAILURE TO LOAD CSV LIBRARIES!!!!!!!!"
+    else :
+        unittest.main()
 

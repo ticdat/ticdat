@@ -4,6 +4,7 @@ from shutil import rmtree
 import itertools
 import fnmatch
 from ticdat.utils import dictish, containerish
+import unittest
 
 __codeFile = []
 def _codeFile() :
@@ -33,6 +34,11 @@ def firesException(f) :
 
 
 def failToDebugger(cls) :
+    """
+    decorator to allow a unittest class to enter the debugger if a unit test fails
+    :param cls: a unittest class
+    :return: cls decorated so as to fail to the ipdb debugger
+    """
     def _failToDebugger(x) :
         if not (x) :
             import ipdb; ipdb.set_trace()
@@ -40,32 +46,29 @@ def failToDebugger(cls) :
     cls.assertTrue = lambda s,x : _failToDebugger(x)
     cls.assertFalse = lambda s,x : _failToDebugger(not x)
     cls.failToDebugger = True
+    unittest.main = lambda : _runSuite(cls)
     return cls
 
 def flaggedAsRunAlone(f):
+    """
+    a decorator to flag a unittest test function to be the sole test run the runSuite function
+    :param f: a unittest test function
+    :return: the same function decorated for runSuite
+    """
     f.runAlone = True
     return f
 
-
-def runSuite(cls, **kwargs ):
-    # call with fastOnly = True or fastOnly = False as the only args
-    assert (len(kwargs) == 1) and ('fastOnly' in kwargs)
-    fastOnly = kwargs['fastOnly']
-    assert (fastOnly == True) or (fastOnly == False)
+def _runSuite(cls):
     _rtn = [getattr(cls, x) for x in dir(cls)
            if x.startswith("test")]
     assert all(callable(x) for x in _rtn)
 
     runalones = [x for x in _rtn if  hasattr(x, "runAlone")]
-    assert len(runalones) <= 1
+    assert len(runalones) <= 1, "you specified more than one to runAlone!"
     if runalones:
         _rtn = [runalones[0].__name__]
     else:
-        _rtn = [x.__name__ for x in _rtn if
-                 ((not fastOnly) or
-                  (not getattr(x, "slow", False))) and
-                 ((DEBUG()) or
-                  (not getattr(x, "skipForRelease", False)))]
+        _rtn = [x.__name__ for x in _rtn ]
 
     suite = unittest.TestSuite()
     for x in _rtn :
@@ -76,7 +79,6 @@ def runSuite(cls, **kwargs ):
         print "!!! Debugged suite for " + str(cls) + " !!!\n"
     else :
         unittest.TextTestRunner().run(suite)
-
 
 def unixWildCardDir(dirPath, unixStyleStr, fullPath = True, collapseSingleton = True, allowLinks = False) :
     assert os.path.isdir(dirPath)
@@ -108,21 +110,6 @@ def findAllFiles(path, extensions) :
     assert os.path.isdir(path)
     return list(itertools.chain(*[findAllUnixWildCard(path, "*" + x) for x in extensions]))
 
-def zipBackUp(sourceFilePaths, destDir, destBaseName):
-    import zipfile
-    assert len(sourceFilePaths) and os.path.isdir(destDir)
-
-    appender = 0
-    backUpFilePath = lambda : os.path.join(destDir, destBaseName + str(appender) + ".zip")
-    while os.path.exists(backUpFilePath()) :
-        appender += 1
-    print "backing up " + str(len(sourceFilePaths)) + " files to " + backUpFilePath()
-    zf = zipfile.ZipFile(backUpFilePath(), 'w')
-    for x in set(sourceFilePaths) :
-        zf.write(x)
-    zf.close()
-
-
 def makeCleanDir(path) :
     assert not os.path.exists(path) or os.path.isdir(path)
     rmtree(path, ignore_errors = True)
@@ -136,13 +123,27 @@ def makeCleanPath(path) :
             os.remove(path)
     return path
 
-
 #assert is magic. It  can't be passed around directly. Lambda encapsulation lets us pass around a proxy. Yay lambda
 def assertTrue(x) :
     assert (x)
 
 def assertFalse(x) :
     assert (not x)
+
+def spacesSchema() :
+    return {"a_table" : [("a Field",),("a Data 1", "a Data 2", "a Data 3") ],
+            "b_table" : [("b Field 1", "b Field 2", "b Field 3"), ["b Data"]],
+            "c_table" : [[],("c Data 1", "c Data 2", "c Data 3", "c Data 4")]}
+
+def spacesData() :
+    return {
+        "a_table" : {1 : {"a Data 3":3, "a Data 2":2, "a Data 1":1},
+                     "b" : ("b", "d", 12), 0.23 : (11, 12, "thirt")},
+        "b_table" : {(1, 2, 3) : 1, ("a", "b", "b") : 12},
+        "c_table" : ((1, 2, 3, 4),
+                      {"c Data 4":"d", "c Data 2":"b", "c Data 3":"c", "c Data 1":"a"},
+                      ("a", "b", 12, 24) )
+    }
 
 def assertTicDatTablesSame(t1, t2, _goodTicDatTable,
                            _assertTrue = assertTrue, _assertFalse = assertFalse) :
@@ -343,32 +344,3 @@ def sillyMeData() :
         "b" : {(1, 2, 3) : 1, ("a", "b", "b") : 12},
         "c" : ((1, 2, 3, 4), ("a", "b", "c", "d"), ("a", "b", 12, 24) )
     }
-
-def spacesSchema() :
-    return {"a_table" : [("a Field",),("a Data 1", "a Data 2", "a Data 3") ],
-            "b_table" : [("b Field 1", "b Field 2", "b Field 3"), ["b Data"]],
-            "c_table" : [[],("c Data 1", "c Data 2", "c Data 3", "c Data 4")]}
-
-def spacesData() :
-    return {
-        "a_table" : {1 : {"a Data 3":3, "a Data 2":2, "a Data 1":1},
-                     "b" : ("b", "d", 12), 0.23 : (11, 12, "thirt")},
-        "b_table" : {(1, 2, 3) : 1, ("a", "b", "b") : 12},
-        "c_table" : ((1, 2, 3, 4),
-                      {"c Data 4":"d", "c Data 2":"b", "c Data 3":"c", "c Data 1":"a"},
-                      ("a", "b", 12, 24) )
-    }
-
-def xlsExamine(xls_file_path):
-    assert os.path.isfile(xls_file_path)
-    import xlrd
-    import ticdat.utils
-    try :
-        book = xlrd.open_workbook(xls_file_path)
-    except Exception as e:
-        raise ticdat.utils.TicDatError("Unable to open %s as xls file : %s"%(xls_file_path, e.message))
-    rtn = {}
-    for sheet in book.sheets():
-        rtn[sheet.name.replace(" ", "_")] = sheet.row_values(0)
-    return rtn
-

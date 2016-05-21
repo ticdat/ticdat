@@ -1,15 +1,16 @@
 import os
-import unittest
 import ticdat.utils as utils
 import shutil
 from ticdat.ticdatfactory import TicDatFactory, DataFrame
 from ticdat.testing.ticdattestutils import dietData, dietSchema, netflowData
 from ticdat.testing.ticdattestutils import  netflowSchema, firesException
 from ticdat.testing.ticdattestutils import sillyMeData, sillyMeSchema, failToDebugger
-from ticdat.testing.ticdattestutils import  makeCleanDir, runSuite, addNetflowForeignKeys
+from ticdat.testing.ticdattestutils import  makeCleanDir, addNetflowForeignKeys
 
-#@failToDebugger
-class TestPandas(unittest.TestCase):
+if DataFrame:
+ import unittest
+ #@failToDebugger
+ class TestPandas(unittest.TestCase):
     def testDiet(self):
         tdf = TicDatFactory(**dietSchema())
         tdf.enable_foreign_key_links()
@@ -97,16 +98,10 @@ class TestPandas(unittest.TestCase):
         rebornTicDat = tdf.TicDat(**{t:getattr(ticDat, t) for t in tdf.all_tables})
         self.assertTrue(tdf._same_data(rebornTicDat, oldDat))
 
-
-
-
-
-def runTheTests(fastOnly=True) :
-    if not DataFrame :
-        print "!!!!!!!!!FAILING PANDAS UNIT TESTS DUE TO FAILURE TO LOAD PANDAS LIBRARIES!!!!!!!!"
-        return
-    runSuite(TestPandas, fastOnly=fastOnly)
 # Run the tests.
 if __name__ == "__main__":
-    runTheTests()
+    if not DataFrame :
+        print "!!!!!!!!!FAILING PANDAS UNIT TESTS DUE TO FAILURE TO LOAD PANDAS LIBRARIES!!!!!!!!"
+    else:
+        unittest.main()
 

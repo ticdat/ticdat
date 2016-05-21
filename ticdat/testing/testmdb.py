@@ -1,15 +1,17 @@
 import os
-import unittest
 import ticdat.utils as utils
 from ticdat.ticdatfactory import TicDatFactory
 from ticdat.testing.ticdattestutils import dietData, dietSchema, netflowData, netflowSchema, firesException
-from ticdat.testing.ticdattestutils import sillyMeData, sillyMeSchema, makeCleanDir, failToDebugger, runSuite
+from ticdat.testing.ticdattestutils import sillyMeData, sillyMeSchema, makeCleanDir, failToDebugger
 from ticdat.testing.ticdattestutils import makeCleanPath, addNetflowForeignKeys, addDietForeignKeys
 import shutil
 
-#uncomment decorator to drop into debugger for assertTrue, assertFalse failures
-#@failToDebugger
-class TestMdb(unittest.TestCase):
+td = TicDatFactory()
+if hasattr(td, "mdb") and td.mdb.can_write_new_file  :
+ import unittest
+ #uncomment decorator to drop into debugger for assertTrue, assertFalse failures
+ #@failToDebugger
+ class TestMdb(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         makeCleanDir(_scratchDir)
@@ -134,18 +136,13 @@ class TestMdb(unittest.TestCase):
         self.assertTrue(tdf._same_data(ticDat, ticDatNone))
         self.assertTrue(ticDatNone.a["theboger"]["aData2"] == None)
 
-_scratchDir = TestMdb.__name__ + "_scratch"
-
-def runTheTests(fastOnly=True) :
-    td = TicDatFactory()
-    if not hasattr(td, "mdb") :
-        print "!!!!!!!!!FAILING MDB UNIT TESTS DUE TO FAILURE TO LOAD MDB LIBRARIES!!!!!!!!"
-        return
-    if not td.mdb.can_write_new_file :
-        print "!!!!!!!!!FAILING MDB UNIT TESTS DUE TO FAILURE TO WRITE NEW MDB FILES!!!!!!!!"
-        return
-    runSuite(TestMdb, fastOnly=fastOnly)
+ _scratchDir = TestMdb.__name__ + "_scratch"
 
 # Run the tests.
 if __name__ == "__main__":
-    runTheTests()
+    if not hasattr(td, "mdb") :
+        print "!!!!!!!!!FAILING MDB UNIT TESTS DUE TO FAILURE TO LOAD MDB LIBRARIES!!!!!!!!"
+    elif not td.mdb.can_write_new_file :
+        print "!!!!!!!!!FAILING MDB UNIT TESTS DUE TO FAILURE TO WRITE NEW MDB FILES!!!!!!!!"
+    else:
+        unittest.main()

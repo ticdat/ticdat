@@ -1,15 +1,17 @@
 import os
-import unittest
 import ticdat.utils as utils
 from ticdat.ticdatfactory import TicDatFactory
 from ticdat.testing.ticdattestutils import dietData, dietSchema, netflowData, netflowSchema, firesException
-from ticdat.testing.ticdattestutils import sillyMeData, sillyMeSchema, makeCleanDir, failToDebugger, runSuite
+from ticdat.testing.ticdattestutils import sillyMeData, sillyMeSchema, makeCleanDir, failToDebugger
 from ticdat.testing.ticdattestutils import spacesData, spacesSchema
 import shutil
 
-#uncomment decorator to drop into debugger for assertTrue, assertFalse failures
-#@failToDebugger
-class TestXls(unittest.TestCase):
+td = TicDatFactory()
+if hasattr(td, "xls"):
+ import unittest
+ #uncomment decorator to drop into debugger for assertTrue, assertFalse failures
+ #@failToDebugger
+ class TestXls(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         makeCleanDir(_scratchDir)
@@ -219,13 +221,9 @@ class TestXls(unittest.TestCase):
 
 _scratchDir = TestXls.__name__ + "_scratch"
 
-def runTheTests(fastOnly=True) :
-    td = TicDatFactory()
-    if not hasattr(td, "xls") :
-        print "!!!!!!!!!FAILING XLS UNIT TESTS DUE TO FAILURE TO LOAD XLS LIBRARIES!!!!!!!!"
-        return
-    runSuite(TestXls, fastOnly=fastOnly)
-
 # Run the tests.
 if __name__ == "__main__":
-    runTheTests()
+    if not hasattr(td, "xls") :
+        print "!!!!!!!!!FAILING XLS UNIT TESTS DUE TO FAILURE TO LOAD XLS LIBRARIES!!!!!!!!"
+    else:
+        unittest.main()
