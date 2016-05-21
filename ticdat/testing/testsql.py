@@ -1,15 +1,16 @@
 import os
-import unittest
 import ticdat.utils as utils
 from ticdat.ticdatfactory import TicDatFactory
 from ticdat.testing.ticdattestutils import dietData, dietSchema, netflowData, netflowSchema, firesException
-from ticdat.testing.ticdattestutils import sillyMeData, sillyMeSchema, makeCleanDir, failToDebugger, runSuite
+from ticdat.testing.ticdattestutils import sillyMeData, sillyMeSchema, makeCleanDir, failToDebugger
 from ticdat.testing.ticdattestutils import makeCleanPath, addNetflowForeignKeys, addDietForeignKeys, flaggedAsRunAlone
 import shutil
+import unittest
 
 #uncomment decorator to drop into debugger for assertTrue, assertFalse failures
 #@failToDebugger
 class TestSql(unittest.TestCase):
+    canRun = False
     @classmethod
     def setUpClass(cls):
         makeCleanDir(_scratchDir)
@@ -22,6 +23,8 @@ class TestSql(unittest.TestCase):
             self.assertTrue("TicDatError" in e.__class__.__name__)
             return e.message
     def testDiet(self):
+        if not self.canRun:
+            return
         def doTheTests(tdf) :
             ticDat = tdf.freeze_me(tdf.TicDat(**{t:getattr(dietData(),t) for t in tdf.primary_key_fields}))
             filePath = makeCleanPath(os.path.join(_scratchDir, "diet.db"))
@@ -83,6 +86,8 @@ class TestSql(unittest.TestCase):
         doTheTests(tdf)
 
     def testNetflow(self):
+        if not self.canRun:
+            return
         tdf = TicDatFactory(**netflowSchema())
         addNetflowForeignKeys(tdf)
         ordered = tdf.sql._ordered_tables()
@@ -131,6 +136,8 @@ class TestSql(unittest.TestCase):
 
 
     def testSilly(self):
+        if not self.canRun:
+            return
         tdf = TicDatFactory(**sillyMeSchema())
         ticDat = tdf.TicDat(**sillyMeData())
         schema2 = sillyMeSchema()
@@ -180,17 +187,13 @@ class TestSql(unittest.TestCase):
         self.assertTrue(tdf._same_data(ticDat, ticDatNone))
         self.assertTrue(ticDatNone.a["theboger"]["aData2"] == None)
 
-
-
 _scratchDir = TestSql.__name__ + "_scratch"
-
-def runTheTests(fastOnly=True) :
-    td = TicDatFactory()
-    if not hasattr(td, "sql") :
-        print "!!!!!!!!!FAILING SQL UNIT TESTS DUE TO FAILURE TO LOAD SQL LIBRARIES!!!!!!!!"
-        return
-    runSuite(TestSql, fastOnly=fastOnly)
 
 # Run the tests.
 if __name__ == "__main__":
-    runTheTests()
+    td = TicDatFactory()
+    if not hasattr(td, "sql") :
+        print "!!!!!!!!!FAILING SQL UNIT TESTS DUE TO FAILURE TO LOAD SQL LIBRARIES!!!!!!!!"
+    else:
+        TestSql.canRun = True
+    unittest.main()

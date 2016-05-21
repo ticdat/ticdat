@@ -1,15 +1,17 @@
 import os
-import unittest
+
 import ticdat.utils as utils
 import shutil
 from ticdat.ticdatfactory import TicDatFactory
 from ticdat.testing.ticdattestutils import dietData, dietSchema, netflowData
 from ticdat.testing.ticdattestutils import  netflowSchema, firesException
 from ticdat.testing.ticdattestutils import sillyMeData, sillyMeSchema, failToDebugger
-from ticdat.testing.ticdattestutils import  makeCleanDir, runSuite
+from ticdat.testing.ticdattestutils import  makeCleanDir
+import unittest
 
 #@failToDebugger
 class TestCsv(unittest.TestCase):
+    canRun = False
     @classmethod
     def setUpClass(cls):
         makeCleanDir(_scratchDir)
@@ -22,6 +24,8 @@ class TestCsv(unittest.TestCase):
             self.assertTrue("TicDatError" in e.__class__.__name__)
             return e.message
     def testDiet(self):
+        if not self.canRun:
+            return
         tdf = TicDatFactory(**dietSchema())
         ticDat = tdf.freeze_me(tdf.TicDat(**{t:getattr(dietData(),t) for t in tdf.primary_key_fields}))
         dirPath = os.path.join(_scratchDir, "diet")
@@ -45,6 +49,8 @@ class TestCsv(unittest.TestCase):
         self.assertTrue(tdf._same_data(ticDat, csvTicDat))
 
     def testNetflow(self):
+        if not self.canRun:
+            return
         tdf = TicDatFactory(**netflowSchema())
         ticDat = tdf.TicDat(**{t:getattr(netflowData(),t) for t in tdf.primary_key_fields})
         dirPath = os.path.join(_scratchDir, "netflow")
@@ -73,6 +79,8 @@ class TestCsv(unittest.TestCase):
         self.assertFalse(tdf._same_data(ticDat, csvTicDat))
 
     def testSilly(self):
+        if not self.canRun:
+            return
         def doTest(headersPresent) :
             tdf = TicDatFactory(**sillyMeSchema())
             ticDat = tdf.TicDat(**sillyMeData())
@@ -163,13 +171,12 @@ class TestCsv(unittest.TestCase):
 
 _scratchDir = TestCsv.__name__ + "_scratch"
 
-def runTheTests(fastOnly=True) :
+# Run the tests.
+if __name__ == "__main__":
     td = TicDatFactory()
     if not hasattr(td, "csv") :
         print "!!!!!!!!!FAILING CSV UNIT TESTS DUE TO FAILURE TO LOAD CSV LIBRARIES!!!!!!!!"
-        return
-    runSuite(TestCsv, fastOnly=fastOnly)
-# Run the tests.
-if __name__ == "__main__":
-    runTheTests()
+    else:
+        TestCsv.canRun = True
+    unittest.main()
 
