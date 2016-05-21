@@ -6,12 +6,14 @@ from ticdat.testing.ticdattestutils import dietData, dietSchema, netflowData
 from ticdat.testing.ticdattestutils import  netflowSchema, firesException
 from ticdat.testing.ticdattestutils import sillyMeData, sillyMeSchema, failToDebugger
 from ticdat.testing.ticdattestutils import  makeCleanDir, addNetflowForeignKeys
+import unittest
 
-if DataFrame:
- import unittest
- #@failToDebugger
- class TestPandas(unittest.TestCase):
+#@failToDebugger
+class TestPandas(unittest.TestCase):
+    canRun = False
     def testDiet(self):
+        if not self.canRun:
+            return
         tdf = TicDatFactory(**dietSchema())
         tdf.enable_foreign_key_links()
         oldDat = tdf.freeze_me(tdf.TicDat(**{t:getattr(dietData(),t) for t in tdf.primary_key_fields}))
@@ -40,6 +42,8 @@ if DataFrame:
 
 
     def testNetflow(self):
+        if not self.canRun:
+            return
         tdf = TicDatFactory(**netflowSchema())
         tdf.enable_foreign_key_links()
         addNetflowForeignKeys(tdf)
@@ -65,6 +69,8 @@ if DataFrame:
 
 
     def testSilly(self):
+        if not self.canRun:
+            return
         tdf = TicDatFactory(**dict({"d" : [("dData1", "dData2", "dData3", "dData4"),[]],
                                     "e" : [["eData"],[]]}, **sillyMeSchema()))
         ticDat = tdf.copy_to_pandas(tdf.TicDat(**sillyMeData()))
@@ -103,5 +109,6 @@ if __name__ == "__main__":
     if not DataFrame :
         print "!!!!!!!!!FAILING PANDAS UNIT TESTS DUE TO FAILURE TO LOAD PANDAS LIBRARIES!!!!!!!!"
     else:
-        unittest.main()
+        TestPandas.canRun = True
+    unittest.main()
 

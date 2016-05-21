@@ -38,6 +38,9 @@ def failToDebugger(cls) :
     decorator to allow a unittest class to enter the debugger if a unit test fails
     :param cls: a unittest class
     :return: cls decorated so as to fail to the ipdb debugger
+    CAVEATS : Will side effect the unittest module by redirecting the main function!
+              This routine is intended for **temporary** decorating of a unittest class
+              for debugging/troubleshooting.
     """
     def _failToDebugger(x) :
         if not (x) :

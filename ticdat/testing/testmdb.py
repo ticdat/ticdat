@@ -5,13 +5,12 @@ from ticdat.testing.ticdattestutils import dietData, dietSchema, netflowData, ne
 from ticdat.testing.ticdattestutils import sillyMeData, sillyMeSchema, makeCleanDir, failToDebugger
 from ticdat.testing.ticdattestutils import makeCleanPath, addNetflowForeignKeys, addDietForeignKeys
 import shutil
+import unittest
+#uncomment decorator to drop into debugger for assertTrue, assertFalse failures
 
-td = TicDatFactory()
-if hasattr(td, "mdb") and td.mdb.can_write_new_file  :
- import unittest
- #uncomment decorator to drop into debugger for assertTrue, assertFalse failures
- #@failToDebugger
- class TestMdb(unittest.TestCase):
+#@failToDebugger
+class TestMdb(unittest.TestCase):
+    canRun = False
     @classmethod
     def setUpClass(cls):
         makeCleanDir(_scratchDir)
@@ -24,6 +23,8 @@ if hasattr(td, "mdb") and td.mdb.can_write_new_file  :
             self.assertTrue("TicDatError" in e.__class__.__name__)
             return e.message
     def testDiet(self):
+        if not self.canRun:
+            return
         tdf = TicDatFactory(**dietSchema())
         ticDat = tdf.freeze_me(tdf.TicDat(**{t:getattr(dietData(),t) for t in tdf.primary_key_fields}))
         filePath = makeCleanPath(os.path.join(_scratchDir, "diet.mdb"))
@@ -43,6 +44,8 @@ if hasattr(td, "mdb") and td.mdb.can_write_new_file  :
         self.assertTrue(tdf._same_data(ticDat, mdbTicDat))
 
     def testNetflow(self):
+        if not self.canRun:
+            return
         tdf = TicDatFactory(**netflowSchema())
         addNetflowForeignKeys(tdf)
         ticDat = tdf.freeze_me(tdf.TicDat(**{t:getattr(netflowData(),t) for t in tdf.all_tables}))
@@ -71,6 +74,8 @@ if hasattr(td, "mdb") and td.mdb.can_write_new_file  :
                         self.firesException(lambda  :tdf.mdb.create_tic_dat(filePath)))
 
     def testSilly(self):
+        if not self.canRun:
+            return
         tdf = TicDatFactory(**sillyMeSchema())
         ticDat = tdf.TicDat(**sillyMeData())
         filePath = os.path.join(_scratchDir, "silly.mdb")
@@ -136,13 +141,15 @@ if hasattr(td, "mdb") and td.mdb.can_write_new_file  :
         self.assertTrue(tdf._same_data(ticDat, ticDatNone))
         self.assertTrue(ticDatNone.a["theboger"]["aData2"] == None)
 
- _scratchDir = TestMdb.__name__ + "_scratch"
+_scratchDir = TestMdb.__name__ + "_scratch"
 
 # Run the tests.
 if __name__ == "__main__":
+    td = TicDatFactory()
     if not hasattr(td, "mdb") :
         print "!!!!!!!!!FAILING MDB UNIT TESTS DUE TO FAILURE TO LOAD MDB LIBRARIES!!!!!!!!"
     elif not td.mdb.can_write_new_file :
         print "!!!!!!!!!FAILING MDB UNIT TESTS DUE TO FAILURE TO WRITE NEW MDB FILES!!!!!!!!"
-    else:
-        unittest.main()
+    else :
+        TestMdb.canRun= True
+    unittest.main()

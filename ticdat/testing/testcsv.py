@@ -7,12 +7,11 @@ from ticdat.testing.ticdattestutils import dietData, dietSchema, netflowData
 from ticdat.testing.ticdattestutils import  netflowSchema, firesException
 from ticdat.testing.ticdattestutils import sillyMeData, sillyMeSchema, failToDebugger
 from ticdat.testing.ticdattestutils import  makeCleanDir
+import unittest
 
-td = TicDatFactory()
-if hasattr(td, "csv") :
- import unittest
- #@failToDebugger
- class TestCsv(unittest.TestCase):
+#@failToDebugger
+class TestCsv(unittest.TestCase):
+    canRun = False
     @classmethod
     def setUpClass(cls):
         makeCleanDir(_scratchDir)
@@ -25,6 +24,8 @@ if hasattr(td, "csv") :
             self.assertTrue("TicDatError" in e.__class__.__name__)
             return e.message
     def testDiet(self):
+        if not self.canRun:
+            return
         tdf = TicDatFactory(**dietSchema())
         ticDat = tdf.freeze_me(tdf.TicDat(**{t:getattr(dietData(),t) for t in tdf.primary_key_fields}))
         dirPath = os.path.join(_scratchDir, "diet")
@@ -48,6 +49,8 @@ if hasattr(td, "csv") :
         self.assertTrue(tdf._same_data(ticDat, csvTicDat))
 
     def testNetflow(self):
+        if not self.canRun:
+            return
         tdf = TicDatFactory(**netflowSchema())
         ticDat = tdf.TicDat(**{t:getattr(netflowData(),t) for t in tdf.primary_key_fields})
         dirPath = os.path.join(_scratchDir, "netflow")
@@ -76,6 +79,8 @@ if hasattr(td, "csv") :
         self.assertFalse(tdf._same_data(ticDat, csvTicDat))
 
     def testSilly(self):
+        if not self.canRun:
+            return
         def doTest(headersPresent) :
             tdf = TicDatFactory(**sillyMeSchema())
             ticDat = tdf.TicDat(**sillyMeData())
@@ -164,12 +169,14 @@ if hasattr(td, "csv") :
 
         utils.do_it(doTest(x) for x in (True, False))
 
- _scratchDir = TestCsv.__name__ + "_scratch"
+_scratchDir = TestCsv.__name__ + "_scratch"
 
 # Run the tests.
 if __name__ == "__main__":
+    td = TicDatFactory()
     if not hasattr(td, "csv") :
         print "!!!!!!!!!FAILING CSV UNIT TESTS DUE TO FAILURE TO LOAD CSV LIBRARIES!!!!!!!!"
-    else :
-        unittest.main()
+    else:
+        TestCsv.canRun = True
+    unittest.main()
 
