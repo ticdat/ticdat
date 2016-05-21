@@ -32,6 +32,11 @@ def firesException(f) :
     except Exception as e:
         return e
 
+_memo = []
+def memo(*args):
+    rtn = list(_memo)
+    _memo[:] = args
+    return rtn[0] if len(rtn) == 1 else rtn
 
 def failToDebugger(cls) :
     """
