@@ -3,7 +3,7 @@ import unittest
 import ticdat.utils as utils
 from ticdat.ticdatfactory import TicDatFactory, _ForeignKey, _ForeignKeyMapping
 from ticdat.testing.ticdattestutils import dietData, dietSchema, netflowData, netflowSchema, firesException
-from ticdat.testing.ticdattestutils import sillyMeData, sillyMeSchema, runSuite, failToDebugger, flaggedAsRunAlone
+from ticdat.testing.ticdattestutils import sillyMeData, sillyMeSchema, failToDebugger, flaggedAsRunAlone
 from ticdat.testing.ticdattestutils import assertTicDatTablesSame, DEBUG, addNetflowForeignKeys, addDietForeignKeys
 import itertools
 
@@ -493,14 +493,7 @@ class TestUtils(unittest.TestCase):
             self.assertTrue(tdf.schema() == tdf.schema(True)["tables_fields"] == tdf2.schema() ==
                             {k : map(list, v) for k,v in schema.items()})
 
-
-
-
-
-def runTheTests(fastOnly=True) :
-    runSuite(TestUtils, fastOnly=fastOnly)
-
 # Run the tests.
 if __name__ == "__main__":
-    runTheTests()
+    unittest.main()
 

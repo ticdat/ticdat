@@ -1,15 +1,16 @@
 import os
-import unittest
 import ticdat.utils as utils
 from ticdat.ticdatfactory import TicDatFactory
 from ticdat.testing.ticdattestutils import dietData, dietSchema, netflowData, netflowSchema, firesException
-from ticdat.testing.ticdattestutils import sillyMeData, sillyMeSchema, makeCleanDir, failToDebugger, runSuite
+from ticdat.testing.ticdattestutils import sillyMeData, sillyMeSchema, makeCleanDir, failToDebugger
 from ticdat.testing.ticdattestutils import makeCleanPath, addNetflowForeignKeys, addDietForeignKeys
 import shutil
-
+import unittest
 #uncomment decorator to drop into debugger for assertTrue, assertFalse failures
+
 #@failToDebugger
 class TestMdb(unittest.TestCase):
+    canRun = False
     @classmethod
     def setUpClass(cls):
         makeCleanDir(_scratchDir)
@@ -22,6 +23,8 @@ class TestMdb(unittest.TestCase):
             self.assertTrue("TicDatError" in e.__class__.__name__)
             return e.message
     def testDiet(self):
+        if not self.canRun:
+            return
         tdf = TicDatFactory(**dietSchema())
         ticDat = tdf.freeze_me(tdf.TicDat(**{t:getattr(dietData(),t) for t in tdf.primary_key_fields}))
         filePath = makeCleanPath(os.path.join(_scratchDir, "diet.mdb"))
@@ -41,6 +44,8 @@ class TestMdb(unittest.TestCase):
         self.assertTrue(tdf._same_data(ticDat, mdbTicDat))
 
     def testNetflow(self):
+        if not self.canRun:
+            return
         tdf = TicDatFactory(**netflowSchema())
         addNetflowForeignKeys(tdf)
         ticDat = tdf.freeze_me(tdf.TicDat(**{t:getattr(netflowData(),t) for t in tdf.all_tables}))
@@ -69,6 +74,8 @@ class TestMdb(unittest.TestCase):
                         self.firesException(lambda  :tdf.mdb.create_tic_dat(filePath)))
 
     def testSilly(self):
+        if not self.canRun:
+            return
         tdf = TicDatFactory(**sillyMeSchema())
         ticDat = tdf.TicDat(**sillyMeData())
         filePath = os.path.join(_scratchDir, "silly.mdb")
@@ -136,16 +143,13 @@ class TestMdb(unittest.TestCase):
 
 _scratchDir = TestMdb.__name__ + "_scratch"
 
-def runTheTests(fastOnly=True) :
+# Run the tests.
+if __name__ == "__main__":
     td = TicDatFactory()
     if not hasattr(td, "mdb") :
         print "!!!!!!!!!FAILING MDB UNIT TESTS DUE TO FAILURE TO LOAD MDB LIBRARIES!!!!!!!!"
-        return
-    if not td.mdb.can_write_new_file :
+    elif not td.mdb.can_write_new_file :
         print "!!!!!!!!!FAILING MDB UNIT TESTS DUE TO FAILURE TO WRITE NEW MDB FILES!!!!!!!!"
-        return
-    runSuite(TestMdb, fastOnly=fastOnly)
-
-# Run the tests.
-if __name__ == "__main__":
-    runTheTests()
+    else :
+        TestMdb.canRun= True
+    unittest.main()
