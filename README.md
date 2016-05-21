@@ -2,8 +2,6 @@
 
 Go [here](https://github.com/opalytics/opalytics-ticdat/wiki/ticdat-status) for project status and installation instructions.
 
-Go  [here](https://github.com/opalytics/opalytics-ticdat/blob/master/examples/notebooks/diet.ipynb) for a demo of `ticdat` being used to clean a data set that has minor integrity problems. Go [here](https://github.com/opalytics/opalytics-ticdat/blob/master/examples/notebooks/netflow.ipynb) for a demo of `ticdat` being used to help diagnose an infeasible model by creating a more readable `.ilp` file.
-
 `ticdat` is an easy-to-use, lightweight, relational, data library. It provides a simple interface for defining a data schema, and a factory class for creating `TicDat` data objects that confirm to this schema.
 
 It is primarily intended to simplify the process of developing proof-of-concept mathematical engines that read from one schema and write to another. It provides easy routines for reading and/or writing an entire data set for a range of stand-alone file types (Excel, .csv, Access or SQLite). For Access or SQLite, it can be used as a very condensed representation of the database schema.
@@ -27,7 +25,7 @@ Alternately, `TicDat` data objects can be frozen. This facilitates good software
 Although `ticdat` was specifically designed with Mixed Integer Programming data sets in mind, it can be used for
 rapidly developing a wide variety of mathematical engines. It facilitates creating one definition of your
 input data schema and one solve module, and reusing this same code, unchanged, on data from different
-sources. This "separation of model from data" enables a user to move easily from small, testing data sets to larger, more realistic examples. In addition, [Opalytics Inc](http://www.opalytics.com/) (the developer of  `ticdat`) can support cloud deployments of solve engines that use `ticdat` data objects library.
+sources. This "separation of model from data" enables a user to move easily from small, testing data sets to larger, more realistic examples. In addition, [Opalytics Inc](http://www.opalytics.com/) (the developer of  `ticdat`) can support cloud deployments of solve engines that use `ticdat` data objects library. Go  [here](https://github.com/opalytics/example-diet) or [here](https://github.com/opalytics/example-netflow) for examples of `ticdat` being used to create "deployment ready" Python packages.
 
 The `ticdat` library is distributed under the BSD2 open source license.
 

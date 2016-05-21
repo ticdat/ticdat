@@ -63,8 +63,8 @@ class SQLiteTicFactory(freezable_factory(object, "_isFrozen")) :
     def __init__(self, tic_dat_factory):
         """
         Don't call this function explicitly. A SQLiteTicFactory will
-        automatically be associated with the parent TicDatFactory if your
-        system has the required sqlite3 packages.
+        automatically be associated with the sql attribute of the parent
+        TicDatFactory if your system has the required sqlite3 packages.
         :param tic_dat_factory:
         :return:
         """

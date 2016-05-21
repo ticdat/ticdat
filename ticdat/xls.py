@@ -24,8 +24,8 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
     def __init__(self, tic_dat_factory):
         """
         Don't create this object explicitly. A XlsTicDatFactory will
-        automatically be associated with the parent TicDatFactory if your system
-        has the required xlrd, xlwt packages.
+        automatically be associated with the xls attribute of the parent
+        TicDatFactory if your system has the required xlrd, xlwt packages.
         :param tic_dat_factory:
         :return:
         """
@@ -46,7 +46,9 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
         :return: a TicDat object populated by the matching sheets.
         caveats: Missing sheets resolve to an empty table, but missing fields
                  on matching sheets throw an Exception.
-                 Sheet names are considered case insensitive
+                 Sheet names are considered case insensitive, and white space is replaced
+                 with underscore for table name matching. (ticdat supports whitespace in
+                 field names but not table names).
                  Any field for which an empty string is invalid data and None is valid data
                  will replace the empty string with None. (This caveat requires the data_types
                  to be set for the ticDatFactory)
@@ -70,7 +72,7 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
             raise TicDatError("Unable to open %s as xls file : %s"%(xls_file_path, e.message))
         sheets = defaultdict(list)
         for table, sheet in product(all_tables, book.sheets()) :
-            if table.lower() == sheet.name.lower() :
+            if table.lower() == sheet.name.lower().replace(' ', '_'):
                 sheets[table].append(sheet)
         duplicated_sheets = tuple(_t for _t,_s in sheets.items() if len(_s) > 1)
         verify(not duplicated_sheets, "The following sheet names were duplicated : " +

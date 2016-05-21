@@ -175,10 +175,20 @@ def td_row_factory(table, key_field_names, data_field_names, default_values={}):
 
 class Sloc(object):
     """
+    A utility class for the slicing on pandas Series.
+    Works just like .loc, except doesn't exception out when
+    encountering an empty slice.
     **All** credit for this class goes to the inimitable IL.
     https://github.com/pydata/pandas/issues/10695
     """
     def __init__(self, s):
+        """
+        In general there is no need to create this object explicitly.
+        TicDatFactory.copy_to_pandas can create them for each of your
+        data columns, or you can use the add_sloc utility function.
+        :param s: a Series object.
+        :return:
+        """
         verify(pd, "pandas needs to be installed in order to enable pandas functionality")
         # as of this writing, the DataFrame doesn't handle references like df[:,"item"] correctly
         verify(isinstance(s, pd.Series), "sloc only implemented for Series")

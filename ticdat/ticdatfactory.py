@@ -408,6 +408,7 @@ foreign keys, the code throwing this exception will be removed.
         self._linkName = {}
         verify(not any(x.startswith("_") for x in init_fields),
                "table names shouldn't start with underscore")
+        verify(not any(" " in x for x in init_fields), "table names shouldn't have white space")
         for k,v in init_fields.items():
             verify(containerish(v) and len(v) == 2 and all(containerish(_) for _ in v),
                    ("Table %s needs to specify two sublists, " +
