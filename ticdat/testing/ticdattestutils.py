@@ -38,7 +38,7 @@ def memo(*args):
     _memo[:] = args
     return rtn[0] if len(rtn) == 1 else rtn
 
-def failToDebugger(cls) :
+def fail_to_debugger(cls) :
     """
     decorator to allow a unittest class to enter the debugger if a unit test fails
     :param cls: a unittest class
@@ -57,11 +57,12 @@ def failToDebugger(cls) :
     unittest.main = lambda : _runSuite(cls)
     return cls
 
-def flaggedAsRunAlone(f):
+def flagged_as_run_alone(f):
     """
-    a decorator to flag a unittest test function to be the sole test run the runSuite function
+    a decorator to flag a unittest test function to be the sole test run for
+    a fail_to_debugger decorated class
     :param f: a unittest test function
-    :return: the same function decorated for runSuite
+    :return: the same function decorated for fail_to_debugger
     """
     f.runAlone = True
     return f

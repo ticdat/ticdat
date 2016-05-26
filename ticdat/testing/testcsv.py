@@ -5,11 +5,11 @@ import shutil
 from ticdat.ticdatfactory import TicDatFactory
 from ticdat.testing.ticdattestutils import dietData, dietSchema, netflowData
 from ticdat.testing.ticdattestutils import  netflowSchema, firesException
-from ticdat.testing.ticdattestutils import sillyMeData, sillyMeSchema, failToDebugger
+from ticdat.testing.ticdattestutils import sillyMeData, sillyMeSchema, fail_to_debugger
 from ticdat.testing.ticdattestutils import  makeCleanDir
 import unittest
 
-#@failToDebugger
+#@fail_to_debugger
 class TestCsv(unittest.TestCase):
     canRun = False
     @classmethod

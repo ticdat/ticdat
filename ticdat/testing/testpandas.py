@@ -4,11 +4,11 @@ import shutil
 from ticdat.ticdatfactory import TicDatFactory, DataFrame
 from ticdat.testing.ticdattestutils import dietData, dietSchema, netflowData
 from ticdat.testing.ticdattestutils import  netflowSchema, firesException
-from ticdat.testing.ticdattestutils import sillyMeData, sillyMeSchema, failToDebugger
+from ticdat.testing.ticdattestutils import sillyMeData, sillyMeSchema, fail_to_debugger
 from ticdat.testing.ticdattestutils import  makeCleanDir, addNetflowForeignKeys
 import unittest
 
-#@failToDebugger
+#@fail_to_debugger
 class TestPandas(unittest.TestCase):
     canRun = False
     def testDiet(self):

@@ -2,13 +2,13 @@ import os
 import ticdat.utils as utils
 from ticdat.ticdatfactory import TicDatFactory
 from ticdat.testing.ticdattestutils import dietData, dietSchema, netflowData, netflowSchema, firesException
-from ticdat.testing.ticdattestutils import sillyMeData, sillyMeSchema, makeCleanDir, failToDebugger
+from ticdat.testing.ticdattestutils import sillyMeData, sillyMeSchema, makeCleanDir, fail_to_debugger
 from ticdat.testing.ticdattestutils import makeCleanPath, addNetflowForeignKeys, addDietForeignKeys
 import shutil
 import unittest
 #uncomment decorator to drop into debugger for assertTrue, assertFalse failures
 
-#@failToDebugger
+#@fail_to_debugger
 class TestMdb(unittest.TestCase):
     canRun = False
     @classmethod
