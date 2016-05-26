@@ -3,6 +3,8 @@ Simple logging override for ticdat
 PEP8
 """
 
+from ticdat.utils import verify, containerish
+
 class LogFile(object) :
     """
     Utility class for writing log files to the Opalytics Cloud Platform.
@@ -27,8 +29,8 @@ class LogFile(object) :
         :param seq: An iterable of iterables. The first iterable
                     lists the field names for the table. The remaining iterables
                     list the column values for each row. The outer iterable
-                    is thus of length num_rows - 1, while each of the inner
-                    iterables are of length num_cols - 1.
+                    is thus of length num_rows + 1, while each of the inner
+                    iterables are of length num_cols.
         :param formatter: a function used to turn column entries into strings
         :param max_write: the maximum number of table entries to write
                           to the actual log file. In the Opalytics Cloud Platform,
@@ -36,41 +38,25 @@ class LogFile(object) :
                           with all the table entries.
         :return:
         """
-        if len(seq) > max_write:
-          self.write("(Showing first %s entries out of %s in total)\n"%(max_write, len(seq)))
-        for b in list(seq)[:max_write]:
-            self.write(formatter(b) + "\n")
+        verify(containerish(seq) and all(map(containerish, seq)),
+               "seq needs to be container of containers")
+        verify(len(seq) >= 1, "seq missing initial header row")
+        verify(max(map(len, seq)) == min(map(len, seq)),
+               "each row of seq needs to be the same length as the header row")
+        self.write("Table %s:\n"%table_name)
+        if len(seq[0]) <= 2:
+            ljust = 30
+        elif len(seq[0]) == 3:
+            ljust = 25
+        elif len(seq[0]) == 4:
+            ljust = 20
+        else:
+            ljust = 18
+        if len(seq) - 1 > max_write:
+          self.write("(Showing first %s entries out of %s in total)\n"
+                     %(max_write, len(seq)-1))
+        for row in list(seq)[:max_write+1]:
+            self.write("".join(formatter(_).ljust(ljust) for _ in row) + "\n")
         self.write("\n")
-
-class GurobiCallBackAndLog(object):
-    def __init__(self, file_path = None, call_back_handler = lambda l,u : True):
-        self.call_back_handler = call_back_handler
-        if file_path:
-            self._log_file = LogFile(file_path)
-    def __enter__(self):
-        return self
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        self.close()
-    def close(self):
-        if hasattr(self, "_log_file"):
-            self._log_file.close()
-    def create_gurobi_callback(self, node_cnt_per_call = 10):
-        import gurobipy as gu
-        assert callable(self.call_back_handler)
-        last_node = [0]
-        def gurobi_call_back(model, where) :
-            if where == gu.GRB.callback.MIP:
-                nodecnt = model.cbGet(gu.GRB.callback.MIP_NODCNT)
-                if nodecnt - last_node[0] >= node_cnt_per_call:
-                    last_node[0] = nodecnt
-                    ub = model.cbGet(gu.GRB.callback.MIP_OBJBST)
-                    lb = model.cbGet(gu.GRB.callback.MIP_OBJBND)
-                    keep_going = self.call_back_handler(lb, ub)
-                    if not keep_going :
-                        model.terminate()
-            elif where == gu.GRB.callback.MESSAGE and hasattr(self, "_log_file"):
-                msg = model.cbGet(gu.GRB.callback.MSG_STRING)
-                self._log_file.write(msg)
-        return gurobi_call_back
 
 

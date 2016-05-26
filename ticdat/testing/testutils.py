@@ -1,11 +1,13 @@
 import sys
 import unittest
 import ticdat.utils as utils
+from ticdat import LogFile
 from ticdat.ticdatfactory import TicDatFactory, _ForeignKey, _ForeignKeyMapping
 from ticdat.testing.ticdattestutils import dietData, dietSchema, netflowData, netflowSchema, firesException
-from ticdat.testing.ticdattestutils import sillyMeData, sillyMeSchema, failToDebugger, flaggedAsRunAlone
+from ticdat.testing.ticdattestutils import sillyMeData, sillyMeSchema, makeCleanDir, failToDebugger, flaggedAsRunAlone
 from ticdat.testing.ticdattestutils import assertTicDatTablesSame, DEBUG, addNetflowForeignKeys, addDietForeignKeys
 import itertools
+import shutil
 
 def _deep_anonymize(x)  :
     if not hasattr(x, "__contains__") or utils.stringish(x):
@@ -26,6 +28,12 @@ class TestUtils(unittest.TestCase):
         _tdfs_same(tdf, TicDatFactory.create_from_full_schema(tdf.schema(True)))
         _tdfs_same(tdf, TicDatFactory.create_from_full_schema(_deep_anonymize(tdf.schema(True))))
 
+    @classmethod
+    def setUpClass(cls):
+        makeCleanDir(_scratchDir)
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(_scratchDir)
 
     def firesException(self, f):
         e = firesException(f)
@@ -492,6 +500,18 @@ class TestUtils(unittest.TestCase):
             tdf2 = TicDatFactory.create_from_full_schema(tdf.schema(True))
             self.assertTrue(tdf.schema() == tdf.schema(True)["tables_fields"] == tdf2.schema() ==
                             {k : map(list, v) for k,v in schema.items()})
+
+    def testTen(self):
+        with LogFile("boger.txt") as f:
+            f.log_table("boger", [["a", "b", 12]] + [list(range(_))[-3:] for _ in list(range(16))[3:]])
+        with LogFile("boger.txt") as f:
+            f.log_table("boger", [["a", "b", 12]] + [list(range(_))[-3:] for _ in list(range(12))[3:]])
+        with LogFile("boger.txt") as f:
+            self.assertTrue(self.firesException(lambda : f.log_table("boger",
+                    [["a", "b", 12]] + [list(range(_))[-3:] for _ in list(range(12))])))
+
+_scratchDir = TestUtils.__name__ + "_scratch"
+
 
 # Run the tests.
 if __name__ == "__main__":

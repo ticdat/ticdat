@@ -139,8 +139,8 @@ CLASSES
      |      :param seq: An iterable of iterables. The first iterable
      |                  lists the field names for the table. The remaining iterables
      |                  list the column values for each row. The outer iterable
-     |                  is thus of length num_rows - 1, while each of the inner
-     |                  iterables are of length num_cols - 1.
+     |                  is thus of length num_rows + 1, while each of the inner
+     |                  iterables are of length num_cols.
      |      :param formatter: a function used to turn column entries into strings
      |      :param max_write: the maximum number of table entries to write
      |                        to the actual log file. In the Opalytics Cloud Platform,
