@@ -1,11 +1,14 @@
 import sys
 import unittest
 import ticdat.utils as utils
+from ticdat import LogFile, Progress
 from ticdat.ticdatfactory import TicDatFactory, _ForeignKey, _ForeignKeyMapping
 from ticdat.testing.ticdattestutils import dietData, dietSchema, netflowData, netflowSchema, firesException
-from ticdat.testing.ticdattestutils import sillyMeData, sillyMeSchema, failToDebugger, flaggedAsRunAlone
+from ticdat.testing.ticdattestutils import sillyMeData, sillyMeSchema, makeCleanDir, fail_to_debugger, flagged_as_run_alone
 from ticdat.testing.ticdattestutils import assertTicDatTablesSame, DEBUG, addNetflowForeignKeys, addDietForeignKeys
+import os
 import itertools
+import shutil
 
 def _deep_anonymize(x)  :
     if not hasattr(x, "__contains__") or utils.stringish(x):
@@ -15,7 +18,7 @@ def _deep_anonymize(x)  :
     return map(_deep_anonymize,x)
 
 #uncomment decorator to drop into debugger for assertTrue, assertFalse failures
-#@failToDebugger
+#@fail_to_debugger
 class TestUtils(unittest.TestCase):
     def _testTdfReproduction(self, tdf):
         def _tdfs_same(tdf, tdf2):
@@ -26,6 +29,12 @@ class TestUtils(unittest.TestCase):
         _tdfs_same(tdf, TicDatFactory.create_from_full_schema(tdf.schema(True)))
         _tdfs_same(tdf, TicDatFactory.create_from_full_schema(_deep_anonymize(tdf.schema(True))))
 
+    @classmethod
+    def setUpClass(cls):
+        makeCleanDir(_scratchDir)
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(_scratchDir)
 
     def firesException(self, f):
         e = firesException(f)
@@ -492,6 +501,27 @@ class TestUtils(unittest.TestCase):
             tdf2 = TicDatFactory.create_from_full_schema(tdf.schema(True))
             self.assertTrue(tdf.schema() == tdf.schema(True)["tables_fields"] == tdf2.schema() ==
                             {k : map(list, v) for k,v in schema.items()})
+
+    def testTen(self):
+        with LogFile(os.path.join(_scratchDir, "boger.txt")) as f:
+            f.log_table("boger", [["a", "b", 12]] + [list(range(_))[-3:] for _ in list(range(16))[3:]])
+        with LogFile(os.path.join(_scratchDir, "boger.txt")) as f:
+            f.log_table("boger", [["a", "b", 12]] + [list(range(_))[-3:] for _ in list(range(12))[3:]])
+        with LogFile(os.path.join(_scratchDir, "boger.txt")) as f:
+            self.assertTrue(self.firesException(lambda : f.log_table("boger",
+                    [["a", "b", 12]] + [list(range(_))[-3:] for _ in list(range(12))])))
+
+    def testEleven(self):
+        def do_checks(po):
+            self.assertTrue(po.mip_progress("this", 1, 2))
+            self.assertTrue(self.firesException(lambda : po.mip_progress("this", 2.1, 2)))
+            self.assertTrue(po.numerical_progress("boger", 1))
+            self.assertTrue(self.firesException(lambda : po.numerical_progress("boger", "1")))
+        do_checks(Progress())
+        do_checks(Progress(quiet=True))
+
+_scratchDir = TestUtils.__name__ + "_scratch"
+
 
 # Run the tests.
 if __name__ == "__main__":
