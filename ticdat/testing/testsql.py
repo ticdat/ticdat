@@ -4,6 +4,7 @@ from ticdat.ticdatfactory import TicDatFactory
 from ticdat.testing.ticdattestutils import dietData, dietSchema, netflowData, netflowSchema, firesException
 from ticdat.testing.ticdattestutils import sillyMeData, sillyMeSchema, makeCleanDir, fail_to_debugger
 from ticdat.testing.ticdattestutils import makeCleanPath, addNetflowForeignKeys, addDietForeignKeys, flagged_as_run_alone
+from ticdat.testing.ticdattestutils import spacesData, spacesSchema
 import shutil
 import unittest
 
@@ -133,6 +134,13 @@ class TestSql(unittest.TestCase):
                                              ('Pencils', 'booger', 'wooger')},
          ('cost', 'nodes', u'source'): {('Pencils', 'booger', 'wooger')}})
 
+        ticDat3 = tdf.TicDat(**{t:getattr(netflowData(),t) for t in tdf.primary_key_fields})
+        ticDat3.arcs['Detroit', 'Boston'] = float("inf")
+        ticDat3.arcs['Denver',  'Boston'] = float("inf")
+        self.assertFalse(tdf._same_data(ticDat3, ticDat))
+        tdf.sql.write_db_data(ticDat3, makeCleanPath(filePath))
+        ticDat4 = tdf.sql.create_tic_dat(filePath)
+        self.assertTrue(tdf._same_data(ticDat3, ticDat4))
 
     def testSilly(self):
         if not self.canRun:
@@ -204,6 +212,15 @@ class TestSql(unittest.TestCase):
         tdf.sql.write_sql_file(dat, filePath)
         self.assertTrue(firesException(lambda : tdf.sql.create_tic_dat_from_sql(filePath)))
 
+    def testSpacey(self):
+        if not self.canRun:
+            return
+        tdf = TicDatFactory(**spacesSchema())
+        dat = tdf.TicDat(**spacesData())
+        filePath = makeCleanPath(os.path.join(_scratchDir, "spacey.db"))
+        tdf.sql.write_db_data(dat, filePath)
+        dat2 = tdf.sql.create_tic_dat(filePath, freeze_it=True)
+        self.assertTrue(tdf._same_data(dat,dat2))
 
 
 _scratchDir = TestSql.__name__ + "_scratch"
