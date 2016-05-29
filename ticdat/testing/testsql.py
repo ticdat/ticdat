@@ -186,6 +186,26 @@ class TestSql(unittest.TestCase):
         self.assertTrue(tdf._same_data(ticDat, ticDatNone))
         self.assertTrue(ticDatNone.a["theboger"]["aData2"] == None)
 
+    def testInjection(self):
+        if not self.canRun:
+            return
+        problems = [ "'", "''", '"', '""']
+        tdf = TicDatFactory(boger = [["a"], ["b"]])
+        dat = tdf.TicDat()
+        for v,k in enumerate(problems):
+            dat.boger[k]=v
+            dat.boger[v]=k
+        filePath = makeCleanPath(os.path.join(_scratchDir, "injection.db"))
+        tdf.sql.write_db_data(dat, filePath)
+        dat2 = tdf.sql.create_tic_dat(filePath, freeze_it=True)
+        self.assertTrue(tdf._same_data(dat,dat2))
+
+        filePath = makeCleanPath(os.path.join(_scratchDir, "injection.sql"))
+        tdf.sql.write_sql_file(dat, filePath)
+        self.assertTrue(firesException(lambda : tdf.sql.create_tic_dat_from_sql(filePath)))
+
+
+
 _scratchDir = TestSql.__name__ + "_scratch"
 
 # Run the tests.
