@@ -193,27 +193,34 @@ class SQLiteTicFactory(freezable_factory(object, "_isFrozen")) :
             str += ",\n".join(strl) + "\n);"
             rtn.append(str)
         return tuple(rtn)
-    def _get_data_sql(self, tic_dat):
+    def _get_data(self, tic_dat, as_sql):
         rtn = []
         for t in self.tic_dat_factory.all_tables:
             _t = getattr(tic_dat, t)
             if dictish(_t) :
                 primarykeys = tuple(self.tic_dat_factory.primary_key_fields[t])
-                for pkRow, sqldatarow in _t.items() :
+                for pkrow, sqldatarow in _t.items() :
                     _items = sqldatarow.items()
                     fields = primarykeys + tuple(x[0] for x in _items)
-                    dataRow = ((pkRow,) if len(primarykeys)==1 else pkRow) + \
+                    datarow = ((pkrow,) if len(primarykeys)==1 else pkrow) + \
                               tuple(x[1] for x in _items)
-                    assert len(dataRow) == len(fields)
+                    assert len(datarow) == len(fields)
                     str = "INSERT INTO [%s] (%s) VALUES (%s)"%(t, ",".join(_brackets(fields)),
-                          ",".join("%s" for _ in fields))
-                    rtn.append((str%tuple(map(_insert_format, dataRow))) + ";")
+                          ",".join("%s" if as_sql else "?" for _ in fields))
+                    if as_sql:
+                        rtn.append((str%tuple(map(_insert_format, datarow))) + ";")
+                    else:
+                        rtn.append((str, datarow))
             else :
                 for sqldatarow in (_t if containerish(_t) else _t()) :
                     k,v = zip(*sqldatarow.items())
                     str = "INSERT INTO [%s] (%s) VALUES (%s)"%\
-                             (t, ",".join(_brackets(k)), ",".join(["%s"]*len(sqldatarow)))
-                    rtn.append((str%tuple(map(_insert_format, v))) + ";")
+                             (t, ",".join(_brackets(k)), ",".join(
+                                ["%s" if as_sql else "?"]*len(sqldatarow)))
+                    if as_sql:
+                        rtn.append((str%tuple(map(_insert_format, v))) + ";")
+                    else:
+                        rtn.append((str,v))
         return tuple(rtn)
     def write_db_schema(self, db_file_path):
         """
@@ -244,8 +251,9 @@ class SQLiteTicFactory(freezable_factory(object, "_isFrozen")) :
                 verify(allow_overwrite or not any(True for _ in  con.execute("Select * from %s"%t)),
                         "allow_overwrite is False, but there are already data records in %s"%t)
                 con.execute("Delete from %s"%t) if allow_overwrite else None
-            for str in self._get_data_sql(tic_dat):
-                con.execute(str)
+            for sql_str, data in self._get_data(tic_dat, as_sql=False):
+                con.execute(sql_str, list(data))
+
     def write_sql_file(self, tic_dat, sql_file_path, include_schema = False):
         """
         write the sql for the ticDat data to a text file
@@ -257,5 +265,5 @@ class SQLiteTicFactory(freezable_factory(object, "_isFrozen")) :
         """
         with open(sql_file_path, "w") as f:
             for str in (self._get_schema_sql() if include_schema else ()) + \
-                        self._get_data_sql(tic_dat):
+                        self._get_data(tic_dat, as_sql=True):
                 f.write(str + "\n")
