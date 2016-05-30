@@ -3,6 +3,8 @@ general utility module
 PEP8
 """
 from numbers import Number
+from itertools import chain, combinations
+
 try:
     import pandas as pd
     from pandas import DataFrame
@@ -12,6 +14,18 @@ except:
 def do_it(g): # just walks through everything in a gen - I like the syntax this enables
     for x in g :
         pass
+
+def all_underscore_replacements(s):
+    rtn = []
+    underscore_positions = [i for i,c in enumerate(s) if c == "_"]
+    for indexsets in chain.from_iterable(
+            combinations(list(underscore_positions), r)
+            for r in range(len(list(underscore_positions))+1)):
+        s_ = str(s)
+        for i in indexsets:
+            s_ = s_[:i] + " " + s_[i+1:]
+        rtn.append(s_)
+    return rtn
 
 class TicDatError(Exception) :
     pass
