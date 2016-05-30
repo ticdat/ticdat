@@ -47,8 +47,9 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
         caveats: Missing sheets resolve to an empty table, but missing fields
                  on matching sheets throw an Exception.
                  Sheet names are considered case insensitive, and white space is replaced
-                 with underscore for table name matching. (ticdat supports whitespace in
-                 field names but not table names).
+                 with underscore for table name matching.
+                 Field names are considered case insensitive, but white space is respected.
+                 (ticdat supports whitespace in field names but not table names).
                  Any field for which an empty string is invalid data and None is valid data
                  will replace the empty string with None. (This caveat requires the data_types
                  to be set for the ticDatFactory)
@@ -78,13 +79,16 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
         verify(not duplicated_sheets, "The following sheet names were duplicated : " +
                ",".join(duplicated_sheets))
         sheets = FrozenDict({k:v[0] for k,v in sheets.items() })
-        field_indicies, bad_fields = {}, {}
+        field_indicies, missing_fields, dup_fields = {}, {}, {}
         for table, sheet in sheets.items() :
-            field_indicies[table], bad_fields[table] = self._get_field_indicies(
-                                                table, sheet, row_offsets[table], headers_present)
-        verify(not any(_ for _ in bad_fields.values()),
+            field_indicies[table], missing_fields[table], dup_fields[table] = \
+                self._get_field_indicies(table, sheet, row_offsets[table], headers_present)
+        verify(not any(_ for _ in missing_fields.values()),
                "The following field names could not be found : \n" +
-               "\n".join("%s : "%t + ",".join(bf) for t,bf in bad_fields.items() if bf))
+               "\n".join("%s : "%t + ",".join(bf) for t,bf in missing_fields.items() if bf))
+        verify(not any(_ for _ in dup_fields.values()),
+               "The following field names were duplicated : \n" +
+               "\n".join("%s : "%t + ",".join(bf) for t,bf in dup_fields.items() if bf))
         return sheets, field_indicies
     def _create_generator_obj(self, xlsFilePath, table, row_offset, headers_present):
         tdf = self.tic_dat_factory
@@ -185,17 +189,17 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
         if not headers_present:
             row_len = len(sheet.row_values(row_offset)) if sheet.nrows > 0  else len(fields)
             return ({f : i for i,f in enumerate(fields) if i < row_len},
-                    [f for i,f in enumerate(fields) if i >= row_len])
+                    [f for i,f in enumerate(fields) if i >= row_len], [])
         if sheet.nrows - row_offset <= 0 :
-            return {}, fields
+            return {}, fields, []
         temp_rtn = {field:list() for field in fields}
         for field, (ind, val) in product(fields, enumerate(sheet.row_values(row_offset))) :
-            if field == val :
+            if field == val or (all(map(utils.stringish, (field, val))) and
+                                field.lower() == val.lower()):
                 temp_rtn[field].append(ind)
-        rtn = {field : inds[0] for field, inds in temp_rtn.items() if len(inds)==1}
-        if len(rtn) == len(fields):
-            return rtn, []
-        return {}, [field for field, inds in temp_rtn.items() if len(inds)!=1]
+        return ({field : inds[0] for field, inds in temp_rtn.items() if len(inds)==1},
+                [field for field, inds in temp_rtn.items() if len(inds) == 0],
+                [field for field, inds in temp_rtn.items() if len(inds) > 1])
 
     def write_file(self, tic_dat, file_path, allow_overwrite = False):
         """

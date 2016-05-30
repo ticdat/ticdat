@@ -531,6 +531,17 @@ class TestUtils(unittest.TestCase):
                          "the_big odd_hairy boger", "the big_odd_hairy boger", "the_big odd hairy boger",
                          "the big_odd hairy boger", "the big odd_hairy boger", "the big odd hairy_boger",
                          "the big odd hairy boger"})
+    def test13(self):
+        # THIRTEEN! THIRTEEN!
+        TicDatFactory(boger = [["fieldone", "fieldtwo"],["fieldthree","fieldfour"]])
+        exceptions = [self.firesException(lambda :
+                TicDatFactory(boger = [["fieldone", "fieldONE"],["fieldthree","fieldfour"]])),
+                      self.firesException(lambda :
+                TicDatFactory(boger = [["fieldone", "fieldtwo"],["fieldtwo","fieldfour"]])),
+                      self.firesException(lambda :
+                TicDatFactory(boger = [["fieldone", "fieldtwo"],["fieldTWO","fieldfour"]]))]
+        self.assertTrue(all(exceptions))
+        self.assertTrue(len(set(exceptions)) == 2)
 
 _scratchDir = TestUtils.__name__ + "_scratch"
 

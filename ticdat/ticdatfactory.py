@@ -416,8 +416,10 @@ foreign keys, the code throwing this exception will be removed.
             verify(all(utils.stringish(s) for _ in v for s in _),
                    "The field names for %s need to be strings"%k)
             verify(v[0] or v[1], "No field names specified for table %s"%k)
-            verify(not set(v[0]).intersection(v[1]),
-                   "The same field name is both a data field and primary key field for table %s"%k)
+            verify(len(set(v[0]).union(v[1])) == len(v[0])+len(v[1]),
+                   "There are duplicate field names for table %s"%k)
+            verify(len({_.lower() for _ in list(v[0]) + list(v[1])}) == len(v[0])+len(v[1]),
+                   "There are case insensitive duplicate field names for %s"%k)
         self._primary_key_fields = FrozenDict({k : tuple(v[0])for k,v in init_fields.items()})
         self._data_fields = FrozenDict({k : tuple(v[1]) for k,v in init_fields.items()})
         self._default_values = clt.defaultdict(dict)
