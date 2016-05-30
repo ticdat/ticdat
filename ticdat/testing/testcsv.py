@@ -18,7 +18,11 @@ class TestCsv(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         shutil.rmtree(_scratchDir)
-    def firesException(self, f):
+    def firesException(self, f, troubleshoot=False):
+        if troubleshoot:
+            import ipdb
+            ipdb.set_trace()
+            f()
         e = firesException(f)
         if e :
             self.assertTrue("TicDatError" in e.__class__.__name__)
