@@ -543,6 +543,9 @@ class TestUtils(unittest.TestCase):
         self.assertTrue(all(exceptions))
         self.assertTrue(len(set(exceptions)) == 2)
 
+        TicDatFactory(boger = [["a"],["b"]], moger = [["a"], ["b"]])
+        self.assertTrue(self.firesException(lambda : TicDatFactory(boger = [["a"],["b"]], Boger = [["a"], ["b"]])))
+
 _scratchDir = TestUtils.__name__ + "_scratch"
 
 
