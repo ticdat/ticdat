@@ -4,9 +4,17 @@ from ticdat.ticdatfactory import TicDatFactory
 from ticdat.testing.ticdattestutils import dietData, dietSchema, netflowData, netflowSchema, firesException
 from ticdat.testing.ticdattestutils import sillyMeData, sillyMeSchema, makeCleanDir, fail_to_debugger
 from ticdat.testing.ticdattestutils import makeCleanPath, addNetflowForeignKeys, addDietForeignKeys, flagged_as_run_alone
-from ticdat.testing.ticdattestutils import spacesData, spacesSchema
+from ticdat.testing.ticdattestutils import spacesData, spacesSchema, dietSchemaWeirdCase, dietSchemaWeirdCase2
+from ticdat.testing.ticdattestutils import copyDataDietWeirdCase, copyDataDietWeirdCase2
+
 import shutil
 import unittest
+
+try:
+    import sqlite3 as sql
+except:
+    pass
+
 
 #@fail_to_debugger
 class TestSql(unittest.TestCase):
@@ -84,6 +92,32 @@ class TestSql(unittest.TestCase):
         self.assertTrue(tdf._same_data(ticDat, origTicDat))
 
         doTheTests(tdf)
+
+    def testWeirdDiets(self):
+
+        filePath = os.path.join(_scratchDir, "weirdDiet.db")
+        tdf = TicDatFactory(**dietSchema())
+        ticDat = tdf.freeze_me(tdf.TicDat(**{t:getattr(dietData(),t) for t in tdf.primary_key_fields}))
+
+        tdf2 = TicDatFactory(**dietSchemaWeirdCase())
+        dat2 = copyDataDietWeirdCase(ticDat)
+        tdf2.sql.write_db_data(dat2, filePath , allow_overwrite=True)
+        sqlTicDat = tdf.sql.create_tic_dat(filePath)
+        self.assertTrue(tdf._same_data(ticDat, sqlTicDat))
+
+
+        tdf3 = TicDatFactory(**dietSchemaWeirdCase2())
+        dat3 = copyDataDietWeirdCase2(ticDat)
+        tdf3.sql.write_db_data(dat3, makeCleanPath(filePath))
+        with sql.connect(filePath) as con:
+            con.execute("ALTER TABLE nutrition_quantities RENAME TO [nutrition quantities]")
+
+        sqlTicDat2 = tdf3.sql.create_tic_dat(filePath)
+        self.assertTrue(tdf3._same_data(dat3, sqlTicDat2))
+        with sql.connect(filePath) as con:
+            con.execute("create table nutrition_quantities(boger)")
+
+        self.assertTrue(self.firesException(lambda : tdf3.sql.create_tic_dat(filePath)))
 
     def testNetflow(self):
         if not self.canRun:
@@ -221,6 +255,12 @@ class TestSql(unittest.TestCase):
         tdf.sql.write_db_data(dat, filePath)
         dat2 = tdf.sql.create_tic_dat(filePath, freeze_it=True)
         self.assertTrue(tdf._same_data(dat,dat2))
+
+        with sql.connect(filePath) as con:
+            for t in tdf.all_tables:
+                con.execute("ALTER TABLE %s RENAME TO [%s]"%(t, t.replace("_", " ")))
+        dat3 = tdf.sql.create_tic_dat(filePath, freeze_it=True)
+        self.assertTrue(tdf._same_data(dat, dat3))
 
 
 _scratchDir = TestSql.__name__ + "_scratch"
