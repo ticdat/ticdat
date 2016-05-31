@@ -3,10 +3,10 @@ import os
 import ticdat.utils as utils
 import shutil
 from ticdat.ticdatfactory import TicDatFactory
-from ticdat.testing.ticdattestutils import dietData, dietSchema, netflowData
-from ticdat.testing.ticdattestutils import  netflowSchema, firesException
+from ticdat.testing.ticdattestutils import dietData, dietSchema, netflowData, dietSchemaWeirdCase
+from ticdat.testing.ticdattestutils import  netflowSchema, firesException, copyDataDietWeirdCase
 from ticdat.testing.ticdattestutils import sillyMeData, sillyMeSchema, fail_to_debugger
-from ticdat.testing.ticdattestutils import  makeCleanDir
+from ticdat.testing.ticdattestutils import makeCleanDir, dietSchemaWeirdCase2, copyDataDietWeirdCase2
 import unittest
 
 #@fail_to_debugger
@@ -43,14 +43,36 @@ class TestCsv(unittest.TestCase):
         self.assertFalse(tdf._same_data(ticDat, csvTicDat))
 
         self.assertTrue(self.firesException(lambda  :
-            tdf.csv.write_directory(ticDat, dirPath, dialect="excel_t")).endswith(
-                                                                        "Invalid dialect excel_t"))
+            tdf.csv.write_directory(ticDat, dirPath, dialect="excel_t")
+                                    ).endswith("Invalid dialect excel_t"))
 
         tdf.csv.write_directory(ticDat, dirPath, dialect="excel-tab", allow_overwrite=True)
         self.assertTrue(self.firesException(lambda : tdf.csv.create_tic_dat(dirPath, freeze_it=True)))
         csvTicDat = tdf.csv.create_tic_dat(dirPath, freeze_it=True, dialect="excel-tab")
         self.assertTrue(firesException(change))
         self.assertTrue(tdf._same_data(ticDat, csvTicDat))
+
+        tdf2 = TicDatFactory(**dietSchemaWeirdCase())
+        dat2 = copyDataDietWeirdCase(ticDat)
+        tdf2.csv.write_directory(dat2, dirPath, allow_overwrite=True)
+        csvTicDat2 = tdf.csv.create_tic_dat(dirPath, freeze_it=True)
+        self.assertTrue(tdf._same_data(ticDat, csvTicDat2))
+        os.rename(os.path.join(dirPath, "nutritionquantities.csv"),
+                  os.path.join(dirPath, "nutritionquantities.csv".upper()))
+        csvTicDat2 = tdf.csv.create_tic_dat(dirPath, freeze_it=True)
+        self.assertTrue(tdf._same_data(ticDat, csvTicDat2))
+
+        tdf3 = TicDatFactory(**dietSchemaWeirdCase2())
+        dat3 = copyDataDietWeirdCase2(ticDat)
+        tdf3.csv.write_directory(dat3, dirPath, allow_overwrite=True)
+        os.rename(os.path.join(dirPath, "nutrition_quantities.csv"),
+                  os.path.join(dirPath, "nutrition quantities.csv"))
+        csvDat3 = tdf3.csv.create_tic_dat(dirPath)
+        self.assertTrue(tdf3._same_data(dat3, csvDat3))
+        shutil.copy(os.path.join(dirPath, "nutrition quantities.csv"),
+                    os.path.join(dirPath, "nutrition_quantities.csv"))
+        self.assertTrue(self.firesException(lambda : tdf3.csv.create_tic_dat(dirPath)))
+
 
     def testNetflow(self):
         if not self.canRun:
