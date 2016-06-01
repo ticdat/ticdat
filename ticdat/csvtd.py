@@ -5,8 +5,8 @@ PEP8
 
 import os
 from ticdat.utils import freezable_factory, TicDatError, verify, containerish, dictish
-import ticdat.utils
 from collections import defaultdict
+from itertools import product
 
 try:
     import csv
@@ -80,70 +80,67 @@ class CsvTicFactory(freezable_factory(object, "_isFrozen")) :
         verify(os.path.isdir(dir_path), "Invalid directory path %s"%dir_path)
         tdf = self.tic_dat_factory
         rtn = {t:defaultdict(int) for t,_ in tdf.primary_key_fields.items()
-               if _ and os.path.isfile(os.path.join(dir_path, t + ".csv"))}
+               if _ and self._get_file_path(dir_path, t)}
         for t in rtn:
-            if not headers_present:
-                self._verify_fields_by_cnt(dir_path, t, dialect)
-            fieldnames=tdf.primary_key_fields.get(t, ()) + tdf.data_fields.get(t, ())
-            dict_rdr_args = dict({"fieldnames":fieldnames} if not headers_present else{},
-                             **{"dialect": dialect})
-            with open(os.path.join(dir_path, t + ".csv")) as csvfile:
-                for r in csv.DictReader(csvfile, **dict_rdr_args) :
-                    verify(set(r.keys()).issuperset(fieldnames),
-                           "Failed to find the required field names for %s"%t)
-                    p_key = _try_float(r[tdf.primary_key_fields[t][0]]) \
+            with open(self._get_file_path(dir_path, t)) as csvfile:
+                for r in self._get_data(csvfile, t, dialect, headers_present):
+                    p_key = r[tdf.primary_key_fields[t][0]] \
                             if len(tdf.primary_key_fields[t])==1 else \
-                            tuple(_try_float(r[_]) for _ in tdf.primary_key_fields[t])
+                            tuple(r[_] for _ in tdf.primary_key_fields[t])
                     rtn[t][p_key] += 1
         for t in rtn.keys():
             rtn[t] = {k:v for k,v in rtn[t].items() if v > 1}
             if not rtn[t]:
                 del(rtn[t])
         return rtn
-    def _verify_fields_by_cnt(self, dir_path, table, dialect) :
-        file_path = os.path.join(dir_path, table + ".csv")
-        verify(os.path.isfile(file_path),
-               "Could not find file path %s for table %s"%(file_path, table))
+    def _get_file_path(self, dir_path, table):
+        rtn = [path for f in os.listdir(dir_path) for path in [os.path.join(dir_path, f)]
+               if os.path.isfile(path) and
+               f.lower().replace(" ", "_") == "%s.csv"%table.lower()]
+        verify(len(rtn) <= 1, "duplicate .csv files found for %s"%table)
+        if rtn:
+            return rtn[0]
+    def _get_data(self, csvfile, table, dialect, headers_present):
         tdf = self.tic_dat_factory
         fieldnames=tdf.primary_key_fields.get(table, ()) + tdf.data_fields.get(table, ())
-        with open(file_path) as csvfile :
-            trial_rdr = csv.reader(csvfile, dialect=dialect)
-            for row in trial_rdr:
+        for row in csv.DictReader(csvfile, dialect = dialect,
+                            **({"fieldnames":fieldnames} if not headers_present else {})):
+            if not headers_present:
                 verify(len(row) == len(fieldnames),
-                       "Need %s columns for table %s"%(len(fieldnames), table))
-                return
+                   "Need %s columns for table %s"%(len(fieldnames), table))
+                yield {f: _try_float(row[f]) for f in fieldnames}
+            else:
+                key_matching = defaultdict(list)
+                for k,f in product(row.keys(), fieldnames):
+                    if k.lower() ==f.lower():
+                        key_matching[f].append(k)
+                for f in fieldnames:
+                    verify(f in key_matching, "Unable to find field name %s for table %s"%(f, table))
+                    verify(len(key_matching[f]) <= 1,
+                           "Duplicate field names found for field %s table %s"%(f, table))
+                yield {f: _try_float(row[key_matching[f][0]]) for f in fieldnames}
+
     def _create_table(self, dir_path, table, dialect, headers_present):
-        file_path = os.path.join(dir_path, table + ".csv")
-        if not os.path.isfile(file_path) :
+        file_path = self._get_file_path(dir_path, table)
+        if not (file_path and  os.path.isfile(file_path)) :
             return
         tdf = self.tic_dat_factory
-        fieldnames=tdf.primary_key_fields.get(table, ()) + tdf.data_fields.get(table, ())
-        dict_rdr_args = dict({"fieldnames":fieldnames} if not headers_present else{},
-                             **{"dialect": dialect})
         if table in tdf.generator_tables:
             def rtn() :
-                if not headers_present:
-                    self._verify_fields_by_cnt(dir_path, table, dialect)
                 with open(file_path) as csvfile:
-                    for r in csv.DictReader(csvfile, **dict_rdr_args) :
-                        verify(set(r.keys()).issuperset(fieldnames),
-                               "Failed to find the required field names for %s"%table)
-                        yield tuple(_try_float(r[_]) for _ in tdf.data_fields[table])
+                    for r in self._get_data(csvfile, table, dialect, headers_present):
+                        yield tuple(r[_] for _ in tdf.data_fields[table])
         else:
-            if not headers_present:
-                self._verify_fields_by_cnt(dir_path, table, dialect)
             rtn = {} if tdf.primary_key_fields.get(table) else []
             with open(file_path) as csvfile:
-                for r in csv.DictReader(csvfile, **dict_rdr_args) :
-                    verify(set(r.keys()).issuperset(fieldnames),
-                           "Failed to find the required field names for %s"%table)
+                for r in self._get_data(csvfile, table, dialect, headers_present) :
                     if tdf.primary_key_fields.get(table) :
-                        p_key = _try_float(r[tdf.primary_key_fields[table][0]]) \
-                            if len(tdf.primary_key_fields[table])==1 else \
-                            tuple(_try_float(r[_]) for _ in tdf.primary_key_fields[table])
-                        rtn[p_key] = tuple(_try_float(r[_]) for _ in tdf.data_fields.get(table,()))
+                        p_key = r[tdf.primary_key_fields[table][0]] \
+                                if len(tdf.primary_key_fields[table]) == 1 else \
+                                tuple(r[_] for _ in tdf.primary_key_fields[table])
+                        rtn[p_key] = tuple(r[_] for _ in tdf.data_fields.get(table,()))
                     else:
-                        rtn.append(tuple(_try_float(r[_]) for _ in tdf.data_fields[table]))
+                        rtn.append(tuple(r[_] for _ in tdf.data_fields[table]))
         return rtn
 
     def write_directory(self, tic_dat, dir_path, allow_overwrite = False, dialect='excel',

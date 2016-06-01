@@ -3,7 +3,7 @@ import unittest
 import ticdat.utils as utils
 from ticdat import LogFile, Progress
 from ticdat.ticdatfactory import TicDatFactory, _ForeignKey, _ForeignKeyMapping
-from ticdat.testing.ticdattestutils import dietData, dietSchema, netflowData, netflowSchema, firesException
+from ticdat.testing.ticdattestutils import dietData, dietSchema, netflowData, netflowSchema, firesException, memo
 from ticdat.testing.ticdattestutils import sillyMeData, sillyMeSchema, makeCleanDir, fail_to_debugger, flagged_as_run_alone
 from ticdat.testing.ticdattestutils import assertTicDatTablesSame, DEBUG, addNetflowForeignKeys, addDietForeignKeys
 import os
@@ -519,6 +519,32 @@ class TestUtils(unittest.TestCase):
             self.assertTrue(self.firesException(lambda : po.numerical_progress("boger", "1")))
         do_checks(Progress())
         do_checks(Progress(quiet=True))
+
+    def testTwelve(self):
+        self.assertTrue(set(utils.all_underscore_replacements("boger")) == {"boger"})
+        self.assertTrue(set(utils.all_underscore_replacements("the_boger")) ==
+                        {"the_boger", "the boger"})
+        self.assertTrue(set(utils.all_underscore_replacements("the_big_odd_hairy_boger")) ==
+                        {"the_big_odd_hairy_boger", "the big_odd_hairy_boger", "the_big odd_hairy_boger",
+                         "the_big_odd hairy_boger", "the_big_odd_hairy boger", "the big odd_hairy_boger",
+                         "the_big odd hairy_boger", "the_big_odd hairy boger", "the big_odd hairy_boger",
+                         "the_big odd_hairy boger", "the big_odd_hairy boger", "the_big odd hairy boger",
+                         "the big_odd hairy boger", "the big odd_hairy boger", "the big odd hairy_boger",
+                         "the big odd hairy boger"})
+    def test13(self):
+        # THIRTEEN! THIRTEEN!
+        TicDatFactory(boger = [["fieldone", "fieldtwo"],["fieldthree","fieldfour"]])
+        exceptions = [self.firesException(lambda :
+                TicDatFactory(boger = [["fieldone", "fieldONE"],["fieldthree","fieldfour"]])),
+                      self.firesException(lambda :
+                TicDatFactory(boger = [["fieldone", "fieldtwo"],["fieldtwo","fieldfour"]])),
+                      self.firesException(lambda :
+                TicDatFactory(boger = [["fieldone", "fieldtwo"],["fieldTWO","fieldfour"]]))]
+        self.assertTrue(all(exceptions))
+        self.assertTrue(len(set(exceptions)) == 2)
+
+        TicDatFactory(boger = [["a"],["b"]], moger = [["a"], ["b"]])
+        self.assertTrue(self.firesException(lambda : TicDatFactory(boger = [["a"],["b"]], Boger = [["a"], ["b"]])))
 
 _scratchDir = TestUtils.__name__ + "_scratch"
 

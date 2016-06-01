@@ -4,10 +4,18 @@ from ticdat.ticdatfactory import TicDatFactory
 from ticdat.testing.ticdattestutils import dietData, dietSchema, netflowData, netflowSchema, firesException
 from ticdat.testing.ticdattestutils import sillyMeData, sillyMeSchema, makeCleanDir, fail_to_debugger
 from ticdat.testing.ticdattestutils import makeCleanPath, addNetflowForeignKeys, addDietForeignKeys
+from ticdat.testing.ticdattestutils import spacesData, spacesSchema, dietSchemaWeirdCase, dietSchemaWeirdCase2
+from ticdat.testing.ticdattestutils import copyDataDietWeirdCase, copyDataDietWeirdCase2
 import shutil
 import unittest
-#uncomment decorator to drop into debugger for assertTrue, assertFalse failures
+from ticdat.mdb import _connection_str
 
+try:
+    import pypyodbc as py
+except:
+    pass
+
+#uncomment decorator to drop into debugger for assertTrue, assertFalse failures
 #@fail_to_debugger
 class TestMdb(unittest.TestCase):
     canRun = False
@@ -140,6 +148,66 @@ class TestMdb(unittest.TestCase):
         ticDatNone = tdf.mdb.create_tic_dat(filePath, freeze_it=True)
         self.assertTrue(tdf._same_data(ticDat, ticDatNone))
         self.assertTrue(ticDatNone.a["theboger"]["aData2"] == None)
+
+    def testInjection(self):
+        if not self.canRun:
+            return
+        problems = [ "'", "''", '"', '""']
+        tdf = TicDatFactory(boger = [["a"], ["b"]])
+        dat = tdf.TicDat()
+        for v,k in enumerate(problems):
+            dat.boger[k]=v
+            dat.boger[v]=k
+        filePath = makeCleanPath(os.path.join(_scratchDir, "injection.mdb"))
+        tdf.mdb.write_file(dat, filePath)
+        dat2 = tdf.mdb.create_tic_dat(filePath, freeze_it=True)
+        self.assertTrue(tdf._same_data(dat,dat2))
+
+    def testSpacey(self):
+        if not self.canRun:
+            return
+        tdf = TicDatFactory(**spacesSchema())
+        dat = tdf.TicDat(**spacesData())
+        filePath = makeCleanPath(os.path.join(_scratchDir, "spacey.mdb"))
+        tdf.mdb.write_file(dat, filePath)
+        dat2 = tdf.mdb.create_tic_dat(filePath, freeze_it=True)
+        self.assertTrue(tdf._same_data(dat,dat2))
+
+        with py.connect(_connection_str(filePath)) as con:
+            for t in tdf.all_tables:
+                con.cursor().execute("SELECT * INTO [%s] FROM %s"%(t.replace("_", " "), t)).commit()
+                con.cursor().execute("DROP TABLE %s"%t).commit()
+
+        dat3 = tdf.mdb.create_tic_dat(filePath, freeze_it=True)
+        self.assertTrue(tdf._same_data(dat, dat3))
+
+    def testWeirdDiets(self):
+        if not self.canRun:
+            return
+        filePath = os.path.join(_scratchDir, "weirdDiet.mdb")
+        tdf = TicDatFactory(**dietSchema())
+        ticDat = tdf.freeze_me(tdf.TicDat(**{t:getattr(dietData(),t) for t in tdf.primary_key_fields}))
+
+        tdf2 = TicDatFactory(**dietSchemaWeirdCase())
+        dat2 = copyDataDietWeirdCase(ticDat)
+        tdf2.mdb.write_file(dat2, filePath , allow_overwrite=True)
+        mdbTicDat = tdf.mdb.create_tic_dat(filePath)
+        self.assertTrue(tdf._same_data(ticDat, mdbTicDat))
+
+
+        tdf3 = TicDatFactory(**dietSchemaWeirdCase2())
+        dat3 = copyDataDietWeirdCase2(ticDat)
+        tdf3.mdb.write_file(dat3, makeCleanPath(filePath))
+        with py.connect(_connection_str(filePath)) as con:
+            con.cursor().execute("SELECT * INTO [nutrition quantities] FROM nutrition_quantities").commit()
+            con.cursor().execute("DROP TABLE nutrition_quantities").commit()
+
+        mdbTicDat2 = tdf3.mdb.create_tic_dat(filePath)
+        self.assertTrue(tdf3._same_data(dat3, mdbTicDat2))
+        with py.connect(_connection_str(filePath)) as con:
+            con.cursor().execute("create table nutrition_quantities (boger int)").commit()
+
+        self.assertTrue(self.firesException(lambda : tdf3.mdb.create_tic_dat(filePath)))
 
 _scratchDir = TestMdb.__name__ + "_scratch"
 

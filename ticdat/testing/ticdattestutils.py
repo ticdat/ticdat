@@ -5,6 +5,7 @@ import itertools
 import fnmatch
 from ticdat.utils import dictish, containerish
 import unittest
+from ticdat import TicDatFactory
 
 __codeFile = []
 def _codeFile() :
@@ -271,6 +272,37 @@ def dietSchema():
      "foods" :[["name"],("cost",)],
      "nutritionQuantities" : (["food", "category"], ["qty"])
     }
+
+def dietSchemaWeirdCase():
+    return {
+     "cateGories" : (("name",),["miNnutrition", "maXnutrition"]),
+     "foodS" :[["name"],("COST",)],
+     "nutritionquantities" : (["food", "category"], ["qtY"])
+    }
+def copyDataDietWeirdCase(dat):
+    tdf = TicDatFactory(**dietSchemaWeirdCase())
+    rtn = tdf.TicDat()
+    for c,r in dat.categories.items():
+        rtn.cateGories[c]["miNnutrition"] = r["minNutrition"]
+        rtn.cateGories[c]["maXnutrition"] = r["maxNutrition"]
+    for f,r in dat.foods.items():
+        rtn.foodS[f] = r["cost"]
+    for (f,c),r in dat.nutritionQuantities.items():
+        rtn.nutritionquantities[f,c] = r["qty"]
+    return rtn
+def dietSchemaWeirdCase2():
+    rtn = dietSchemaWeirdCase()
+    rtn["nutrition_quantities"] = rtn["nutritionquantities"]
+    del(rtn["nutritionquantities"])
+    return rtn
+def copyDataDietWeirdCase2(dat):
+    tdf = TicDatFactory(**dietSchemaWeirdCase2())
+    tmp = copyDataDietWeirdCase(dat)
+    rtn = tdf.TicDat(cateGories = tmp.cateGories, foodS = tmp.foodS)
+    for (f,c),r in tmp.nutritionquantities.items():
+        rtn.nutrition_quantities[f,c] = r
+    return rtn
+
 def addDietForeignKeys(tdf) :
     tdf.add_foreign_key("nutritionQuantities", 'categories',[u'category', u'name'])
     tdf.add_foreign_key("nutritionQuantities", 'foods', (u'food', u'name'))
