@@ -153,7 +153,6 @@ class SQLiteTicFactory(freezable_factory(object, "_isFrozen")) :
     def _create_gen_obj(self, db_file_path, table, table_name):
         tdf = self.tic_dat_factory
         def tableObj() :
-            self._check_tables_fields(db_file_path, (table,)).values()
             assert (not tdf.primary_key_fields.get(table)) and (tdf.data_fields.get(table))
             with sql.connect(db_file_path) as con:
                 for row in con.execute("Select %s from [%s]"%
