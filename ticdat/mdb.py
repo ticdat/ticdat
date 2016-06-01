@@ -31,7 +31,8 @@ def _read_data(x) :
             return -float("inf")
     return x
 
-
+def _brackets(l) :
+    return ["[%s]"%_ for _ in l]
 
 class MdbTicFactory(freezable_factory(object, "_isFrozen")) :
     """
@@ -103,7 +104,7 @@ class MdbTicFactory(freezable_factory(object, "_isFrozen")) :
                 fields = tdf.primary_key_fields.get(table, ()) + tdf.data_fields.get(table, ())
                 rtn[table]= {} if tdf.primary_key_fields.get(table, ())  else []
                 with con.cursor() as cur :
-                    cur.execute("Select %s from %s"%(", ".join(fields), table))
+                    cur.execute("Select %s from [%s]"%(", ".join(_brackets(fields)), table))
                     for row in cur.fetchall():
                         pk = row[:len(tdf.primary_key_fields.get(table, ()))]
                         data = map(_read_data, row[len(tdf.primary_key_fields.get(table, ())):])
