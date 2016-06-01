@@ -3,7 +3,7 @@ import ticdat.utils as utils
 from ticdat.ticdatfactory import TicDatFactory
 from ticdat.testing.ticdattestutils import dietData, dietSchema, netflowData, netflowSchema, firesException
 from ticdat.testing.ticdattestutils import sillyMeData, sillyMeSchema, makeCleanDir, fail_to_debugger
-from ticdat.testing.ticdattestutils import spacesData, spacesSchema
+from ticdat.testing.ticdattestutils import spacesData, spacesSchema, memo, flagged_as_run_alone
 import shutil
 import unittest
 
@@ -122,20 +122,25 @@ class TestXls(unittest.TestCase):
         self.assertTrue(firesException(lambda : tdf6._same_data(ticDat, ticDat6)))
         self.assertTrue(hasattr(ticDat6, "d") and utils.dictish(ticDat6.d))
 
-        def writeData(data, write_header = True):
+        def writeData(data, write_header = "same"):
+            assert not write_header or write_header in ("lower", "same", "duped")
             import xlwt
             book = xlwt.Workbook()
             for t in tdf.all_tables :
                 sheet = book.add_sheet(t)
-                if write_header :
-                    for i,f in enumerate(tdf.primary_key_fields.get(t, ()) + tdf.data_fields.get(t, ())) :
-                        sheet.write(0, i, f)
+                if write_header:
+                    all_fields = tdf.primary_key_fields.get(t, ()) + tdf.data_fields.get(t, ())
+                    for i,f in enumerate((2 if write_header == "duped" else 1) * all_fields) :
+                        sheet.write(0, i, f.lower() if write_header == "lower" or i >= len(all_fields) else f)
                 for rowInd, row in enumerate(data) :
-                    for fieldInd, cellValue in enumerate(row):
+                    for fieldInd, cellValue in enumerate((2 if write_header == "duped" else 1) * row):
                         sheet.write(rowInd+ (1 if write_header else 0), fieldInd, cellValue)
             if os.path.exists(filePath):
                 os.remove(filePath)
             book.save(filePath)
+
+        writeData([(1, 2, 3, 4), (1, 20, 30, 40), (10, 20, 30, 40)], write_header="duped")
+        self.assertTrue(self.firesException(lambda : tdf.xls.create_tic_dat(filePath, freeze_it=True)))
 
         writeData([(1, 2, 3, 4), (1, 20, 30, 40), (10, 20, 30, 40)])
         ticDatMan = tdf.xls.create_tic_dat(filePath, freeze_it=True)
@@ -143,6 +148,14 @@ class TestXls(unittest.TestCase):
         self.assertTrue(ticDatMan.b[1, 20, 30]["bData"] == 40)
         rowCount = tdf.xls.get_duplicates(filePath)
         self.assertTrue(set(rowCount) == {'a'} and set(rowCount["a"]) == {1} and rowCount["a"][1]==2)
+
+        writeData([(1, 2, 3, 4), (1, 20, 30, 40), (10, 20, 30, 40)], write_header="lower")
+        ticDatMan = tdf.xls.create_tic_dat(filePath, freeze_it=True)
+        self.assertTrue(len(ticDatMan.a) == 2 and len(ticDatMan.b) == 3)
+        self.assertTrue(ticDatMan.b[1, 20, 30]["bData"] == 40)
+        rowCount = tdf.xls.get_duplicates(filePath)
+        self.assertTrue(set(rowCount) == {'a'} and set(rowCount["a"]) == {1} and rowCount["a"][1]==2)
+
 
         writeData([(1, 2, 3, 4), (1, 20, 30, 40), (10, 20, 30, 40)], write_header=False)
         self.assertTrue(self.firesException(lambda  : tdf.xls.create_tic_dat(filePath, freeze_it=True)))

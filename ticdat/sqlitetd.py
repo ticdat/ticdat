@@ -5,7 +5,7 @@ PEP8
 import os
 from collections import defaultdict
 from ticdat.utils import freezable_factory, TicDatError, verify, stringish, dictish, containerish
-from ticdat.utils import FrozenDict
+from ticdat.utils import FrozenDict, all_underscore_replacements
 
 try:
     import sqlite3 as sql
@@ -112,7 +112,25 @@ class SQLiteTicFactory(freezable_factory(object, "_isFrozen")) :
             with open(sql_file_path, "r") as f:
                 for str in f.read().split(";"):
                     con.execute(str)
-            return self._create_tic_dat_from_con(con)
+            return self._create_tic_dat_from_con(con,
+                        {t:t for t in self.tic_dat_factory.all_tables})
+    def _get_table_names(self, db_file_path, tables):
+        rtn = {}
+        with sql.connect(db_file_path) as con:
+            def try_name(name):
+                try :
+                    con.execute("Select * from [%s]"%name)
+                except :
+                    return False
+                return True
+            for table in tables:
+                rtn[table] = [t for t in all_underscore_replacements(table) if try_name(t)]
+                verify(len(rtn[table]) >= 1, "Unable to recognize table %s in SQLite file %s"%
+                                  (table, db_file_path))
+                verify(len(rtn[table]) <= 1, "Duplicate tables found for table %s in SQLite file %s"%
+                                  (table, db_file_path))
+                rtn[table] = rtn[table][0]
+        return rtn
     def _check_tables_fields(self, db_file_path, tables):
         tdf = self.tic_dat_factory
         TDE = TicDatError
@@ -121,44 +139,42 @@ class SQLiteTicFactory(freezable_factory(object, "_isFrozen")) :
             sql.connect(db_file_path)
         except Exception as e:
             raise TDE("Unable to open %s as SQLite file : %s"%(db_file_path, e.message))
+        table_names = self._get_table_names(db_file_path, tables)
         with sql.connect(db_file_path) as con:
             for table in tables :
-                try :
-                    con.execute("Select * from [%s]"%table)
-                except :
-                    raise TDE("Unable to recognize table %s in SQLite file %s"%
-                              (table, db_file_path))
-                for field in tdf.primary_key_fields.get(table, ()) + tdf.data_fields.get(table, ()):
+                for field in tdf.primary_key_fields.get(table, ()) + \
+                             tdf.data_fields.get(table, ()):
                     try :
-                        con.execute("Select [%s] from [%s]"%(field,table))
+                        con.execute("Select [%s] from [%s]"%(field,table_names[table]))
                     except :
                         raise TDE("Unable to recognize field %s in table %s for file %s"%
                                   (field, table, db_file_path))
-    def _create_gen_obj(self, db_file_path, table):
+        return table_names
+    def _create_gen_obj(self, db_file_path, table, table_name):
         tdf = self.tic_dat_factory
         def tableObj() :
-            self._check_tables_fields(db_file_path, (table,))
             assert (not tdf.primary_key_fields.get(table)) and (tdf.data_fields.get(table))
             with sql.connect(db_file_path) as con:
                 for row in con.execute("Select %s from [%s]"%
-                                        (", ".join(_brackets(tdf.data_fields[table])), table)):
+                        (", ".join(_brackets(tdf.data_fields[table])), table_name)):
                     yield map(_read_data_format, row)
         return tableObj
     def _create_tic_dat(self, db_file_path):
         tdf = self.tic_dat_factory
-        self._check_tables_fields(db_file_path, tdf.all_tables)
+        table_names = self._check_tables_fields(db_file_path, tdf.all_tables)
         with sql.connect(db_file_path) as con:
-            rtn = self._create_tic_dat_from_con(con)
+            rtn = self._create_tic_dat_from_con(con, table_names)
         for table in tdf.generator_tables :
-            rtn[table] = self._create_gen_obj(db_file_path, table)
+            rtn[table] = self._create_gen_obj(db_file_path, table, table_names[table])
         return rtn
-    def _create_tic_dat_from_con(self, con):
+    def _create_tic_dat_from_con(self, con, table_names):
         tdf = self.tic_dat_factory
         rtn = {}
         for table in set(tdf.all_tables).difference(tdf.generator_tables) :
             fields = tdf.primary_key_fields.get(table, ()) + tdf.data_fields.get(table, ())
             rtn[table]= {} if tdf.primary_key_fields.get(table, ())  else []
-            for row in con.execute("Select %s from [%s]"%(", ".join(_brackets(fields)), table)) :
+            for row in con.execute("Select %s from [%s]"%(", ".join(_brackets(fields)),
+                                                          table_names[table])) :
                 pk = row[:len(tdf.primary_key_fields.get(table, ()))]
                 data = map(_read_data_format, row[len(tdf.primary_key_fields.get(table, ())):])
                 if dictish(rtn[table]) :
@@ -245,9 +261,11 @@ class SQLiteTicFactory(freezable_factory(object, "_isFrozen")) :
         verify(not os.path.isdir(db_file_path), "A directory is not a valid SQLite file path")
         if not os.path.exists(db_file_path) :
             self.write_db_schema(db_file_path)
-        self._check_tables_fields(db_file_path, self.tic_dat_factory.all_tables)
+        table_names = self._check_tables_fields(db_file_path, self.tic_dat_factory.all_tables)
         with _sql_con(db_file_path, foreign_keys=False) as con:
             for t in self.tic_dat_factory.all_tables:
+                verify(table_names[t] == t, "Failed to find table %s in path %s"%
+                                            (t, db_file_path))
                 verify(allow_overwrite or not any(True for _ in  con.execute("Select * from %s"%t)),
                         "allow_overwrite is False, but there are already data records in %s"%t)
                 con.execute("Delete from %s"%t) if allow_overwrite else None
