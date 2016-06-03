@@ -24,21 +24,43 @@ except:
     gu = None
 
 class Slicer(object):
+    """
+    Object to perform multi-index slicing over an index sequence
+    """
     def __init__(self, iter_of_iters):
+        """
+        Construct a multi-index Slicer object
+        :param iter_of_iters An iterable of iterables. Usually a list of lists, or a list
+        of tuples. Each inner iterable must be the same size. The "*" string has a special
+        flag meaning and cannot be a member of any of the inner iterables.
+        """
         verify(hasattr(iter_of_iters, "__iter__"), "need an iterator of iterators")
         copied = tuple(iter_of_iters)
-        verify(all(hasattr(_, "__iter__") for _ in copied),
-               "elements of outer iterator not themselves an iterator")
-        self._indicies = tuple(map(tuple, copied))
+        verify(all(hasattr(_, "__iter__") for _ in copied), "need iterator of iterators")
+        self._indicies = ()
+        seen = set()
+        for indx in map(tuple, copied):
+            if indx not in seen:
+                self._indicies += (indx,)
+                seen.add(indx)
         if self._indicies:
             verify(min(map(len, self._indicies)) == max(map(len, self._indicies)),
                    "each inner iterator needs to have the same number of elements")
             verify(not any("*" in _ for _ in self._indicies),
                    "The '*' character cannot itself be used as an index")
         self._gu = None
+        if gu:
+            self._gu = gu.tuplelist(self._indicies)
+            self._indicies = None
         self.clear()
 
     def slice(self, *args):
+        """
+        Perform a multi-index slice. (Not to be confused with the native Python slice)
+        :param *args a series of index values or '*'. The latter means 'match every value'
+        :return: a list of tuples which match  args. The list will be pruned of redundancies.
+        :caveat will run faster if gurobipy is available
+        """
         if not (self._indicies or self._gu):
             return []
         verify(len(args) == len((self._indicies or self._gu)[0]), "inconsistent number of elements")
@@ -51,16 +73,16 @@ class Slicer(object):
                 self._archived_slicings[wildcards][fa(indx)].append(indx)
         return list(self._archived_slicings[wildcards][fa(args)])
     def clear(self):
-        if gu and not self._gu:
-            self._gu = gu.tuplelist(self._indicies)
-            self._indicies = None
+        """
+        reduce memory overheard by clearing out any archived slicing.
+        this is a no-op if gurobipy is available
+        :return:
+        """
         self._archived_slicings = defaultdict(lambda : defaultdict(list))
-    def _forcedout(self):
+    def _forceguout(self):
         if self._gu:
             self._indicies = tuple(map(tuple, self._gu))
             self._gu = None
-
-
 
 def do_it(g): # just walks through everything in a gen - I like the syntax this enables
     for x in g :
@@ -83,11 +105,6 @@ class TicDatError(Exception) :
 
 def debug_break():
     import ipdb; ipdb.set_trace()
-
-_memo = []
-def memo(x) :
-    do_it(_memo.pop() for _ in list(_memo))
-    _memo.append(x)
 
 def safe_apply(f) :
     def _rtn (*args, **kwargs) :

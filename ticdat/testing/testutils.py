@@ -546,6 +546,36 @@ class TestUtils(unittest.TestCase):
         TicDatFactory(boger = [["a"],["b"]], moger = [["a"], ["b"]])
         self.assertTrue(self.firesException(lambda : TicDatFactory(boger = [["a"],["b"]], Boger = [["a"], ["b"]])))
 
+    def testFourteen(self):
+        slicer = utils.Slicer(([1,2],[2,3], [1, 12], [12.2, 2]))
+        def dotests():
+            self.assertTrue(set(slicer.slice('*', 2)) == {(1,2),(12.2,2)})
+            self.assertTrue(set(slicer.slice(1, '*')) == {(1,12),(1,2)})
+            self.assertTrue(slicer.slice(1,2) == [(1,2)])
+            self.assertTrue(set(slicer.slice('*', '*')) == {(1,2),(2,3),(1, 12),(12.2, 2)})
+        dotests()
+        self.assertFalse(slicer._archived_slicings)
+        slicer._forceguout()
+        dotests()
+        self.assertTrue(len(slicer._archived_slicings) == 4)
+
+        slicer = utils.Slicer([list(range(_))[-5:] for _ in range(5,30)] +
+                              [[1, 2, 3] + list(range(_))[-2:] for _ in range(2,10)])
+        def dotests():
+            self.assertTrue(len(slicer.slice(1, 2, '*', '*', '*'))== 8)
+            for x in range(25):
+                if x != 1:
+                    self.assertTrue(len(slicer.slice(x, x+1, '*', '*', '*'))== 1)
+                self.assertTrue(len(slicer.slice('*', '*', '*', '*', x)) ==
+                                (2 if x in (4,6,7,8) else (0 if x == 0 else 1)))
+            self.assertTrue(slicer.slice('no', '*', '*', '*', '*') == [])
+        dotests()
+        self.assertFalse(slicer._archived_slicings)
+        slicer._forceguout()
+        dotests()
+        self.assertTrue(len(slicer._archived_slicings) == 3)
+
+
 _scratchDir = TestUtils.__name__ + "_scratch"
 
 
