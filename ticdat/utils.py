@@ -4,12 +4,63 @@ PEP8
 """
 from numbers import Number
 from itertools import chain, combinations
+from collections import defaultdict
 
 try:
     import pandas as pd
     from pandas import DataFrame
 except:
     pd = DataFrame =  None
+
+def verify(b, msg) :
+    if not b :
+        raise TicDatError(msg)
+
+try:
+    import gurobipy as gu
+    verify(set(gu.tuplelist(((1,2), (2,3),(3,2))).select("*", 2))
+               == {(1, 2), (3, 2)}, "")
+except:
+    gu = None
+
+class Slicer(object):
+    def __init__(self, iter_of_iters):
+        verify(hasattr(iter_of_iters, "__iter__"), "need an iterator of iterators")
+        copied = tuple(iter_of_iters)
+        verify(all(hasattr(_, "__iter__") for _ in copied),
+               "elements of outer iterator not themselves an iterator")
+        self._indicies = tuple(map(tuple, copied))
+        if self._indicies:
+            verify(min(map(len, self._indicies)) == max(map(len, self._indicies)),
+                   "each inner iterator needs to have the same number of elements")
+            verify(not any("*" in _ for _ in self._indicies),
+                   "The '*' character cannot itself be used as an index")
+        self._gu = None
+        self.clear()
+
+    def slice(self, *args):
+        if not (self._indicies or self._gu):
+            return []
+        verify(len(args) == len((self._indicies or self._gu)[0]), "inconsistent number of elements")
+        if self._gu:
+            return list(self._gu.select(*args))
+        wildcards = tuple(i for i,x in enumerate(args) if x == "*")
+        fa = lambda t : tuple(x for x,y in zip(t, args) if y != "*")
+        if wildcards not in self._archived_slicings:
+            for indx in self._indicies:
+                self._archived_slicings[wildcards][fa(indx)].append(indx)
+        return list(self._archived_slicings[wildcards][fa(args)])
+    def clear(self):
+        if gu and not self._gu:
+            self._gu = gu.tuplelist(self._indicies)
+            self._indicies = None
+        self._archived_slicings = defaultdict(lambda : defaultdict(list))
+    def _forcedout(self):
+        if self._gu:
+            self._indicies = tuple(map(tuple, self._gu))
+            self._gu = None
+
+
 
 def do_it(g): # just walks through everything in a gen - I like the syntax this enables
     for x in g :
@@ -121,10 +172,6 @@ def deep_freeze(x) :
         return tuple(map(deep_freeze, x))
     return frozenset(map(deep_freeze,x))
 
-
-def verify(b, msg) :
-    if not b :
-        raise TicDatError(msg)
 
 def td_row_factory(table, key_field_names, data_field_names, default_values={}):
     assert dictish(default_values) and set(default_values).issubset(data_field_names)
