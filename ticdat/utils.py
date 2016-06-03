@@ -65,7 +65,7 @@ class Slicer(object):
             return []
         verify(len(args) == len((self._indicies or self._gu)[0]), "inconsistent number of elements")
         if self._gu:
-            return list(self._gu.select(*args))
+            return self._gu.select(*args)
         wildcards = tuple(i for i,x in enumerate(args) if x == "*")
         fa = lambda t : tuple(x for x,y in zip(t, args) if y != "*")
         if wildcards not in self._archived_slicings:
