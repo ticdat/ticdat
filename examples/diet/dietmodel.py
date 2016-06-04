@@ -68,6 +68,6 @@ def solve(dat):
         for f in dat.foods:
             if buy[f].x > 0.0001:
                 sln.buyFood[f] = buy[f].x
-            for c in dat.categories:
-                sln.consumeNutrition[c] = nutrition[c].x
+        for c in dat.categories:
+            sln.consumeNutrition[c] = nutrition[c].x
         return freeze_me(sln)
