@@ -62,7 +62,9 @@ class Slicer(object):
         if self._gu:
             return self._gu.select(*args)
         wildcards = tuple(i for i,x in enumerate(args) if x == "*")
-        fa = lambda t : tuple(x for x,y in zip(t, args) if y != "*")
+        fixedposns = tuple(i for i in range(len(args)) if i not in wildcards)
+        def fa(t):
+            return tuple(t[i] for i in fixedposns)
         if wildcards not in self._archived_slicings:
             for indx in self._indicies:
                 self._archived_slicings[wildcards][fa(indx)].append(indx)
