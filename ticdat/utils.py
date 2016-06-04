@@ -37,12 +37,7 @@ class Slicer(object):
         verify(hasattr(iter_of_iters, "__iter__"), "need an iterator of iterators")
         copied = tuple(iter_of_iters)
         verify(all(hasattr(_, "__iter__") for _ in copied), "need iterator of iterators")
-        self._indicies = ()
-        seen = set()
-        for indx in map(tuple, copied):
-            if indx not in seen:
-                self._indicies += (indx,)
-                seen.add(indx)
+        self._indicies = tuple(map(tuple, copied))
         if self._indicies:
             verify(min(map(len, self._indicies)) == max(map(len, self._indicies)),
                    "each inner iterator needs to have the same number of elements")
@@ -58,7 +53,7 @@ class Slicer(object):
         """
         Perform a multi-index slice. (Not to be confused with the native Python slice)
         :param *args a series of index values or '*'. The latter means 'match every value'
-        :return: a list of tuples which match  args. The list will be pruned of redundancies.
+        :return: a list of tuples which match  args.
         :caveat will run faster if gurobipy is available
         """
         if not (self._indicies or self._gu):
