@@ -4,12 +4,82 @@ PEP8
 """
 from numbers import Number
 from itertools import chain, combinations
+from collections import defaultdict
 
 try:
     import pandas as pd
     from pandas import DataFrame
 except:
     pd = DataFrame =  None
+
+def verify(b, msg) :
+    if not b :
+        raise TicDatError(msg)
+
+try:
+    import gurobipy as gu
+    verify(set(gu.tuplelist(((1,2), (2,3),(3,2))).select("*", 2))
+               == {(1, 2), (3, 2)}, "")
+except:
+    gu = None
+
+class Slicer(object):
+    """
+    Object to perform multi-index slicing over an index sequence
+    """
+    def __init__(self, iter_of_iters):
+        """
+        Construct a multi-index Slicer object
+        :param iter_of_iters An iterable of iterables. Usually a list of lists, or a list
+        of tuples. Each inner iterable must be the same size. The "*" string has a special
+        flag meaning and cannot be a member of any of the inner iterables.
+        """
+        verify(hasattr(iter_of_iters, "__iter__"), "need an iterator of iterators")
+        copied = tuple(iter_of_iters)
+        verify(all(hasattr(_, "__iter__") for _ in copied), "need iterator of iterators")
+        self._indicies = tuple(map(tuple, copied))
+        if self._indicies:
+            verify(min(map(len, self._indicies)) == max(map(len, self._indicies)),
+                   "each inner iterator needs to have the same number of elements")
+            verify(not any("*" in _ for _ in self._indicies),
+                   "The '*' character cannot itself be used as an index")
+        self._gu = None
+        if gu:
+            self._gu = gu.tuplelist(self._indicies)
+            self._indicies = None
+        self.clear()
+
+    def slice(self, *args):
+        """
+        Perform a multi-index slice. (Not to be confused with the native Python slice)
+        :param *args a series of index values or '*'. The latter means 'match every value'
+        :return: a list of tuples which match  args.
+        :caveat will run faster if gurobipy is available
+        """
+        if not (self._indicies or self._gu):
+            return []
+        verify(len(args) == len((self._indicies or self._gu)[0]), "inconsistent number of elements")
+        if self._gu:
+            return self._gu.select(*args)
+        wildcards = tuple(i for i,x in enumerate(args) if x == "*")
+        fixedposns = tuple(i for i in range(len(args)) if i not in wildcards)
+        def fa(t):
+            return tuple(t[i] for i in fixedposns)
+        if wildcards not in self._archived_slicings:
+            for indx in self._indicies:
+                self._archived_slicings[wildcards][fa(indx)].append(indx)
+        return list(self._archived_slicings[wildcards][fa(args)])
+    def clear(self):
+        """
+        reduce memory overheard by clearing out any archived slicing.
+        this is a no-op if gurobipy is available
+        :return:
+        """
+        self._archived_slicings = defaultdict(lambda : defaultdict(list))
+    def _forceguout(self):
+        if self._gu:
+            self._indicies = tuple(map(tuple, self._gu))
+            self._gu = None
 
 def do_it(g): # just walks through everything in a gen - I like the syntax this enables
     for x in g :
@@ -32,11 +102,6 @@ class TicDatError(Exception) :
 
 def debug_break():
     import ipdb; ipdb.set_trace()
-
-_memo = []
-def memo(x) :
-    do_it(_memo.pop() for _ in list(_memo))
-    _memo.append(x)
 
 def safe_apply(f) :
     def _rtn (*args, **kwargs) :
@@ -121,10 +186,6 @@ def deep_freeze(x) :
         return tuple(map(deep_freeze, x))
     return frozenset(map(deep_freeze,x))
 
-
-def verify(b, msg) :
-    if not b :
-        raise TicDatError(msg)
 
 def td_row_factory(table, key_field_names, data_field_names, default_values={}):
     assert dictish(default_values) and set(default_values).issubset(data_field_names)

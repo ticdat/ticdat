@@ -1,5 +1,5 @@
 import pandas as pd
-import  ticdat
+import ticdat
 from itertools import product
 from gurobipy import tuplelist
 
@@ -70,6 +70,23 @@ def checkTupleListSum(tl, td, chk1, chk2):
     verify(sum(td.childTable[k]["dummy"] for k in tl.select("*", 3, 1)) == 0)
     verify(sum(td.childTable[k]["dummy"] for k in tl.select("*", 3, 3)) == 0)
 
+def checkSlicerLen(tl, chk1, chk2):
+    tl._forceguout() # for testing purposes, using underscore is ok
+    assert chk1 and chk2
+    verify(len(tl.slice("*", "*", 3)) == chk1)
+    verify(len(tl.slice("*", 3, 2)) == chk2)
+    verify(len(tl.slice("*", 3, 1)) == 0)
+    verify(len(tl.slice("*", 3, 3)) == 0)
+    assert tl._archived_slicings
+
+def checkSlicerSum(tl, td, chk1, chk2):
+    tl._forceguout() # for testing purposes, using underscore is ok
+    assert chk1 and chk2
+    verify(sum(td.childTable[k]["dummy"] for k in tl.slice("*", "*", 3)) == chk1*2.)
+    verify(sum(td.childTable[k]["dummy"] for k in tl.slice("*", 3, 2)) == chk2*2.)
+    verify(sum(td.childTable[k]["dummy"] for k in tl.slice("*", 3, 1)) == 0)
+    verify(sum(td.childTable[k]["dummy"] for k in tl.slice("*", 3, 3)) == 0)
+    assert tl._archived_slicings
 
 # make a simple schema
 tdf = ticdat.TicDatFactory(p1 = [["id"],[]], p2 = [["id"],[]], childTable = [["p1_1", "p1_2", "p2"],["dummy"]])
@@ -79,38 +96,46 @@ smallTd = tdf.TicDat()
 smallChk =  populateTd(smallTd, 30, 20)
 smallSmartTupleList = tuplelist(smallTd.childTable)
 smallDumbTupleList = DumbTupleList(smallTd.childTable)
+smallSlicer = ticdat.Slicer(smallTd.childTable)
 smallChildDf = tdf.copy_to_pandas(smallTd,["childTable"]).childTable
 checkChildDfLen(smallChildDf, *smallChk)
 checkTupleListLen(smallSmartTupleList, *smallChk)
 checkTupleListLen(smallDumbTupleList, *smallChk)
+checkSlicerLen(smallSlicer, *smallChk)
 checkChildDfSum(smallChildDf, *smallChk)
 checkTupleListSum(smallSmartTupleList, smallTd, *smallChk)
 checkTupleListSum(smallDumbTupleList, smallTd, *smallChk)
+checkSlicerSum(smallSlicer, smallTd, *smallChk)
 
 medTd = tdf.TicDat()
 medChk =  populateTd(medTd, 80, 75)
 medSmartTupleList = tuplelist(medTd.childTable)
 medDumbTupleList = DumbTupleList(medTd.childTable)
 medChildDf = tdf.copy_to_pandas(medTd,["childTable"]).childTable
+medSlicer = ticdat.Slicer(medTd.childTable)
 checkChildDfLen(medChildDf, *medChk)
 checkTupleListLen(medSmartTupleList, *medChk)
 checkTupleListLen(medDumbTupleList, *medChk)
+checkSlicerLen(medSlicer, *medChk)
 checkChildDfSum(medChildDf, *medChk)
 checkTupleListSum(medSmartTupleList, medTd, *medChk)
 checkTupleListSum(medDumbTupleList, medTd, *medChk)
+checkSlicerSum(medSlicer, medTd, *medChk)
 
 bigTd = tdf.TicDat()
 bigChk =  populateTd(bigTd, 180, 125)
 bigSmartTupleList = tuplelist(bigTd.childTable)
 bigDumbTupleList = DumbTupleList(bigTd.childTable)
 bigChildDf = tdf.copy_to_pandas(bigTd,["childTable"]).childTable
+bigSlicer = ticdat.Slicer(bigTd.childTable)
 checkChildDfLen(bigChildDf, *bigChk)
 checkTupleListLen(bigSmartTupleList, *bigChk)
 checkTupleListLen(bigDumbTupleList, *bigChk)
+checkSlicerLen(bigSlicer, *bigChk)
 checkChildDfSum(bigChildDf, *bigChk)
 checkTupleListSum(bigSmartTupleList, bigTd, *bigChk)
 checkTupleListSum(bigDumbTupleList, bigTd, *bigChk)
-
+checkSlicerSum(bigSlicer, bigTd, *bigChk)
 
 
 
