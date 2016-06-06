@@ -4,12 +4,20 @@
 #
 # edited with permission from Gurobi Optimization, Inc.
 
-# Solve a multi-commodity flow problem. pandas version
+# Solve a multi-commodity flow problem as python package.
+# This version of the file uses pandas both for table and for complex data
+# manipulation. There is no slicing or iterating over indexes.
+
+# Implement core functionality needed to achieve modularity.
+# 1. Define the input data schema
+# 2. Define the output data schema
+# 3. Create a solve function that accepts a data set consistent with the input
+#    schema and (if possible) returns a data set consistent with the output schema.
 
 from gurobipy import *
 from ticdat import TicDatFactory
 
-# define the input schema.
+# ------------------------ define the input schema --------------------------------
 dataFactory = TicDatFactory (
      commodities = [["name"],[]],
      nodes  = [["name"],[]],
@@ -31,10 +39,32 @@ dataFactory.add_foreign_key("inflow", "nodes", ['node', 'name'])
 dataFactory.set_data_type("arcs", "capacity")
 dataFactory.set_data_type("cost", "cost")
 # except quantity which allows negatives
-dataFactory.set_data_type("inflow", "quantity", min=-float("inf"), inclusive_min=False)
+dataFactory.set_data_type("inflow", "quantity", min=-float("inf"),
+                          inclusive_min=False)
+# ---------------------------------------------------------------------------------
 
+
+# ------------------------ define the output schema -------------------------------
 solutionFactory = TicDatFactory(
         flow = [["commodity", "source", "destination"], ["quantity"]])
+# ---------------------------------------------------------------------------------
+
+# ------------------------ solving section-----------------------------------------
+def solve(dat):
+    """
+    core solving routine
+    :param dat: a good ticdat for the dataFactory
+    :return: a good ticdat for the solutionFactory, or None
+    """
+    m, flow = create_model(dat)
+
+    # Compute optimal solution
+    m.optimize()
+
+    if m.status == GRB.status.OPTIMAL:
+        t = flow.apply(lambda r : r.x)
+        # TicDat is smart enough to handle a Series for a single data field table
+        return solutionFactory.freeze_me(solutionFactory.TicDat(flow = t[t > 0]))
 
 def create_model(dat):
     '''
@@ -50,9 +80,11 @@ def create_model(dat):
     # Create optimization model
     m = Model('netflow')
 
-    flow = dat.cost.join(dat.arcs, on = ["source", "destination"], how = "inner", rsuffix="_arcs")\
+    flow = dat.cost.join(dat.arcs, on = ["source", "destination"],
+                         how = "inner", rsuffix="_arcs")\
         .apply(lambda r : m.addVar(ub=r.capacity, obj=r.cost,
-                                   name='flow_%s_%s_%s' % (r.commodity, r.source, r.destination)),
+                                   name='flow_%s_%s_%s'%
+                                        (r.commodity, r.source, r.destination)),
                axis=1, reduce=True)
     m.update()
 
@@ -66,11 +98,12 @@ def create_model(dat):
 
     m.update()
     def flow_subtotal(node_fld, sum_field_name):
-        rtn = flow.groupby(level=['commodity',node_fld]).aggregate({sum_field_name : quicksum})
+        rtn = flow.groupby(level=['commodity',node_fld])\
+                  .aggregate({sum_field_name : quicksum})
         rtn.index.names = [u'commodity', u'node']
         return rtn
 
-    # quicksum([]) instead of the number 0 insures proper gurobipy constraints are created
+    # quicksum([]) instead of the number 0 insures proper constraints are created
     zero_proxy = quicksum([])
     flow_subtotal("destination", "flow_in")\
         .join(dat.inflow[abs(dat.inflow.quantity) > 0].quantity, how="outer")\
@@ -83,18 +116,4 @@ def create_model(dat):
     m.update()
 
     return m, flow
-
-
-
-def solve(dat):
-    m, flow = create_model(dat)
-
-    # Compute optimal solution
-    m.optimize()
-
-    if m.status == GRB.status.OPTIMAL:
-        t = flow.apply(lambda r : r.x)
-        # TicDat is smart enough to handle a Series for a single data field table
-        return solutionFactory.freeze_me(solutionFactory.TicDat(flow = t[t > 0]))
-
-
+# ---------------------------------------------------------------------------------

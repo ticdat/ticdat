@@ -4,29 +4,50 @@
 #
 # edited with permission from Gurobi Optimization, Inc.
 
-# Solve the classic diet model.  This file implements
-# a function that formulates and solves the model,
-# but it contains no model data.  The data is
-# passed in by the calling program.  Run example 'dietstatic.py',
-# 'dietxls.py', or 'dietcsv.py' to invoke this function.
+# Implement core functionality needed to achieve modularity.
+# 1. Define the input data schema
+# 2. Define the output data schema
+# 3. Create a solve function that accepts a data set consistent with the input
+#    schema and (if possible) returns a data set consistent with the output schema.
+
+# this version of the file uses Gurobi
 
 from gurobipy import *
 from ticdat import TicDatFactory, freeze_me
 
-# define the input schema. There are three input tables, with 4 primary key fields
-# and 4 data fields amongst them.
+# ------------------------ define the input schema --------------------------------
+# There are three input tables, with 4 primary key fields and 4 data fields.
 dataFactory = TicDatFactory (
      categories = [["name"],["minNutrition", "maxNutrition"]],
      foods  = [["name"],["cost"]],
      nutritionQuantities = [["food", "category"], ["qty"]])
 
-# define the solution schema. There are three solution tables, with 2 primary key fields
-# and 3 data fields amongst them.
+# the foreign key relationships are pretty much what you'd expect
+dataFactory.add_foreign_key("nutritionQuantities", "foods", ["food", "name"])
+dataFactory.add_foreign_key("nutritionQuantities", "categories",
+                            ["category", "name"])
+
+# We set the most common data type - a non-negative, non-infinite number
+# that has no integrality restrictions.
+for table, fields in dataFactory.data_fields.items():
+    for field in fields:
+        dataFactory.set_data_type(table, field)
+# We override the default data type for maxNutrition which can accept infinity
+dataFactory.set_data_type("categories", "maxNutrition", max=float("inf"),
+                          inclusive_max=True)
+# ---------------------------------------------------------------------------------
+
+
+# ------------------------ define the output schema -------------------------------
+# There are three solution tables, with 2 primary key fields and 3 data fields.
 solutionFactory = TicDatFactory(
         parameters = [[],["totalCost"]],
         buyFood = [["food"],["qty"]],
         consumeNutrition = [["category"],["qty"]])
+# ---------------------------------------------------------------------------------
 
+
+# ------------------------ create a solve function --------------------------------
 
 def solve(dat):
     assert dataFactory.good_tic_dat_object(dat)
@@ -63,7 +84,7 @@ def solve(dat):
 
     if m.status == GRB.status.OPTIMAL:
         sln = solutionFactory.TicDat()
-        # when writing into tables with just one data row, the field name can be omitted
+# when writing into tables with just one data row, the field name can be omitted
         sln.parameters.append(m.objVal)
         for f in dat.foods:
             if buy[f].x > 0.0001:
@@ -71,3 +92,4 @@ def solve(dat):
         for c in dat.categories:
             sln.consumeNutrition[c] = nutrition[c].x
         return freeze_me(sln)
+# ---------------------------------------------------------------------------------

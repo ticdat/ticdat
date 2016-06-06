@@ -1,15 +1,23 @@
 #!/usr/bin/python
 
-# Copyright 2015, Opalytics, Inc.
+# Copyright 2015, 2016 Opalytics, Inc.
 #
 # edited with permission from Gurobi Optimization, Inc.
 
-# Solve a multi-commodity flow problem.
+# Solve a multi-commodity flow problem as python package.
+# This version of the file doesn't use pandas at all, but instead uses ticdat
+# dict-of-dicts to represent data tables and gurobipy.tuplelist for slicing.
+
+# Implement core functionality needed to achieve modularity.
+# 1. Define the input data schema
+# 2. Define the output data schema
+# 3. Create a solve function that accepts a data set consistent with the input
+#    schema and (if possible) returns a data set consistent with the output schema.
 
 from gurobipy import *
 from ticdat import TicDatFactory
 
-# define the input schema.
+# ------------------------ define the input schema --------------------------------
 dataFactory = TicDatFactory (
      commodities = [["name"],[]],
      nodes  = [["name"],[]],
@@ -31,12 +39,34 @@ dataFactory.add_foreign_key("inflow", "nodes", ['node', 'name'])
 dataFactory.set_data_type("arcs", "capacity")
 dataFactory.set_data_type("cost", "cost")
 # except quantity which allows negatives
-dataFactory.set_data_type("inflow", "quantity", min=-float("inf"), inclusive_min=False)
+dataFactory.set_data_type("inflow", "quantity", min=-float("inf"),
+                          inclusive_min=False)
+# ---------------------------------------------------------------------------------
 
+# ------------------------ define the output schema -------------------------------
 solutionFactory = TicDatFactory(
         flow = [["commodity", "source", "destination"], ["quantity"]])
+# ---------------------------------------------------------------------------------
 
+# ------------------------ solving section-----------------------------------------
+def solve(dat):
+    """
+    core solving routine
+    :param dat: a good ticdat for the dataFactory
+    :return: a good ticdat for the solutionFactory, or None
+    """
+    m, flow = create_model(dat)
 
+    # Compute optimal solution
+    m.optimize()
+
+    if m.status == GRB.status.OPTIMAL:
+        rtn = solutionFactory.TicDat()
+        for (h, i, j),var in flow.items():
+            if var.x > 0:
+                # ticdat recognizes flow as a one-data-field table, thus making write through easy
+                rtn.flow[h,i,j] = var.x
+        return rtn
 
 def create_model(dat):
     '''
@@ -82,17 +112,4 @@ def create_model(dat):
           (quicksum(flow[h,i,j] for h,i,j in flowselect.select(h_, j_, '*')) or zero),
                    'node_%s_%s' % (h_, j_))
     return m, flow
-
-def solve(dat):
-    m, flow = create_model(dat)
-
-    # Compute optimal solution
-    m.optimize()
-
-    if m.status == GRB.status.OPTIMAL:
-        rtn = solutionFactory.TicDat()
-        for (h, i, j),var in flow.items():
-            if var.x > 0:
-                # ticdat recognizes flow as a one-data-field table, thus making write through easy
-                rtn.flow[h,i,j] = var.x
-        return rtn
+# ---------------------------------------------------------------------------------
