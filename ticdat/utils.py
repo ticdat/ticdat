@@ -384,3 +384,20 @@ class Progress(object):
              print "%s:%s:%s"%(theme.ljust(30), "{:.5f}".format(lower_bound).ljust(20),
                                "{:.5f}".format(upper_bound))
         return True
+    def gurobi_call_back_factory(self, theme, model) :
+        """
+        create a MIP call back handler for Gurobi
+        :param theme: string describing the type of MIP solve underway
+        :param model: a Gurobi model
+        :return: a call_back function that can be passed to optimize
+        """
+        verify(gu, "gurobipy is not installed and properly licensed")
+        def rtn(gu_model, where) :
+            assert gu_model is model
+            if where == gu.GRB.callback.MIP:
+                ub = model.cbGet(gu.GRB.callback.MIP_OBJBST)
+                lb = model.cbGet(gu.GRB.callback.MIP_OBJBND)
+                keep_going = self.mip_progress(theme, lb, ub)
+                if not keep_going :
+                    model.terminate()
+        return rtn
