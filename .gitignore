@@ -6,3 +6,4 @@ gurobi.log
 .idea/*
 .idea
 *.pyo
+*checkpoint.ipynb
