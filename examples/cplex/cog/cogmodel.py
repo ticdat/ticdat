@@ -11,11 +11,11 @@
 # 3. Create a solve function that accepts a data set consistent with the input
 #    schema and (if possible) returns a data set consistent with the output schema.
 
-# this version of the file uses Gurobi
+# this version of the file uses CPLEX
 
 import time
 import datetime
-import gurobipy as gu
+from docplex.mp.model import Model
 from ticdat import TicDatFactory, Progress, LogFile, Slicer
 
 # ------------------------ define the input schema --------------------------------
@@ -47,6 +47,14 @@ solutionFactory = TicDatFactory(
 # ---------------------------------------------------------------------------------
 
 # ------------------------ create a solve function --------------------------------
+def time_stamp() :
+    ts = time.time()
+    return datetime.datetime.fromtimestamp(ts).strftime('%Y-%m-%d %H:%M:%S')
+
+# the following are cplex credentials for cloud solving. Edit as needed.
+_cplex_url = "GET YOUR OWN FROM CPLEX"
+_cplex_key = "GET YOUR OWN FROM CPLEX"
+
 def solve(dat, out, err, progress):
     assert isinstance(progress, Progress)
     assert isinstance(out, LogFile) and isinstance(err, LogFile)
@@ -89,34 +97,28 @@ def solve(dat, out, err, progress):
 
     progress.numerical_progress("Feasibility Analysis" , 100)
 
-    m = gu.Model("cog")
+    m = Model("cog")
 
-    assign_vars = {(n, assigned_to) : m.addVar(vtype = gu.GRB.BINARY,
-                                        name = "%s_%s"%(n,assigned_to),
-                                        obj = get_distance(n,assigned_to) *
-                                              dat.sites[n]["demand"])
+    assign_vars = {(n, assigned_to) : m.binary_var(name = "%s_%s"%(n,assigned_to))
                     for n in dat.sites for assigned_to in dat.sites
                     if can_assign(n, assigned_to)}
-    open_vars = {n : m.addVar(vtype = gu.GRB.BINARY, name = "open_%s"%n)
+    open_vars = {n : m.binary_var(name = "open_%s"%n)
                      for n in dat.sites
                      if dat.sites[n]["center_status"] == "Can Be Center"}
     if not open_vars:
         err.write("Nothing can be a center!\n") # Infeasibility detected.
         return
 
-    m.update()
-
     progress.numerical_progress("Core Model Creation", 50)
 
-    # using ticdat.Slicer instead of tuplelist simply as a matter of taste/vanity
     assign_slicer = Slicer(assign_vars)
 
     for n, r in dat.sites.items():
         if r["demand"] > 0:
-            m.addConstr(gu.quicksum(assign_vars[n, assign_to]
+            m.add_constraint(m.sum(assign_vars[n, assign_to]
                                     for _, assign_to in assign_slicer.slice(n, "*"))
-                        == 1,
-                        name = "must_assign_%s"%n)
+                             == 1,
+                            ctname = "must_assign_%s"%n)
 
     crippledfordemo = "formulation" in dat.parameters and \
                       dat.parameters["formulation"]["value"] == "weak"
@@ -125,13 +127,13 @@ def solve(dat, out, err, progress):
             _assign_vars = [assign_vars[n, assigned_to]
                             for n,_ in assign_slicer.slice("*", assigned_to)]
             if crippledfordemo:
-                m.addConstr(gu.quicksum(_assign_vars) <=
+                m.add_constraint(m.sum(_assign_vars) <=
                             len(_assign_vars) * open_vars[assigned_to],
-                            name="weak_force_open%s"%assigned_to)
+                            ctname="weak_force_open%s"%assigned_to)
             else:
                 for var in _assign_vars :
-                    m.addConstr(var <= open_vars[assigned_to],
-                                name = "strong_force_open_%s"%assigned_to)
+                    m.add_constraint(var <= open_vars[assigned_to],
+                                ctname = "strong_force_open_%s"%assigned_to)
 
     number_of_centroids = dat.parameters["Number of Centroids"]["value"] \
                           if "Number of Centroids" in dat.parameters else 1
@@ -139,60 +141,41 @@ def solve(dat, out, err, progress):
         err.write("Need to specify a positive number of centroids\n") # Infeasibility detected.
         return
 
-    m.addConstr(gu.quicksum(v for v in open_vars.values()) == number_of_centroids,
-                name= "numCentroids")
+    m.add_constraint(m.sum(v for v in open_vars.values()) == number_of_centroids,
+                ctname= "numCentroids")
 
-    if "mipGap" in dat.parameters:
-        m.Params.MIPGap = dat.parameters["mipGap"]["value"]
-    m.update()
-
+    # !TMP!
+    # if "mipGap" in dat.parameters:
+    #     m.Params.MIPGap = dat.parameters["mipGap"]["value"]
     progress.numerical_progress("Core Model Creation", 100)
 
-    m.optimize(progress.gurobi_call_back_factory("COG Optimization", m))
+    m.minimize(m.sum(var * get_distance(n,assigned_to) * dat.sites[n]["demand"]
+                     for (n, assigned_to),var in assign_vars.items()))
 
-    progress.numerical_progress("Core Optimization", 100)
+    progress._add_listener(m) # !TMP!
 
-    if not hasattr(m, "status"):
-        print "missing status - likely premature termination"
-        return
-    for failStr,grbKey in (("inf_or_unbd", gu.GRB.INF_OR_UNBD),
-                           ("infeasible", gu.GRB.INFEASIBLE),
-                           ("unbounded", gu.GRB.UNBOUNDED)):
-         if m.status == grbKey:
-            print "Optimization failed due to model status of %s"%failStr
-            return
+    if m.solve(url=_cplex_url, key=_cplex_key):
 
-    if m.status == gu.GRB.INTERRUPTED:
-        err.write("Solve process interrupted by user feedback\n")
-        if not all(hasattr(var, "x") for var in open_vars.values()):
-            err.write("No solution was found\n")
-            return
-    elif m.status != gu.GRB.OPTIMAL:
-        err.write("unexpected status %s\n"%m.status)
-        return
+        progress.numerical_progress("Core Optimization", 100)
+        cplex_soln = m.solution
+        sln = solutionFactory.TicDat()
+        sln.parameters["Lower Bound"] = cplex_soln.get_objective_value() # !TMP!
+        sln.parameters["Upper Bound"] = cplex_soln.get_objective_value() # !TMP!
+        out.write('Upper Bound: %g\n' % sln.parameters["Upper Bound"]["value"])
+        out.write('Lower Bound: %g\n' % sln.parameters["Lower Bound"]["value"])
 
-    sln = solutionFactory.TicDat()
-    sln.parameters["Lower Bound"] = getattr(m, "objBound", m.objVal)
-    sln.parameters["Upper Bound"] = m.objVal
-    out.write('Upper Bound: %g\n' % sln.parameters["Upper Bound"]["value"])
-    out.write('Lower Bound: %g\n' % sln.parameters["Lower Bound"]["value"])
+        def almostone(x) :
+            return abs(x-1) < 0.0001
 
-    def almostone(x) :
-        return abs(x-1) < 0.0001
-
-    for (n, assigned_to), var in assign_vars.items() :
-        if almostone(var.x) :
-            sln.assignments[n,assigned_to] = {}
-    for n,var in open_vars.items() :
-        if almostone(var.x) :
-            sln.openings[n]={}
-    out.write('Number Centroids: %s\n' % len(sln.openings))
-    progress.numerical_progress("Full Cog Solve",  100)
-    return sln
-
-def time_stamp() :
-    ts = time.time()
-    return datetime.datetime.fromtimestamp(ts).strftime('%Y-%m-%d %H:%M:%S')
+        for (n, assigned_to), var in assign_vars.items() :
+            if almostone(cplex_soln.get_value(var)) :
+                sln.assignments[n,assigned_to] = {}
+        for n,var in open_vars.items() :
+            if almostone(cplex_soln.get_value(var)) :
+                sln.openings[n]={}
+        out.write('Number Centroids: %s\n' % len(sln.openings))
+        progress.numerical_progress("Full Cog Solve",  100)
+        return sln
 # ---------------------------------------------------------------------------------
 
 

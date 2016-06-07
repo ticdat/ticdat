@@ -23,6 +23,11 @@ try:
 except:
     gu = None
 
+try:
+    import docplex.mp.progress as cplexprogress
+except:
+    cplexprogress = None
+
 class Slicer(object):
     """
     Object to perform multi-index slicing over an index sequence
@@ -401,3 +406,5 @@ class Progress(object):
                 if not keep_going :
                     model.terminate()
         return rtn
+    def _add_listener(self, model):
+        model.add_progress_listener(cplexprogress.ProgressListener())
