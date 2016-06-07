@@ -2,7 +2,6 @@
 
 # Copyright 2015, 2016 Opalytics, Inc.
 #
-# edited with permission from Gurobi Optimization, Inc.
 
 # Solve a multi-commodity flow problem as python package.
 # This version of the file doesn't use pandas at all, but instead uses ticdat
@@ -14,8 +13,9 @@
 # 3. Create a solve function that accepts a data set consistent with the input
 #    schema and (if possible) returns a data set consistent with the output schema.
 
-from gurobipy import *
-from ticdat import TicDatFactory
+# this version of the file uses CPLEX
+from docplex.mp.model import Model
+from ticdat import TicDatFactory, Slicer
 
 # ------------------------ define the input schema --------------------------------
 dataFactory = TicDatFactory (
@@ -49,6 +49,11 @@ solutionFactory = TicDatFactory(
 # ---------------------------------------------------------------------------------
 
 # ------------------------ solving section-----------------------------------------
+# the following are cplex credentials for cloud solving. Edit as needed.
+_cplex_url = "GET YOUR OWN FROM CPLEX"
+_cplex_key = "GET YOUR OWN FROM CPLEX"
+_cplex_key = "api_e22f42ce-fddd-4e98-a48a-e23ea8a79d0a"
+_cplex_url = "https://api-oaas.docloud.ibmcloud.com/job_manager/rest/v1/"
 def solve(dat):
     """
     core solving routine
@@ -58,14 +63,13 @@ def solve(dat):
     m, flow = create_model(dat)
 
     # Compute optimal solution
-    m.optimize()
-
-    if m.status == GRB.status.OPTIMAL:
+    if m.solve(url=_cplex_url, key=_cplex_key):
         rtn = solutionFactory.TicDat()
+        cplex_soln = m.solution
         for (h, i, j),var in flow.items():
-            if var.x > 0:
-                # ticdat recognizes flow as a one-data-field table, thus making write through easy
-                rtn.flow[h,i,j] = var.x
+            if cplex_soln.get_value(var) > 0:
+# ticdat recognizes flow as a one-data-field table, thus making write through easy
+                rtn.flow[h,i,j] = cplex_soln.get_value(var)
         return rtn
 
 def create_model(dat):
@@ -84,31 +88,36 @@ def create_model(dat):
     flow = {}
     for h, i, j in dat.cost:
         if (i,j) in dat.arcs:
-            flow[h,i,j] = m.addVar(ub=dat.arcs[i,j]["capacity"], obj=dat.cost[h,i,j]["cost"],
-                                   name='flow_%s_%s_%s' % (h, i, j))
-    m.update()
+            flow[h,i,j] = m.continuous_var(name='flow_%s_%s_%s' % (h, i, j))
 
-    flowselect = tuplelist(flow)
+    # docplex doesn't provide a native slicer so we use ticdat.Slicer
+    flowslice = Slicer(flow)
 
     # Arc capacity constraints
     for i_,j_ in dat.arcs:
-        m.addConstr(quicksum(flow[h,i,j] for h,i,j in flowselect.select('*',i_, j_)) <= dat.arcs[i_,j_]["capacity"],
-                    'cap_%s_%s' % (i_, j_))
+        # docplex doesn't currently support float("inf") as RHS
+        if dat.arcs[i_,j_]["capacity"] < float("inf"):
+            m.add_constraint(m.sum(flow[h,i,j] for h,i,j in flowslice.slice('*',i_, j_))
+                         <= dat.arcs[i_,j_]["capacity"],
+                         ctname = 'cap_%s_%s' % (i_, j_))
 
 
     # for readability purposes using a dummy variable thats always zero
-    zero = m.addVar(lb=0, ub=0, name = "forcedToZero")
-    m.update()
+    zero = m.continuous_var(lb=0, ub=0, name = "forcedToZero")
 
     # Flow conservation constraints. Constraints are generated only for relevant pairs.
     # So we generate a conservation of flow constraint if there is negative or positive inflow
     # quantity, or at least one inbound flow variable, or at least one outbound flow variable.
     for h_,j_ in set(k for k,v in dat.inflow.items() if abs(v["quantity"]) > 0).union(
             {(h,i) for h,i,j in flow}, {(h,j) for h,i,j in flow}) :
-        m.addConstr(
-          (quicksum(flow[h,i,j] for h,i,j in flowselect.select(h_,'*',j_)) or zero) +
+        m.add_constraint(
+          (m.sum(flow[h,i,j] for h,i,j in flowslice.slice(h_,'*',j_)) or zero) +
               dat.inflow.get((h_,j_), {"quantity":0})["quantity"] ==
-          (quicksum(flow[h,i,j] for h,i,j in flowselect.select(h_, j_, '*')) or zero),
-                   'node_%s_%s' % (h_, j_))
+          (m.sum(flow[h,i,j] for h,i,j in flowslice.slice(h_, j_, '*')) or zero),
+                   ctname = 'node_%s_%s' % (h_, j_))
+
+    # setting the objective function
+    m.minimize(m.sum(flow * dat.cost[h, i, j]["cost"] for (h, i, j),flow in flow.items()))
+
     return m, flow
 # ---------------------------------------------------------------------------------
