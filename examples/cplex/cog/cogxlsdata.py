@@ -34,7 +34,6 @@ class CogStopProgress(Progress):
         # return False (to stop optimization) if the cog.stop file exists
         return not os.path.exists("cog.stop")
 
-# solve the model using a generic LogFactory object
 with LogFile("output.txt") as out :
     with LogFile("error.txt") as err :
         solution = solve(dat, out, err, CogStopProgress())

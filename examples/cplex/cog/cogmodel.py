@@ -144,15 +144,15 @@ def solve(dat, out, err, progress):
     m.add_constraint(m.sum(v for v in open_vars.values()) == number_of_centroids,
                 ctname= "numCentroids")
 
-    # !TMP!
-    # if "mipGap" in dat.parameters:
-    #     m.Params.MIPGap = dat.parameters["mipGap"]["value"]
+    if "mipGap" in dat.parameters:
+        m.parameters.mip.tolerances.mipgap = dat.parameters["mipGap"]["value"]
+
     progress.numerical_progress("Core Model Creation", 100)
 
     m.minimize(m.sum(var * get_distance(n,assigned_to) * dat.sites[n]["demand"]
                      for (n, assigned_to),var in assign_vars.items()))
 
-    progress._add_listener(m) # !TMP!
+    progress.add_cplex_listener("COG Optimization", m)
 
     if m.solve(url=_cplex_url, key=_cplex_key):
 
