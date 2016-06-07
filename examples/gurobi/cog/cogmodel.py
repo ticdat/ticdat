@@ -112,12 +112,13 @@ def solve(dat, out, err, progress):
 
     progress.numerical_progress("Core Model Creation", 50)
 
+    # using ticdat.Slicer instead of tuplelist simply as a matter of taste/vanity
     assign_slicer = Slicer(assign_vars)
 
     for n, r in dat.sites.items():
         if r["demand"] > 0:
-            m.addConstr(gu.quicksum(assign_vars[n, _]
-                                    for _ in assign_slicer.slice(n, "*"))
+            m.addConstr(gu.quicksum(assign_vars[n, assign_to]
+                                    for _, assign_to in assign_slicer.slice(n, "*"))
                         == 1,
                         name = "must_assign_%s"%n)
 
@@ -125,8 +126,8 @@ def solve(dat, out, err, progress):
                       dat.parameters["formulation"]["value"] == "weak"
     for assigned_to, r in dat.sites.items():
         if r["center_status"] == "Can Be Center":
-            _assign_vars = [assign_vars[_, assigned_to]
-                            for _ in assign_slicer.slice("*", assigned_to)]
+            _assign_vars = [assign_vars[n, assigned_to]
+                            for n,_ in assign_slicer.slice("*", assigned_to)]
             if crippledfordemo:
                 m.addConstr(gu.quicksum(_assign_vars) <=
                             len(_assign_vars) * open_vars[assigned_to],
