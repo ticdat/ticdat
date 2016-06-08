@@ -56,8 +56,6 @@ solutionFactory = TicDatFactory(
 # ------------------------ solving section-----------------------------------------
 _cplex_url = "GET YOUR OWN FROM CPLEX"
 _cplex_key = "GET YOUR OWN FROM CPLEX"
-_cplex_key = "api_e22f42ce-fddd-4e98-a48a-e23ea8a79d0a"
-_cplex_url = "https://api-oaas.docloud.ibmcloud.com/job_manager/rest/v1/"
 def solve(dat):
     """
     core solving routine
@@ -90,32 +88,33 @@ def create_model(dat):
 
     flow = Sloc.add_sloc(dat.cost.join(dat.arcs, on = ["source", "destination"],
                                        how = "inner", rsuffix="_arcs").
-              apply(lambda r : m.addVar(ub=r.capacity, obj=r.cost,
-                            name= 'flow_%s_%s_%s' % (r.commodity, r.source, r.destination)),
+              apply(lambda r : m.continuous_var(name= 'flow_%s_%s_%s'%
+                                (r.commodity, r.source, r.destination)),
                     axis=1, reduce=True))
     flow.name = "flow"
 
-    m.update()
-
-    dat.arcs.join(flow.groupby(level=["source", "destination"]).sum()).apply(
-        lambda r : m.addConstr(r.flow <= r.capacity,
-                               'cap_%s_%s'%(r.source, r.destination)), axis =1)
+    dat.arcs[dat.arcs.capacity < float("inf")].join(
+        flow.groupby(level=["source", "destination"]).sum()).apply(
+        lambda r : m.add_constraint(r.flow <= r.capacity,
+                               ctname = 'cap_%s_%s'%(r.source, r.destination)),
+        axis =1)
 
     # for readability purposes using a dummy variable thats always zero
-    zero = m.addVar(lb=0, ub=0, name = "forcedToZero")
-
-    m.update()
+    zero = m.continuous_var(lb=0, ub=0, name = "forcedToZero")
 
     # there is a more pandonic way to do this group of constraints, but lets
     # demonstrate .sloc for those who think it might be more intuitive
     for h_,j_ in sorted(set(dat.inflow[abs(dat.inflow.quantity) > 0].index).union(
         flow.groupby(level=['commodity','source']).groups.keys(),
         flow.groupby(level=['commodity','destination']).groups.keys())):
-            m.addConstr((quicksum(flow.sloc[h_,:,j_]) or zero) +
+            m.add_constraint((m.sum(flow.sloc[h_,:,j_]) or zero) +
                         dat.inflow.quantity.loc[h_,j_] ==
-                        (quicksum(flow.sloc[h_,j_,:]) or zero),
-                        'node_%s_%s' % (h_, j_))
+                        (m.sum(flow.sloc[h_,j_,:]) or zero),
+                        ctname ='node_%s_%s' % (h_, j_))
 
-    m.update()
+    m.minimize(dat.cost.join(flow).
+               apply(lambda r : r.flow * r.cost, axis = 1, reduce = True).
+               sum())
+
     return m, flow
 # ---------------------------------------------------------------------------------
