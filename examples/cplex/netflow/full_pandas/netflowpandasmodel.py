@@ -51,10 +51,9 @@ solutionFactory = TicDatFactory(
 # ---------------------------------------------------------------------------------
 
 # ------------------------ solving section-----------------------------------------
-_cplex_key = "api_e22f42ce-fddd-4e98-a48a-e23ea8a79d0a"
-_cplex_url = "https://api-oaas.docloud.ibmcloud.com/job_manager/rest/v1/"
 _cplex_url = "GET YOUR OWN FROM CPLEX"
 _cplex_key = "GET YOUR OWN FROM CPLEX"
+
 def solve(dat):
     """
     core solving routine
@@ -89,6 +88,7 @@ def create_model(dat):
               apply(lambda r : m.continuous_var(name= 'flow_%s_%s_%s'%
                                 (r.commodity, r.source, r.destination)),
                     axis=1, reduce=True)
+    flow.name = "flow"
 
     # combining aggregate with m.sum is more efficient than using sum
     flow.groupby(level=["source", "destination"])\
