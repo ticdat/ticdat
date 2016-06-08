@@ -75,7 +75,7 @@ def create_model(dat):
     '''
     utility function helpful for troubleshooting
     :param dat: a good ticdat for the dataFactory
-    :return: a docplex model and dictionary of docplex flow variables
+    :return: a docplex model and a Series of docplex flow variables
     '''
     assert dataFactory.good_tic_dat_object(dat)
     assert not dataFactory.find_foreign_key_failures(dat)

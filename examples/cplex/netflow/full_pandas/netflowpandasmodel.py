@@ -1,13 +1,12 @@
 #!/usr/bin/python
 
-# Copyright 2015, 2016 Opalytics, Inc.
+# Copyright 2015, Opalytics, Inc.
 #
 # edited with permission from Gurobi Optimization, Inc.
 
 # Solve a multi-commodity flow problem as python package.
-# This version of the file uses pandas for data tables
-# but also iterates over table indicies explicitly and uses
-# Sloc to perform pandas slicing.
+# This version of the file uses pandas both for table and for complex data
+# manipulation. There is no slicing or iterating over indexes.
 
 # Implement core functionality needed to achieve modularity.
 # 1. Define the input data schema
@@ -15,10 +14,9 @@
 # 3. Create a solve function that accepts a data set consistent with the input
 #    schema and (if possible) returns a data set consistent with the output schema.
 
-
-from gurobipy import *
-from ticdat import TicDatFactory, Sloc
-import pandas as pd
+# this version of the file uses CPLEX
+from docplex.mp.model import Model
+from ticdat import TicDatFactory
 
 # ------------------------ define the input schema --------------------------------
 dataFactory = TicDatFactory (
@@ -38,7 +36,7 @@ dataFactory.add_foreign_key("cost", "commodities", ['commodity', 'name'])
 dataFactory.add_foreign_key("inflow", "commodities", ['commodity', 'name'])
 dataFactory.add_foreign_key("inflow", "nodes", ['node', 'name'])
 
-# the whole schema has only three data fields to type
+# the whole schema has only three data fields to type - two are default type
 dataFactory.set_data_type("arcs", "capacity")
 dataFactory.set_data_type("cost", "cost")
 # except quantity which allows negatives
@@ -53,6 +51,10 @@ solutionFactory = TicDatFactory(
 # ---------------------------------------------------------------------------------
 
 # ------------------------ solving section-----------------------------------------
+_cplex_key = "api_e22f42ce-fddd-4e98-a48a-e23ea8a79d0a"
+_cplex_url = "https://api-oaas.docloud.ibmcloud.com/job_manager/rest/v1/"
+_cplex_url = "GET YOUR OWN FROM CPLEX"
+_cplex_key = "GET YOUR OWN FROM CPLEX"
 def solve(dat):
     """
     core solving routine
@@ -62,18 +64,16 @@ def solve(dat):
     m, flow = create_model(dat)
 
     # Compute optimal solution
-    m.optimize()
-
-    if m.status == GRB.status.OPTIMAL:
-        t = flow.apply(lambda r : r.x)
+    if m.solve(url=_cplex_url, key=_cplex_key):
+        cplex_soln = m.solution
+        t = flow.apply(lambda var : cplex_soln.get_value(var))
         # TicDat is smart enough to handle a Series for a single data field table
         return solutionFactory.freeze_me(solutionFactory.TicDat(flow = t[t > 0]))
 
 def create_model(dat):
     '''
-    utility function helpful for troubleshooting
     :param dat: a good ticdat for the dataFactory
-    :return: a gurobi model and a Series of gurboi flow variables
+    :return: a docplex model and a Series of docplex flow variables
     '''
     assert dataFactory.good_tic_dat_object(dat)
     assert not dataFactory.find_foreign_key_failures(dat)
@@ -84,34 +84,40 @@ def create_model(dat):
     # Create optimization model
     m = Model('netflow')
 
-    flow = Sloc.add_sloc(dat.cost.join(dat.arcs, on = ["source", "destination"],
-                                       how = "inner", rsuffix="_arcs").
-              apply(lambda r : m.addVar(ub=r.capacity, obj=r.cost,
-                            name= 'flow_%s_%s_%s' % (r.commodity, r.source, r.destination)),
-                    axis=1, reduce=True))
-    flow.name = "flow"
+    flow = dat.cost.join(dat.arcs, on = ["source", "destination"],
+                                       how = "inner", rsuffix="_arcs").\
+              apply(lambda r : m.continuous_var(name= 'flow_%s_%s_%s'%
+                                (r.commodity, r.source, r.destination)),
+                    axis=1, reduce=True)
 
-    m.update()
+    # combining aggregate with m.sum is more efficient than using sum
+    flow.groupby(level=["source", "destination"])\
+        .aggregate({"flow": m.sum})\
+        .join(dat.arcs)\
+        .apply(lambda r : m.addConstr(r.flow <= r.capacity,
+                                      'cap_%s_%s' %(r.source, r.destination)),
+               axis =1)
 
-    dat.arcs.join(flow.groupby(level=["source", "destination"]).sum()).apply(
-        lambda r : m.addConstr(r.flow <= r.capacity,
-                               'cap_%s_%s'%(r.source, r.destination)), axis =1)
+    def flow_subtotal(node_fld, sum_field_name):
+        rtn = flow.groupby(level=['commodity',node_fld])\
+                  .aggregate({sum_field_name : m.sum})
+        rtn.index.names = [u'commodity', u'node']
+        return rtn
 
-    # for readability purposes using a dummy variable thats always zero
-    zero = m.addVar(lb=0, ub=0, name = "forcedToZero")
+    # quicksum([]) instead of the number 0 insures proper constraints are created
+    zero_proxy = quicksum([])
+    flow_subtotal("destination", "flow_in")\
+        .join(dat.inflow[abs(dat.inflow.quantity) > 0].quantity, how="outer")\
+        .join(flow_subtotal("source", "flow_out"), how = "outer")\
+        .fillna(zero_proxy)\
+        .apply(lambda r : m.addConstr(r.flow_in + r.quantity  - r.flow_out == 0,
+                                      'cons_flow_%s_%s' % r.name),
+               axis =1)
 
-    m.update()
+    m.minimize(dat.cost.join(flow).
+               apply(lambda r : r.flow * r.cost, axis = 1, reduce = True).
+               sum())
 
-    # there is a more pandonic way to do this group of constraints, but lets
-    # demonstrate .sloc for those who think it might be more intuitive
-    for h_,j_ in sorted(set(dat.inflow[abs(dat.inflow.quantity) > 0].index).union(
-        flow.groupby(level=['commodity','source']).groups.keys(),
-        flow.groupby(level=['commodity','destination']).groups.keys())):
-            m.addConstr((quicksum(flow.sloc[h_,:,j_]) or zero) +
-                        dat.inflow.quantity.loc[h_,j_] ==
-                        (quicksum(flow.sloc[h_,j_,:]) or zero),
-                        'node_%s_%s' % (h_, j_))
 
-    m.update()
     return m, flow
 # ---------------------------------------------------------------------------------

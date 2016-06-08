@@ -69,7 +69,7 @@ def solve(dat):
 def create_model(dat):
     '''
     :param dat: a good ticdat for the dataFactory
-    :return: a gurobi model and dictionary of gurboi flow variables
+    :return: a gurobi model and a Series of gurboi flow variables
     '''
     assert dataFactory.good_tic_dat_object(dat)
     assert not dataFactory.find_foreign_key_failures(dat)
