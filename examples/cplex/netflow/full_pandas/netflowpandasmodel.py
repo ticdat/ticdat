@@ -94,8 +94,8 @@ def create_model(dat):
     flow.groupby(level=["source", "destination"])\
         .aggregate({"flow": m.sum})\
         .join(dat.arcs)\
-        .apply(lambda r : m.addConstr(r.flow <= r.capacity,
-                                      'cap_%s_%s' %(r.source, r.destination)),
+        .apply(lambda r : m.add_constraint(r.flow <= r.capacity,
+                                      ctname = 'cap_%s_%s' %(r.source, r.destination)),
                axis =1)
 
     def flow_subtotal(node_fld, sum_field_name):
@@ -104,14 +104,15 @@ def create_model(dat):
         rtn.index.names = [u'commodity', u'node']
         return rtn
 
-    # quicksum([]) instead of the number 0 insures proper constraints are created
-    zero_proxy = quicksum([])
+    # for readability purposes using a dummy variable thats always zero
+    zero = m.continuous_var(lb=0, ub=0, name = "forcedToZero")
+
     flow_subtotal("destination", "flow_in")\
         .join(dat.inflow[abs(dat.inflow.quantity) > 0].quantity, how="outer")\
         .join(flow_subtotal("source", "flow_out"), how = "outer")\
-        .fillna(zero_proxy)\
-        .apply(lambda r : m.addConstr(r.flow_in + r.quantity  - r.flow_out == 0,
-                                      'cons_flow_%s_%s' % r.name),
+        .fillna(zero)\
+        .apply(lambda r : m.add_constraint(r.flow_in + r.quantity  - r.flow_out == 0,
+                                      ctname = 'cons_flow_%s_%s' % r.name),
                axis =1)
 
     m.minimize(dat.cost.join(flow).
