@@ -104,6 +104,7 @@ def create_model(dat):
         return rtn
 
     # quicksum([]) instead of the number 0 insures proper constraints are created
+    # if we just used zero than addConstr might not get a linear expression at all
     zero_proxy = quicksum([])
     flow_subtotal("destination", "flow_in")\
         .join(dat.inflow[abs(dat.inflow.quantity) > 0].quantity, how="outer")\
