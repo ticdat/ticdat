@@ -1,0 +1,7 @@
+source,destination,capacity
+Detroit,Seattle,120
+Denver,Seattle,120
+Detroit,New York,80
+Denver,New York,120
+Denver,Boston,120
+Detroit,Boston,100

@@ -1,0 +1,8 @@
+commodity,source,destination,quantity
+Pencils,Denver,New York,50.0
+Pens,Detroit,New York,30.0
+Pens,Detroit,Boston,30.0
+Pens,Denver,Seattle,30.0
+Pens,Denver,Boston,10.0
+Pencils,Denver,Seattle,10.0
+Pencils,Detroit,Boston,50.0
