@@ -103,8 +103,9 @@ def create_model(dat):
         rtn.index.names = [u'commodity', u'node']
         return rtn
 
-    # quicksum([]) instead of the number 0 insures proper constraints are created
-    # if we just used zero than addConstr might not get a linear expression at all
+    # We need a proxy for zero because of the toehold problem, and
+    # we use quicksum([]) instead of a dummy variable because of the fillna problem.
+    # (see notebooks in this directory and parent directory)
     zero_proxy = quicksum([])
     flow_subtotal("destination", "flow_in")\
         .join(dat.inflow[abs(dat.inflow.quantity) > 0].quantity, how="outer")\

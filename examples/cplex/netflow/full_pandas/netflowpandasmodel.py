@@ -104,13 +104,12 @@ def create_model(dat):
         rtn.index.names = [u'commodity', u'node']
         return rtn
 
-    # for readability purposes using a dummy variable thats always zero
-    zero = m.continuous_var(lb=0, ub=0, name = "forcedToZero")
-
+    # we can't use a dummy variable for fillna, but since docplex doesn't have the
+    # toehold problem, we don't really need one.
     flow_subtotal("destination", "flow_in")\
         .join(dat.inflow[abs(dat.inflow.quantity) > 0].quantity, how="outer")\
         .join(flow_subtotal("source", "flow_out"), how = "outer")\
-        .fillna(zero)\
+        .fillna(0)\
         .apply(lambda r : m.add_constraint(r.flow_in + r.quantity  - r.flow_out == 0,
                                       ctname = 'cons_flow_%s_%s' % r.name),
                axis =1)
