@@ -5,7 +5,7 @@
 
 # Solve a multi-commodity flow problem as python package.
 # This version of the file doesn't use pandas at all, but instead uses ticdat
-# dict-of-dicts to represent data tables and gurobipy.tuplelist for slicing.
+# dict-of-dicts to represent data tables and ticdat.Slicer for slicing.
 
 # Implement core functionality needed to achieve modularity.
 # 1. Define the input data schema
