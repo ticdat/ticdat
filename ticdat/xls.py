@@ -137,7 +137,7 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
 
     def get_duplicates(self, xls_file_path, row_offsets={}, headers_present = True):
         """
-        Find the row counts indexed by primary key for an Xls file for duplicated primary keys
+        Find the row counts for duplicated rows.
         :param xls_file_path: An Excel file containing sheets whose names match
                               the table names in the schema (non primary key tables ignored).
         :param row_offsets: (optional) A mapping from table names to initial
@@ -147,11 +147,12 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
         caveats: Missing sheets resolve to an empty table, but missing primary fields
                  on matching sheets throw an Exception.
                  Sheet names are considered case insensitive.
-        :return: A dictionary whose keys are the table names for the primary key tables. Each value
-                 of the return dictionary is itself a dictionary. The inner dictionary is keyed by the
-                 primary key values encountered in the table, and the value is the count of records in the
-                 Excel sheet with this primary key. Row counts smaller than 2 are pruned off,
-                 as they aren't duplicates
+        :return: A dictionary whose keys are the table names for the primary key tables.
+                 Each value of the return dictionary is itself a dictionary.
+                 The inner dictionary is keyed by the primary key values encountered
+                 in the table, and the value is the count of records in the
+                 Excel sheet with this primary key.
+                 Row counts smaller than 2 are pruned off, as they aren't duplicates
         """
         verify(utils.dictish(row_offsets) and
                set(row_offsets).issubset(self.tic_dat_factory.all_tables) and

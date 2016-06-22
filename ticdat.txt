@@ -78,7 +78,7 @@ CLASSES
      |               into floats if possible.
      |  
      |  get_duplicates(self, dir_path, dialect='excel', headers_present=True)
-     |      Find the row counts indexed by primary key for duplicated primary key records.
+     |      Find the row counts for duplicated rows.
      |      :param dir_path: the directory containing .csv files.
      |      :param dialect: the csv dialect. Consult csv documentation for details.
      |      :param headers_present: Boolean. Does the first row of data contain
@@ -183,6 +183,15 @@ CLASSES
      |      :return: a TicDat object populated by the matching tables.
      |      caveats : Numbers with absolute values larger than 1e+100 will
      |                be read as float("inf") or float("-inf")
+     |
+     |  get_duplicates(self, mdb_file_path):
+     |      Find the row counts for duplicated rows.
+     |      :param mdb_file_path: An Access db with a consistent schema.
+     |      :return: A dictionary whose keys are table names for the primary-ed key tables.
+     |            Each value of the return dictionary is itself a dictionary.
+     |            The inner dictionary is keyed by the primary key values encountered in the table,
+     |            and the value is the count of records in the mdb table with this primary key.
+     |            Row counts smaller than 2 are pruned off, as they aren't duplicates
      |  
      |  write_file(self, tic_dat, mdb_file_path, allow_overwrite=False)
      |      write the ticDat data to an SQLite database file
@@ -223,6 +232,44 @@ CLASSES
      |  
      |  __weakref__
      |      list of weak references to the object (if defined)
+
+    class Progress(__builtin__.object)
+     |  Utility class for indicating progress to the Opalytics Cloud Platform.
+     |  Also enables writing on-the-fly tables into log files.
+     |
+     |  Methods defined here:
+     |
+     |  __init__(self, quiet=False)
+     |
+     |  add_cplex_listener(self, theme, model)
+     |
+     |  gurobi_call_back_factory(self, theme, model)
+     |      create a MIP call back handler for Gurobi
+     |      :param theme: string describing the type of MIP solve underway
+     |      :param model: a Gurobi model
+     |      :return: a call_back function that can be passed to optimize
+     |
+     |  mip_progress(self, theme, lower_bound, upper_bound)
+     |      indicate progress towards solving a MIP via converging upper and lower bounds
+     |      :param theme: string describing the type of MIP solve underway
+     |      :param lower_bound: the best current lower bound to the MIP objective
+     |      :param upper_bound: the best current upper bound to the MIP objective
+     |      :return: False if GUI indicates solve should gracefully finish, True otherwise
+     |
+     |  numerical_progress(self, theme, progress)
+     |      indicate generic progress
+     |      :param theme: string describing the type of progress being advanced
+     |      :param progress: numerical indicator to the degree of progress advanced
+     |      :return: False if GUI indicates solve should gracefully finish, True otherwise
+     |
+     |  ----------------------------------------------------------------------
+     |  Data descriptors defined here:
+     |
+     |  __dict__
+     |      dictionary for instance variables (if defined)
+     |
+     |  __weakref__
+     |      list of weak references to the object (if defined)
     
     class SQLiteTicFactory(ticdat.utils._Freezeable)
      |  Primary class for reading/writing SQLite files with ticDat objects.
@@ -254,6 +301,15 @@ CLASSES
      |      :param includes_schema: boolean - does the sql_file_path contain schema generating SQL?
      |      :param freeze_it: boolean. should the returned object be frozen?
      |      :return: a TicDat object populated by the db created from the SQL
+     |
+     |  get_duplicates(self, db_file_path):
+     |      Find the row counts for duplicated rows.
+     |      :param db_file_path: A SQLite db with a consistent schema.
+     |      :return: A dictionary whose keys are table names for the primary-ed key tables.
+     |            Each value of the return dictionary is itself a dictionary.
+     |            The inner dictionary is keyed by the primary key values encountered in the table,
+     |            and the value is the count of records in the SQLite table with this primary key.
+     |            Row counts smaller than 2 are pruned off, as they aren't duplicates
      |  
      |  write_db_data(self, tic_dat, db_file_path, allow_overwrite=False)
      |      write the ticDat data to an SQLite database file
@@ -658,7 +714,7 @@ CLASSES
      |               to be set for the ticDatFactory)
      |  
      |  get_duplicates(self, xls_file_path, row_offsets={}, headers_present=True)
-     |      Find the row counts indexed by primary key for an Xls file for duplicated primary keys
+     |      Find the row counts for duplicated rows.
      |      :param xls_file_path: An Excel file containing sheets whose names match
      |                            the table names in the schema (non primary key tables ignored).
      |      :param row_offsets: (optional) A mapping from table names to initial

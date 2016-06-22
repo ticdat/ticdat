@@ -31,10 +31,11 @@ except:
 def get_duplicates(td, tdf_for_dups):
     assert tdf_for_dups.good_tic_dat_object(td)
     assert not any(tdf_for_dups.primary_key_fields.values())
+    assert not tdf_for_dups.generator_tables
     rtn = {t:defaultdict(int) for t in tdf_for_dups.primary_key_fields}
     for t,flds in tdf_for_dups.data_fields.items():
         tbl = getattr(td, t)
-        for row in (tbl if containerish(tbl) else tbl()):
+        for row in tbl:
             k = tuple(row[f] for f in flds)
             k = k[0] if len(k)==1 else k
             rtn[t][k] += 1

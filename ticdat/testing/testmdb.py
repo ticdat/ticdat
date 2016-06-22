@@ -30,6 +30,21 @@ class TestMdb(unittest.TestCase):
         if e :
             self.assertTrue("TicDatError" in e.__class__.__name__)
             return e.message
+
+    def testDups(self):
+        if not self.canRun:
+            return
+        tdf = TicDatFactory(one = [["a"],["b, c"]],
+                            two = [["a", "b"],["c"]],
+                            three = [["a", "b", "c"],[]])
+        tdf2 = TicDatFactory(**{t:[[],["a", "b", "c"]] for t in tdf.all_tables})
+        td = tdf2.TicDat(**{t:[[1, 2, 1], [1, 2, 2], [2, 1, 3], [2, 2, 3], [1, 2, 2], ["new", 1, 2]]
+                            for t in tdf.all_tables})
+        f = makeCleanPath(os.path.join(_scratchDir, "testDups.mdb"))
+        tdf2.mdb.write_file(td, f)
+        dups = tdf.mdb.get_duplicates(f)
+        self.assertTrue(dups ==  {'three': {(1, 2, 2): 2}, 'two': {(1, 2): 3}, 'one': {1: 3, 2: 2}})
+
     def testDiet(self):
         if not self.canRun:
             return
@@ -37,6 +52,7 @@ class TestMdb(unittest.TestCase):
         ticDat = tdf.freeze_me(tdf.TicDat(**{t:getattr(dietData(),t) for t in tdf.primary_key_fields}))
         filePath = makeCleanPath(os.path.join(_scratchDir, "diet.mdb"))
         tdf.mdb.write_file(ticDat, filePath)
+        self.assertFalse(tdf.mdb.get_duplicates(filePath))
         mdbTicDat = tdf.mdb.create_tic_dat(filePath)
         self.assertTrue(tdf._same_data(ticDat, mdbTicDat))
         def changeit() :
@@ -59,6 +75,7 @@ class TestMdb(unittest.TestCase):
         ticDat = tdf.freeze_me(tdf.TicDat(**{t:getattr(netflowData(),t) for t in tdf.all_tables}))
         filePath = os.path.join(_scratchDir, "netflow.mdb")
         tdf.mdb.write_file(ticDat, filePath)
+        self.assertFalse(tdf.mdb.get_duplicates(filePath))
         mdbTicDat = tdf.mdb.create_tic_dat(filePath, freeze_it=True)
         self.assertTrue(tdf._same_data(ticDat, mdbTicDat))
         def changeIt() :
@@ -101,6 +118,7 @@ class TestMdb(unittest.TestCase):
                         b = {"bField1" : "int", "bField2" : "int"}, c={"cData2" : "text"})
             return filePath
         tdf.mdb.write_file(ticDat, makeCleanSchema())
+        self.assertFalse(tdf.mdb.get_duplicates(filePath))
         mdbTicDat = tdf.mdb.create_tic_dat(filePath)
         self.assertTrue(tdf._same_data(ticDat, mdbTicDat))
 
@@ -160,6 +178,7 @@ class TestMdb(unittest.TestCase):
             dat.boger[v]=k
         filePath = makeCleanPath(os.path.join(_scratchDir, "injection.mdb"))
         tdf.mdb.write_file(dat, filePath)
+        self.assertFalse(tdf.mdb.get_duplicates(filePath))
         dat2 = tdf.mdb.create_tic_dat(filePath, freeze_it=True)
         self.assertTrue(tdf._same_data(dat,dat2))
 
@@ -170,6 +189,7 @@ class TestMdb(unittest.TestCase):
         dat = tdf.TicDat(**spacesData())
         filePath = makeCleanPath(os.path.join(_scratchDir, "spacey.mdb"))
         tdf.mdb.write_file(dat, filePath)
+        self.assertFalse(tdf.mdb.get_duplicates(filePath))
         dat2 = tdf.mdb.create_tic_dat(filePath, freeze_it=True)
         self.assertTrue(tdf._same_data(dat,dat2))
 

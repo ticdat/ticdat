@@ -63,16 +63,17 @@ class CsvTicFactory(freezable_factory(object, "_isFrozen")) :
         return {k:v for k,v in rtn.items() if v}
     def get_duplicates(self, dir_path, dialect='excel', headers_present = True):
         """
-        Find the row counts indexed by primary key for duplicated primary key records.
+        Find the row counts for duplicated rows.
         :param dir_path: the directory containing .csv files.
         :param dialect: the csv dialect. Consult csv documentation for details.
         :param headers_present: Boolean. Does the first row of data contain
                                 the column headers?
-        :return: A dictionary whose keys are the table names for the primary key tables. Each value
-                 of the return dictionary is itself a dictionary. The inner dictionary is keyed by the
-                 primary key values encountered in the table, and the value is the count of records in the
-                 Excel sheet with this primary key. Row counts smaller than 2 are pruned off, as they
-                 aren't duplicates
+        :return: A dictionary whose keys are the table names for the primary key tables.
+                 Each value of the return dictionary is itself a dictionary.
+                 The inner dictionary is keyed by the primary key values encountered
+                 in the table, and the value is the count of records in the
+                 Excel sheet with this primary key.
+                 Row counts smaller than 2 are pruned off, as they aren't duplicates
         caveats: Missing files resolve to an empty table, but missing fields (data or primary key) on
                  matching files throw an Exception.
         """
