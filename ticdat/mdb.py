@@ -38,7 +38,7 @@ class MdbTicFactory(freezable_factory(object, "_isFrozen")) :
     """
     Primary class for reading/writing Access/MDB files with ticDat objects.
     """
-    def __init__(self, tic_dat_factory):
+    def __init__(self, tic_dat_factory, duplicate_focused_tdf):
         """
         Don't create this object explicitly. A MdbTicDatFactory will
         automatically be associated with the mdb attribute of the parent
@@ -48,6 +48,7 @@ class MdbTicFactory(freezable_factory(object, "_isFrozen")) :
         """
         assert import_worked, "don't create this otherwise"
         self.tic_dat_factory = tic_dat_factory
+        self._duplicate_focused_tdf = duplicate_focused_tdf
         self._isFrozen = True
     def create_tic_dat(self, mdb_file_path, freeze_it = False):
         """

@@ -7,6 +7,7 @@ from collections import defaultdict
 from ticdat.utils import freezable_factory, TicDatError, verify, stringish, dictish, containerish
 from ticdat.utils import FrozenDict, all_underscore_replacements
 
+
 try:
     import sqlite3 as sql
     import_worked=True
@@ -60,7 +61,7 @@ class SQLiteTicFactory(freezable_factory(object, "_isFrozen")) :
     """
     Primary class for reading/writing SQLite files with ticDat objects.
     """
-    def __init__(self, tic_dat_factory):
+    def __init__(self, tic_dat_factory, duplicate_focused_tdf):
         """
         Don't call this function explicitly. A SQLiteTicFactory will
         automatically be associated with the sql attribute of the parent
@@ -70,6 +71,7 @@ class SQLiteTicFactory(freezable_factory(object, "_isFrozen")) :
         """
         assert import_worked, "don't create this otherwise"
         self.tic_dat_factory = tic_dat_factory
+        self._duplicate_focused_tdf = duplicate_focused_tdf
         self._isFrozen = True
     def _Rtn(self, freeze_it):
         if freeze_it:
