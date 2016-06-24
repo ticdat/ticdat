@@ -17,7 +17,7 @@ except:
 _write_new_file_works = sys.platform in ('win32','cli')
 
 def _connection_str(file):
-    return 'Driver={Microsoft Access Driver (*.mdb)};DBQ=%s'%os.path.abspath(file)
+    return 'Driver={Microsoft Access Driver (*.mdb, *.accdb)};DBQ=%s'%os.path.abspath(file)
 
 _mdb_inf = 1e+100
 assert _mdb_inf < float("inf"), "sanity check on inf"
