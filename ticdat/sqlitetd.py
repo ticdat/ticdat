@@ -5,7 +5,8 @@ PEP8
 import os
 from collections import defaultdict
 from ticdat.utils import freezable_factory, TicDatError, verify, stringish, dictish, containerish
-from ticdat.utils import FrozenDict, all_underscore_replacements
+from ticdat.utils import FrozenDict, all_underscore_replacements, get_duplicates
+
 
 try:
     import sqlite3 as sql
@@ -60,7 +61,7 @@ class SQLiteTicFactory(freezable_factory(object, "_isFrozen")) :
     """
     Primary class for reading/writing SQLite files with ticDat objects.
     """
-    def __init__(self, tic_dat_factory):
+    def __init__(self, tic_dat_factory, duplicate_focused_tdf):
         """
         Don't call this function explicitly. A SQLiteTicFactory will
         automatically be associated with the sql attribute of the parent
@@ -70,6 +71,7 @@ class SQLiteTicFactory(freezable_factory(object, "_isFrozen")) :
         """
         assert import_worked, "don't create this otherwise"
         self.tic_dat_factory = tic_dat_factory
+        self._duplicate_focused_tdf = duplicate_focused_tdf
         self._isFrozen = True
     def _Rtn(self, freeze_it):
         if freeze_it:
@@ -96,6 +98,18 @@ class SQLiteTicFactory(freezable_factory(object, "_isFrozen")) :
         """
         return self._Rtn(freeze_it)(**self._create_tic_dat_from_sql(
                     sql_file_path, includes_schema))
+    def get_duplicates(self, db_file_path):
+        """
+        Find the row counts for duplicated rows.
+        :param db_file_path: A SQLite db with a consistent schema.
+        :return: A dictionary whose keys are table names for the primary-ed key tables.
+                 Each value of the return dictionary is itself a dictionary.
+                 The inner dictionary is keyed by the primary key values encountered in the table,
+                 and the value is the count of records in the SQLite table with this primary key.
+                 Row counts smaller than 2 are pruned off, as they aren't duplicates
+        """
+        return get_duplicates(self._duplicate_focused_tdf.sql.create_tic_dat(db_file_path),
+                              self._duplicate_focused_tdf)
     def _fks(self):
         rtn = defaultdict(set)
         for fk in self.tic_dat_factory.foreign_keys:

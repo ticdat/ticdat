@@ -6,7 +6,7 @@ import os
 import sys
 import ticdat.utils as utils
 from ticdat.utils import freezable_factory, TicDatError, verify, stringish, dictish, containerish
-from ticdat.utils import debug_break, numericish, all_underscore_replacements
+from ticdat.utils import debug_break, numericish, all_underscore_replacements, get_duplicates
 
 try:
     import pypyodbc as py
@@ -38,7 +38,7 @@ class MdbTicFactory(freezable_factory(object, "_isFrozen")) :
     """
     Primary class for reading/writing Access/MDB files with ticDat objects.
     """
-    def __init__(self, tic_dat_factory):
+    def __init__(self, tic_dat_factory, duplicate_focused_tdf):
         """
         Don't create this object explicitly. A MdbTicDatFactory will
         automatically be associated with the mdb attribute of the parent
@@ -48,6 +48,7 @@ class MdbTicFactory(freezable_factory(object, "_isFrozen")) :
         """
         assert import_worked, "don't create this otherwise"
         self.tic_dat_factory = tic_dat_factory
+        self._duplicate_focused_tdf = duplicate_focused_tdf
         self._isFrozen = True
     def create_tic_dat(self, mdb_file_path, freeze_it = False):
         """
@@ -62,6 +63,18 @@ class MdbTicFactory(freezable_factory(object, "_isFrozen")) :
         if freeze_it:
             return self.tic_dat_factory.freeze_me(rtn)
         return rtn
+    def get_duplicates(self, mdb_file_path):
+        """
+        Find the row counts for duplicated rows.
+        :param mdb_file_path: An Access db with a consistent schema.
+        :return: A dictionary whose keys are table names for the primary-ed key tables.
+                 Each value of the return dictionary is itself a dictionary.
+                 The inner dictionary is keyed by the primary key values encountered in the table,
+                 and the value is the count of records in the mdb table with this primary key.
+                 Row counts smaller than 2 are pruned off, as they aren't duplicates
+        """
+        return get_duplicates(self._duplicate_focused_tdf.mdb.create_tic_dat(mdb_file_path),
+                              self._duplicate_focused_tdf)
     def _get_table_names(self, db_file_path, tables):
         rtn = {}
         with py.connect(_connection_str(db_file_path)) as con:
@@ -152,8 +165,8 @@ class MdbTicFactory(freezable_factory(object, "_isFrozen")) :
             verify(k in self.tic_dat_factory.all_tables, "%s isn't a table name"%k)
             verify(dictish(v), "Need a mapping from field names to field types for %s"%k)
             for fld,type_ in v.items() :
-                verify(fld in self.tic_dat_factory.primary_key_fields.get(k[0], ()) +
-                          self.tic_dat_factory.data_fields.get(k[0], ()),
+                verify(fld in self.tic_dat_factory.primary_key_fields.get(k, ()) +
+                          self.tic_dat_factory.data_fields.get(k, ()),
                        "%s isn't a field name for table %s"%(fld, k))
                 verify(type_ in ("text", "float", "int"),
                        "For table %s, field %s, %s isn't one of (text, float, int)"%(k, fld, type_))
@@ -164,10 +177,10 @@ class MdbTicFactory(freezable_factory(object, "_isFrozen")) :
         with py.connect(_connection_str(mdb_file_path)) as con:
             for t in self.tic_dat_factory.all_tables:
                 str = "Create TABLE [%s] (\n"%t
-                strl = ["%s %s"%(f, get_fld_type(t, f, "text")) for
-                        f in _brackets(self.tic_dat_factory.primary_key_fields.get(t, ()))] + \
-                       ["%s %s"%(f, get_fld_type(t, f, "float"))
-                        for f in _brackets(self.tic_dat_factory.data_fields.get(t, ()))]
+                strl = ["[%s] %s"%(f, get_fld_type(t, f, "text")) for
+                        f in self.tic_dat_factory.primary_key_fields.get(t, ())] + \
+                       ["[%s] %s"%(f, get_fld_type(t, f, "float"))
+                        for f in self.tic_dat_factory.data_fields.get(t, ())]
                 if self.tic_dat_factory.primary_key_fields.get(t) :
                     strl.append("PRIMARY KEY(%s)"%",".join
                         (_brackets(self.tic_dat_factory.primary_key_fields[t])))
@@ -182,6 +195,12 @@ class MdbTicFactory(freezable_factory(object, "_isFrozen")) :
         :return:
         caveats : Numbers with absolute values larger than 1e+100 will
                   be written as 1e+100 or -1e+100
+        NB - thrown Exceptions of the form "Data type mismatch in criteria expression"
+             generally result either from Access's inability to store different data
+             types in the same field, or from a mismatch between the data object
+             and the default field types ticdat uses when creating an Access schema.
+             For the latter, feel free to call the write_schema function on the data
+             file first with explicitly identified field types.
         """
         msg = []
         if not self.tic_dat_factory.good_tic_dat_object(tic_dat, lambda m : msg.append(m)) :
