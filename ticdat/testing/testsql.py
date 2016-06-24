@@ -30,6 +30,21 @@ class TestSql(unittest.TestCase):
         if e :
             self.assertTrue("TicDatError" in e.__class__.__name__)
             return e.message
+
+    def testDups(self):
+        if not self.canRun:
+            return
+        tdf = TicDatFactory(one = [["a"],["b, c"]],
+                            two = [["a", "b"],["c"]],
+                            three = [["a", "b", "c"],[]])
+        tdf2 = TicDatFactory(**{t:[[],["a", "b", "c"]] for t in tdf.all_tables})
+        td = tdf2.TicDat(**{t:[[1, 2, 1], [1, 2, 2], [2, 1, 3], [2, 2, 3], [1, 2, 2], ["new", 1, 2]]
+                            for t in tdf.all_tables})
+        f = makeCleanPath(os.path.join(_scratchDir, "testDups.db"))
+        tdf2.sql.write_db_data(td, f)
+        dups = tdf.sql.get_duplicates(f)
+        self.assertTrue(dups ==  {'three': {(1, 2, 2): 2}, 'two': {(1, 2): 3}, 'one': {1: 3, 2: 2}})
+
     def testDiet(self):
         if not self.canRun:
             return
@@ -37,6 +52,7 @@ class TestSql(unittest.TestCase):
             ticDat = tdf.freeze_me(tdf.TicDat(**{t:getattr(dietData(),t) for t in tdf.primary_key_fields}))
             filePath = makeCleanPath(os.path.join(_scratchDir, "diet.db"))
             tdf.sql.write_db_data(ticDat, filePath)
+            self.assertFalse(tdf.sql.get_duplicates(filePath))
             sqlTicDat = tdf.sql.create_tic_dat(filePath)
             self.assertTrue(tdf._same_data(ticDat, sqlTicDat))
             def changeit() :
@@ -102,6 +118,7 @@ class TestSql(unittest.TestCase):
         tdf2 = TicDatFactory(**dietSchemaWeirdCase())
         dat2 = copyDataDietWeirdCase(ticDat)
         tdf2.sql.write_db_data(dat2, filePath , allow_overwrite=True)
+        self.assertFalse(tdf2.sql.get_duplicates(filePath))
         sqlTicDat = tdf.sql.create_tic_dat(filePath)
         self.assertTrue(tdf._same_data(ticDat, sqlTicDat))
 
@@ -130,6 +147,7 @@ class TestSql(unittest.TestCase):
         ticDat = tdf.freeze_me(tdf.TicDat(**{t:getattr(netflowData(),t) for t in tdf.primary_key_fields}))
         filePath = os.path.join(_scratchDir, "netflow.sql")
         tdf.sql.write_db_data(ticDat, filePath)
+        self.assertFalse(tdf.sql.get_duplicates(filePath))
         sqlTicDat = tdf.sql.create_tic_dat(filePath, freeze_it=True)
         self.assertTrue(tdf._same_data(ticDat, sqlTicDat))
         def changeIt() :
@@ -147,6 +165,7 @@ class TestSql(unittest.TestCase):
         tdfHacked = TicDatFactory(**pkHacked)
         ticDatHacked = tdfHacked.TicDat(**{t : getattr(ticDat, t) for t in tdf.all_tables})
         tdfHacked.sql.write_db_data(ticDatHacked, makeCleanPath(filePath))
+        self.assertFalse(tdfHacked.sql.get_duplicates(filePath))
         self.assertTrue(self.firesException(lambda : tdfHacked.sql.write_db_data(ticDat, filePath)))
         tdfHacked.sql.write_db_data(ticDat, filePath, allow_overwrite =True)
         self.assertTrue("Unable to recognize field name in table nodes" in
@@ -199,6 +218,7 @@ class TestSql(unittest.TestCase):
         tdf5.set_generator_tables(("a","c"))
         filePath = os.path.join(_scratchDir, "silly.db")
         tdf.sql.write_db_data(ticDat, filePath)
+        self.assertFalse(tdf.sql.get_duplicates(filePath))
 
         ticDat2 = tdf2.sql.create_tic_dat(filePath)
         self.assertFalse(tdf._same_data(ticDat, ticDat2))

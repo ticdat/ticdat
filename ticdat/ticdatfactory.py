@@ -41,8 +41,9 @@ class _ForeignKey(namedtuple("ForeignKey", ("native_table", "foreign_table", "ma
 _ForeignKeyMapping = namedtuple("FKMapping", ("native_field", "foreign_field"))
 
 # can I get away with ordering this consistently with the function? hopefully I can!
-class _TypeDictionary(namedtuple("TypeDictionary", ("number_allowed", "inclusive_min", "inclusive_max", "min", "max",
-                                                    "must_be_int", "strings_allowed", "nullable",))):
+class _TypeDictionary(namedtuple("TypeDictionary",
+                    ("number_allowed", "inclusive_min", "inclusive_max", "min",
+                      "max", "must_be_int", "strings_allowed", "nullable",))):
     def valid_data(self, data):
         if utils.numericish(data):
             if not self.number_allowed:
@@ -66,6 +67,10 @@ class _TypeDictionary(namedtuple("TypeDictionary", ("number_allowed", "inclusive
             return bool(self.nullable)
         return False
 
+def _duplicate_focused_tdf(tdf):
+    primary_key_fields = {k:v for k,v in tdf.primary_key_fields.items() if v}
+    if primary_key_fields:
+        return TicDatFactory(**{k:[[],v] for k,v in primary_key_fields.items()})
 
 class TicDatFactory(freezable_factory(object, "_isFrozen")) :
     """
@@ -429,7 +434,8 @@ foreign keys, the code throwing this exception will be removed.
         self._generator_tables = []
         self._foreign_keys = clt.defaultdict(set)
         self.all_tables = frozenset(init_fields)
-        self._foreign_key_links_enabled = [] # using list for truthiness to work around freezing headaches
+        # using list for truthiness to work around freezing headaches
+        self._foreign_key_links_enabled = []
 
         datarowfactory = lambda t :  utils.td_row_factory(t, self.primary_key_fields.get(t, ()),
                         self.data_fields.get(t, ()), self.default_values.get(t, {}))
@@ -612,9 +618,9 @@ foreign keys, the code throwing this exception will be removed.
         if csv.import_worked :
             self.csv = csv.CsvTicFactory(self)
         if sql.import_worked :
-            self.sql = sql.SQLiteTicFactory(self)
+            self.sql = sql.SQLiteTicFactory(self, _duplicate_focused_tdf(self))
         if mdb.import_worked:
-            self.mdb = mdb.MdbTicFactory(self)
+            self.mdb = mdb.MdbTicFactory(self, _duplicate_focused_tdf(self))
         self._isFrozen=True
 
     def _allFields(self, table):
