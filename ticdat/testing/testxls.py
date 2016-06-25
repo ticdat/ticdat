@@ -4,6 +4,7 @@ from ticdat.ticdatfactory import TicDatFactory
 from ticdat.testing.ticdattestutils import dietData, dietSchema, netflowData, netflowSchema, firesException
 from ticdat.testing.ticdattestutils import sillyMeData, sillyMeSchema, makeCleanDir, fail_to_debugger
 from ticdat.testing.ticdattestutils import spacesData, spacesSchema, memo, flagged_as_run_alone
+from ticdat.testing.ticdattestutils import makeCleanPath
 import shutil
 import unittest
 
@@ -240,6 +241,30 @@ class TestXls(unittest.TestCase):
         self.assertTrue(all (td3.woger[i]["real"] == 200 for i in range(5)))
         self.assertTrue(td3.boger[0]["big"] == 200 and len(td3.boger) == 1)
 
+    @flagged_as_run_alone
+    def testBiggie(self):
+        if not self.canRun:
+            return
+        tdf = TicDatFactory(boger = [["the"],["big", "boger"]],
+                            moger = [["the", "big"], ["boger"]],
+                            woger = [[], ["the","big", "boger"]])
+        smalldat = tdf.TicDat(boger = {k:[(k+1)%10, (k+2)%5] for k in range(100)},
+                              moger = {(k,(k+1)%10): (k+2)%5 for k in range(75)},
+                              woger = [[k,(k+1)%10, (k+2)%5] for k in range(101)])
+        filePath = os.path.join(_scratchDir, "smallBiggie.xls")
+        tdf.xls.write_file(smalldat, filePath)
+        smalldat2 = tdf.xls.create_tic_dat(filePath)
+        self.assertTrue(tdf._same_data(smalldat, smalldat2))
+
+        bigdat = tdf.TicDat(boger = {k:[(k+1)%10, (k+2)%5] for k in range(65537)},
+                              moger = {(k,(k+1)%10): (k+2)%5 for k in range(75)},
+                              woger = [[k,(k+1)%10, (k+2)%5] for k in range(65537)])
+        filePath = os.path.join(_scratchDir, "bigBiggie.xls")
+        self.assertTrue(firesException(lambda : tdf.xls.write_file(bigdat, filePath)))
+        filePath = makeCleanPath(filePath + "x")
+        tdf.xls.write_file(bigdat, filePath)
+        bigdat2 = tdf.xls.create_tic_dat(filePath)
+        self.assertTrue(tdf._same_data(bigdat, bigdat2))
 
 _scratchDir = TestXls.__name__ + "_scratch"
 
