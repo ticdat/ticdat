@@ -9,7 +9,7 @@ import shutil
 import unittest
 
 #uncomment decorator to drop into debugger for assertTrue, assertFalse failures
-@fail_to_debugger
+#@fail_to_debugger
 class TestXls(unittest.TestCase):
     canRun = False
     @classmethod
@@ -49,7 +49,6 @@ class TestXls(unittest.TestCase):
         self.assertFalse(tdf._same_data(xlsTicDat, ticDat))
         self.assertTrue(all(len(getattr(ticDat, t))-1 == len(getattr(xlsTicDat, t)) for t in tdf.all_tables))
 
-    @flagged_as_run_alone
     def testNetflow(self):
         if not self.canRun:
             return
@@ -193,6 +192,15 @@ class TestXls(unittest.TestCase):
         tdfwa = TicDatFactory(**sillyMeSchema())
         tdfwa.set_data_type("a", "aData2", nullable=True)
         ticDatNone = tdfwa.xls.create_tic_dat(filePath, freeze_it=True)
+        self.assertTrue(tdf._same_data(ticDat, ticDatNone))
+        self.assertTrue(ticDatNone.a["theboger"]["aData2"] == None)
+
+        # checking the same thing with .xlsx
+        tdf.xls.write_file(ticDat, filePath+"x", allow_overwrite=True)
+        ticDatNone = tdf.xls.create_tic_dat(filePath+"x", freeze_it=True)
+        self.assertFalse(tdf._same_data(ticDat, ticDatNone))
+        self.assertTrue(ticDatNone.a["theboger"]["aData2"] == "")
+        ticDatNone = tdfwa.xls.create_tic_dat(filePath+"x", freeze_it=True)
         self.assertTrue(tdf._same_data(ticDat, ticDatNone))
         self.assertTrue(ticDatNone.a["theboger"]["aData2"] == None)
 

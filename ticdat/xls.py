@@ -22,7 +22,6 @@ except:
     xlsx=None
 import_worked = xlrd and (xlwt or xlsx)
 
-
 _xlsx_hack_inf = 1e+100 # the xlsxwriter doesn't handle infinity as seamlessly as xls
 
 class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
@@ -66,17 +65,26 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
                  will replace the empty string with None. (This caveat requires the data_types
                  to be set for the ticDatFactory)
         """
-        verify(not(treat_large_as_inf and self.tic_dat_factory.generator_tables),
+        tdf = self.tic_dat_factory
+        verify(not(treat_large_as_inf and tdf.generator_tables),
                "treat_large_as_inf not implemented for generator tables")
-        rtn =  self.tic_dat_factory.TicDat(**self._create_tic_dat_dict
-                (xls_file_path, row_offsets, headers_present, treat_large_as_inf))
-        for t, dfs in self.tic_dat_factory.data_types.items():
-            replaceable = {df for df, dt in dfs.items()
+        rtn =  tdf.TicDat(**self._create_tic_dat_dict
+                          (xls_file_path, row_offsets, headers_present))
+        replaceable = defaultdict(dict)
+        for t, dfs in tdf.data_types.items():
+            replaceable[t] = {df for df, dt in dfs.items()
                            if (not dt.valid_data('')) and dt.valid_data(None)}
-            for r in getattr(rtn, t).values():
-                for k in replaceable:
-                    if r[k] == '':
-                        r[k] = None
+        for t in set(tdf.all_tables).difference(tdf.generator_tables):
+            _t =  getattr(rtn, t)
+            for r in _t.values() if utils.dictish(_t) else _t:
+                for f,v in r.items():
+                    if f in replaceable[t] and v == '':
+                        r[f] = None
+                    elif treat_large_as_inf:
+                        if v >= _xlsx_hack_inf:
+                            r[f] = float("inf")
+                        if v <= -_xlsx_hack_inf:
+                            r[f] = -float("inf")
         if freeze_it:
             return self.tic_dat_factory.freeze_me(rtn)
         return rtn
@@ -118,8 +126,7 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
                     yield self._sub_tuple(tdf.data_fields[table], field_indicies[table])(x)
         return tableObj
 
-    def _create_tic_dat_dict(self, xls_file_path, row_offsets,
-                             headers_present, treat_large_as_inf):
+    def _create_tic_dat_dict(self, xls_file_path, row_offsets, headers_present):
         verify(utils.dictish(row_offsets) and
                set(row_offsets).issubset(self.tic_dat_factory.all_tables) and
                all(utils.numericish(x) and (x>=0) for x in row_offsets.values()),
@@ -131,26 +138,17 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
                                     set(tdf.all_tables).difference(tdf.generator_tables),
                                     row_offsets, headers_present)
         ho = 1 if headers_present else 0
-        def _f(iter):
-            def _(x):
-                if treat_large_as_inf:
-                    if x >= _xlsx_hack_inf:
-                        return float("inf")
-                    if x <= -_xlsx_hack_inf:
-                        return -float("inf")
-                return x
-            return map(_, iter)
         for table, sheet in sheets.items() :
             fields = tdf.primary_key_fields.get(table, ()) + tdf.data_fields.get(table, ())
             indicies = field_indicies[table]
             table_len = min(len(sheet.col_values(indicies[field])) for field in fields)
             if tdf.primary_key_fields.get(table, ()) :
                 tableObj = {self._sub_tuple(tdf.primary_key_fields[table], indicies)(x) :
-                            self._sub_tuple(tdf.data_fields.get(table, ()), indicies)(_f(x))
+                            self._sub_tuple(tdf.data_fields.get(table, ()), indicies)(x)
                             for x in (sheet.row_values(i) for i in
                                         range(table_len)[row_offsets[table]+ho:])}
             else :
-                tableObj = [self._sub_tuple(tdf.data_fields.get(table, ()), indicies)(_f(x))
+                tableObj = [self._sub_tuple(tdf.data_fields.get(table, ()), indicies)(x)
                             for x in (sheet.row_values(i) for i in
                                         range(table_len)[row_offsets[table]+ho:])]
             rtn[table] = tableObj
