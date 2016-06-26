@@ -20,7 +20,8 @@ try:
     import xlsxwriter as xlsx
 except:
     xlsx=None
-import_worked = xlrd and (xlwt or xlsx)
+
+_can_unit_test = xlrd and xlwt and xlsx
 
 _xlsx_hack_inf = 1e+100 # the xlsxwriter doesn't handle infinity as seamlessly as xls
 
@@ -32,11 +33,12 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
         """
         Don't create this object explicitly. A XlsTicDatFactory will
         automatically be associated with the xls attribute of the parent
-        TicDatFactory if your system has the required xlrd, xlwt (or xlswriter) packages.
+        TicDatFactory. Your system will need the xlrd package to read
+        .xls and .xlsx files, the xlwt package to write .xls files, and the
+        xlsxwriter package to write .xlsx files.
         :param tic_dat_factory:
         :return:
         """
-        assert import_worked, "don't create this otherwise"
         self.tic_dat_factory = tic_dat_factory
         self._isFrozen = True
     def create_tic_dat(self, xls_file_path, row_offsets={}, headers_present = True,
@@ -65,6 +67,7 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
                  will replace the empty string with None. (This caveat requires the data_types
                  to be set for the ticDatFactory)
         """
+        verify(xlrd, "xlrd needs to be installed to use this subroutine")
         tdf = self.tic_dat_factory
         verify(not(treat_large_as_inf and tdf.generator_tables),
                "treat_large_as_inf not implemented for generator tables")
@@ -176,6 +179,7 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
                  Excel sheet with this primary key.
                  Row counts smaller than 2 are pruned off, as they aren't duplicates
         """
+        verify(xlrd, "xlrd needs to be installed to use this subroutine")
         verify(utils.dictish(row_offsets) and
                set(row_offsets).issubset(self.tic_dat_factory.all_tables) and
                all(utils.numericish(x) and (x>=0) for x in row_offsets.values()),

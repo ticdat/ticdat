@@ -10,9 +10,10 @@ from itertools import product
 
 try:
     import csv
-    import_worked=True
 except:
-    import_worked=False
+    csv = None
+
+_can_unit_test = csv
 
 def _try_float(x) :
     try :
@@ -28,11 +29,11 @@ class CsvTicFactory(freezable_factory(object, "_isFrozen")) :
         """
         Don't create this object explicitly. A CsvTicDatFactory will
         automatically be associated with the csv attribute of the parent
-        TicDatFactory if your system has the required csv package.
+        TicDatFactory. Your system will need the csv package if you want
+        to do anything with it.
         :param tic_dat_factory:
         :return:
         """
-        assert import_worked, "don't create this otherwise"
         self.tic_dat_factory = tic_dat_factory
         self._isFrozen = True
     def create_tic_dat(self, dir_path, dialect='excel', headers_present = True,

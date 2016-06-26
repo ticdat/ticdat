@@ -613,15 +613,19 @@ foreign keys, the code throwing this exception will be removed.
                                             [_key[0] if len(_key) == 1 else _key] = row
 
         self.TicDat = TicDat
-        if xls.import_worked :
-            self.xls = xls.XlsTicFactory(self)
-        if csv.import_worked :
-            self.csv = csv.CsvTicFactory(self)
-        if sql.import_worked :
-            self.sql = sql.SQLiteTicFactory(self, _duplicate_focused_tdf(self))
-        if mdb.import_worked:
-            self.mdb = mdb.MdbTicFactory(self, _duplicate_focused_tdf(self))
+        self.xls = xls.XlsTicFactory(self)
+        self.csv = csv.CsvTicFactory(self)
+        self.sql = sql.SQLiteTicFactory(self, _duplicate_focused_tdf(self))
+        self.mdb = mdb.MdbTicFactory(self, _duplicate_focused_tdf(self))
         self._isFrozen=True
+
+    @property
+    def testingthing(self):
+        """
+        cool thingy
+        :return:
+        """
+        return self._xls
 
     def _allFields(self, table):
         assert table in self.all_tables

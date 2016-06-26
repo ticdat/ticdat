@@ -5,13 +5,13 @@ from ticdat.testing.ticdattestutils import dietData, dietSchema, netflowData, ne
 from ticdat.testing.ticdattestutils import sillyMeData, sillyMeSchema, makeCleanDir, fail_to_debugger
 from ticdat.testing.ticdattestutils import spacesData, spacesSchema, memo, flagged_as_run_alone
 from ticdat.testing.ticdattestutils import makeCleanPath
+from ticdat.xls import _can_unit_test
 import shutil
 import unittest
 
 #uncomment decorator to drop into debugger for assertTrue, assertFalse failures
 #@fail_to_debugger
 class TestXls(unittest.TestCase):
-    canRun = False
     @classmethod
     def setUpClass(cls):
         makeCleanDir(_scratchDir)
@@ -24,7 +24,7 @@ class TestXls(unittest.TestCase):
             self.assertTrue("TicDatError" in e.__class__.__name__)
             return e.message
     def testDiet(self):
-        if not self.canRun:
+        if not _can_unit_test:
             return
         tdf = TicDatFactory(**dietSchema())
         ticDat = tdf.freeze_me(tdf.TicDat(**{t:getattr(dietData(),t) for t in tdf.primary_key_fields}))
@@ -50,7 +50,7 @@ class TestXls(unittest.TestCase):
         self.assertTrue(all(len(getattr(ticDat, t))-1 == len(getattr(xlsTicDat, t)) for t in tdf.all_tables))
 
     def testNetflow(self):
-        if not self.canRun:
+        if not _can_unit_test:
             return
         tdf = TicDatFactory(**netflowSchema())
         ticDat = tdf.freeze_me(tdf.TicDat(**{t:getattr(netflowData(),t) for t in tdf.primary_key_fields}))
@@ -90,7 +90,7 @@ class TestXls(unittest.TestCase):
         self.assertTrue(tdf._same_data(ticDat, tdf.xls.create_tic_dat(filePath+"x", treat_large_as_inf=True)))
 
     def testSilly(self):
-        if not self.canRun:
+        if not _can_unit_test:
             return
         tdf = TicDatFactory(**sillyMeSchema())
         ticDat = tdf.TicDat(**sillyMeData())
@@ -210,7 +210,7 @@ class TestXls(unittest.TestCase):
         self.assertTrue(set(rowCount["b"]) == {(1,20,30)} and rowCount["b"][1,20,30]==2)
 
     def testSpacey(self):
-        if not self.canRun:
+        if not _can_unit_test:
             return
         tdf = TicDatFactory(**spacesSchema())
         ticDat = tdf.TicDat(**spacesData())
@@ -244,7 +244,7 @@ class TestXls(unittest.TestCase):
         self.assertTrue(tdf._same_data(ticDat, ticDat3))
 
     def testRowOffsets(self):
-        if not self.canRun:
+        if not _can_unit_test:
             return
         tdf = TicDatFactory(boger = [[],["the", "big", "boger"]],
                             woger = [[], ["the", "real", "big", "woger"]])
@@ -265,7 +265,7 @@ class TestXls(unittest.TestCase):
         self.assertTrue(td3.boger[0]["big"] == 200 and len(td3.boger) == 1)
 
     def testBiggie(self):
-        if not self.canRun:
+        if not _can_unit_test:
             return
         tdf = TicDatFactory(boger = [["the"],["big", "boger"]],
                             moger = [["the", "big"], ["boger"]],
@@ -300,7 +300,7 @@ _scratchDir = TestXls.__name__ + "_scratch"
 # Run the tests.
 if __name__ == "__main__":
     td = TicDatFactory()
-    if not hasattr(td, "xls") :
+    if not _can_unit_test :
         print "!!!!!!!!!FAILING XLS UNIT TESTS DUE TO FAILURE TO LOAD XLS LIBRARIES!!!!!!!!"
     else:
         TestXls.canRun = True
