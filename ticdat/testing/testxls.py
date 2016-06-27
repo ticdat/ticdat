@@ -302,6 +302,4 @@ if __name__ == "__main__":
     td = TicDatFactory()
     if not _can_unit_test :
         print "!!!!!!!!!FAILING XLS UNIT TESTS DUE TO FAILURE TO LOAD XLS LIBRARIES!!!!!!!!"
-    else:
-        TestXls.canRun = True
     unittest.main()

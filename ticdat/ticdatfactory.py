@@ -619,14 +619,6 @@ foreign keys, the code throwing this exception will be removed.
         self.mdb = mdb.MdbTicFactory(self, _duplicate_focused_tdf(self))
         self._isFrozen=True
 
-    @property
-    def testingthing(self):
-        """
-        cool thingy
-        :return:
-        """
-        return self._xls
-
     def _allFields(self, table):
         assert table in self.all_tables
         return set(self.primary_key_fields.get(table, ())).union(self.data_fields.get(table, ()))

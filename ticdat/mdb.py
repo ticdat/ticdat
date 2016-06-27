@@ -37,13 +37,14 @@ def _brackets(l) :
 class MdbTicFactory(freezable_factory(object, "_isFrozen")) :
     """
     Primary class for reading/writing Access/MDB files with ticDat objects.
+    Your system will need the required pypyodbc package if you want to actually
+    do something with it.
     """
     def __init__(self, tic_dat_factory, duplicate_focused_tdf):
         """
         Don't create this object explicitly. A MdbTicDatFactory will
         automatically be associated with the mdb attribute of the parent
-        TicDatFactory. You system will need the required pypyodbc package
-        if you want to actually do something with it.
+        TicDatFactory.
         :param tic_dat_factory:
         :return:
         """
