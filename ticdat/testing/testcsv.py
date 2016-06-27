@@ -8,7 +8,7 @@ from ticdat.testing.ticdattestutils import  netflowSchema, firesException, copyD
 from ticdat.testing.ticdattestutils import sillyMeData, sillyMeSchema, fail_to_debugger
 from ticdat.testing.ticdattestutils import makeCleanDir, dietSchemaWeirdCase2, copyDataDietWeirdCase2
 import unittest
-from ticdat.xls import _can_unit_test
+from ticdat.csvtd import _can_unit_test
 
 #@fail_to_debugger
 class TestCsv(unittest.TestCase):
