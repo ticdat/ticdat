@@ -8,31 +8,42 @@ import os
 from collections import defaultdict
 from itertools import product
 
-
 try:
     import xlrd
-    import xlwt
-    import_worked=True
 except:
-    import_worked=False
+    xlrd=None
+try:
+    import xlwt
+except:
+    xlwt=None
+try:
+    import xlsxwriter as xlsx
+except:
+    xlsx=None
 
+_can_unit_test = xlrd and xlwt and xlsx
+
+_xlsx_hack_inf = 1e+100 # the xlsxwriter doesn't handle infinity as seamlessly as xls
 
 class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
     """
     Primary class for reading/writing Excel files with ticDat objects.
+    Your system will need the xlrd package to read .xls and .xlsx files,
+    the xlwt package to write .xls files, and the xlsxwriter package to
+    write .xlsx files.
     """
     def __init__(self, tic_dat_factory):
         """
         Don't create this object explicitly. A XlsTicDatFactory will
         automatically be associated with the xls attribute of the parent
-        TicDatFactory if your system has the required xlrd, xlwt packages.
+        TicDatFactory.
         :param tic_dat_factory:
         :return:
         """
-        assert import_worked, "don't create this otherwise"
         self.tic_dat_factory = tic_dat_factory
         self._isFrozen = True
     def create_tic_dat(self, xls_file_path, row_offsets={}, headers_present = True,
+                       treat_large_as_inf = False,
                        freeze_it = False):
         """
         Create a TicDat object from an Excel file
@@ -42,6 +53,9 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
                             number of rows to skip
         :param headers_present: Boolean. Does the first row of data contain the
                                 column headers?
+        :param treat_large_as_inf: Boolean. Treat numbers >= 1e100 as infinity
+                                   Generally only needed for .xlsx files that were
+                                   themselves created by ticdat (see write_file docs)
         :param freeze_it: boolean. should the returned object be frozen?
         :return: a TicDat object populated by the matching sheets.
         caveats: Missing sheets resolve to an empty table, but missing fields
@@ -54,15 +68,27 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
                  will replace the empty string with None. (This caveat requires the data_types
                  to be set for the ticDatFactory)
         """
-        rtn =  self.tic_dat_factory.TicDat(**self._create_tic_dat
-                                          (xls_file_path, row_offsets, headers_present))
-        for t, dfs in self.tic_dat_factory.data_types.items():
-            replaceable = {df for df, dt in dfs.items()
+        verify(xlrd, "xlrd needs to be installed to use this subroutine")
+        tdf = self.tic_dat_factory
+        verify(not(treat_large_as_inf and tdf.generator_tables),
+               "treat_large_as_inf not implemented for generator tables")
+        rtn =  tdf.TicDat(**self._create_tic_dat_dict
+                          (xls_file_path, row_offsets, headers_present))
+        replaceable = defaultdict(dict)
+        for t, dfs in tdf.data_types.items():
+            replaceable[t] = {df for df, dt in dfs.items()
                            if (not dt.valid_data('')) and dt.valid_data(None)}
-            for r in getattr(rtn, t).values():
-                for k in replaceable:
-                    if r[k] == '':
-                        r[k] = None
+        for t in set(tdf.all_tables).difference(tdf.generator_tables):
+            _t =  getattr(rtn, t)
+            for r in _t.values() if utils.dictish(_t) else _t:
+                for f,v in r.items():
+                    if f in replaceable[t] and v == '':
+                        r[f] = None
+                    elif treat_large_as_inf:
+                        if v >= _xlsx_hack_inf:
+                            r[f] = float("inf")
+                        if v <= -_xlsx_hack_inf:
+                            r[f] = -float("inf")
         if freeze_it:
             return self.tic_dat_factory.freeze_me(rtn)
         return rtn
@@ -104,7 +130,7 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
                     yield self._sub_tuple(tdf.data_fields[table], field_indicies[table])(x)
         return tableObj
 
-    def _create_tic_dat(self, xls_file_path, row_offsets, headers_present):
+    def _create_tic_dat_dict(self, xls_file_path, row_offsets, headers_present):
         verify(utils.dictish(row_offsets) and
                set(row_offsets).issubset(self.tic_dat_factory.all_tables) and
                all(utils.numericish(x) and (x>=0) for x in row_offsets.values()),
@@ -154,6 +180,7 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
                  Excel sheet with this primary key.
                  Row counts smaller than 2 are pruned off, as they aren't duplicates
         """
+        verify(xlrd, "xlrd needs to be installed to use this subroutine")
         verify(utils.dictish(row_offsets) and
                set(row_offsets).issubset(self.tic_dat_factory.all_tables) and
                all(utils.numericish(x) and (x>=0) for x in row_offsets.values()),
@@ -206,19 +233,33 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
         """
         write the ticDat data to an excel file
         :param tic_dat: the data object to write (typically a TicDat)
-        :param file_path: the file path of the excel file to create
+        :param file_path: The file path of the excel file to create
+                          Needs to end in either ".xls" or ".xlsx"
+                          The latter is capable of writing out larger tables,
+                          but the former handles infinity seamlessly.
+                          If ".xlsx", then be advised that +/- float("inf") will be replaced
+                          with +/- 1e+100
         :param allow_overwrite: boolean - are we allowed to overwrite an
                                 existing file?
         :return:
         caveats: None may be written out as an empty string. This reflects the behavior of xlwt.
         """
-        tdf = self.tic_dat_factory
+        verify(utils.stringish(file_path) and
+               (file_path.endswith(".xls") or file_path.endswith(".xlsx")),
+               "file_path argument needs to end in .xls or .xlsx")
         msg = []
         if not self.tic_dat_factory.good_tic_dat_object(tic_dat, lambda m : msg.append(m)) :
             raise TicDatError("Not a valid ticDat object for this schema : " + " : ".join(msg))
         verify(not os.path.isdir(file_path), "A directory is not a valid xls file path")
         verify(allow_overwrite or not os.path.exists(file_path),
                "The %s path exists and overwrite is not allowed"%file_path)
+        if file_path.endswith(".xls"):
+            self._xls_write(tic_dat, file_path)
+        else:
+            self._xlsx_write(tic_dat, file_path)
+    def _xls_write(self, tic_dat, file_path):
+        verify(xlwt, "Can't write .xls files because xlwt package isn't installed.")
+        tdf = self.tic_dat_factory
         book = xlwt.Workbook()
         for t in  sorted(sorted(tdf.all_tables),
                          key=lambda x: len(tdf.primary_key_fields.get(x, ()))) :
@@ -238,3 +279,31 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
         if os.path.exists(file_path):
             os.remove(file_path)
         book.save(file_path)
+    def _xlsx_write(self, tic_dat, file_path):
+        verify(xlsx, "Can't write .xlsx files because xlsxwriter package isn't installed.")
+        tdf = self.tic_dat_factory
+        if os.path.exists(file_path):
+            os.remove(file_path)
+        book = xlsx.Workbook(file_path)
+        def clean_inf(x):
+            if x == float("inf"):
+                return _xlsx_hack_inf
+            if x == -float("inf"):
+                return -_xlsx_hack_inf
+            return x
+        for t in sorted(sorted(tdf.all_tables),
+                         key=lambda x: len(tdf.primary_key_fields.get(x, ()))) :
+            sheet = book.add_worksheet(t)
+            for i,f in enumerate(tdf.primary_key_fields.get(t,()) + tdf.data_fields.get(t, ())) :
+                sheet.write(0, i, f)
+            _t = getattr(tic_dat, t)
+            if utils.dictish(_t) :
+                for row_ind, (p_key, data) in enumerate(_t.items()) :
+                    for field_ind, cell in enumerate( (p_key if containerish(p_key) else (p_key,)) +
+                                        tuple(data[_f] for _f in tdf.data_fields.get(t, ()))):
+                        sheet.write(row_ind+1, field_ind, clean_inf(cell))
+            else :
+                for row_ind, data in enumerate(_t if containerish(_t) else _t()) :
+                    for field_ind, cell in enumerate(tuple(data[_f] for _f in tdf.data_fields[t])) :
+                        sheet.write(row_ind+1, field_ind, clean_inf(cell))
+        book.close()

@@ -6,19 +6,13 @@ from ticdat.testing.ticdattestutils import sillyMeData, sillyMeSchema, makeClean
 from ticdat.testing.ticdattestutils import makeCleanPath, addNetflowForeignKeys, addDietForeignKeys, flagged_as_run_alone
 from ticdat.testing.ticdattestutils import spacesData, spacesSchema, dietSchemaWeirdCase, dietSchemaWeirdCase2
 from ticdat.testing.ticdattestutils import copyDataDietWeirdCase, copyDataDietWeirdCase2
+from ticdat.sqlitetd import _can_unit_test, sql
 
 import shutil
 import unittest
 
-try:
-    import sqlite3 as sql
-except:
-    pass
-
-
 #@fail_to_debugger
 class TestSql(unittest.TestCase):
-    canRun = False
     @classmethod
     def setUpClass(cls):
         makeCleanDir(_scratchDir)
@@ -32,7 +26,7 @@ class TestSql(unittest.TestCase):
             return e.message
 
     def testDups(self):
-        if not self.canRun:
+        if not _can_unit_test:
             return
         tdf = TicDatFactory(one = [["a"],["b, c"]],
                             two = [["a", "b"],["c"]],
@@ -46,7 +40,7 @@ class TestSql(unittest.TestCase):
         self.assertTrue(dups ==  {'three': {(1, 2, 2): 2}, 'two': {(1, 2): 3}, 'one': {1: 3, 2: 2}})
 
     def testDiet(self):
-        if not self.canRun:
+        if not _can_unit_test:
             return
         def doTheTests(tdf) :
             ticDat = tdf.freeze_me(tdf.TicDat(**{t:getattr(dietData(),t) for t in tdf.primary_key_fields}))
@@ -110,7 +104,8 @@ class TestSql(unittest.TestCase):
         doTheTests(tdf)
 
     def testWeirdDiets(self):
-
+        if not _can_unit_test:
+            return
         filePath = os.path.join(_scratchDir, "weirdDiet.db")
         tdf = TicDatFactory(**dietSchema())
         ticDat = tdf.freeze_me(tdf.TicDat(**{t:getattr(dietData(),t) for t in tdf.primary_key_fields}))
@@ -137,7 +132,7 @@ class TestSql(unittest.TestCase):
         self.assertTrue(self.firesException(lambda : tdf3.sql.create_tic_dat(filePath)))
 
     def testNetflow(self):
-        if not self.canRun:
+        if not _can_unit_test:
             return
         tdf = TicDatFactory(**netflowSchema())
         addNetflowForeignKeys(tdf)
@@ -196,7 +191,7 @@ class TestSql(unittest.TestCase):
         self.assertTrue(tdf._same_data(ticDat3, ticDat4))
 
     def testSilly(self):
-        if not self.canRun:
+        if not _can_unit_test:
             return
         tdf = TicDatFactory(**sillyMeSchema())
         ticDat = tdf.TicDat(**sillyMeData())
@@ -249,7 +244,7 @@ class TestSql(unittest.TestCase):
         self.assertTrue(ticDatNone.a["theboger"]["aData2"] == None)
 
     def testInjection(self):
-        if not self.canRun:
+        if not _can_unit_test:
             return
         problems = [ "'", "''", '"', '""']
         tdf = TicDatFactory(boger = [["a"], ["b"]])
@@ -267,7 +262,7 @@ class TestSql(unittest.TestCase):
         self.assertTrue(firesException(lambda : tdf.sql.create_tic_dat_from_sql(filePath)))
 
     def testSpacey(self):
-        if not self.canRun:
+        if not _can_unit_test:
             return
         tdf = TicDatFactory(**spacesSchema())
         dat = tdf.TicDat(**spacesData())
@@ -290,6 +285,4 @@ if __name__ == "__main__":
     td = TicDatFactory()
     if not hasattr(td, "sql") :
         print "!!!!!!!!!FAILING SQL UNIT TESTS DUE TO FAILURE TO LOAD SQL LIBRARIES!!!!!!!!"
-    else:
-        TestSql.canRun = True
     unittest.main()

@@ -4,13 +4,14 @@ from ticdat.ticdatfactory import TicDatFactory
 from ticdat.testing.ticdattestutils import dietData, dietSchema, netflowData, netflowSchema, firesException
 from ticdat.testing.ticdattestutils import sillyMeData, sillyMeSchema, makeCleanDir, fail_to_debugger
 from ticdat.testing.ticdattestutils import spacesData, spacesSchema, memo, flagged_as_run_alone
+from ticdat.testing.ticdattestutils import makeCleanPath
+from ticdat.xls import _can_unit_test
 import shutil
 import unittest
 
 #uncomment decorator to drop into debugger for assertTrue, assertFalse failures
 #@fail_to_debugger
 class TestXls(unittest.TestCase):
-    canRun = False
     @classmethod
     def setUpClass(cls):
         makeCleanDir(_scratchDir)
@@ -23,7 +24,7 @@ class TestXls(unittest.TestCase):
             self.assertTrue("TicDatError" in e.__class__.__name__)
             return e.message
     def testDiet(self):
-        if not self.canRun:
+        if not _can_unit_test:
             return
         tdf = TicDatFactory(**dietSchema())
         ticDat = tdf.freeze_me(tdf.TicDat(**{t:getattr(dietData(),t) for t in tdf.primary_key_fields}))
@@ -31,6 +32,9 @@ class TestXls(unittest.TestCase):
         tdf.xls.write_file(ticDat, filePath)
         xlsTicDat = tdf.xls.create_tic_dat(filePath)
         self.assertTrue(tdf._same_data(ticDat, xlsTicDat))
+        tdf.xls.write_file(ticDat, filePath+"x")
+        self.assertFalse(tdf._same_data(ticDat, tdf.xls.create_tic_dat(filePath+"x")))
+        self.assertTrue(tdf._same_data(ticDat, tdf.xls.create_tic_dat(filePath+"x", treat_large_as_inf=True)))
         xlsTicDat.categories["calories"]["minNutrition"]=12
         self.assertFalse(tdf._same_data(ticDat, xlsTicDat))
 
@@ -46,7 +50,7 @@ class TestXls(unittest.TestCase):
         self.assertTrue(all(len(getattr(ticDat, t))-1 == len(getattr(xlsTicDat, t)) for t in tdf.all_tables))
 
     def testNetflow(self):
-        if not self.canRun:
+        if not _can_unit_test:
             return
         tdf = TicDatFactory(**netflowSchema())
         ticDat = tdf.freeze_me(tdf.TicDat(**{t:getattr(netflowData(),t) for t in tdf.primary_key_fields}))
@@ -54,6 +58,8 @@ class TestXls(unittest.TestCase):
         tdf.xls.write_file(ticDat, filePath)
         xlsTicDat = tdf.xls.create_tic_dat(filePath, freeze_it=True)
         self.assertTrue(tdf._same_data(ticDat, xlsTicDat))
+        tdf.xls.write_file(ticDat, filePath+"x")
+        self.assertTrue(tdf._same_data(ticDat, tdf.xls.create_tic_dat(filePath+"x")))
         def changeIt() :
             xlsTicDat.inflow['Pencils', 'Boston']["quantity"] = 12
         self.assertTrue(self.firesException(changeIt))
@@ -73,8 +79,18 @@ class TestXls(unittest.TestCase):
         tdfHacked.xls.write_file(ticDat, filePath, allow_overwrite =True)
         self.assertTrue("nodes : name" in self.firesException(lambda  :tdf.xls.create_tic_dat(filePath)))
 
+        ticDat = tdf.TicDat(**{t:getattr(netflowData(),t) for t in tdf.primary_key_fields})
+        ticDat.arcs["Detroit", "Boston"] = float("inf")
+        ticDat.cost['Pencils', 'Detroit', 'Boston'] = -float("inf")
+        tdf.xls.write_file(ticDat, makeCleanPath(filePath))
+        xlsTicDat = tdf.xls.create_tic_dat(filePath, freeze_it=True)
+        self.assertTrue(tdf._same_data(ticDat, xlsTicDat))
+        tdf.xls.write_file(ticDat, filePath+"x", allow_overwrite=True)
+        self.assertFalse(tdf._same_data(ticDat, tdf.xls.create_tic_dat(filePath+"x")))
+        self.assertTrue(tdf._same_data(ticDat, tdf.xls.create_tic_dat(filePath+"x", treat_large_as_inf=True)))
+
     def testSilly(self):
-        if not self.canRun:
+        if not _can_unit_test:
             return
         tdf = TicDatFactory(**sillyMeSchema())
         ticDat = tdf.TicDat(**sillyMeData())
@@ -179,13 +195,22 @@ class TestXls(unittest.TestCase):
         self.assertTrue(tdf._same_data(ticDat, ticDatNone))
         self.assertTrue(ticDatNone.a["theboger"]["aData2"] == None)
 
+        # checking the same thing with .xlsx
+        tdf.xls.write_file(ticDat, filePath+"x", allow_overwrite=True)
+        ticDatNone = tdf.xls.create_tic_dat(filePath+"x", freeze_it=True)
+        self.assertFalse(tdf._same_data(ticDat, ticDatNone))
+        self.assertTrue(ticDatNone.a["theboger"]["aData2"] == "")
+        ticDatNone = tdfwa.xls.create_tic_dat(filePath+"x", freeze_it=True)
+        self.assertTrue(tdf._same_data(ticDat, ticDatNone))
+        self.assertTrue(ticDatNone.a["theboger"]["aData2"] == None)
+
         writeData([(1, 2, 3, 4), (1, 20, 30, 40), (10, 20, 30, 40), (1,20,30,12)])
         rowCount = tdf.xls.get_duplicates(filePath)
         self.assertTrue(set(rowCount) == {'a', 'b'} and set(rowCount["a"]) == {1} and rowCount["a"][1]==3)
         self.assertTrue(set(rowCount["b"]) == {(1,20,30)} and rowCount["b"][1,20,30]==2)
 
     def testSpacey(self):
-        if not self.canRun:
+        if not _can_unit_test:
             return
         tdf = TicDatFactory(**spacesSchema())
         ticDat = tdf.TicDat(**spacesData())
@@ -218,9 +243,8 @@ class TestXls(unittest.TestCase):
         ticDat3 = tdf.xls.create_tic_dat(filePath)
         self.assertTrue(tdf._same_data(ticDat, ticDat3))
 
-
     def testRowOffsets(self):
-        if not self.canRun:
+        if not _can_unit_test:
             return
         tdf = TicDatFactory(boger = [[],["the", "big", "boger"]],
                             woger = [[], ["the", "real", "big", "woger"]])
@@ -240,14 +264,42 @@ class TestXls(unittest.TestCase):
         self.assertTrue(all (td3.woger[i]["real"] == 200 for i in range(5)))
         self.assertTrue(td3.boger[0]["big"] == 200 and len(td3.boger) == 1)
 
+    def testBiggie(self):
+        if not _can_unit_test:
+            return
+        tdf = TicDatFactory(boger = [["the"],["big", "boger"]],
+                            moger = [["the", "big"], ["boger"]],
+                            woger = [[], ["the","big", "boger"]])
+        smalldat = tdf.TicDat(boger = {k:[(k+1)%10, (k+2)%5] for k in range(100)},
+                              moger = {(k,(k+1)%10): (k+2)%5 for k in range(75)},
+                              woger = [[k,(k+1)%10, (k+2)%5] for k in range(101)])
+        filePath = os.path.join(_scratchDir, "smallBiggie.xls")
+        tdf.xls.write_file(smalldat, filePath)
+        smalldat2 = tdf.xls.create_tic_dat(filePath)
+        self.assertTrue(tdf._same_data(smalldat, smalldat2))
+
+        filePath = makeCleanPath(filePath + "x")
+        tdf.xls.write_file(smalldat, filePath)
+        smalldat2 = tdf.xls.create_tic_dat(filePath)
+        self.assertTrue(tdf._same_data(smalldat, smalldat2))
+
+        bigdat = tdf.TicDat(boger = {k:[(k+1)%10, (k+2)%5] for k in range(65537)},
+                              moger = {(k,(k+1)%10): (k+2)%5 for k in range(75)},
+                              woger = [[k,(k+1)%10, (k+2)%5] for k in range(65537)])
+        filePath = os.path.join(_scratchDir, "bigBiggie.xls")
+        self.assertTrue(firesException(lambda : tdf.xls.write_file(bigdat, filePath)))
+        filePath = makeCleanPath(filePath + "x")
+        tdf.xls.write_file(bigdat, filePath)
+        bigdat2 = tdf.xls.create_tic_dat(filePath)
+        # the following is just to GD slow
+        #self.assertTrue(tdf._same_data(bigdat, bigdat2))
+        self.assertTrue(all(len(getattr(bigdat, t)) == len(getattr(bigdat2, t)) for t in tdf.all_tables))
 
 _scratchDir = TestXls.__name__ + "_scratch"
 
 # Run the tests.
 if __name__ == "__main__":
     td = TicDatFactory()
-    if not hasattr(td, "xls") :
+    if not _can_unit_test :
         print "!!!!!!!!!FAILING XLS UNIT TESTS DUE TO FAILURE TO LOAD XLS LIBRARIES!!!!!!!!"
-    else:
-        TestXls.canRun = True
     unittest.main()

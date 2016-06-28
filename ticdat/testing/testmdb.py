@@ -8,17 +8,11 @@ from ticdat.testing.ticdattestutils import spacesSchema, dietSchemaWeirdCase, di
 from ticdat.testing.ticdattestutils import copyDataDietWeirdCase, copyDataDietWeirdCase2
 import shutil
 import unittest
-from ticdat.mdb import _connection_str
-
-try:
-    import pypyodbc as py
-except:
-    pass
+from ticdat.mdb import _connection_str, _can_unit_test, py
 
 #uncomment decorator to drop into debugger for assertTrue, assertFalse failures
 #@fail_to_debugger
 class TestMdb(unittest.TestCase):
-    canRun = False
     @classmethod
     def setUpClass(cls):
         makeCleanDir(_scratchDir)
@@ -32,7 +26,7 @@ class TestMdb(unittest.TestCase):
             return e.message
 
     def testDups(self):
-        if not self.canRun:
+        if not _can_unit_test:
             return
         tdf = TicDatFactory(one = [["a"],["b, c"]],
                             two = [["a", "b"],["c"]],
@@ -46,7 +40,7 @@ class TestMdb(unittest.TestCase):
         self.assertTrue(dups ==  {'three': {(1, 2, 2): 2}, 'two': {(1, 2): 3}, 'one': {1: 3, 2: 2}})
 
     def testDiet(self):
-        if not self.canRun:
+        if not _can_unit_test:
             return
         tdf = TicDatFactory(**dietSchema())
         ticDat = tdf.freeze_me(tdf.TicDat(**{t:getattr(dietData(),t) for t in tdf.primary_key_fields}))
@@ -68,7 +62,7 @@ class TestMdb(unittest.TestCase):
         self.assertTrue(tdf._same_data(ticDat, mdbTicDat))
 
     def testNetflow(self):
-        if not self.canRun:
+        if not _can_unit_test:
             return
         tdf = TicDatFactory(**netflowSchema())
         addNetflowForeignKeys(tdf)
@@ -99,7 +93,7 @@ class TestMdb(unittest.TestCase):
                         self.firesException(lambda  :tdf.mdb.create_tic_dat(filePath)))
 
     def testSilly(self):
-        if not self.canRun:
+        if not _can_unit_test:
             return
         tdf = TicDatFactory(**sillyMeSchema())
         ticDat = tdf.TicDat(**sillyMeData())
@@ -168,7 +162,7 @@ class TestMdb(unittest.TestCase):
         self.assertTrue(ticDatNone.a["theboger"]["aData2"] == None)
 
     def testInjection(self):
-        if not self.canRun:
+        if not _can_unit_test:
             return
         problems = [ "'", "''", '"', '""']
         tdf = TicDatFactory(boger = [["a"], ["b"]])
@@ -184,7 +178,7 @@ class TestMdb(unittest.TestCase):
         self.assertTrue(tdf._same_data(dat,dat2))
 
     def testSpacey(self):
-        if not self.canRun:
+        if not _can_unit_test:
             return
         tdf = TicDatFactory(**spacesSchema())
         spacesData =  {
@@ -214,7 +208,7 @@ class TestMdb(unittest.TestCase):
         self.assertTrue(tdf._same_data(dat, dat3))
 
     def testWeirdDiets(self):
-        if not self.canRun:
+        if not _can_unit_test:
             return
         filePath = os.path.join(_scratchDir, "weirdDiet.mdb")
         tdf = TicDatFactory(**dietSchema())
@@ -246,10 +240,6 @@ _scratchDir = TestMdb.__name__ + "_scratch"
 # Run the tests.
 if __name__ == "__main__":
     td = TicDatFactory()
-    if not hasattr(td, "mdb") :
+    if not _can_unit_test:
         print "!!!!!!!!!FAILING MDB UNIT TESTS DUE TO FAILURE TO LOAD MDB LIBRARIES!!!!!!!!"
-    elif not td.mdb.can_write_new_file :
-        print "!!!!!!!!!FAILING MDB UNIT TESTS DUE TO FAILURE TO WRITE NEW MDB FILES!!!!!!!!"
-    else :
-        TestMdb.canRun= True
     unittest.main()

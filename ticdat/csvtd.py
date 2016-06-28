@@ -10,9 +10,10 @@ from itertools import product
 
 try:
     import csv
-    import_worked=True
 except:
-    import_worked=False
+    csv = None
+
+_can_unit_test = csv
 
 def _try_float(x) :
     try :
@@ -23,16 +24,16 @@ def _try_float(x) :
 class CsvTicFactory(freezable_factory(object, "_isFrozen")) :
     """
     Primary class for reading/writing csv files with ticDat objects.
+    Your system will need the csv package if you want to use this class.
     """
     def __init__(self, tic_dat_factory):
         """
         Don't create this object explicitly. A CsvTicDatFactory will
         automatically be associated with the csv attribute of the parent
-        TicDatFactory if your system has the required csv package.
+        TicDatFactory.
         :param tic_dat_factory:
         :return:
         """
-        assert import_worked, "don't create this otherwise"
         self.tic_dat_factory = tic_dat_factory
         self._isFrozen = True
     def create_tic_dat(self, dir_path, dialect='excel', headers_present = True,
@@ -50,6 +51,7 @@ class CsvTicFactory(freezable_factory(object, "_isFrozen")) :
                  Data field values (but not primary key values) will be coerced
                  into floats if possible.
         """
+        verify(csv, "csv needs to be installed to use this subroutine")
         rtn =  self.tic_dat_factory.TicDat(**self._create_tic_dat(dir_path, dialect,
                                                                   headers_present))
         if freeze_it:
@@ -77,6 +79,7 @@ class CsvTicFactory(freezable_factory(object, "_isFrozen")) :
         caveats: Missing files resolve to an empty table, but missing fields (data or primary key) on
                  matching files throw an Exception.
         """
+        verify(csv, "csv needs to be installed to use this subroutine")
         verify(dialect in csv.list_dialects(), "Invalid dialect %s"%dialect)
         verify(os.path.isdir(dir_path), "Invalid directory path %s"%dir_path)
         tdf = self.tic_dat_factory
@@ -157,6 +160,7 @@ class CsvTicFactory(freezable_factory(object, "_isFrozen")) :
                              as the first row?
         :return:
         """
+        verify(csv, "csv needs to be installed to use this subroutine")
         verify(dialect in csv.list_dialects(), "Invalid dialect %s"%dialect)
         verify(not os.path.isfile(dir_path), "A file is not a valid directory path")
         tdf = self.tic_dat_factory

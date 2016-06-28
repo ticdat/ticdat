@@ -49,6 +49,7 @@ CLASSES
     
     class CsvTicFactory(ticdat.utils._Freezeable)
      |  Primary class for reading/writing csv files with ticDat objects.
+     |  Your system will need the csv package if you want to use this class.
      |  
      |  Method resolution order:
      |      CsvTicFactory
@@ -60,7 +61,7 @@ CLASSES
      |  __init__(self, tic_dat_factory)
      |      Don't create this object explicitly. A CsvTicDatFactory will
      |      automatically be associated with the csv attribute of the parent
-     |      TicDatFactory if your system has the required csv package.
+     |      TicDatFactory.
      |      :param tic_dat_factory:
      |      :return:
      |  
@@ -161,6 +162,8 @@ CLASSES
     
     class MdbTicFactory(ticdat.utils._Freezeable)
      |  Primary class for reading/writing Access/MDB files with ticDat objects.
+     |  Your system will need the required pypyodbc package if you want to actually
+     |  do something with it.
      |  
      |  Method resolution order:
      |      MdbTicFactory
@@ -172,7 +175,7 @@ CLASSES
      |  __init__(self, tic_dat_factory)
      |      Don't create this object explicitly. A MdbTicDatFactory will
      |      automatically be associated with the mdb attribute of the parent
-     |      TicDatFactory if your system has the required pypyodbc packages.
+     |      TicDatFactory.
      |      :param tic_dat_factory:
      |      :return:
      |  
@@ -273,6 +276,7 @@ CLASSES
     
     class SQLiteTicFactory(ticdat.utils._Freezeable)
      |  Primary class for reading/writing SQLite files with ticDat objects.
+     |  You need the sqlite3 package to be installed to use it.
      |  
      |  Method resolution order:
      |      SQLiteTicFactory
@@ -284,7 +288,7 @@ CLASSES
      |  __init__(self, tic_dat_factory)
      |      Don't call this function explicitly. A SQLiteTicFactory will
      |      automatically be associated with the sql attribute of the parent
-     |      TicDatFactory if your system has the required sqlite3 packages.
+     |      TicDatFactory.
      |      :param tic_dat_factory:
      |      :return:
      |  
@@ -679,6 +683,9 @@ CLASSES
     
     class XlsTicFactory(ticdat.utils._Freezeable)
      |  Primary class for reading/writing Excel files with ticDat objects.
+     |  Your system will need the xlrd package to read .xls and .xlsx files,
+     |  the xlwt package to write .xls files, and the xlsxwriter package to
+     |  write .xlsx files.
      |  
      |  Method resolution order:
      |      XlsTicFactory
@@ -690,7 +697,7 @@ CLASSES
      |  __init__(self, tic_dat_factory)
      |      Don't create this object explicitly. A XlsTicDatFactory will
      |      automatically be associated with the xls attribute of the parent
-     |      TicDatFactory if your system has the required xlrd, xlwt packages.
+     |      TicDatFactory.
      |      :param tic_dat_factory:
      |      :return:
      |  
