@@ -17,7 +17,11 @@ _write_new_file_works = py and (sys.platform in ('win32','cli'))
 _can_unit_test = py and _write_new_file_works
 
 def _connection_str(file):
-    return 'Driver={Microsoft Access Driver (*.mdb, *.accdb)};DBQ=%s'%os.path.abspath(file)
+    verify(file.endswith(".mdb") or file.endswith(".accdb"),
+           "%s doesn't end with an expected file ending."%file)
+    return 'Driver={Microsoft Access Driver (%s)};DBQ=%s'%(
+                "*.mdb, *.accdb" if file.endswith(".accdb") else "*.mdb",
+                os.path.abspath(file))
 
 _mdb_inf = 1e+100
 assert _mdb_inf < float("inf"), "sanity check on inf"

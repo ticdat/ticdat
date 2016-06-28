@@ -8,7 +8,7 @@ from ticdat.testing.ticdattestutils import spacesSchema, dietSchemaWeirdCase, di
 from ticdat.testing.ticdattestutils import copyDataDietWeirdCase, copyDataDietWeirdCase2
 import shutil
 import unittest
-from ticdat.mdb import _connection_str, _can_unit_test
+from ticdat.mdb import _connection_str, _can_unit_test, py
 
 #uncomment decorator to drop into debugger for assertTrue, assertFalse failures
 #@fail_to_debugger
