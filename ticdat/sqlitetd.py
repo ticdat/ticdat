@@ -10,9 +10,10 @@ from ticdat.utils import FrozenDict, all_underscore_replacements, get_duplicates
 
 try:
     import sqlite3 as sql
-    import_worked=True
 except:
-    import_worked=False
+    sql = None
+
+_can_unit_test = sql
 
 def _read_data_format(x) :
     if stringish(x) and x.lower() in ("inf", "-inf") :
@@ -60,16 +61,16 @@ def _brackets(l) :
 class SQLiteTicFactory(freezable_factory(object, "_isFrozen")) :
     """
     Primary class for reading/writing SQLite files with ticDat objects.
+    You need the sqlite3 package to be installed to use it.
     """
     def __init__(self, tic_dat_factory, duplicate_focused_tdf):
         """
         Don't call this function explicitly. A SQLiteTicFactory will
         automatically be associated with the sql attribute of the parent
-        TicDatFactory if your system has the required sqlite3 packages.
+        TicDatFactory.
         :param tic_dat_factory:
         :return:
         """
-        assert import_worked, "don't create this otherwise"
         self.tic_dat_factory = tic_dat_factory
         self._duplicate_focused_tdf = duplicate_focused_tdf
         self._isFrozen = True
@@ -86,6 +87,7 @@ class SQLiteTicFactory(freezable_factory(object, "_isFrozen")) :
         :return: a TicDat object populated by the matching tables.
         caveats : "inf" and "-inf" (case insensitive) are read as floats
         """
+        verify(sql, "sqlite3 needs to be installed to use this subroutine")
         return self._Rtn(freeze_it)(**self._create_tic_dat(db_file_path))
     def create_tic_dat_from_sql(self, sql_file_path, includes_schema = False,
                                 freeze_it = False):
@@ -96,6 +98,7 @@ class SQLiteTicFactory(freezable_factory(object, "_isFrozen")) :
         :param freeze_it: boolean. should the returned object be frozen?
         :return: a TicDat object populated by the db created from the SQL
         """
+        verify(sql, "sqlite3 needs to be installed to use this subroutine")
         return self._Rtn(freeze_it)(**self._create_tic_dat_from_sql(
                     sql_file_path, includes_schema))
     def get_duplicates(self, db_file_path):
@@ -108,6 +111,7 @@ class SQLiteTicFactory(freezable_factory(object, "_isFrozen")) :
                  and the value is the count of records in the SQLite table with this primary key.
                  Row counts smaller than 2 are pruned off, as they aren't duplicates
         """
+        verify(sql, "sqlite3 needs to be installed to use this subroutine")
         return get_duplicates(self._duplicate_focused_tdf.sql.create_tic_dat(db_file_path),
                               self._duplicate_focused_tdf)
     def _fks(self):
@@ -269,6 +273,7 @@ class SQLiteTicFactory(freezable_factory(object, "_isFrozen")) :
         :return:
         caveats : float("inf"), float("-inf") are written as "inf", "-inf"
         """
+        verify(sql, "sqlite3 needs to be installed to use this subroutine")
         msg = []
         if not self.tic_dat_factory.good_tic_dat_object(tic_dat, lambda m : msg.append(m)) :
             raise TicDatError("Not a valid TicDat object for this schema : " + " : ".join(msg))
@@ -295,6 +300,7 @@ class SQLiteTicFactory(freezable_factory(object, "_isFrozen")) :
         :return:
         caveats : float("inf"), float("-inf") are written as "inf", "-inf"
         """
+        verify(sql, "sqlite3 needs to be installed to use this subroutine")
         with open(sql_file_path, "w") as f:
             for str in (self._get_schema_sql() if include_schema else ()) + \
                         self._get_data(tic_dat, as_sql=True):

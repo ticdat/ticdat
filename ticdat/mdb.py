@@ -10,14 +10,18 @@ from ticdat.utils import debug_break, numericish, all_underscore_replacements, g
 
 try:
     import pypyodbc as py
-    import_worked=True
 except:
-    import_worked=False
+    py = None
 
-_write_new_file_works = sys.platform in ('win32','cli')
+_write_new_file_works = py and (sys.platform in ('win32','cli'))
+_can_unit_test = py and _write_new_file_works
 
 def _connection_str(file):
-    return 'Driver={Microsoft Access Driver (*.mdb, *.accdb)};DBQ=%s'%os.path.abspath(file)
+    verify(file.endswith(".mdb") or file.endswith(".accdb"),
+           "%s doesn't end with an expected file ending."%file)
+    return 'Driver={Microsoft Access Driver (%s)};DBQ=%s'%(
+                "*.mdb, *.accdb" if file.endswith(".accdb") else "*.mdb",
+                os.path.abspath(file))
 
 _mdb_inf = 1e+100
 assert _mdb_inf < float("inf"), "sanity check on inf"
@@ -37,16 +41,17 @@ def _brackets(l) :
 class MdbTicFactory(freezable_factory(object, "_isFrozen")) :
     """
     Primary class for reading/writing Access/MDB files with ticDat objects.
+    Your system will need the required pypyodbc package if you want to actually
+    do something with it.
     """
     def __init__(self, tic_dat_factory, duplicate_focused_tdf):
         """
         Don't create this object explicitly. A MdbTicDatFactory will
         automatically be associated with the mdb attribute of the parent
-        TicDatFactory if your system has the required pypyodbc packages.
+        TicDatFactory.
         :param tic_dat_factory:
         :return:
         """
-        assert import_worked, "don't create this otherwise"
         self.tic_dat_factory = tic_dat_factory
         self._duplicate_focused_tdf = duplicate_focused_tdf
         self._isFrozen = True
@@ -59,6 +64,7 @@ class MdbTicFactory(freezable_factory(object, "_isFrozen")) :
         caveats : Numbers with absolute values larger than 1e+100 will
                   be read as float("inf") or float("-inf")
         """
+        verify(py, "pypyodbc needs to be installed to use this subroutine")
         rtn =  self.tic_dat_factory.TicDat(**self._create_tic_dat(mdb_file_path))
         if freeze_it:
             return self.tic_dat_factory.freeze_me(rtn)
@@ -73,6 +79,7 @@ class MdbTicFactory(freezable_factory(object, "_isFrozen")) :
                  and the value is the count of records in the mdb table with this primary key.
                  Row counts smaller than 2 are pruned off, as they aren't duplicates
         """
+        verify(py, "pypyodbc needs to be installed to use this subroutine")
         return get_duplicates(self._duplicate_focused_tdf.mdb.create_tic_dat(mdb_file_path),
                               self._duplicate_focused_tdf)
     def _get_table_names(self, db_file_path, tables):
@@ -160,6 +167,7 @@ class MdbTicFactory(freezable_factory(object, "_isFrozen")) :
                             fields are float
         :return:
         """
+        verify(py, "pypyodbc needs to be installed to use this subroutine")
         verify(dictish(field_types), "field_types should be a dict")
         for k,v in field_types.items() :
             verify(k in self.tic_dat_factory.all_tables, "%s isn't a table name"%k)
@@ -172,7 +180,7 @@ class MdbTicFactory(freezable_factory(object, "_isFrozen")) :
                        "For table %s, field %s, %s isn't one of (text, float, int)"%(k, fld, type_))
         get_fld_type = lambda tbl, fld, default : field_types.get(tbl, {}).get(fld, default)
         if not os.path.exists(mdb_file_path) :
-            verify(self.can_write_new_file, "Writing to a new file not enabled")
+            verify(self.can_write_new_file, "Writing to a new file not enabled for this OS")
             py.win_create_mdb(mdb_file_path)
         with py.connect(_connection_str(mdb_file_path)) as con:
             for t in self.tic_dat_factory.all_tables:
@@ -202,6 +210,7 @@ class MdbTicFactory(freezable_factory(object, "_isFrozen")) :
              For the latter, feel free to call the write_schema function on the data
              file first with explicitly identified field types.
         """
+        verify(py, "pypyodbc needs to be installed to use this subroutine")
         msg = []
         if not self.tic_dat_factory.good_tic_dat_object(tic_dat, lambda m : msg.append(m)) :
             raise TicDatError("Not a valid TicDat object for this schema : " + " : ".join(msg))

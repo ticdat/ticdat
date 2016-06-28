@@ -8,10 +8,10 @@ from ticdat.testing.ticdattestutils import  netflowSchema, firesException, copyD
 from ticdat.testing.ticdattestutils import sillyMeData, sillyMeSchema, fail_to_debugger
 from ticdat.testing.ticdattestutils import makeCleanDir, dietSchemaWeirdCase2, copyDataDietWeirdCase2
 import unittest
+from ticdat.csvtd import _can_unit_test
 
 #@fail_to_debugger
 class TestCsv(unittest.TestCase):
-    canRun = False
     @classmethod
     def setUpClass(cls):
         makeCleanDir(_scratchDir)
@@ -28,7 +28,7 @@ class TestCsv(unittest.TestCase):
             self.assertTrue("TicDatError" in e.__class__.__name__)
             return e.message
     def testDiet(self):
-        if not self.canRun:
+        if not _can_unit_test:
             return
         tdf = TicDatFactory(**dietSchema())
         ticDat = tdf.freeze_me(tdf.TicDat(**{t:getattr(dietData(),t) for t in tdf.primary_key_fields}))
@@ -75,7 +75,7 @@ class TestCsv(unittest.TestCase):
 
 
     def testNetflow(self):
-        if not self.canRun:
+        if not _can_unit_test:
             return
         tdf = TicDatFactory(**netflowSchema())
         ticDat = tdf.TicDat(**{t:getattr(netflowData(),t) for t in tdf.primary_key_fields})
@@ -105,7 +105,7 @@ class TestCsv(unittest.TestCase):
         self.assertFalse(tdf._same_data(ticDat, csvTicDat))
 
     def testSilly(self):
-        if not self.canRun:
+        if not _can_unit_test:
             return
         def doTest(headersPresent) :
             tdf = TicDatFactory(**sillyMeSchema())
@@ -200,9 +200,7 @@ _scratchDir = TestCsv.__name__ + "_scratch"
 # Run the tests.
 if __name__ == "__main__":
     td = TicDatFactory()
-    if not hasattr(td, "csv") :
+    if not _can_unit_test :
         print "!!!!!!!!!FAILING CSV UNIT TESTS DUE TO FAILURE TO LOAD CSV LIBRARIES!!!!!!!!"
-    else:
-        TestCsv.canRun = True
     unittest.main()
 
