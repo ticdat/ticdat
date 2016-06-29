@@ -55,6 +55,7 @@ class TestMdbReadOnly(unittest.TestCase):
         addNetflowForeignKeys(tdf)
         ticDat = tdf.freeze_me(tdf.TicDat(**{t:getattr(netflowData(),t) for t in tdf.all_tables}))
         filePath = "netflow.accdb"
+        self.assertFalse(tdf.mdb.get_duplicates(filePath))
         mdbTicDat = tdf.mdb.create_tic_dat(filePath, freeze_it=True)
         self.assertTrue(tdf._same_data(ticDat, mdbTicDat))
         def changeIt() :
@@ -70,7 +71,7 @@ class TestMdbReadOnly(unittest.TestCase):
         pkHacked = netflowSchema()
         pkHacked["nodes"][0] = ["nimrod"]
         tdfHacked = TicDatFactory(**pkHacked)
-        self.assertTrue("Unable to recognize field name in table nodes" in
+        self.assertTrue("Unable to recognize field nimrod in table nodes" in
                         self.firesException(lambda  :tdfHacked.mdb.create_tic_dat(filePath)))
 
     def testSpacey(self):
@@ -86,22 +87,10 @@ class TestMdbReadOnly(unittest.TestCase):
                       ("a", "b", "12", 24) ) }
 
         dat = tdf.TicDat(**spacesData)
-        filePath = makeCleanPath(os.path.join(_scratchDir, "spacey.mdb"))
-        tdf.mdb.write_schema(filePath, a_table = {"a Field":"float"},
-                                       c_table = {"c Data 1":"text", "c Data 2":"text",
-                                                  "c Data 3":"text", "c Data 4":"int"})
-        tdf.mdb.write_file(dat, filePath)
+        filePath = "spaces.accdb"
         self.assertFalse(tdf.mdb.get_duplicates(filePath))
         dat2 = tdf.mdb.create_tic_dat(filePath, freeze_it=True)
         self.assertTrue(tdf._same_data(dat,dat2))
-
-        with py.connect(_connection_str(filePath)) as con:
-            for t in tdf.all_tables:
-                con.cursor().execute("SELECT * INTO [%s] FROM %s"%(t.replace("_", " "), t)).commit()
-                con.cursor().execute("DROP TABLE %s"%t).commit()
-
-        dat3 = tdf.mdb.create_tic_dat(filePath, freeze_it=True)
-        self.assertTrue(tdf._same_data(dat, dat3))
 
 
 # Run the tests.
