@@ -161,7 +161,8 @@ class MdbTicFactory(freezable_factory(object, "_isFrozen")) :
     def write_schema(self, mdb_file_path, **field_types):
         """
         :param mdb_file_path: The file path of the mdb database to create
-        :param field_types: A mapping of table, field pairs to field types.
+        :param field_types: Named arguments are table names. Argument values
+                            are mapping of field name to field type.
                             Allowable field types are text, float and int
                             If missing, primary key fields are text, and data
                             fields are float
