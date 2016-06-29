@@ -36,6 +36,7 @@ class TestMdb(unittest.TestCase):
                             for t in tdf.all_tables})
         f = makeCleanPath(os.path.join(_scratchDir, "testDups.mdb"))
         tdf2.mdb.write_file(td, f)
+        #shutil.copy(f, "dups.mdb") #uncomment to make readonly test file as .mdb
         dups = tdf.mdb.get_duplicates(f)
         self.assertTrue(dups ==  {'three': {(1, 2, 2): 2}, 'two': {(1, 2): 3}, 'one': {1: 3, 2: 2}})
 
@@ -46,6 +47,7 @@ class TestMdb(unittest.TestCase):
         ticDat = tdf.freeze_me(tdf.TicDat(**{t:getattr(dietData(),t) for t in tdf.primary_key_fields}))
         filePath = makeCleanPath(os.path.join(_scratchDir, "diet.mdb"))
         tdf.mdb.write_file(ticDat, filePath)
+        #shutil.copy(filePath, "diet.mdb") #uncomment to make readonly test file as .mdb
         self.assertFalse(tdf.mdb.get_duplicates(filePath))
         mdbTicDat = tdf.mdb.create_tic_dat(filePath)
         self.assertTrue(tdf._same_data(ticDat, mdbTicDat))
@@ -69,6 +71,7 @@ class TestMdb(unittest.TestCase):
         ticDat = tdf.freeze_me(tdf.TicDat(**{t:getattr(netflowData(),t) for t in tdf.all_tables}))
         filePath = os.path.join(_scratchDir, "netflow.mdb")
         tdf.mdb.write_file(ticDat, filePath)
+        #shutil.copy(filePath, "netflow.mdb") #uncomment to make readonly test file as .mdb
         self.assertFalse(tdf.mdb.get_duplicates(filePath))
         mdbTicDat = tdf.mdb.create_tic_dat(filePath, freeze_it=True)
         self.assertTrue(tdf._same_data(ticDat, mdbTicDat))
@@ -203,7 +206,7 @@ class TestMdb(unittest.TestCase):
             for t in tdf.all_tables:
                 con.cursor().execute("SELECT * INTO [%s] FROM %s"%(t.replace("_", " "), t)).commit()
                 con.cursor().execute("DROP TABLE %s"%t).commit()
-
+        #shutil.copy(filePath, "spaces.mdb") #uncomment to make readonly test file as .mdb
         dat3 = tdf.mdb.create_tic_dat(filePath, freeze_it=True)
         self.assertTrue(tdf._same_data(dat, dat3))
 
