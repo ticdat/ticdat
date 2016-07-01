@@ -97,9 +97,9 @@ class TestMdbReadOnly(unittest.TestCase):
 if __name__ == "__main__":
     td = TicDatFactory()
     if not _can_unit_test:
-        print "!!!!!!!!!FAILING MDB READ UNIT TESTS DUE TO FAILURE TO LOAD MDB LIBRARIES!!!!!!!!"
+        print("!!!!!!!!!FAILING MDB READ UNIT TESTS DUE TO FAILURE TO LOAD MDB LIBRARIES!!!!!!!!")
     elif not all(os.path.exists("%s.accdb"%n) for n in ("simplest", "diet", "netflow", "dups", "spaces")):
-        print "!!!!!!!!!FAILING MDB READ UNIT TESTS DUE TO MISSING DATA FILES!!!!!!!!"
+        print("!!!!!!!!!FAILING MDB READ UNIT TESTS DUE TO MISSING DATA FILES!!!!!!!!")
         # these files are easy to create (simplest is just simple, and testmdb has commented out code
         # that makes them as .mdbs, which can then be converted by an Office account)
         # also, pcacioppi Google Drive has a copy of them in the ticdat folder

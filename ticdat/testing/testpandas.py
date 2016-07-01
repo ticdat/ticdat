@@ -107,7 +107,7 @@ class TestPandas(unittest.TestCase):
 # Run the tests.
 if __name__ == "__main__":
     if not DataFrame :
-        print "!!!!!!!!!FAILING PANDAS UNIT TESTS DUE TO FAILURE TO LOAD PANDAS LIBRARIES!!!!!!!!"
+        print("!!!!!!!!!FAILING PANDAS UNIT TESTS DUE TO FAILURE TO LOAD PANDAS LIBRARIES!!!!!!!!")
     else:
         TestPandas.canRun = True
     unittest.main()

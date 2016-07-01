@@ -284,5 +284,5 @@ _scratchDir = TestSql.__name__ + "_scratch"
 if __name__ == "__main__":
     td = TicDatFactory()
     if not hasattr(td, "sql") :
-        print "!!!!!!!!!FAILING SQL UNIT TESTS DUE TO FAILURE TO LOAD SQL LIBRARIES!!!!!!!!"
+        print("!!!!!!!!!FAILING SQL UNIT TESTS DUE TO FAILURE TO LOAD SQL LIBRARIES!!!!!!!!")
     unittest.main()

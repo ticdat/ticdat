@@ -301,5 +301,5 @@ _scratchDir = TestXls.__name__ + "_scratch"
 if __name__ == "__main__":
     td = TicDatFactory()
     if not _can_unit_test :
-        print "!!!!!!!!!FAILING XLS UNIT TESTS DUE TO FAILURE TO LOAD XLS LIBRARIES!!!!!!!!"
+        print("!!!!!!!!!FAILING XLS UNIT TESTS DUE TO FAILURE TO LOAD XLS LIBRARIES!!!!!!!!")
     unittest.main()

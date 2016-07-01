@@ -201,6 +201,6 @@ _scratchDir = TestCsv.__name__ + "_scratch"
 if __name__ == "__main__":
     td = TicDatFactory()
     if not _can_unit_test :
-        print "!!!!!!!!!FAILING CSV UNIT TESTS DUE TO FAILURE TO LOAD CSV LIBRARIES!!!!!!!!"
+        print("!!!!!!!!!FAILING CSV UNIT TESTS DUE TO FAILURE TO LOAD CSV LIBRARIES!!!!!!!!")
     unittest.main()
 

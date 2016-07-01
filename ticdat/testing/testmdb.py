@@ -244,5 +244,5 @@ _scratchDir = TestMdb.__name__ + "_scratch"
 if __name__ == "__main__":
     td = TicDatFactory()
     if not _can_unit_test:
-        print "!!!!!!!!!FAILING MDB UNIT TESTS DUE TO FAILURE TO LOAD MDB LIBRARIES!!!!!!!!"
+        print("!!!!!!!!!FAILING MDB UNIT TESTS DUE TO FAILURE TO LOAD MDB LIBRARIES!!!!!!!!")
     unittest.main()
