@@ -28,12 +28,18 @@ try:
 except:
     cplexprogress = None
 
+def dict_overlay(d1, d2):
+    rtn = dict(d1)
+    for k,v in d2.items():
+        rtn[k] = v
+    return rtn
+
 def get_duplicates(td, tdf_for_dups):
     assert tdf_for_dups.good_tic_dat_object(td)
     assert not any(tdf_for_dups.primary_key_fields.values())
     assert not tdf_for_dups.generator_tables
     rtn = {t:defaultdict(int) for t in tdf_for_dups.primary_key_fields}
-    for t,flds in tdf_for_dups.data_fields.items():
+    for t,flds in list(tdf_for_dups.data_fields.items()):
         tbl = getattr(td, t)
         for row in tbl:
             k = tuple(row[f] for f in flds)

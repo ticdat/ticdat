@@ -23,7 +23,7 @@ class TestSql(unittest.TestCase):
         e = firesException(f)
         if e :
             self.assertTrue("TicDatError" in e.__class__.__name__)
-            return e.message
+            return str(e)
 
     def testDups(self):
         if not _can_unit_test:

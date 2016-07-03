@@ -129,7 +129,7 @@ class MdbTicFactory(freezable_factory(object, "_isFrozen")) :
                 cur.execute("Select %s from [%s]"%(", ".join(_brackets(tdf.data_fields[table])),
                                                    table_name))
                 for row in cur.fetchall():
-                  yield map(_read_data, row)
+                  yield list(map(_read_data, row))
         return tableObj
     def _create_tic_dat(self, mdbFilePath):
         tdf = self.tic_dat_factory
@@ -140,10 +140,12 @@ class MdbTicFactory(freezable_factory(object, "_isFrozen")) :
                 fields = tdf.primary_key_fields.get(table, ()) + tdf.data_fields.get(table, ())
                 rtn[table]= {} if tdf.primary_key_fields.get(table, ())  else []
                 with con.cursor() as cur :
-                    cur.execute("Select %s from [%s]"%(", ".join(_brackets(fields)), table_names[table]))
+                    cur.execute("Select %s from [%s]"%(", ".join(_brackets(fields)),
+                                 table_names[table]))
                     for row in cur.fetchall():
                         pk = row[:len(tdf.primary_key_fields.get(table, ()))]
-                        data = map(_read_data, row[len(tdf.primary_key_fields.get(table, ())):])
+                        data = list(map(_read_data,
+                                    row[len(tdf.primary_key_fields.get(table, ())):]))
                         if dictish(rtn[table]) :
                             rtn[table][pk[0] if len(pk) == 1 else tuple(pk)] = data
                         else :

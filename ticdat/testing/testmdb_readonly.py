@@ -14,9 +14,11 @@ class TestMdbReadOnly(unittest.TestCase):
         e = firesException(f)
         if e :
             self.assertTrue("TicDatError" in e.__class__.__name__)
-            return e.message
+            return str(e)
 
     def testSimplest(self):
+        if not _can_unit_test:
+            return
         tdf = TicDatFactory(simple_table = [["pk1"],["df1", "df2"]])
         dat = tdf.mdb.create_tic_dat("simplest.accdb")
         self.assertTrue(len(dat.simple_table) == 3 and dat.simple_table[3]["df2"] == 2)

@@ -12,6 +12,8 @@ import ticdat.xls as xls
 import ticdat.csvtd as csv
 import ticdat.sqlitetd as sql
 import ticdat.mdb as mdb
+import sys
+
 pd, DataFrame = utils.pd, utils.DataFrame # if pandas not installed will be falsey
 
 def _acceptable_default(v) :
@@ -830,6 +832,11 @@ foreign keys, the code throwing this exception will be removed.
             def __repr__(self):
                 return "td:" + tuple(table_restrictions).__repr__()
         rtn = PandasTicDat()
+
+        # this is the only behavior change we exhibit from between 2 and 3. can
+        # clean it up at some point.
+        _sorted = lambda x : sorted(x) if sys.version_info[0] == 2 else x
+
         for tname in table_restrictions:
             tdtable = getattr(tic_dat, tname)
             if len(tdtable) == 0 :
@@ -840,14 +847,14 @@ foreign keys, the code throwing this exception will be removed.
                 dfs = self.data_fields.get(tname, tuple())
                 cols = pks + dfs
                 df = DataFrame([ (list(k) if containerish(k) else [k]) + [v[_] for _ in dfs]
-                              for k,v in sorted(getattr(tic_dat, tname).items())],
+                              for k,v in _sorted(getattr(tic_dat, tname).items())],
                               columns =cols)
                 df.set_index(list(pks), inplace=True,
                              drop= bool(dfs if drop_pk_columns == None else drop_pk_columns))
                 utils.Sloc.add_sloc(df)
             else :
                 df = DataFrame([[v[_] for _ in self.data_fields[tname]]
-                                  for v in sorted(getattr(tic_dat, tname))],
+                                  for v in _sorted(getattr(tic_dat, tname))],
                                   columns = self.data_fields[tname])
             setattr(rtn, tname, df)
         return rtn
@@ -1064,9 +1071,9 @@ foreign keys, the code throwing this exception will be removed.
                                   utils.baseConverter(rtnnum-len(from_table)-1, len(chars)))
                     rtnnum += 1
             namegetter = getname()
-            name = namegetter.next()
+            name = next(namegetter)
             while name in table_prepends.values():
-                name = namegetter.next()
+                name = next(namegetter)
             table_prepends[t]=name
         assert set(entity_tables) == set(table_prepends)
 
@@ -1078,8 +1085,9 @@ foreign keys, the code throwing this exception will be removed.
         for fk in self.foreign_keys:
             nt = fk.native_table
             if fk.foreign_table in table_prepends:
-                foreign_keys = dict(foreign_keys, **{(nt,nf) : fk.foreign_table
-                                    for nf, ff in fk.nativetoforeignmapping().items()})
+                foreign_keys = utils.dict_overlay(foreign_keys,
+                                {(nt,nf) : fk.foreign_table for nf, ff in
+                                  fk.nativetoforeignmapping().items()})
         # remember -- we've used this factory so any cascading foreign keys are present
         rtn_dict  = clt.defaultdict(dict)
         for t in self.all_tables:

@@ -15,7 +15,7 @@ def _deep_anonymize(x)  :
         return x
     if utils.dictish(x) :
         return {_deep_anonymize(k):_deep_anonymize(v) for k,v in x.items()}
-    return map(_deep_anonymize,x)
+    return list(map(_deep_anonymize,x))
 
 #uncomment decorator to drop into debugger for assertTrue, assertFalse failures
 #@fail_to_debugger
@@ -40,7 +40,7 @@ class TestUtils(unittest.TestCase):
         e = firesException(f)
         if e :
             self.assertTrue("TicDatError" in e.__class__.__name__)
-            return e.message
+            return str(e)
     def testOne(self):
         def _cleanIt(x) :
             x.foods['macaroni'] = {"cost": 2.09}
@@ -78,8 +78,8 @@ class TestUtils(unittest.TestCase):
                          tdf.good_tic_dat_object(dataObj, bad_message_handler=msg.append))
         self.assertTrue({'foods : Inconsistent key lengths',
                          'categories : Inconsistent data field name keys.'} == set(msg))
-        ex = firesException(lambda : tdf.freeze_me(tdf.TicDat(**{t:getattr(dataObj,t)
-                                                                for t in tdf.primary_key_fields}))).message
+        ex = str(firesException(lambda : tdf.freeze_me(tdf.TicDat(**{t:getattr(dataObj,t)
+                                                                for t in tdf.primary_key_fields}))))
         self.assertTrue("categories cannot be treated as a ticDat table : Inconsistent data field name keys" in ex)
 
     def _assertSame(self, t1, t2, goodTicDatTable):
@@ -134,8 +134,8 @@ class TestUtils(unittest.TestCase):
         objOrig.cost[5]=5
 
         self.assertTrue("cost cannot be treated as a ticDat table : Inconsistent key lengths" in
-            firesException(lambda : staticFactory.freeze_me(staticFactory.TicDat
-                                    (**{t:getattr(objOrig,t) for t in tables}))))
+            str(firesException(lambda : staticFactory.freeze_me(staticFactory.TicDat
+                                    (**{t:getattr(objOrig,t) for t in tables})))))
 
         objOrig = netflowData()
         def editMeBadly(t) :
@@ -199,7 +199,7 @@ class TestUtils(unittest.TestCase):
         self.assertFalse(staticFactory.good_tic_dat_object(newTicDat))
         self.assertTrue(newFactory.good_tic_dat_object(ticDat))
         self.assertTrue(newFactory._same_data(makeNewTicDat(), newTicDat))
-        newTicDat.a[ticDat.a.keys()[0]]["aData4"]=12
+        newTicDat.a[list(ticDat.a)[0]]["aData4"]=12
         self.assertFalse(newFactory._same_data(makeNewTicDat(), newTicDat))
 
     def testFive(self):
@@ -324,7 +324,7 @@ class TestUtils(unittest.TestCase):
         self.assertTrue(tdf._same_data(badDat1, goodDat) and not tdf.find_foreign_key_failures(badDat1))
 
         _ = len(goodDat.lines)
-        for i,p in enumerate(goodDat.plants.keys() + goodDat.plants.keys()):
+        for i,p in enumerate(list(goodDat.plants.keys()) + list(goodDat.plants.keys())):
             goodDat.lines[i+_]["plant"] = p
         for l in goodDat.lines:
             if i%2:
@@ -341,10 +341,10 @@ class TestUtils(unittest.TestCase):
           fk('pureTestingTable', 'products', fkm('product', 'name'), 'many-to-one'): (('nk',), (l,)),
           fk('pureTestingTable', 'lines', fkm('line', 'name'), 'many-to-one'): (('j',), (l,))})
 
-        obfudat = tdf.obfusimplify(goodDat, freeze_it=True)
+        obfudat = tdf.obfusimplify(goodDat, {"plants": "P"}, freeze_it=True)
         self.assertTrue(all(len(getattr(obfudat.copy, t)) == len(getattr(goodDat, t))
                             for t in tdf.all_tables))
-        for n in goodDat.plants.keys() + goodDat.lines.keys() + goodDat.products.keys() :
+        for n in list(goodDat.plants) + list(goodDat.lines) + list(goodDat.products) :
             self.assertTrue(n in {_[1] for _ in obfudat.renamings.values()})
             self.assertFalse(n in obfudat.renamings)
         self.assertTrue(obfudat.copy.plants['P2']['otherstuff'] == 1)
@@ -500,7 +500,7 @@ class TestUtils(unittest.TestCase):
             tdf = TicDatFactory(**schema)
             tdf2 = TicDatFactory.create_from_full_schema(tdf.schema(True))
             self.assertTrue(tdf.schema() == tdf.schema(True)["tables_fields"] == tdf2.schema() ==
-                            {k : map(list, v) for k,v in schema.items()})
+                            {k : list(map(list, v)) for k,v in schema.items()})
 
     def testTen(self):
         with LogFile(os.path.join(_scratchDir, "boger.txt")) as f:

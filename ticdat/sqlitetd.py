@@ -175,7 +175,7 @@ class SQLiteTicFactory(freezable_factory(object, "_isFrozen")) :
             with sql.connect(db_file_path) as con:
                 for row in con.execute("Select %s from [%s]"%
                         (", ".join(_brackets(tdf.data_fields[table])), table_name)):
-                    yield map(_read_data_format, row)
+                    yield list(map(_read_data_format, row))
         return tableObj
     def _create_tic_dat(self, db_file_path):
         tdf = self.tic_dat_factory
@@ -194,7 +194,8 @@ class SQLiteTicFactory(freezable_factory(object, "_isFrozen")) :
             for row in con.execute("Select %s from [%s]"%(", ".join(_brackets(fields)),
                                                           table_names[table])) :
                 pk = row[:len(tdf.primary_key_fields.get(table, ()))]
-                data = map(_read_data_format, row[len(tdf.primary_key_fields.get(table, ())):])
+                data = list(map(_read_data_format,
+                                row[len(tdf.primary_key_fields.get(table, ())):]))
                 if dictish(rtn[table]) :
                     rtn[table][pk[0] if len(pk) == 1 else tuple(pk)] = data
                 else :
@@ -208,7 +209,7 @@ class SQLiteTicFactory(freezable_factory(object, "_isFrozen")) :
                 for fk in fks.get(t, ()) :
                     processTable(fk.foreign_table)
                 rtn.append(t)
-        map(processTable, self.tic_dat_factory.all_tables)
+        list(map(processTable, self.tic_dat_factory.all_tables))
         return tuple(rtn)
     def _get_schema_sql(self):
         rtn = []
@@ -234,7 +235,7 @@ class SQLiteTicFactory(freezable_factory(object, "_isFrozen")) :
             if dictish(_t) :
                 primarykeys = tuple(self.tic_dat_factory.primary_key_fields[t])
                 for pkrow, sqldatarow in _t.items() :
-                    _items = sqldatarow.items()
+                    _items = list(sqldatarow.items())
                     fields = primarykeys + tuple(x[0] for x in _items)
                     datarow = ((pkrow,) if len(primarykeys)==1 else pkrow) + \
                               tuple(x[1] for x in _items)
