@@ -92,7 +92,7 @@ class CsvTicFactory(freezable_factory(object, "_isFrozen")) :
                             if len(tdf.primary_key_fields[t])==1 else \
                             tuple(r[_] for _ in tdf.primary_key_fields[t])
                     rtn[t][p_key] += 1
-        for t in rtn.keys():
+        for t in list(rtn.keys()):
             rtn[t] = {k:v for k,v in rtn[t].items() if v > 1}
             if not rtn[t]:
                 del(rtn[t])

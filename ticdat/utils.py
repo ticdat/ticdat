@@ -28,12 +28,18 @@ try:
 except:
     cplexprogress = None
 
+def dict_overlay(d1, d2):
+    rtn = dict(d1)
+    for k,v in d2.items():
+        rtn[k] = v
+    return rtn
+
 def get_duplicates(td, tdf_for_dups):
     assert tdf_for_dups.good_tic_dat_object(td)
     assert not any(tdf_for_dups.primary_key_fields.values())
     assert not tdf_for_dups.generator_tables
     rtn = {t:defaultdict(int) for t in tdf_for_dups.primary_key_fields}
-    for t,flds in tdf_for_dups.data_fields.items():
+    for t,flds in list(tdf_for_dups.data_fields.items()):
         tbl = getattr(td, t)
         for row in tbl:
             k = tuple(row[f] for f in flds)
@@ -386,7 +392,7 @@ class Progress(object):
         verify(stringish(theme), "type_ needs to be string")
         verify(numericish(progress), "progress needs to be numerical")
         if not self._quiet:
-             print "%s:%s"%(theme.ljust(40), "{:.5f}".format(progress))
+             print("%s:%s"%(theme.ljust(40), "{:.5f}".format(progress)))
         return True
     def mip_progress(self, theme, lower_bound, upper_bound):
         """
@@ -402,8 +408,8 @@ class Progress(object):
         verify(lower_bound * 0.99999 <= upper_bound,
                "lower_bound can't be bigger than upper_bound")
         if not self._quiet:
-             print "%s:%s:%s"%(theme.ljust(30), "{:.5f}".format(lower_bound).ljust(20),
-                               "{:.5f}".format(upper_bound))
+             print("%s:%s:%s"%(theme.ljust(30), "{:.5f}".format(lower_bound).ljust(20),
+                               "{:.5f}".format(upper_bound)))
         return True
     def gurobi_call_back_factory(self, theme, model) :
         """

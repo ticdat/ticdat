@@ -84,9 +84,9 @@ def _runSuite(cls):
     for x in _rtn :
         suite.addTest(cls(x))
     if "failToDebugger" in dir(cls) and cls.failToDebugger :
-        print "!!! Debugging suite for " + str(cls) + " !!!\n"
+        print("!!! Debugging suite for " + str(cls) + " !!!\n")
         suite.debug()
-        print "!!! Debugged suite for " + str(cls) + " !!!\n"
+        print("!!! Debugged suite for " + str(cls) + " !!!\n")
     else :
         unittest.TextTestRunner().run(suite)
 
@@ -175,7 +175,7 @@ def assertTicDatTablesSame(t1, t2, _goodTicDatTable,
             for _k1 in v1 :
                 _assertTrue(v1[_k1] == v2[_k1])
         elif dictish(v1) and containerish(v2) :
-            _assertTrue(sorted(v1.values()) == sorted(v2))
+            _assertTrue(sorted(map(str, v1.values())) == sorted(map(str, v2)))
         elif dictish(v1) :
             _assertTrue(len(v1) == 1 and v1.values()[0] == v2)
         else :

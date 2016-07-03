@@ -26,7 +26,7 @@ class TestCsv(unittest.TestCase):
         e = firesException(f)
         if e :
             self.assertTrue("TicDatError" in e.__class__.__name__)
-            return e.message
+            return str(e)
     def testDiet(self):
         if not _can_unit_test:
             return
@@ -201,6 +201,6 @@ _scratchDir = TestCsv.__name__ + "_scratch"
 if __name__ == "__main__":
     td = TicDatFactory()
     if not _can_unit_test :
-        print "!!!!!!!!!FAILING CSV UNIT TESTS DUE TO FAILURE TO LOAD CSV LIBRARIES!!!!!!!!"
+        print("!!!!!!!!!FAILING CSV UNIT TESTS DUE TO FAILURE TO LOAD CSV LIBRARIES!!!!!!!!")
     unittest.main()
 

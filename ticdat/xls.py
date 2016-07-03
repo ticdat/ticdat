@@ -198,7 +198,7 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
             table_len = min(len(sheet.col_values(indicies[field])) for field in fields)
             for x in (sheet.row_values(i) for i in range(table_len)[row_offsets[table]+ho:]) :
                 rtn[table][self._sub_tuple(tdf.primary_key_fields[table], indicies)(x)] += 1
-        for t in rtn.keys():
+        for t in list(rtn.keys()):
             rtn[t] = {k:v for k,v in rtn[t].items() if v > 1}
             if not rtn[t]:
                 del(rtn[t])
