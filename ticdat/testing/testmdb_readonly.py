@@ -14,9 +14,11 @@ class TestMdbReadOnly(unittest.TestCase):
         e = firesException(f)
         if e :
             self.assertTrue("TicDatError" in e.__class__.__name__)
-            return e.message
+            return str(e)
 
     def testSimplest(self):
+        if not _can_unit_test:
+            return
         tdf = TicDatFactory(simple_table = [["pk1"],["df1", "df2"]])
         dat = tdf.mdb.create_tic_dat("simplest.accdb")
         self.assertTrue(len(dat.simple_table) == 3 and dat.simple_table[3]["df2"] == 2)
@@ -97,9 +99,9 @@ class TestMdbReadOnly(unittest.TestCase):
 if __name__ == "__main__":
     td = TicDatFactory()
     if not _can_unit_test:
-        print "!!!!!!!!!FAILING MDB READ UNIT TESTS DUE TO FAILURE TO LOAD MDB LIBRARIES!!!!!!!!"
+        print("!!!!!!!!!FAILING MDB READ UNIT TESTS DUE TO FAILURE TO LOAD MDB LIBRARIES!!!!!!!!")
     elif not all(os.path.exists("%s.accdb"%n) for n in ("simplest", "diet", "netflow", "dups", "spaces")):
-        print "!!!!!!!!!FAILING MDB READ UNIT TESTS DUE TO MISSING DATA FILES!!!!!!!!"
+        print("!!!!!!!!!FAILING MDB READ UNIT TESTS DUE TO MISSING DATA FILES!!!!!!!!")
         # these files are easy to create (simplest is just simple, and testmdb has commented out code
         # that makes them as .mdbs, which can then be converted by an Office account)
         # also, pcacioppi Google Drive has a copy of them in the ticdat folder

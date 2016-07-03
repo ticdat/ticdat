@@ -23,7 +23,7 @@ class TestMdb(unittest.TestCase):
         e = firesException(f)
         if e :
             self.assertTrue("TicDatError" in e.__class__.__name__)
-            return e.message
+            return str(e)
 
     def testDups(self):
         if not _can_unit_test:
@@ -244,5 +244,5 @@ _scratchDir = TestMdb.__name__ + "_scratch"
 if __name__ == "__main__":
     td = TicDatFactory()
     if not _can_unit_test:
-        print "!!!!!!!!!FAILING MDB UNIT TESTS DUE TO FAILURE TO LOAD MDB LIBRARIES!!!!!!!!"
+        print("!!!!!!!!!FAILING MDB UNIT TESTS DUE TO FAILURE TO LOAD MDB LIBRARIES!!!!!!!!")
     unittest.main()

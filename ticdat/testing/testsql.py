@@ -23,7 +23,7 @@ class TestSql(unittest.TestCase):
         e = firesException(f)
         if e :
             self.assertTrue("TicDatError" in e.__class__.__name__)
-            return e.message
+            return str(e)
 
     def testDups(self):
         if not _can_unit_test:
@@ -284,5 +284,5 @@ _scratchDir = TestSql.__name__ + "_scratch"
 if __name__ == "__main__":
     td = TicDatFactory()
     if not hasattr(td, "sql") :
-        print "!!!!!!!!!FAILING SQL UNIT TESTS DUE TO FAILURE TO LOAD SQL LIBRARIES!!!!!!!!"
+        print("!!!!!!!!!FAILING SQL UNIT TESTS DUE TO FAILURE TO LOAD SQL LIBRARIES!!!!!!!!")
     unittest.main()
