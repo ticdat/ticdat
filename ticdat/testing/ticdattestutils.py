@@ -39,6 +39,9 @@ def memo(*args):
     _memo[:] = args
     return rtn[0] if len(rtn) == 1 else rtn
 
+def clean_denormalization_errors(chk):
+    return {k:{_k:set(_v) for _k,_v in v.items()} for k,v in chk.items()}
+
 def fail_to_debugger(cls) :
     """
     decorator to allow a unittest class to enter the debugger if a unit test fails

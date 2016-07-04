@@ -15,5 +15,8 @@ The ticDat library is distributed under the BSD2 open source license.
 """
 
 from ticdat.ticdatfactory import TicDatFactory, freeze_me
-from ticdat.utils import Sloc, LogFile, Progress, Slicer
-__all__ = ["TicDatFactory", "freeze_me", "LogFile", "Sloc", "Slicer", "Progress"]
+from ticdat.utils import Sloc, LogFile, Progress, Slicer, \
+                         find_denormalized_sub_table_failures
+__all__ = ["TicDatFactory", "freeze_me", "LogFile", "Sloc", "Slicer", "Progress"
+            "find_denormalized_sub_table_failures"]
+
