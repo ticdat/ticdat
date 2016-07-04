@@ -523,7 +523,27 @@ CLASSES
      |               That is to say, bad_values tells you which values in field are failing the data type check,
      |               and  tells you which table rows will have their field entry changed if you call
      |               replace_data_type_failures().
-     |  
+     |
+     |  find_denormalized_sub_table_failures(self, tic_dat, table, sub_table_pk_fields, sub_table_data_fields)
+     |      checks to see if a given table contains a denormalized sub-table
+     |      indexed by pk_fields with data fields data_fields
+     |      :param tic_dat: a ticdat object
+     |      :param _table: The name of the table to study.
+     |      :param sub_table_pk_fields: The pk_fields of the sub-table. Needs to be fields
+     |                                  (but not necc primary key fields) of the table.
+     |      :param sub_table_data_fields: The data fields of the sub-table. Needs to be fields
+     |                                   (but not necc data fields) of the table.
+     |      :return: A dictionary indexed by the sub_table_pk_fields values in the table
+     |               that are associated with improperly denormalized table rows. The
+     |               values of the return dictionary are themselves dictionaries indexed
+     |               by sub_table_data_fields. The values of the inner dictionary are
+     |               tuples of the different distinct values found for the data field
+     |               at the different rows with common sub_table_pk_fields values.
+     |               The inner dictionaries are pruned so that only tuples of length >1
+     |               are included, and the return dictionary is pruned so that only
+     |               entries with at least one non-pruned inner dictionary is included.
+     |               Thus, a table that has a properly denormalized (pk_fields, data_fields)
+     |
      |  find_foreign_key_failures(self, tic_dat)
      |      Finds the foreign key failures for a ticdat object
      |      :param tic_dat: ticdat object
@@ -769,7 +789,28 @@ FUNCTIONS
         :param x: ticdat object
         :return: x, after it has been frozen
 
+    find_denormalized_sub_table_failures(table, pk_fields, data_fields)
+        checks to see if the table argument contains a denormalized sub-table
+        indexed by pk_fields with data fields data_fields
+        :param table: The table to study. Can either be a pandas DataFrame or a
+                      or a container of consistent {field_name:value} dictionaries.
+        :param pk_fields: The pk_fields of the sub-table. Needs to be fields
+                          (but not necc primary key fields) of the table.
+        :param data_fileds: The data fields of the sub-table. Needs to be fields
+                            (but not necc data fields) of the table.
+        :return: A dictionary indexed by the pk_fields values in the table
+                 that are associated with improperly denormalized table rows. The
+                 values of the return dictionary are themselves dictionaries indexed
+                 by data fields. The values of the inner dictionary are
+                 tuples of the different distinct values found for the data field
+                 at the different rows with common primary key field values.
+                 The inner dictionaries are pruned so that only tuples of length >1
+                 are included, and the return dictionary is pruned so that only
+                 entries with at least one non-pruned inner dictionary is included.
+                 Thus, a table that has a properly denormalized (pk_fields, data_fields)
+                 sub-table will return an empty dictionary.
 DATA
-    __all__ = ['TicDatFactory', 'freeze_me', 'LogFile', 'Sloc', 'XlsTicFac...
+    __all__ = ['TicDatFactory', 'freeze_me', 'LogFile', 'Sloc', 'Slicer', 'Progress'
+               'find_denormalized_sub_table_failures']
 
 
