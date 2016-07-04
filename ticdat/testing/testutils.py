@@ -6,6 +6,7 @@ from ticdat.ticdatfactory import TicDatFactory, _ForeignKey, _ForeignKeyMapping
 from ticdat.testing.ticdattestutils import dietData, dietSchema, netflowData, netflowSchema, firesException, memo
 from ticdat.testing.ticdattestutils import sillyMeData, sillyMeSchema, makeCleanDir, fail_to_debugger, flagged_as_run_alone
 from ticdat.testing.ticdattestutils import assertTicDatTablesSame, DEBUG, addNetflowForeignKeys, addDietForeignKeys
+from ticdat.testing.ticdattestutils import spacesSchema, spacesData
 import os
 import itertools
 import shutil
@@ -18,7 +19,7 @@ def _deep_anonymize(x)  :
     return list(map(_deep_anonymize,x))
 
 #uncomment decorator to drop into debugger for assertTrue, assertFalse failures
-#@fail_to_debugger
+@fail_to_debugger
 class TestUtils(unittest.TestCase):
     def _testTdfReproduction(self, tdf):
         def _tdfs_same(tdf, tdf2):
@@ -41,6 +42,18 @@ class TestUtils(unittest.TestCase):
         if e :
             self.assertTrue("TicDatError" in e.__class__.__name__)
             return str(e)
+
+    @flagged_as_run_alone
+    def testDenormalizedErrorsOne(self):
+        tdf = TicDatFactory(**spacesSchema())
+        dat = tdf.TicDat(**spacesData())
+        self.assertFalse(tdf.find_denormalized_sub_table_failures(dat, "b_table", "b Field 1",
+                                                                  ("b Field 2", "b Field 3")))
+        dat.b_table[2,2,3] = "boger"
+        # this is bogus - should fail
+        self.assertFalse(tdf.find_denormalized_sub_table_failures(dat, "b_table", "b Field 1",
+                                                                  ("b Field 2", "b Field 3")))
+
     def testOne(self):
         def _cleanIt(x) :
             x.foods['macaroni'] = {"cost": 2.09}

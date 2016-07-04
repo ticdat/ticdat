@@ -68,7 +68,7 @@ def find_denormalized_sub_table_failures(table, pk_fields, data_fields):
         return find_denormalized_sub_table_failures(dat.t, pk_fields, data_fields)
     verify(containerish(table) and all(map(dictish, table)),
            "table needs to either be a pandas.DataFrame or a container of {field_name:value} dictionaries")
-    rtn = defaultdict(set)
+    rtn = defaultdict(lambda : defaultdict(set))
     for row in table:
         for f in tuple(pk_fields) + tuple(data_fields):
             verify(f in row, "%s isn't a key for one of the inner dictionaries of table"%f)
@@ -81,7 +81,7 @@ def find_denormalized_sub_table_failures(table, pk_fields, data_fields):
         rtn[k] = {f:tuple(s) for f,s in v.items() if len(s) > 1}
         if not rtn[k]:
             del(rtn[k])
-    return rtn
+    return dict(rtn)
 
 def dict_overlay(d1, d2):
     rtn = dict(d1)

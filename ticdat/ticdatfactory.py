@@ -1128,7 +1128,7 @@ foreign keys, the code throwing this exception will be removed.
         checks to see if a given table contains a denormalized sub-table
         indexed by pk_fields with data fields data_fields
         :param tic_dat: a ticdat object
-        :param table: The name of the table to study.
+        :param _table: The name of the table to study.
         :param sub_table_pk_fields: The pk_fields of the sub-table. Needs to be fields
                                     (but not necc primary key fields) of the table.
         :param sub_table_data_fields: The data fields of the sub-table. Needs to be fields
@@ -1149,17 +1149,17 @@ foreign keys, the code throwing this exception will be removed.
         verify(self.good_tic_dat_object(tic_dat, msg.append),
                "tic_dat not a good object for this factory : %s"%"\n".join(msg))
         verify(table in self.all_tables, "%s isn't a table name"%table)
-        table = getattr(tic_dat, table)
-        if dictish(table):
+        _table = getattr(tic_dat, table)
+        if dictish(_table):
             converted_table = []
-            for pk,row in table.items():
+            for pk,row in _table.items():
                 add_row = dict(row)
                 for pkf,pkv in zip(self.primary_key_fields[table],
                                    pk if len(self.primary_key_fields[table]) > 1 else (pk,)):
                     add_row[pkf] = pkv
                 converted_table.append(add_row)
         else:
-            converted_table = list(table if containerish(table) else table())
+            converted_table = list(_table if containerish(_table) else _table())
         return utils.find_denormalized_sub_table_failures(converted_table,
                             sub_table_pk_fields, sub_table_data_fields)
 
