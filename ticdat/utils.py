@@ -5,6 +5,7 @@ PEP8
 from numbers import Number
 from itertools import chain, combinations
 from collections import defaultdict
+import ticdat
 
 try:
     import pandas as pd
@@ -27,6 +28,60 @@ try:
     import docplex.mp.progress as cplexprogress
 except:
     cplexprogress = None
+
+def find_denormalized_sub_table_failures(table, pk_fields, data_fields):
+    """
+    checks to see if the table argument contains a denormalized sub-table
+    indexed by pk_fields with data fields data_fields
+    :param table: The table to study. Can either be a pandas DataFrame or a
+                  or a container of consistent {field_name:value} dictionaries.
+    :param pk_fields: The pk_fields of the sub-table. Needs to be fields
+                      (but not necc primary key fields) of the table.
+    :param data_fileds: The data fields of the sub-table. Needs to be fields
+                        (but not necc data fields) of the table.
+    :return: A dictionary indexed by the pk_fields values in the table
+             that are associated with improperly denormalized table rows. The
+             values of the return dictionary are themselves dictionaries indexed
+             by data fields. The values of the inner dictionary are
+             tuples of the different distinct values found for the data field
+             at the different rows with common primary key field values.
+             The inner dictionaries are pruned so that only tuples of length >1
+             are included, and the return dictionary is pruned so that only
+             entries with at least one non-pruned inner dictionary is included.
+             Thus, a table that has a properly denormalized (pk_fields, data_fields)
+             sub-table will return an empty dictionary.
+    """
+    pk_fields = (pk_fields,) if stringish(pk_fields) else pk_fields
+    data_fields = (data_fields,) if stringish(data_fields) else data_fields
+    verify(containerish(pk_fields) and all(map(stringish, pk_fields)),
+           "pk_fields needs to be either a field name or a container of field names")
+    verify(containerish(data_fields) and all(map(stringish, data_fields)),
+           "data_fields needs to be either a field name or a container of field names")
+    verify(len(set(pk_fields).union(data_fields)) == len(pk_fields) + len(data_fields),
+           "there are duplicate field names amongst pk_fields, data_fields")
+    if DataFrame and isinstance(table, DataFrame):
+        verify(hasattr(table, "columns"), "table missing columns")
+        for f in tuple(pk_fields) + tuple(data_fields):
+            verify(f in table.columns, "%s isn't a column for table"%f)
+        tdf = ticdat.TicDatFactory(t = [[],tuple(pk_fields)+tuple(data_fields)])
+        dat = tdf.TicDat(t = table)
+        return find_denormalized_sub_table_failures(dat.t, pk_fields, data_fields)
+    verify(containerish(table) and all(map(dictish, table)),
+           "table needs to either be a pandas.DataFrame or a container of {field_name:value} dictionaries")
+    rtn = defaultdict(lambda : defaultdict(set))
+    for row in table:
+        for f in tuple(pk_fields) + tuple(data_fields):
+            verify(f in row, "%s isn't a key for one of the inner dictionaries of table"%f)
+            verify(hasattr(row[f], "__hash__"),
+                   "the values for field %s all need to be hashable"%f)
+        pk = row[pk_fields[0]] if len(pk_fields) == 1 else tuple(row[f] for f in pk_fields)
+        for f in data_fields:
+            rtn[pk][f].add(row[f])
+    for k,v in list(rtn.items()):
+        rtn[k] = {f:tuple(s) for f,s in v.items() if len(s) > 1}
+        if not rtn[k]:
+            del(rtn[k])
+    return dict(rtn)
 
 def dict_overlay(d1, d2):
     rtn = dict(d1)

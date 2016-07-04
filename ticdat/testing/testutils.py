@@ -6,6 +6,7 @@ from ticdat.ticdatfactory import TicDatFactory, _ForeignKey, _ForeignKeyMapping
 from ticdat.testing.ticdattestutils import dietData, dietSchema, netflowData, netflowSchema, firesException, memo
 from ticdat.testing.ticdattestutils import sillyMeData, sillyMeSchema, makeCleanDir, fail_to_debugger, flagged_as_run_alone
 from ticdat.testing.ticdattestutils import assertTicDatTablesSame, DEBUG, addNetflowForeignKeys, addDietForeignKeys
+from ticdat.testing.ticdattestutils import spacesSchema, spacesData, clean_denormalization_errors
 import os
 import itertools
 import shutil
@@ -41,6 +42,42 @@ class TestUtils(unittest.TestCase):
         if e :
             self.assertTrue("TicDatError" in e.__class__.__name__)
             return str(e)
+
+    def testDenormalizedErrors(self):
+        c = clean_denormalization_errors
+        tdf = TicDatFactory(**spacesSchema())
+        dat = tdf.TicDat(**spacesData())
+        self.assertFalse(tdf.find_denormalized_sub_table_failures(dat, "b_table", "b Field 1",
+                                                                  ("b Field 2", "b Field 3")))
+        dat.b_table[2,2,3] = "boger"
+        self.assertFalse(tdf.find_denormalized_sub_table_failures(dat, "b_table", "b Field 1",
+                                                                  ("b Field 2", "b Field 3")))
+        chk = tdf.find_denormalized_sub_table_failures(dat, "b_table", "b Field 2",
+                                                                  ("b Field 1", "b Field 3"))
+        self.assertTrue(c(chk) == {2: {'b Field 1': {1, 2}}})
+        dat.b_table[2,2,4] = "boger"
+        dat.b_table[1,'b','b'] = "boger"
+        chk = tdf.find_denormalized_sub_table_failures(dat, "b_table", ["b Field 2"],
+                                                            ("b Field 1", "b Field 3", "b Data"))
+        self.assertTrue(c(chk) == c({2: {'b Field 3': (3, 4), 'b Data': (1, 'boger'), 'b Field 1': (1, 2)},
+                                 'b': {'b Data': ('boger', 12), 'b Field 1': ('a', 1)}}))
+
+        ex = self.firesException(lambda : tdf.find_denormalized_sub_table_failures(dat, "b_table", ["b Data"],"wtf"))
+        self.assertTrue("wtf isn't a key" in ex)
+
+
+        chk = utils.find_denormalized_sub_table_failures(tuple(map(dict, dat.c_table)),
+                        pk_fields=["c Data 1", "c Data 2"], data_fields=["c Data 3", "c Data 4"])
+        self.assertTrue(c(chk) == {('a', 'b'): {'c Data 3': {'c', 12}, 'c Data 4': {24, 'd'}}})
+        dat.c_table.append((1, 2, 3, 4))
+        dat.c_table.append((1, 2, 1, 4))
+        dat.c_table.append((1, 2, 1, 5))
+        dat.c_table.append((1, 2, 3, 6))
+        chk = utils.find_denormalized_sub_table_failures(dat.c_table,
+                        pk_fields=["c Data 1", "c Data 2"], data_fields=["c Data 3", "c Data 4"])
+        self.assertTrue(c(chk) == {('a', 'b'): {'c Data 3': {'c', 12}, 'c Data 4': {24, 'd'}},
+            (1,2):{'c Data 3':{3,1}, 'c Data 4':{4,5,6}}})
+
     def testOne(self):
         def _cleanIt(x) :
             x.foods['macaroni'] = {"cost": 2.09}
