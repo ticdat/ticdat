@@ -74,7 +74,7 @@ def find_denormalized_sub_table_failures(table, pk_fields, data_fields):
             verify(f in row, "%s isn't a key for one of the inner dictionaries of table"%f)
             verify(hasattr(row[f], "__hash__"),
                    "the values for field %s all need to be hashable"%f)
-        pk = row[pk_fields[0]] if len(pk_fields) == 1 else tuple(pk_fields[f] for f in pk_fields)
+        pk = row[pk_fields[0]] if len(pk_fields) == 1 else tuple(row[f] for f in pk_fields)
         for f in data_fields:
             rtn[pk][f].add(row[f])
     for k,v in list(rtn.items()):
