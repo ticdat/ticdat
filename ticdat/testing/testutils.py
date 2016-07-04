@@ -19,7 +19,7 @@ def _deep_anonymize(x)  :
     return list(map(_deep_anonymize,x))
 
 #uncomment decorator to drop into debugger for assertTrue, assertFalse failures
-@fail_to_debugger
+#@fail_to_debugger
 class TestUtils(unittest.TestCase):
     def _testTdfReproduction(self, tdf):
         def _tdfs_same(tdf, tdf2):
@@ -43,16 +43,17 @@ class TestUtils(unittest.TestCase):
             self.assertTrue("TicDatError" in e.__class__.__name__)
             return str(e)
 
-    @flagged_as_run_alone
     def testDenormalizedErrorsOne(self):
         tdf = TicDatFactory(**spacesSchema())
         dat = tdf.TicDat(**spacesData())
         self.assertFalse(tdf.find_denormalized_sub_table_failures(dat, "b_table", "b Field 1",
                                                                   ("b Field 2", "b Field 3")))
         dat.b_table[2,2,3] = "boger"
-        # this is bogus - should fail
         self.assertFalse(tdf.find_denormalized_sub_table_failures(dat, "b_table", "b Field 1",
                                                                   ("b Field 2", "b Field 3")))
+        chk = tdf.find_denormalized_sub_table_failures(dat, "b_table", "b Field 2",
+                                                                  ("b Field 1", "b Field 3"))
+        self.assertTrue(chk == {2: {'b Field 1': (1, 2)}})
 
     def testOne(self):
         def _cleanIt(x) :
