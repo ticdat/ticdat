@@ -5,7 +5,7 @@ PEP8
 import os
 from collections import defaultdict
 from ticdat.utils import freezable_factory, TicDatError, verify, stringish, dictish, containerish
-from ticdat.utils import FrozenDict, all_underscore_replacements, get_duplicates
+from ticdat.utils import FrozenDict, all_underscore_replacements, find_duplicates
 
 
 try:
@@ -101,7 +101,7 @@ class SQLiteTicFactory(freezable_factory(object, "_isFrozen")) :
         verify(sql, "sqlite3 needs to be installed to use this subroutine")
         return self._Rtn(freeze_it)(**self._create_tic_dat_from_sql(
                     sql_file_path, includes_schema))
-    def get_duplicates(self, db_file_path):
+    def find_duplicates(self, db_file_path):
         """
         Find the row counts for duplicated rows.
         :param db_file_path: A SQLite db with a consistent schema.
@@ -112,7 +112,7 @@ class SQLiteTicFactory(freezable_factory(object, "_isFrozen")) :
                  Row counts smaller than 2 are pruned off, as they aren't duplicates
         """
         verify(sql, "sqlite3 needs to be installed to use this subroutine")
-        return get_duplicates(self._duplicate_focused_tdf.sql.create_tic_dat(db_file_path),
+        return find_duplicates(self._duplicate_focused_tdf.sql.create_tic_dat(db_file_path),
                               self._duplicate_focused_tdf)
     def _fks(self):
         rtn = defaultdict(set)

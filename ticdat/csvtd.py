@@ -63,7 +63,7 @@ class CsvTicFactory(freezable_factory(object, "_isFrozen")) :
         rtn =  {t : self._create_table(dir_path, t, dialect, headers_present)
                 for t in self.tic_dat_factory.all_tables}
         return {k:v for k,v in rtn.items() if v}
-    def get_duplicates(self, dir_path, dialect='excel', headers_present = True):
+    def find_duplicates(self, dir_path, dialect='excel', headers_present = True):
         """
         Find the row counts for duplicated rows.
         :param dir_path: the directory containing .csv files.

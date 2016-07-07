@@ -6,7 +6,7 @@ import os
 import sys
 import ticdat.utils as utils
 from ticdat.utils import freezable_factory, TicDatError, verify, stringish, dictish, containerish
-from ticdat.utils import debug_break, numericish, all_underscore_replacements, get_duplicates
+from ticdat.utils import debug_break, numericish, all_underscore_replacements, find_duplicates
 
 try:
     import pypyodbc as py
@@ -69,7 +69,7 @@ class MdbTicFactory(freezable_factory(object, "_isFrozen")) :
         if freeze_it:
             return self.tic_dat_factory.freeze_me(rtn)
         return rtn
-    def get_duplicates(self, mdb_file_path):
+    def find_duplicates(self, mdb_file_path):
         """
         Find the row counts for duplicated rows.
         :param mdb_file_path: An Access db with a consistent schema.
@@ -80,7 +80,7 @@ class MdbTicFactory(freezable_factory(object, "_isFrozen")) :
                  Row counts smaller than 2 are pruned off, as they aren't duplicates
         """
         verify(py, "pypyodbc needs to be installed to use this subroutine")
-        return get_duplicates(self._duplicate_focused_tdf.mdb.create_tic_dat(mdb_file_path),
+        return find_duplicates(self._duplicate_focused_tdf.mdb.create_tic_dat(mdb_file_path),
                               self._duplicate_focused_tdf)
     def _get_table_names(self, db_file_path, tables):
         rtn = {}
