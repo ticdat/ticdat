@@ -29,7 +29,7 @@ class TestMdbReadOnly(unittest.TestCase):
         tdf = TicDatFactory(one = [["a"],["b, c"]],
                             two = [["a", "b"],["c"]],
                             three = [["a", "b", "c"],[]])
-        dups = tdf.mdb.get_duplicates("dups.accdb")
+        dups = tdf.mdb.find_duplicates("dups.accdb")
         self.assertTrue(dups ==  {'three': {(1, 2, 2): 2}, 'two': {(1, 2): 3}, 'one': {1: 3, 2: 2}})
 
     def testDiet(self):
@@ -38,7 +38,7 @@ class TestMdbReadOnly(unittest.TestCase):
         tdf = TicDatFactory(**dietSchema())
         ticDat = tdf.freeze_me(tdf.TicDat(**{t:getattr(dietData(),t) for t in tdf.primary_key_fields}))
         filePath = "diet.accdb"
-        self.assertFalse(tdf.mdb.get_duplicates(filePath))
+        self.assertFalse(tdf.mdb.find_duplicates(filePath))
         mdbTicDat = tdf.mdb.create_tic_dat(filePath)
         self.assertTrue(tdf._same_data(ticDat, mdbTicDat))
         def changeit() :
@@ -57,7 +57,7 @@ class TestMdbReadOnly(unittest.TestCase):
         addNetflowForeignKeys(tdf)
         ticDat = tdf.freeze_me(tdf.TicDat(**{t:getattr(netflowData(),t) for t in tdf.all_tables}))
         filePath = "netflow.accdb"
-        self.assertFalse(tdf.mdb.get_duplicates(filePath))
+        self.assertFalse(tdf.mdb.find_duplicates(filePath))
         mdbTicDat = tdf.mdb.create_tic_dat(filePath, freeze_it=True)
         self.assertTrue(tdf._same_data(ticDat, mdbTicDat))
         def changeIt() :
@@ -90,7 +90,7 @@ class TestMdbReadOnly(unittest.TestCase):
 
         dat = tdf.TicDat(**spacesData)
         filePath = "spaces.accdb"
-        self.assertFalse(tdf.mdb.get_duplicates(filePath))
+        self.assertFalse(tdf.mdb.find_duplicates(filePath))
         dat2 = tdf.mdb.create_tic_dat(filePath, freeze_it=True)
         self.assertTrue(tdf._same_data(dat,dat2))
 

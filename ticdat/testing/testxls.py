@@ -38,7 +38,7 @@ class TestXls(unittest.TestCase):
         xlsTicDat.categories["calories"]["minNutrition"]=12
         self.assertFalse(tdf._same_data(ticDat, xlsTicDat))
 
-        self.assertFalse(tdf.xls.get_duplicates(filePath))
+        self.assertFalse(tdf.xls.find_duplicates(filePath))
 
         ex = self.firesException(lambda :
                                  tdf.xls.create_tic_dat(filePath, row_offsets={t:1 for t in tdf.all_tables}))
@@ -70,7 +70,7 @@ class TestXls(unittest.TestCase):
         self.assertFalse(self.firesException(changeIt))
         self.assertFalse(tdf._same_data(ticDat, xlsTicDat))
 
-        self.assertFalse(tdf.xls.get_duplicates(filePath))
+        self.assertFalse(tdf.xls.find_duplicates(filePath))
 
         pkHacked = netflowSchema()
         pkHacked["nodes"][0] = ["nimrod"]
@@ -162,14 +162,14 @@ class TestXls(unittest.TestCase):
         ticDatMan = tdf.xls.create_tic_dat(filePath, freeze_it=True)
         self.assertTrue(len(ticDatMan.a) == 2 and len(ticDatMan.b) == 3)
         self.assertTrue(ticDatMan.b[1, 20, 30]["bData"] == 40)
-        rowCount = tdf.xls.get_duplicates(filePath)
+        rowCount = tdf.xls.find_duplicates(filePath)
         self.assertTrue(set(rowCount) == {'a'} and set(rowCount["a"]) == {1} and rowCount["a"][1]==2)
 
         writeData([(1, 2, 3, 4), (1, 20, 30, 40), (10, 20, 30, 40)], write_header="lower")
         ticDatMan = tdf.xls.create_tic_dat(filePath, freeze_it=True)
         self.assertTrue(len(ticDatMan.a) == 2 and len(ticDatMan.b) == 3)
         self.assertTrue(ticDatMan.b[1, 20, 30]["bData"] == 40)
-        rowCount = tdf.xls.get_duplicates(filePath)
+        rowCount = tdf.xls.find_duplicates(filePath)
         self.assertTrue(set(rowCount) == {'a'} and set(rowCount["a"]) == {1} and rowCount["a"][1]==2)
 
 
@@ -178,7 +178,7 @@ class TestXls(unittest.TestCase):
         ticDatMan = tdf.xls.create_tic_dat(filePath, freeze_it=True, headers_present=False)
         self.assertTrue(len(ticDatMan.a) == 2 and len(ticDatMan.b) == 3)
         self.assertTrue(ticDatMan.b[1, 20, 30]["bData"] == 40)
-        rowCount = tdf.xls.get_duplicates(filePath, headers_present=False)
+        rowCount = tdf.xls.find_duplicates(filePath, headers_present=False)
         self.assertTrue(set(rowCount) == {'a'} and set(rowCount["a"]) == {1} and rowCount["a"][1]==2)
 
         ticDat.a["theboger"] = (1, None, 12)
@@ -205,7 +205,7 @@ class TestXls(unittest.TestCase):
         self.assertTrue(ticDatNone.a["theboger"]["aData2"] == None)
 
         writeData([(1, 2, 3, 4), (1, 20, 30, 40), (10, 20, 30, 40), (1,20,30,12)])
-        rowCount = tdf.xls.get_duplicates(filePath)
+        rowCount = tdf.xls.find_duplicates(filePath)
         self.assertTrue(set(rowCount) == {'a', 'b'} and set(rowCount["a"]) == {1} and rowCount["a"][1]==3)
         self.assertTrue(set(rowCount["b"]) == {(1,20,30)} and rowCount["b"][1,20,30]==2)
 
