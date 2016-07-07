@@ -93,6 +93,8 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
             return self.tic_dat_factory.freeze_me(rtn)
         return rtn
     def _get_sheets_and_fields(self, xls_file_path, all_tables, row_offsets, headers_present):
+        verify(utils.stringish(xls_file_path) and os.path.exists(xls_file_path),
+               "xls_file_path argument %s is not a valid file path."%xls_file_path)
         try :
             book = xlrd.open_workbook(xls_file_path)
         except Exception as e:
@@ -161,7 +163,7 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
                                                     headers_present)
         return rtn
 
-    def get_duplicates(self, xls_file_path, row_offsets={}, headers_present = True):
+    def find_duplicates(self, xls_file_path, row_offsets={}, headers_present = True):
         """
         Find the row counts for duplicated rows.
         :param xls_file_path: An Excel file containing sheets whose names match

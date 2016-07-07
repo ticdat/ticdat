@@ -89,7 +89,7 @@ def dict_overlay(d1, d2):
         rtn[k] = v
     return rtn
 
-def get_duplicates(td, tdf_for_dups):
+def find_duplicates(td, tdf_for_dups):
     assert tdf_for_dups.good_tic_dat_object(td)
     assert not any(tdf_for_dups.primary_key_fields.values())
     assert not tdf_for_dups.generator_tables

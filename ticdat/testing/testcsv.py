@@ -34,7 +34,7 @@ class TestCsv(unittest.TestCase):
         ticDat = tdf.freeze_me(tdf.TicDat(**{t:getattr(dietData(),t) for t in tdf.primary_key_fields}))
         dirPath = os.path.join(_scratchDir, "diet")
         tdf.csv.write_directory(ticDat,dirPath)
-        self.assertFalse(tdf.csv.get_duplicates(dirPath))
+        self.assertFalse(tdf.csv.find_duplicates(dirPath))
         csvTicDat = tdf.csv.create_tic_dat(dirPath)
         self.assertTrue(tdf._same_data(ticDat, csvTicDat))
         def change() :
@@ -82,7 +82,7 @@ class TestCsv(unittest.TestCase):
         dirPath = os.path.join(_scratchDir, "netflow")
         tdf.csv.write_directory(ticDat, dirPath)
         csvTicDat = tdf.csv.create_tic_dat(dirPath, freeze_it=True)
-        self.assertFalse(tdf.csv.get_duplicates(dirPath))
+        self.assertFalse(tdf.csv.find_duplicates(dirPath))
         self.assertTrue(tdf._same_data(ticDat, csvTicDat))
         csvTicDat = tdf.csv.create_tic_dat(dirPath, freeze_it= True, headers_present=False)
         self.assertFalse(tdf._same_data(ticDat, csvTicDat))
@@ -182,12 +182,12 @@ class TestCsv(unittest.TestCase):
             ticDatMan = tdf.csv.create_tic_dat(dirPath, headers_present=headersPresent, freeze_it=True)
             self.assertTrue(len(ticDatMan.a) == 2 and len(ticDatMan.b) == 3)
             self.assertTrue(ticDatMan.b[(1, 20, 30)]["bData"] == 40)
-            rowCount = tdf.csv.get_duplicates(dirPath, headers_present= headersPresent)
+            rowCount = tdf.csv.find_duplicates(dirPath, headers_present= headersPresent)
             self.assertTrue(set(rowCount) == {'a'} and set(rowCount["a"]) == {1} and rowCount["a"][1]==2)
 
 
             writeData([(1, 2, 3, 4), (1, 20, 30, 40), (10, 20, 30, 40), (1,20,30,12)])
-            rowCount = tdf.csv.get_duplicates(dirPath, headers_present=headersPresent)
+            rowCount = tdf.csv.find_duplicates(dirPath, headers_present=headersPresent)
             self.assertTrue(set(rowCount) == {'a', 'b'} and set(rowCount["a"]) == {1} and rowCount["a"][1]==3)
             self.assertTrue(set(rowCount["b"]) == {(1,20,30)} and rowCount["b"][1,20,30]==2)
 
