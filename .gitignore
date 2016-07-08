@@ -7,3 +7,12 @@ gurobi.log
 .idea
 *.pyo
 *checkpoint.ipynb
+
+# Pypi files #
+##############
+# Egg metadata
+*.egg-info
+# setup.py working directory
+build
+# setup.py dist directory
+dist
