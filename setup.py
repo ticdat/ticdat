@@ -46,9 +46,9 @@ good software development by insuring that code that is supposed to read
 from a data set without editing it behaves properly.
 
 Finally, the "dict-of-dicts" representation of a table can be eschewed
-entirely in favor of ``pandas.DataFrame``. In this case, `ticdat` can
+entirely in favor of ``pandas.DataFrame``. In this case, ``ticdat`` can
 be used as a shim library that facilitates schema level definitions and
-query abstraction for ``pandas`` developers. 
+query abstraction for ``pandas`` developers.
 
 Although ``ticdat`` was specifically designed with Mixed Integer
 Programming data sets in mind, it can be used for rapidly developing a
