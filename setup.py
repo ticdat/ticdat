@@ -59,7 +59,7 @@ this same code, unchanged, on data from different sources. This
 small, testing data sets to larger, more realistic examples. In
 addition, `Opalytics Inc <http://www.opalytics.com/>`__ (the developer
 of ``ticdat``) can support cloud deployments of solve engines that use
-``ticdat`` data objects library.
+``ticdat`` data objects.
 	""",
 	license = 'BSD 2-Clause',
 	author = 'Opalytics Inc',
