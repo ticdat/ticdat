@@ -27,7 +27,7 @@ Finally, the “dict-of-dicts” representation of a table can be eschewed entir
 Although `ticdat` was specifically designed with Mixed Integer Programming data sets in mind, it can be used for
 rapidly developing a wide variety of mathematical engines. It facilitates creating one definition of your
 input data schema and one solve module, and reusing this same code, unchanged, on data from different
-sources. This "separation of model from data" enables a user to move easily from small, testing data sets to larger, more realistic examples. In addition, [Opalytics Inc](http://www.opalytics.com/) (the developer of  `ticdat`) can support cloud deployments of solve engines that use `ticdat` data objects library. Go  [here](https://github.com/opalytics/example-diet) or [here](https://github.com/opalytics/example-netflow) for examples of `ticdat` being used to create "deployment ready" Python packages.
+sources. This "separation of model from data" enables a user to move easily from small, testing data sets to larger, more realistic examples. In addition, [Opalytics Inc](http://www.opalytics.com/) (the developer of  `ticdat`) can support cloud deployments of solve engines that use `ticdat` data objects. Go  [here](https://github.com/opalytics/example-diet) or [here](https://github.com/opalytics/example-netflow) for examples of `ticdat` being used to create "deployment ready" Python packages.
 
 The `ticdat` library is distributed under the BSD2 open source license.
 
