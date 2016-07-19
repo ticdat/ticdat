@@ -9,15 +9,19 @@ from ticdat.testing.ticdattestutils import copyDataDietWeirdCase, copyDataDietWe
 import shutil
 import unittest
 from ticdat.mdb import _connection_str, _can_unit_test, py
+import ticdat.mdb as tdmdb
+_orig_dbq = tdmdb._dbq
 
 #uncomment decorator to drop into debugger for assertTrue, assertFalse failures
 #@fail_to_debugger
 class TestMdb(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        tdmdb._dbq = "*.mdb"
         makeCleanDir(_scratchDir)
     @classmethod
     def tearDownClass(cls):
+        tdmdb._dbq = _orig_dbq
         shutil.rmtree(_scratchDir)
     def firesException(self, f):
         e = firesException(f)
