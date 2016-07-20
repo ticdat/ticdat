@@ -13,6 +13,17 @@ try:
 except:
     py = None
 
+try:
+    import pyodbc
+except:
+    pyodbc = None
+
+def _standard_verify():
+    verify(pyodbc or py,
+        "pyodbc or pypyodbc (or both) needs to be installed to use this subroutine")
+
+_connect = (pyodbc or py).connect if (pyodbc or py) else None
+
 _write_new_file_works = py and (sys.platform in ('win32','cli'))
 _can_unit_test = py and _write_new_file_works
 
@@ -64,7 +75,7 @@ class MdbTicFactory(freezable_factory(object, "_isFrozen")) :
         caveats : Numbers with absolute values larger than 1e+100 will
                   be read as float("inf") or float("-inf")
         """
-        verify(py, "pypyodbc needs to be installed to use this subroutine")
+        _standard_verify()
         rtn =  self.tic_dat_factory.TicDat(**self._create_tic_dat(mdb_file_path))
         if freeze_it:
             return self.tic_dat_factory.freeze_me(rtn)
@@ -79,12 +90,12 @@ class MdbTicFactory(freezable_factory(object, "_isFrozen")) :
                  and the value is the count of records in the mdb table with this primary key.
                  Row counts smaller than 2 are pruned off, as they aren't duplicates
         """
-        verify(py, "pypyodbc needs to be installed to use this subroutine")
+        _standard_verify()
         return find_duplicates(self._duplicate_focused_tdf.mdb.create_tic_dat(mdb_file_path),
                               self._duplicate_focused_tdf)
     def _get_table_names(self, db_file_path, tables):
         rtn = {}
-        with py.connect(_connection_str(db_file_path)) as con:
+        with _connect(_connection_str(db_file_path)) as con:
             def try_name(name):
                 with con.cursor() as cur:
                   try :
@@ -105,11 +116,11 @@ class MdbTicFactory(freezable_factory(object, "_isFrozen")) :
         TDE = TicDatError
         verify(os.path.exists(mdb_file_path), "%s isn't a valid file path"%mdb_file_path)
         try :
-            py.connect(_connection_str(mdb_file_path))
+            _connect(_connection_str(mdb_file_path))
         except Exception as e:
             raise TDE("Unable to open %s as MS Access file : %s"%(mdb_file_path, e.message))
         table_names = self._get_table_names(mdb_file_path, tables)
-        with py.connect(_connection_str(mdb_file_path)) as con:
+        with _connect(_connection_str(mdb_file_path)) as con:
             for table in tables:
               with con.cursor() as cur:
                 cur.execute("Select * from [%s]"%table_names[table])
@@ -124,7 +135,7 @@ class MdbTicFactory(freezable_factory(object, "_isFrozen")) :
         tdf = self.tic_dat_factory
         def tableObj() :
             assert (not tdf.primary_key_fields.get(table)) and (tdf.data_fields.get(table))
-            with py.connect(_connection_str(mdbFilePath)) as con:
+            with _connect(_connection_str(mdbFilePath)) as con:
               with con.cursor() as cur :
                 cur.execute("Select %s from [%s]"%(", ".join(_brackets(tdf.data_fields[table])),
                                                    table_name))
@@ -135,7 +146,7 @@ class MdbTicFactory(freezable_factory(object, "_isFrozen")) :
         tdf = self.tic_dat_factory
         table_names = self._check_tables_fields(mdbFilePath, tdf.all_tables)
         rtn = {}
-        with py.connect(_connection_str(mdbFilePath)) as con:
+        with _connect(_connection_str(mdbFilePath)) as con:
             for table in set(tdf.all_tables).difference(tdf.generator_tables) :
                 fields = tdf.primary_key_fields.get(table, ()) + tdf.data_fields.get(table, ())
                 rtn[table]= {} if tdf.primary_key_fields.get(table, ())  else []
@@ -170,7 +181,7 @@ class MdbTicFactory(freezable_factory(object, "_isFrozen")) :
                             fields are float
         :return:
         """
-        verify(py, "pypyodbc needs to be installed to use this subroutine")
+        _standard_verify()
         verify(dictish(field_types), "field_types should be a dict")
         for k,v in field_types.items() :
             verify(k in self.tic_dat_factory.all_tables, "%s isn't a table name"%k)
@@ -183,9 +194,10 @@ class MdbTicFactory(freezable_factory(object, "_isFrozen")) :
                        "For table %s, field %s, %s isn't one of (text, float, int)"%(k, fld, type_))
         get_fld_type = lambda tbl, fld, default : field_types.get(tbl, {}).get(fld, default)
         if not os.path.exists(mdb_file_path) :
+            verify(py, "pypyodbc needs to be installed to write to a new file")
             verify(self.can_write_new_file, "Writing to a new file not enabled for this OS")
             py.win_create_mdb(mdb_file_path)
-        with py.connect(_connection_str(mdb_file_path)) as con:
+        with _connect(_connection_str(mdb_file_path)) as con:
             for t in self.tic_dat_factory.all_tables:
                 str = "Create TABLE [%s] (\n"%t
                 strl = ["[%s] %s"%(f, get_fld_type(t, f, "text")) for
@@ -213,7 +225,7 @@ class MdbTicFactory(freezable_factory(object, "_isFrozen")) :
              For the latter, feel free to call the write_schema function on the data
              file first with explicitly identified field types.
         """
-        verify(py, "pypyodbc needs to be installed to use this subroutine")
+        _standard_verify()
         msg = []
         if not self.tic_dat_factory.good_tic_dat_object(tic_dat, lambda m : msg.append(m)) :
             raise TicDatError("Not a valid TicDat object for this schema : " + " : ".join(msg))
@@ -221,7 +233,7 @@ class MdbTicFactory(freezable_factory(object, "_isFrozen")) :
         if not os.path.exists(mdb_file_path) :
             self.write_schema(mdb_file_path)
         table_names = self._check_tables_fields(mdb_file_path, self.tic_dat_factory.all_tables)
-        with py.connect(_connection_str(mdb_file_path)) as con:
+        with _connect(_connection_str(mdb_file_path)) as con:
             for t in self.tic_dat_factory.all_tables:
                 verify(table_names[t] == t, "Failed to find table %s in path %s"%
                                             (t, mdb_file_path))
