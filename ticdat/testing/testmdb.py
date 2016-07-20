@@ -17,7 +17,8 @@ _orig_dbq = tdmdb._dbq
 class TestMdb(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        tdmdb._dbq = "*.mdb"
+        # uncomment the following line to run on old test machines
+        #tdmdb._dbq = "*.mdb"
         makeCleanDir(_scratchDir)
     @classmethod
     def tearDownClass(cls):

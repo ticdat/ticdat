@@ -190,7 +190,7 @@ class MdbTicFactory(freezable_factory(object, "_isFrozen")) :
                 str = "Create TABLE [%s] (\n"%t
                 strl = ["[%s] %s"%(f, get_fld_type(t, f, "text")) for
                         f in self.tic_dat_factory.primary_key_fields.get(t, ())] + \
-                       ["[%s] %s"%(f, get_fld_type(t, f, "float"))
+                       ["[%s] %s"%(f, get_fld_type(t, f, "double"))
                         for f in self.tic_dat_factory.data_fields.get(t, ())]
                 if self.tic_dat_factory.primary_key_fields.get(t) :
                     strl.append("PRIMARY KEY(%s)"%",".join
