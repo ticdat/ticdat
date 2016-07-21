@@ -21,7 +21,7 @@ def _codeDir():
 def configure_blank_accdb():
     verify(os.path.isfile("blank.accdb"),
            "You need a blank.accdb file in your current directory.")
-    mdb_dir = os.path.abspath(os.path.join("..", _codeDir()))
+    mdb_dir = os.path.abspath(os.path.join(_codeDir(), ".."))
     v_str = "Contact ticdat support at ticdat@opalytics.com"
     verify(os.path.isdir(mdb_dir), "%s is strangely not a directory. %s"%(mdb_dir, v_str))
     verify(os.path.isfile(os.path.join(mdb_dir, "mdb.py")), "mdb.py is missing. %s"%v_str)
