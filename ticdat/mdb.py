@@ -4,9 +4,12 @@ PEP8
 """
 import os
 import sys
+import inspect
+import shutil
 import ticdat.utils as utils
 from ticdat.utils import freezable_factory, TicDatError, verify, stringish, dictish, containerish
 from ticdat.utils import debug_break, numericish, all_underscore_replacements, find_duplicates
+
 
 try:
     import pypyodbc as py
@@ -17,6 +20,9 @@ try:
     import pyodbc
 except:
     pyodbc = None
+
+def _code_dir():
+    return os.path.dirname(os.path.abspath(inspect.getsourcefile(_code_dir)))
 
 def _standard_verify():
     verify(pyodbc or py,
@@ -194,9 +200,18 @@ class MdbTicFactory(freezable_factory(object, "_isFrozen")) :
                        "For table %s, field %s, %s isn't one of (text, float, int)"%(k, fld, type_))
         get_fld_type = lambda tbl, fld, default : field_types.get(tbl, {}).get(fld, default)
         if not os.path.exists(mdb_file_path) :
-            verify(py, "pypyodbc needs to be installed to write to a new file")
-            verify(self.can_write_new_file, "Writing to a new file not enabled for this OS")
-            py.win_create_mdb(mdb_file_path)
+            verify(mdb_file_path.endswith(".mdb") or mdb_file_path.endswith(".accdb"),
+                   "For file creation, specify either an .mdb or .accdb file name")
+            if mdb_file_path.endswith(".mdb"):
+                verify(py, "pypyodbc needs to be installed to create a new .mdb file")
+                verify(self.can_write_new_file, "Creating a new file not enabled for this OS")
+                py.win_create_mdb(mdb_file_path)
+            else:
+                blank_accdb = os.path.join(_code_dir(), "blank.accdb")
+                verify(os.path.exists(blank_accdb),
+                    "You need to run accdb_create_setup.py as a post pip install operation " +
+                    "to configure writing to new .accdb files.")
+                shutil.copy(blank_accdb, mdb_file_path)
         with _connect(_connection_str(mdb_file_path)) as con:
             for t in self.tic_dat_factory.all_tables:
                 str = "Create TABLE [%s] (\n"%t

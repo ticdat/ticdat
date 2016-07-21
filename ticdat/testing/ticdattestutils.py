@@ -1,9 +1,9 @@
 import os
 import unittest
-from shutil import rmtree
+from shutil import rmtree, copy
 import itertools
 import fnmatch
-from ticdat.utils import dictish, containerish
+from ticdat.utils import dictish, containerish, verify
 import unittest
 from ticdat import TicDatFactory
 
@@ -17,6 +17,15 @@ def _codeFile() :
 
 def _codeDir():
     return os.path.dirname(_codeFile())
+
+def configure_blank_accdb():
+    verify(os.path.isfile("blank.accdb"),
+           "You need a blank.accdb file in your current directory.")
+    mdb_dir = os.path.join("..")
+    v_str = "Contact ticdat support at ticdat@opalytics.com"
+    verify(os.path.isdir(mdb_dir), "%s is strangely not a directory. %s"%(mdb_dir, v_str))
+    verify(os.path.isfile(os.path.join(mdb_dir, "mdb.py")), "mdb.py is missing. %s"%v_str)
+    copy("blank.accdb", mdb_dir)
 
 _debug = []
 def _asserting() :
