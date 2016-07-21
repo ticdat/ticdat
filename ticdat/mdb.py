@@ -31,7 +31,8 @@ def _standard_verify():
 _connect = (pyodbc or py).connect if (pyodbc or py) else None
 
 _write_new_file_works = py and (sys.platform in ('win32','cli'))
-_can_unit_test = py and _write_new_file_works
+_can_mdb_unit_test = py and _write_new_file_works
+_can_accdb_unit_test = pyodbc and os.path.isfile(os.path.join(_code_dir(), "blank.accdb"))
 
 _dbq = "*.mdb, *.accdb"
 
@@ -208,7 +209,7 @@ class MdbTicFactory(freezable_factory(object, "_isFrozen")) :
                 py.win_create_mdb(mdb_file_path)
             else:
                 blank_accdb = os.path.join(_code_dir(), "blank.accdb")
-                verify(os.path.exists(blank_accdb),
+                verify(os.path.exists(blank_accdb) and os.path.isfile(blank_accdb),
                     "You need to run accdb_create_setup.py as a post pip install operation " +
                     "to configure writing to new .accdb files.")
                 shutil.copy(blank_accdb, mdb_file_path)
