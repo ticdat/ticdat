@@ -183,9 +183,9 @@ class MdbTicFactory(freezable_factory(object, "_isFrozen")) :
         :param mdb_file_path: The file path of the mdb database to create
         :param field_types: Named arguments are table names. Argument values
                             are mapping of field name to field type.
-                            Allowable field types are text, float and int
+                            Allowable field types are text, double and int
                             If missing, primary key fields are text, and data
-                            fields are float
+                            fields are double
         :return:
         """
         _standard_verify()
@@ -197,8 +197,8 @@ class MdbTicFactory(freezable_factory(object, "_isFrozen")) :
                 verify(fld in self.tic_dat_factory.primary_key_fields.get(k, ()) +
                           self.tic_dat_factory.data_fields.get(k, ()),
                        "%s isn't a field name for table %s"%(fld, k))
-                verify(type_ in ("text", "float", "int"),
-                       "For table %s, field %s, %s isn't one of (text, float, int)"%(k, fld, type_))
+                verify(type_ in ("text", "double", "int"),
+                       "For table %s, field %s, %s isn't one of (text, double, int)"%(k, fld, type_))
         get_fld_type = lambda tbl, fld, default : field_types.get(tbl, {}).get(fld, default)
         if not os.path.exists(mdb_file_path) :
             verify(mdb_file_path.endswith(".mdb") or mdb_file_path.endswith(".accdb"),
