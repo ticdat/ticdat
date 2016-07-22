@@ -195,7 +195,7 @@ class TestAccdb(unittest.TestCase):
 
         dat = tdf.TicDat(**spacesData)
         filePath = makeCleanPath(os.path.join(_scratchDir, "spacey.accdb"))
-        tdf.mdb.write_schema(filePath, a_table = {"a Field":"float"},
+        tdf.mdb.write_schema(filePath, a_table = {"a Field":"double"},
                                        c_table = {"c Data 1":"text", "c Data 2":"text",
                                                   "c Data 3":"text", "c Data 4":"int"})
         tdf.mdb.write_file(dat, filePath)
