@@ -5,7 +5,8 @@ from ticdat.testing.ticdattestutils import dietData, dietSchema, netflowData, ne
 from ticdat.testing.ticdattestutils import fail_to_debugger, spacesSchema, addNetflowForeignKeys
 import shutil
 import unittest
-from ticdat.mdb import _connection_str, _can_unit_test, py
+from ticdat.mdb import _connection_str, py, pyodbc
+_can_unit_test = py or pyodbc
 
 #uncomment decorator to drop into debugger for assertTrue, assertFalse failures
 #@fail_to_debugger
