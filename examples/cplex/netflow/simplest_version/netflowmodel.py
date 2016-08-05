@@ -49,9 +49,6 @@ solutionFactory = TicDatFactory(
 # ---------------------------------------------------------------------------------
 
 # ------------------------ solving section-----------------------------------------
-# the following are cplex credentials for cloud solving. Edit as needed.
-_cplex_url = "GET YOUR OWN FROM CPLEX"
-_cplex_key = "GET YOUR OWN FROM CPLEX"
 def solve(dat):
     """
     core solving routine
@@ -61,7 +58,7 @@ def solve(dat):
     m, flow = create_model(dat)
 
     # Compute optimal solution
-    if m.solve(url=_cplex_url, key=_cplex_key):
+    if m.solve():
         rtn = solutionFactory.TicDat()
         cplex_soln = m.solution
         for (h, i, j),var in flow.items():

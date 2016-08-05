@@ -51,10 +51,6 @@ def time_stamp() :
     ts = time.time()
     return datetime.datetime.fromtimestamp(ts).strftime('%Y-%m-%d %H:%M:%S')
 
-# the following are cplex credentials for cloud solving. Edit as needed.
-_cplex_url = "GET YOUR OWN FROM CPLEX"
-_cplex_key = "GET YOUR OWN FROM CPLEX"
-
 def solve(dat, out, err, progress):
     assert isinstance(progress, Progress)
     assert isinstance(out, LogFile) and isinstance(err, LogFile)
@@ -154,7 +150,7 @@ def solve(dat, out, err, progress):
 
     progress.add_cplex_listener("COG Optimization", m)
 
-    if m.solve(url=_cplex_url, key=_cplex_key):
+    if m.solve():
 
         progress.numerical_progress("Core Optimization", 100)
         cplex_soln = m.solution

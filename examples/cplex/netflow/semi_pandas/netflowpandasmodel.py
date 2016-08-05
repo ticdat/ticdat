@@ -54,8 +54,6 @@ solutionFactory = TicDatFactory(
 # ---------------------------------------------------------------------------------
 
 # ------------------------ solving section-----------------------------------------
-_cplex_url = "GET YOUR OWN FROM CPLEX"
-_cplex_key = "GET YOUR OWN FROM CPLEX"
 def solve(dat):
     """
     core solving routine
@@ -65,7 +63,7 @@ def solve(dat):
     m, flow = create_model(dat)
 
     # Compute optimal solution
-    if m.solve(url=_cplex_url, key=_cplex_key):
+    if m.solve():
         cplex_soln = m.solution
         t = flow.apply(lambda var : cplex_soln.get_value(var))
         # TicDat is smart enough to handle a Series for a single data field table
