@@ -47,9 +47,6 @@ solutionFactory = TicDatFactory(
 
 
 # ------------------------ create a solve function --------------------------------
-_cplex_key = "GET YOUR OWN FROM CPLEX"
-_cplex_url = "GET YOUR OWN FROM CPLEX"
-
 def solve(dat):
     assert dataFactory.good_tic_dat_object(dat)
     # Model
@@ -77,7 +74,7 @@ def solve(dat):
 
     mdl.minimize(mdl.sum(buy[f] * c["cost"] for f,c in dat.foods.items()))
 
-    if mdl.solve(url=_cplex_url, key=_cplex_key):
+    if mdl.solve():
         sln = solutionFactory.TicDat()
         cplex_soln = mdl.solution
         sln.parameters.append(cplex_soln.get_objective_value())
