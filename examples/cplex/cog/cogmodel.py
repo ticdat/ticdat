@@ -155,7 +155,8 @@ def solve(dat, out, err, progress):
         progress.numerical_progress("Core Optimization", 100)
         cplex_soln = m.solution
         sln = solutionFactory.TicDat()
-        sln.parameters["Lower Bound"] = cplex_soln.get_objective_value() # NEEDS FIX http://ibm.co/2aQwKYG
+         # temporary lower bound fix http://ibm.co/2aQwKYG
+        sln.parameters["Lower Bound"] = m.get_engine().get_cplex().solution.MIP.get_best_objective()
         sln.parameters["Upper Bound"] = cplex_soln.get_objective_value() # appears correct
         out.write('Upper Bound: %g\n' % sln.parameters["Upper Bound"]["value"])
         out.write('Lower Bound: %g\n' % sln.parameters["Lower Bound"]["value"])
