@@ -961,15 +961,24 @@ foreign keys, the code throwing this exception will be removed.
 
         rtn_values, rtn_pks = clt.defaultdict(set), clt.defaultdict(set)
         for table, type_row in self._data_types.items():
-            for pk, data_row in getattr(tic_dat, table).items():
-                for field, data_type in type_row.items():
-                    if not data_type.valid_data(data_row[field]) :
-                        rtn_values[(table, field)].add(data_row[field])
-                        rtn_pks[(table, field)].add(pk)
-        assert set(rtn_values) == set(rtn_pks)
+            _table = getattr(tic_dat, table)
+            if dictish(_table):
+                for pk, data_row in _table.items():
+                    for field, data_type in type_row.items():
+                        if not data_type.valid_data(data_row[field]) :
+                            rtn_values[(table, field)].add(data_row[field])
+                            rtn_pks[(table, field)].add(pk)
+            elif containerish(_table):
+                for data_row in _table:
+                    for field, data_type in type_row.items():
+                        if not data_type.valid_data(data_row[field]) :
+                            rtn_values[(table, field)].add(data_row[field])
+        assert set(rtn_values).issuperset(set(rtn_pks))
         TableField = clt.namedtuple("TableField", ["table", "field"])
         ValuesPks = clt.namedtuple("ValuesPks", ["bad_values", "pks"])
-        return {TableField(*tf):ValuesPks(tuple(rtn_values[tf]), tuple(rtn_pks[tf])) for tf in rtn_values}
+        return {TableField(*tf):ValuesPks(tuple(rtn_values[tf]),
+                                          tuple(rtn_pks[tf]) if tf in rtn_pks else None)
+                for tf in rtn_values}
 
     def replace_data_type_failures(self, tic_dat, replacement_values = FrozenDict()):
         """
