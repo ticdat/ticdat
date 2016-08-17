@@ -618,6 +618,24 @@ class TestUtils(unittest.TestCase):
         self.assertTrue(self.firesException(
             lambda : utils.Slicer(([1,2], [2,3], [1, 3, 3], [12.2, 2]))))
 
+    def testFifteen(self):
+        tdf = TicDatFactory(theTable = [["fieldOne"],["fieldTwo"]])
+        for f in ["fieldOne", "fieldTwo"]:
+            tdf.set_data_type("theTable", f, must_be_int=True)
+        dat1 = tdf.TicDat()
+        for d in [1, 2, 22]:
+            dat1.theTable[d]=d
+        dat2 = tdf.TicDat(theTable = dat1.theTable)
+        for d in [22.2, "22"]:
+            dat2.theTable[d] = d
+        self.assertFalse(tdf.find_data_type_failures(dat1))
+        fnd = tdf.find_data_type_failures(dat2)
+        self.assertTrue(len(fnd) == 2 and len(set(fnd.values())) == 1)
+        tdf.replace_data_type_failures(dat2)
+        for k in dat2.theTable:
+            self.assertTrue((dat2.theTable[k]["fieldTwo"] == 0) ==
+                            (k in [22.2, "22"]))
+
 
 _scratchDir = TestUtils.__name__ + "_scratch"
 
