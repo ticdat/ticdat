@@ -610,6 +610,7 @@ CLASSES
      |      :return: the tic_dat object with replacements made. The tic_dat object itself will be edited in place.
      |      Replaces any of the data failures found in find_data_type_failures() with the appropriate
      |      replacement_value.
+     |      Note - won't perform primary key replacements.
      |  
      |  schema(self, include_ancillary_info=False)
      |      :param include_ancillary_info: if True, include all the foreign key, default, and data type information
