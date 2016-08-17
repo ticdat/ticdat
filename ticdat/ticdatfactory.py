@@ -172,7 +172,8 @@ class TicDatFactory(freezable_factory(object, "_isFrozen")) :
         verify(not self._has_been_used,
                "The data types can't be changed after a TicDatFactory has been used.")
         verify(table in self.all_tables, "Unrecognized table name %s"%table)
-        verify(field in self.data_fields[table], "%s does not refer to a data field for %s"%(field, table))
+        verify(field in self.data_fields[table] + self.primary_key_fields[table],
+               "%s does not refer to a field for %s"%(field, table))
 
         verify((strings_allowed == '*') or
                (containerish(strings_allowed) and all(utils.stringish(x) for x in strings_allowed)),
@@ -961,15 +962,30 @@ foreign keys, the code throwing this exception will be removed.
 
         rtn_values, rtn_pks = clt.defaultdict(set), clt.defaultdict(set)
         for table, type_row in self._data_types.items():
-            for pk, data_row in getattr(tic_dat, table).items():
-                for field, data_type in type_row.items():
-                    if not data_type.valid_data(data_row[field]) :
-                        rtn_values[(table, field)].add(data_row[field])
-                        rtn_pks[(table, field)].add(pk)
-        assert set(rtn_values) == set(rtn_pks)
+            _table = getattr(tic_dat, table)
+            if dictish(_table):
+                for pk, data_row in _table.items():
+                    full_row = dict(data_row)
+                    if len(self.primary_key_fields[table]) == 1:
+                        full_row[self.primary_key_fields[table][0]] = pk
+                    else:
+                        full_row = dict(full_row, **{f:d for f,d in
+                                                     zip(self.primary_key_fields[table], pk)})
+                    for field, data_type in type_row.items():
+                        if not data_type.valid_data(full_row[field]) :
+                            rtn_values[(table, field)].add(full_row[field])
+                            rtn_pks[(table, field)].add(pk)
+            elif containerish(_table):
+                for data_row in _table:
+                    for field, data_type in type_row.items():
+                        if not data_type.valid_data(data_row[field]) :
+                            rtn_values[(table, field)].add(data_row[field])
+        assert set(rtn_values).issuperset(set(rtn_pks))
         TableField = clt.namedtuple("TableField", ["table", "field"])
         ValuesPks = clt.namedtuple("ValuesPks", ["bad_values", "pks"])
-        return {TableField(*tf):ValuesPks(tuple(rtn_values[tf]), tuple(rtn_pks[tf])) for tf in rtn_values}
+        return {TableField(*tf):ValuesPks(tuple(rtn_values[tf]),
+                                          tuple(rtn_pks[tf]) if tf in rtn_pks else None)
+                for tf in rtn_values}
 
     def replace_data_type_failures(self, tic_dat, replacement_values = FrozenDict()):
         """
@@ -979,6 +995,7 @@ foreign keys, the code throwing this exception will be removed.
         :return: the tic_dat object with replacements made. The tic_dat object itself will be edited in place.
         Replaces any of the data failures found in find_data_type_failures() with the appropriate
         replacement_value.
+        Note - won't perform primary key replacements.
         """
         msg  = []
         verify(self.good_tic_dat_object(tic_dat, msg.append),
@@ -996,17 +1013,19 @@ foreign keys, the code throwing this exception will be removed.
         real_replacements = {}
         for table, type_row in self._data_types.items():
             for field in type_row:
-                real_replacements[table, field] = replacement_values.get((table, field),
+                if field not in self.primary_key_fields[table]:
+                    real_replacements[table, field] = replacement_values.get((table, field),
                         self._default_values.get(table, {}).get(field, 0))
         for (table, field), value in real_replacements.items():
             verify(self._data_types[table][field].valid_data(value),
                    "The replacement value %s is not itself valid for %s : %s"%(value, table, field))
 
         for (table, field), (_, pks) in replacements_needed.items() :
-            for pk in pks:
-                getattr(tic_dat, table)[pk][field] = real_replacements[table, field]
+            if (table, field) in real_replacements:
+                for pk in pks:
+                    getattr(tic_dat, table)[pk][field] = real_replacements[table, field]
 
-        assert not self.find_data_type_failures(tic_dat)
+        assert not set(self.find_data_type_failures(tic_dat)).intersection(real_replacements)
         return tic_dat
 
     def obfusimplify(self, tic_dat, table_prepends = utils.FrozenDict(), skip_tables = (),
