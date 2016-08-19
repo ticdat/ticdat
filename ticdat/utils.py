@@ -6,12 +6,99 @@ from numbers import Number
 from itertools import chain, combinations
 from collections import defaultdict
 import ticdat
+import getopt
+import sys
+import os
+
+
 
 try:
     import pandas as pd
     from pandas import DataFrame
 except:
     pd = DataFrame =  None
+import inspect
+
+def standard_main(dataFactory, solutionFactory, solve):
+    """
+     provides standardized command line functionality for a ticdat solve engine
+    :param dataFactory: a TicDatFactory defining the input schema
+    :param solutionFactory: a TicDatFactory defining the output schema
+    :param solve: a function that takes a dataFactory.TicDat object and
+                  returns a solutionFactory.TicDat object
+    :return: N/A
+    Implements a command line signature of
+    "python engine_file.py --input <input_file_or_dir> --output <output_file_or_dir>
+    For the input/output command line arguments.
+    --> endings in ".xls" or ".xlsx" imply reading/writing Excel files
+    --> endings in ".mdb" or ".accdb" imply reading/writing Access files
+    --> ending in ".db" imply reading/writing SQLite files
+    --> otherwise, the assumption is that an input/output directory is being specified,
+        which will be used for reading/writing .csv files.
+        (Recall that .csv format is implemented as one-csv-file-per-table, so an entire
+        model will be stored in a directory containing a series of .csv files)
+    Defaults are input.xlsx, output.xlsx
+    """
+    verify(all(isinstance(_, ticdat.TicDatFactory) for _ in (dataFactory, solutionFactory)),
+               "dataFactory and solutionFactory both need to be TicDatFactory objects")
+    verify(callable(solve), "solve needs to be a function")
+    _args = inspect.getargspec(solve).args
+    verify(_args and len(_args) == 1, "solve needs to take just one argument")
+    file_name = sys.argv[0]
+    def usage():
+        print ("python %s --help --input <input file or dir> --output <output file or dir>"%
+               file_name)
+    try:
+        opts, args = getopt.getopt(sys.argv[1:], "hi:o:", ["help", "input=", "output="])
+    except getopt.GetoptError as err:
+        print (str(err))  # will print something like "option -a not recognized"
+        usage()
+        sys.exit(2)
+    input_file, output_file = "input.xls", "output.xls"
+    for o, a in opts:
+        if o in ("-h", "--help"):
+            usage()
+            sys.exit()
+        elif o in ("-i", "--input"):
+            input_file = a
+        elif o in ("-o", "--output"):
+            output_file = a
+        else:
+            verify(False, "unhandled option")
+    if not (os.path.exists(input_file)):
+        print "%s is not a valid input file or directory"%input_file
+    else:
+        print "input file %s : output file %s"%(input_file, output_file)
+        dat = None
+        if os.path.isfile(input_file):
+            if input_file.endswith(".xls") or input_file.endswith(".xlsx"):
+                dat = dataFactory.xls.create_tic_dat(input_file)
+            if input_file.endswith(".db"):
+                dat = dataFactory.sql.create_tic_dat(input_file)
+            if input_file.endswith(".mdb") or input_file.endswith(".accdb"):
+                dat = dataFactory.mdb.create_tic_dat(input_file)
+        elif os.path.isdir(input_file):
+            dat = dataFactory.csv.create_tic_dat(input_file)
+        verify(dat, "Failed to read from %s"%input_file)
+        sln = solve(dat)
+        if sln:
+            file_or_dir = "file" if any(output_file.endswith(_)
+                                        for _ in (".xls", ".xlsx", ".db", ".mdb", ".accdb")) \
+                          else "directory"
+            if os.path.exists(output_file):
+                print "Overwriting output %s %s"%(file_or_dir, output_file)
+            else :
+                print "Creating output %s %s"%(file_or_dir, output_file)
+            if output_file.endswith(".xls") or output_file.endswith(".xlsx"):
+                solutionFactory.xls.write_file(sln, output_file, allow_overwrite=True)
+            elif output_file.endswith(".db"):
+                solutionFactory.sql.write_db_data(sln, output_file, allow_overwrite=True)
+            elif output_file.endswith(".mdb") or output_file.endswith(".accdb"):
+                solutionFactory.mdb.write_file(sln, output_file, allow_overwrite=True)
+            else:
+                solutionFactory.csv.write_directory(sln, output_file, allow_overwrite=True)
+        else:
+            print "No solution was created!"
 
 def verify(b, msg) :
     if not b :

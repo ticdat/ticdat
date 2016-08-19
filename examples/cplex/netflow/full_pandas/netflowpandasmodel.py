@@ -13,10 +13,17 @@
 # 2. Define the output data schema
 # 3. Create a solve function that accepts a data set consistent with the input
 #    schema and (if possible) returns a data set consistent with the output schema.
+#
+# Provides command line interface via ticdat.standard_main
+# For example, typing
+#   python netflowpandasmodel.py -i csv_data -o solution_csv_data
+# will read from a model stored in .csv files in the csv_data directory
+# and write the solution to .csv files in the solution_csv_data directory
+
 
 # this version of the file uses CPLEX
 from docplex.mp.model import Model
-from ticdat import TicDatFactory
+from ticdat import TicDatFactory, standard_main
 
 # ------------------------ define the input schema --------------------------------
 dataFactory = TicDatFactory (
@@ -117,4 +124,10 @@ def create_model(dat):
 
 
     return m, flow
+# ---------------------------------------------------------------------------------
+
+# ------------------------ provide stand-alone functionality ----------------------
+# when run from the command line, will read/write xls/csv/db/mdb files
+if __name__ == "__main__":
+    standard_main(dataFactory, solutionFactory, solve)
 # ---------------------------------------------------------------------------------

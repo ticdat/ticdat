@@ -47,4 +47,3 @@ if solution :
     solutionFactory.xls.write_file(solution, "solution.xls", allow_overwrite=True)
 else :
     print('\nNo solution')
-
