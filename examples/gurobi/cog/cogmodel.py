@@ -10,13 +10,20 @@
 # 2. Define the output data schema
 # 3. Create a solve function that accepts a data set consistent with the input
 #    schema and (if possible) returns a data set consistent with the output schema.
+#
+# Provides command line interface via ticdat.standard_main
+# For example, typing
+#   python cogmodel.py -i csv_data -o solution_csv_data
+# will read from a model stored in .csv files in the csv_data directory and
+# write the solution to the solution_csv_data directory.
 
 # this version of the file uses Gurobi
 
 import time
 import datetime
+import os
 import gurobipy as gu
-from ticdat import TicDatFactory, Progress, LogFile, Slicer
+from ticdat import TicDatFactory, Progress, LogFile, Slicer, standard_main
 
 # ------------------------ define the input schema --------------------------------
 # There are three input tables, with 4 primary key fields  and 4 data fields.
@@ -195,6 +202,43 @@ def time_stamp() :
     return datetime.datetime.fromtimestamp(ts).strftime('%Y-%m-%d %H:%M:%S')
 # ---------------------------------------------------------------------------------
 
+# ------------------------ provide stand-alone functionality ----------------------
+def percent_error(lb, ub):
+    assert lb<=ub
+    return "%.2f"%(100.0 * (ub-lb) / ub) + "%"
+
+# when run from the command line, will read/write xls/csv/db/mdb files
+if __name__ == "__main__":
+    if os.path.exists("cog.stop"):
+        print "Removing the cog.stop file so that solve can proceed."
+        print "Add cog.stop whenever you want to stop the optimization"
+        os.remove("cog.stop")
+
+    class CogStopProgress(Progress):
+        def mip_progress(self, theme, lower_bound, upper_bound):
+            super(CogStopProgress, self).mip_progress(theme, lower_bound, upper_bound)
+            print "%s:%s:%s"%(theme.ljust(30), "Percent Error".ljust(20),
+                              percent_error(lower_bound, upper_bound))
+            # return False (to stop optimization) if the cog.stop file exists
+            return not os.path.exists("cog.stop")
+
+    # creating a single argument version of solve to pass to standard_main
+    def _solve(dat):
+        # create local text files for logging
+        with LogFile("output.txt") as out :
+            with LogFile("error.txt") as err :
+                solution = solve(dat, out, err, CogStopProgress())
+                if solution :
+                    print('\n\nUpper Bound   : %g' % solution.parameters["Upper Bound"]["value"])
+                    print('Lower Bound   : %g' % solution.parameters["Lower Bound"]["value"])
+                    print('Percent Error : %s' % percent_error(solution.parameters["Lower Bound"]["value"],
+                                                               solution.parameters["Upper Bound"]["value"]))
+                    return solution
+                else :
+                    print('\nNo solution')
+
+    standard_main(dataFactory, solutionFactory, _solve)
+# ---------------------------------------------------------------------------------
 
 
 
