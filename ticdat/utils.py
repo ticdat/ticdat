@@ -72,12 +72,16 @@ def standard_main(dataFactory, solutionFactory, solve):
         dat = None
         if os.path.isfile(input_file):
             if input_file.endswith(".xls") or input_file.endswith(".xlsx"):
+                assert not dataFactory.xls.find_duplicates(input_file), "duplicate rows found"
                 dat = dataFactory.xls.create_tic_dat(input_file)
             if input_file.endswith(".db"):
+                assert not dataFactory.sql.find_duplicates(input_file), "duplicate rows found"
                 dat = dataFactory.sql.create_tic_dat(input_file)
             if input_file.endswith(".mdb") or input_file.endswith(".accdb"):
+                assert not dataFactory.mdb.find_duplicates(input_file), "duplicate rows found"
                 dat = dataFactory.mdb.create_tic_dat(input_file)
         elif os.path.isdir(input_file):
+            assert not dataFactory.csv.find_duplicates(input_file), "duplicate rows found"
             dat = dataFactory.csv.create_tic_dat(input_file)
         verify(dat, "Failed to read from %s"%input_file)
         sln = solve(dat)
