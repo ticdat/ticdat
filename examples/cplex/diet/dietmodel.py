@@ -55,6 +55,9 @@ solutionFactory = TicDatFactory(
 # ------------------------ create a solve function --------------------------------
 def solve(dat):
     assert dataFactory.good_tic_dat_object(dat)
+    assert not dataFactory.find_foreign_key_failures(dat)
+    assert not dataFactory.find_data_type_failures(dat)
+    
     # Model
     mdl = Model("diet")
 
