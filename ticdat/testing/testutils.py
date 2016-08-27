@@ -635,6 +635,10 @@ class TestUtils(unittest.TestCase):
         for k in dat2.theTable:
             self.assertTrue((dat2.theTable[k]["fieldTwo"] == 0) ==
                             (k in [22.2, "22"]))
+        fnd = tdf.find_data_type_failures(dat2)
+        self.assertTrue(len(fnd) == 1 and len(fnd.values()[0].pks)==2)
+        self.assertTrue(set(fnd.values()[0].pks) == set(fnd.values()[0].bad_values))
+
 
 
 _scratchDir = TestUtils.__name__ + "_scratch"
