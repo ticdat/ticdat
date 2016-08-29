@@ -636,8 +636,9 @@ class TestUtils(unittest.TestCase):
             self.assertTrue((dat2.theTable[k]["fieldTwo"] == 0) ==
                             (k in [22.2, "22"]))
         fnd = tdf.find_data_type_failures(dat2)
-        self.assertTrue(len(fnd) == 1 and len(fnd.values()[0].pks)==2)
-        self.assertTrue(set(fnd.values()[0].pks) == set(fnd.values()[0].bad_values))
+        fnd_values = list(fnd.values())
+        self.assertTrue(len(fnd) == 1 and len(fnd_values[0].pks)==2)
+        self.assertTrue(set(fnd_values[0].pks) == set(fnd_values[0].bad_values))
 
     def testSixteen(self):
         def makeTdfDat(add_integrality_rule = False):
