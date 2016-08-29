@@ -1020,10 +1020,16 @@ foreign keys, the code throwing this exception will be removed.
             verify(self._data_types[table][field].valid_data(value),
                    "The replacement value %s is not itself valid for %s : %s"%(value, table, field))
 
-        for (table, field), (_, pks) in replacements_needed.items() :
+        for (table, field), (vals, pks) in replacements_needed.items() :
             if (table, field) in real_replacements:
-                for pk in pks:
-                    getattr(tic_dat, table)[pk][field] = real_replacements[table, field]
+                if pks is not None :
+                    for pk in pks:
+                        getattr(tic_dat, table)[pk][field] = real_replacements[table, field]
+                else :
+                    vals = set(vals)
+                    for row in getattr(tic_dat, table):
+                        if row[field] in vals:
+                            row[field] = real_replacements[table, field]
 
         assert not set(self.find_data_type_failures(tic_dat)).intersection(real_replacements)
         return tic_dat

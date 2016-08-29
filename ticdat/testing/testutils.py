@@ -639,6 +639,37 @@ class TestUtils(unittest.TestCase):
         self.assertTrue(len(fnd) == 1 and len(fnd.values()[0].pks)==2)
         self.assertTrue(set(fnd.values()[0].pks) == set(fnd.values()[0].bad_values))
 
+    def testSixteen(self):
+        def makeTdfDat(add_integrality_rule = False):
+            tdf = TicDatFactory(boger=[[],["foo", "goo"]])
+            if add_integrality_rule:
+                tdf.set_data_type("boger", "foo", must_be_int=True)
+            dat = tdf.TicDat()
+            dat.boger.append([1]*2)
+            dat.boger.append([2.1]*2)
+            dat.boger.append([1.1]*2)
+            dat.boger.append([1.1]*2)
+            dat.boger.append([2]*2)
+            return tdf, dat
+        tdf, dat = makeTdfDat()
+        self.assertFalse(tdf.find_data_type_failures(dat))
+        tdf, dat = makeTdfDat(add_integrality_rule=True)
+        failures = tdf.find_data_type_failures(dat)
+        self.assertTrue(len(failures) == 1)
+        badValues, badPks = failures["boger", "foo"]
+        self.assertTrue(badPks is None)
+        self.assertTrue(set(badValues) == {2.1, 1.1})
+        tdf.replace_data_type_failures(dat)
+        self.assertFalse(tdf.find_data_type_failures(dat))
+        self.assertTrue({x["foo"] for x in dat.boger} == {0,1,2})
+        self.assertTrue({x["goo"] for x in dat.boger} == {2.1,1.1,1,2})
+        tdf, dat = makeTdfDat(add_integrality_rule=True)
+        tdf.replace_data_type_failures(dat, {("boger","foo"):11})
+        self.assertTrue({x["foo"] for x in dat.boger} == {11,1,2})
+        self.assertTrue({x["goo"] for x in dat.boger} == {2.1,1.1,1,2})
+
+
+
 
 
 _scratchDir = TestUtils.__name__ + "_scratch"
