@@ -203,8 +203,8 @@ def percent_error(lb, ub):
 # when run from the command line, will read/write xls/csv/db/mdb files
 if __name__ == "__main__":
     if os.path.exists("cog.stop"):
-        print "Removing the cog.stop file so that solve can proceed."
-        print "Add cog.stop whenever you want to stop the optimization"
+        print ("Removing the cog.stop file so that solve can proceed.")
+        print ("Add cog.stop whenever you want to stop the optimization")
         os.remove("cog.stop")
 
     class CogStopProgress(Progress):

@@ -145,7 +145,7 @@ def solve(dat):
 
     m.optimize()
     if m.status != gu.GRB.OPTIMAL:
-        print "No draft at all is possible!"
+        print ("No draft at all is possible!")
         return
 
     sln = solutionFactory.TicDat()
@@ -156,7 +156,7 @@ def solve(dat):
                     key=lambda _p: expected_draft_position[_p])
     assert len(picked) <= len(dat.my_draft_positions)
     if len(picked) < len(dat.my_draft_positions):
-        print "Your model is over-constrained, and thus only a partial draft was possible"
+        print ("Your model is over-constrained, and thus only a partial draft was possible")
 
     for player_name, draft_position in zip(picked, sorted(dat.my_draft_positions)):
         assert draft_position <= expected_draft_position[player_name]

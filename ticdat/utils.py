@@ -66,9 +66,9 @@ def standard_main(dataFactory, solutionFactory, solve):
         else:
             verify(False, "unhandled option")
     if not (os.path.exists(input_file)):
-        print "%s is not a valid input file or directory"%input_file
+        print ("%s is not a valid input file or directory"%input_file)
     else:
-        print "input file %s : output file %s"%(input_file, output_file)
+        print ("input file %s : output file %s"%(input_file, output_file))
         dat = None
         if os.path.isfile(input_file):
             if input_file.endswith(".xls") or input_file.endswith(".xlsx"):
@@ -90,9 +90,9 @@ def standard_main(dataFactory, solutionFactory, solve):
                                         for _ in (".xls", ".xlsx", ".db", ".mdb", ".accdb")) \
                           else "directory"
             if os.path.exists(output_file):
-                print "Overwriting output %s %s"%(file_or_dir, output_file)
+                print ("Overwriting output %s %s"%(file_or_dir, output_file))
             else :
-                print "Creating output %s %s"%(file_or_dir, output_file)
+                print ("Creating output %s %s"%(file_or_dir, output_file))
             if output_file.endswith(".xls") or output_file.endswith(".xlsx"):
                 solutionFactory.xls.write_file(sln, output_file, allow_overwrite=True)
             elif output_file.endswith(".db"):
@@ -102,7 +102,7 @@ def standard_main(dataFactory, solutionFactory, solve):
             else:
                 solutionFactory.csv.write_directory(sln, output_file, allow_overwrite=True)
         else:
-            print "No solution was created!"
+            print ("No solution was created!")
 
 def verify(b, msg) :
     if not b :
