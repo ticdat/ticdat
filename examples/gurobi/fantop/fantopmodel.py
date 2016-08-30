@@ -6,7 +6,7 @@
 # positions (to include a maximum-flex-players constraint).
 #
 # Pre-computes the expected draft position of each player, so as to prevent
-# creating an draft plan based on unrealistic expectaions of player availability
+# creating a draft plan based on unrealistic expectations of player availability
 # at each round.
 #
 # The current draft standing can be filled in as you go in the drafted table.
