@@ -576,4 +576,11 @@ class Progress(object):
         return rtn
     def add_cplex_listener(self, theme, model):
         verify(cplexprogress, "docplex is not installed")
-        model.add_progress_listener(cplexprogress.ProgressListener())
+        super_self = self
+        class MyListener(cplexprogress.ProgressListener):
+            def notify_progress(self, progress_data):
+                keep_going = super_self.mip_progress(theme, progress_data.best_bound,
+                                                     progress_data.current_objective)
+                if not keep_going:
+                    self.abort()
+        model.add_progress_listener(MyListener())
