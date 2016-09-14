@@ -68,7 +68,7 @@ class TestSql(unittest.TestCase):
             changeit()
             self.assertFalse(tdf._same_data(ticDat, sqlTicDat))
 
-            tdf.sql.write_sql_file(ticDat, filePath, include_schema=True)
+            tdf.sql.write_sql_file(ticDat, filePath, include_schema=True, allow_overwrite=True)
             sqlTicDat = tdf.sql.create_tic_dat_from_sql(filePath, includes_schema=True, freeze_it=True)
             self.assertTrue(tdf._same_data(ticDat, sqlTicDat))
             self.assertTrue(self.firesException(changeit))

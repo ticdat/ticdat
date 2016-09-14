@@ -292,16 +292,20 @@ class SQLiteTicFactory(freezable_factory(object, "_isFrozen")) :
             for sql_str, data in self._get_data(tic_dat, as_sql=False):
                 con.execute(sql_str, list(data))
 
-    def write_sql_file(self, tic_dat, sql_file_path, include_schema = False):
+    def write_sql_file(self, tic_dat, sql_file_path, include_schema = False,
+                       allow_overwrite = False):
         """
         write the sql for the ticDat data to a text file
         :param tic_dat: the data object to write
         :param sql_file_path: the path of the text file to hold the sql statements for the data
         :param include_schema: boolean - should we write the schema sql first?
+        :param allow_overwrite: boolean - are we allowed to overwrite pre-existing file
         :return:
         caveats : float("inf"), float("-inf") are written as "inf", "-inf"
         """
         verify(sql, "sqlite3 needs to be installed to use this subroutine")
+        verify(allow_overwrite or not os.path.exists(sql_file_path),
+               "The %s path exists and overwrite is not allowed"%sql_file_path)
         with open(sql_file_path, "w") as f:
             for str in (self._get_schema_sql() if include_schema else ()) + \
                         self._get_data(tic_dat, as_sql=True):

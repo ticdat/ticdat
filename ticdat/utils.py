@@ -10,8 +10,6 @@ import getopt
 import sys
 import os
 
-
-
 try:
     import pandas as pd
     from pandas import DataFrame
@@ -32,7 +30,9 @@ def standard_main(dataFactory, solutionFactory, solve):
     For the input/output command line arguments.
     --> endings in ".xls" or ".xlsx" imply reading/writing Excel files
     --> endings in ".mdb" or ".accdb" imply reading/writing Access files
-    --> ending in ".db" imply reading/writing SQLite files
+    --> ending in ".db" imply reading/writing SQLite database files
+    --> ending in ".sql" imply reading/writing SQLite text files rendered in
+        schema-less SQL statements
     --> otherwise, the assumption is that an input/output directory is being specified,
         which will be used for reading/writing .csv files.
         (Recall that .csv format is implemented as one-csv-file-per-table, so an entire
@@ -65,38 +65,42 @@ def standard_main(dataFactory, solutionFactory, solve):
             output_file = a
         else:
             verify(False, "unhandled option")
+    file_or_dir = lambda f :"file" if any(f.endswith(_) for _ in
+                                (".xls", ".xlsx", ".db", ".sql", ".mdb", ".accdb")) \
+                  else "directory"
     if not (os.path.exists(input_file)):
         print "%s is not a valid input file or directory"%input_file
     else:
-        print "input file %s : output file %s"%(input_file, output_file)
+        print "input %s %s : output %s %s"%(file_or_dir(input_file), input_file,
+                                            file_or_dir(output_file), output_file)
         dat = None
-        if os.path.isfile(input_file):
+        if os.path.isfile(input_file) and file_or_dir(input_file) == "file":
             if input_file.endswith(".xls") or input_file.endswith(".xlsx"):
                 assert not dataFactory.xls.find_duplicates(input_file), "duplicate rows found"
                 dat = dataFactory.xls.create_tic_dat(input_file)
             if input_file.endswith(".db"):
                 assert not dataFactory.sql.find_duplicates(input_file), "duplicate rows found"
                 dat = dataFactory.sql.create_tic_dat(input_file)
+            if input_file.endswith(".sql"):
+                # no way to check a .sql file for duplications
+                dat = dataFactory.sql.create_tic_dat_from_sql(input_file)
             if input_file.endswith(".mdb") or input_file.endswith(".accdb"):
                 assert not dataFactory.mdb.find_duplicates(input_file), "duplicate rows found"
                 dat = dataFactory.mdb.create_tic_dat(input_file)
-        elif os.path.isdir(input_file):
+        elif os.path.isdir(input_file) and file_or_dir(input_file) == "directory":
             assert not dataFactory.csv.find_duplicates(input_file), "duplicate rows found"
             dat = dataFactory.csv.create_tic_dat(input_file)
-        verify(dat, "Failed to read from %s"%input_file)
+        verify(dat, "Failed to read from and/or recognize %s"%input_file)
         sln = solve(dat)
         if sln:
-            file_or_dir = "file" if any(output_file.endswith(_)
-                                        for _ in (".xls", ".xlsx", ".db", ".mdb", ".accdb")) \
-                          else "directory"
-            if os.path.exists(output_file):
-                print "Overwriting output %s %s"%(file_or_dir, output_file)
-            else :
-                print "Creating output %s %s"%(file_or_dir, output_file)
+            print "%s output %s %s"%("Overwriting" if os.path.exists(output_file) else "Creating",
+                                     file_or_dir(output_file), output_file)
             if output_file.endswith(".xls") or output_file.endswith(".xlsx"):
                 solutionFactory.xls.write_file(sln, output_file, allow_overwrite=True)
             elif output_file.endswith(".db"):
                 solutionFactory.sql.write_db_data(sln, output_file, allow_overwrite=True)
+            elif output_file.endswith(".sql"):
+                solutionFactory.sql.write_sql_file(sln, output_file, allow_overwrite=True)
             elif output_file.endswith(".mdb") or output_file.endswith(".accdb"):
                 solutionFactory.mdb.write_file(sln, output_file, allow_overwrite=True)
             else:

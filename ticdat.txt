@@ -328,11 +328,12 @@ CLASSES
      |      :param db_file_path: the file path of the SQLite database to create
      |      :return:
      |  
-     |  write_sql_file(self, tic_dat, sql_file_path, include_schema=False)
+     |  write_sql_file(self, tic_dat, sql_file_path, include_schema=False, allow_overwrite = False)
      |      write the sql for the ticDat data to a text file
      |      :param tic_dat: the data object to write
      |      :param sql_file_path: the path of the text file to hold the sql statements for the data
      |      :param include_schema: boolean - should we write the schema sql first?
+     |      :param allow_overwrite: boolean - are we allowed to overwrite pre-existing file
      |      :return:
      |      caveats : float("inf"), float("-inf") are written as "inf", "-inf"
      |  
@@ -824,6 +825,8 @@ FUNCTIONS
         --> endings in ".xls" or ".xlsx" imply reading/writing Excel files
         --> endings in ".mdb" or ".accdb" imply reading/writing Access files
         --> ending in ".db" imply reading/writing SQLite files
+        --> ending in ".sql" imply reading/writing SQLite text files rendered in
+            schema-less SQL statements
         --> otherwise, the assumption is that an input/output directory is being specified,
             which will be used for reading/writing .csv files.
             (Recall that .csv format is implemented as one-csv-file-per-table, so an entire
