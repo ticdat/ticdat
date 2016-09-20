@@ -93,6 +93,11 @@ class TestPandas(unittest.TestCase):
         self.assertTrue(tdf2.good_tic_dat_object(genTicDat))
         rebornTicDat = tdf.TicDat(**{t:getattr(genTicDat, t) for t in tdf.all_tables})
         self.assertTrue(tdf._same_data(rebornTicDat, oldDat))
+        rebornGenTicDat = tdf2.TicDat(**tdf2.as_dict(genTicDat))
+        for t, pks in tdf.primary_key_fields.items():
+            getattr(rebornGenTicDat, t).index.names = pks
+        rebornTicDat = tdf.TicDat(**{t:getattr(rebornGenTicDat, t) for t in tdf.all_tables})
+        self.assertTrue(tdf._same_data(rebornTicDat, oldDat))
 
         tdf3 = TicDatFactory(**dict(dietSchema(), **{"categories":'*'}))
         self.assertFalse(firesException(lambda : tdf3.set_data_type("nutritionQuantities", "qty")))

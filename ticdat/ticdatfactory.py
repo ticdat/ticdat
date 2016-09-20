@@ -407,7 +407,7 @@ foreign keys, the code throwing this exception will be removed.
         for t in set(self.all_tables).difference(dict_tables, self.generic_tables):
             rtn[t] = [{k:v for k,v in row.items()} for row in getattr(ticdat, t)]
         for t in self.generic_tables:
-            rtn[t] = getattr(self, t).as_dict()
+            rtn[t] = getattr(ticdat, t).to_dict()
         return rtn
     def __init__(self, **init_fields):
         """
@@ -868,7 +868,9 @@ foreign keys, the code throwing this exception will be removed.
 
         for tname in table_restrictions:
             tdtable = getattr(tic_dat, tname)
-            if len(tdtable) == 0 :
+            if tname in self.generic_tables:
+                df = tname
+            elif len(tdtable) == 0 :
                 df = DataFrame([], columns = self.primary_key_fields.get(tname,tuple()) +
                                                 self.data_fields.get(tname, tuple()))
             elif dictish(tdtable):
