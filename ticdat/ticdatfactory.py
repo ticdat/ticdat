@@ -578,6 +578,8 @@ foreign keys, the code throwing this exception will be removed.
                     if t in superself.generator_tables :
                         # a calleable that returns an empty generator
                         setattr(self, t, generatorfactory((), t))
+                    elif t in superself.generic_tables:
+                        setattr(self, t, DataFrame())
                     else :
                         setattr(self, t, ticdattablefactory(self._all_data_dicts, t)())
                 if init_tables :
