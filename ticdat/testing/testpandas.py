@@ -20,6 +20,8 @@ class TestPandas(unittest.TestCase):
             return str(e)
 
     def testDenormalizedErrors(self):
+        if not self.canRun:
+            return
         c = clean_denormalization_errors
         f = utils.find_denormalized_sub_table_failures
         tdf = TicDatFactory(**spacesSchema())
@@ -79,7 +81,37 @@ class TestPandas(unittest.TestCase):
         rebornTicDat = tdf.TicDat(**{t:getattr(ticDat, t) for t in tdf.all_tables})
         self.assertTrue(tdf._same_data(rebornTicDat, oldDat))
 
+        tdf2 = TicDatFactory(**{t:'*' for t in tdf.all_tables})
+        self.assertTrue(firesException(lambda : tdf2.set_data_type("nutritionQuantities", "qty")))
+        genTicDat = tdf2.TicDat(**{t:getattr(ticDat, t) for t in tdf.all_tables})
+        for k in oldDat.categories:
+            self.assertTrue(oldDat.categories[k]["minNutrition"] == genTicDat.categories.minNutrition[k])
+        for k1, k2 in oldDat.nutritionQuantities:
+            self.assertTrue(oldDat.nutritionQuantities[k1,k2]["qty"] ==
+                            genTicDat.nutritionQuantities.qty[k1,k2])
+        self.assertFalse(tdf.good_tic_dat_object(genTicDat))
+        self.assertTrue(tdf2.good_tic_dat_object(genTicDat))
+        rebornTicDat = tdf.TicDat(**{t:getattr(genTicDat, t) for t in tdf.all_tables})
+        self.assertTrue(tdf._same_data(rebornTicDat, oldDat))
+        rebornGenTicDat = tdf2.TicDat(**tdf2.as_dict(genTicDat))
+        for t, pks in tdf.primary_key_fields.items():
+            getattr(rebornGenTicDat, t).index.names = pks
+        rebornTicDat = tdf.TicDat(**{t:getattr(rebornGenTicDat, t) for t in tdf.all_tables})
+        self.assertTrue(tdf._same_data(rebornTicDat, oldDat))
 
+        tdf3 = TicDatFactory(**dict(dietSchema(), **{"categories":'*'}))
+        self.assertFalse(firesException(lambda : tdf3.set_data_type("nutritionQuantities", "qty")))
+        mixTicDat = tdf3.TicDat(**{t:getattr(ticDat, t) for t in tdf.all_tables})
+        for k in oldDat.categories:
+            self.assertTrue(oldDat.categories[k]["minNutrition"] == mixTicDat.categories.minNutrition[k])
+        for k1, k2 in oldDat.nutritionQuantities:
+            self.assertTrue(oldDat.nutritionQuantities[k1,k2]["qty"] ==
+                            mixTicDat.nutritionQuantities[k1,k2]["qty"])
+        self.assertFalse(tdf2.good_tic_dat_object(mixTicDat))
+        self.assertFalse(tdf3.good_tic_dat_object(genTicDat))
+        self.assertTrue(tdf3.good_tic_dat_object(mixTicDat))
+        rebornTicDat = tdf.TicDat(**{t:getattr(mixTicDat, t) for t in tdf.all_tables})
+        self.assertTrue(tdf._same_data(rebornTicDat, oldDat))
 
     def testNetflow(self):
         if not self.canRun:
