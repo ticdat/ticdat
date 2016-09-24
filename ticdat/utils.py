@@ -466,7 +466,7 @@ class Sloc(object):
             if isinstance(s, pd.DataFrame):
             # adding sloc just to the columns of the DataFrame and not to the DataFrame itself.
                 for c in s.columns:
-                    Sloc.add_sloc(getattr(s,c))
+                    Sloc.add_sloc(s[c])
             else:
                 s.sloc = Sloc(s)
             return s
