@@ -19,6 +19,27 @@ class TestPandas(unittest.TestCase):
             self.assertTrue("TicDatError" in e.__class__.__name__)
             return str(e)
 
+    def _test_generic_free_copy(self, ticDat, tdf, skip_tables=None):
+        assert all(tdf.primary_key_fields.get(t) for t in tdf.all_tables)
+        replace_name  = lambda f : "name_" if f == "name" else f
+        clean_tdf = TicDatFactory(**{t:[map(replace_name, pks), dfs] for t,(pks, dfs) in tdf.schema().items()})
+
+        temp_tdf = TicDatFactory(**{t:v if t in (skip_tables or []) else '*' for t,v in clean_tdf.schema().items()})
+        temp_dat = temp_tdf.TicDat(**{t:getattr(ticDat, t) for t in (skip_tables or [])})
+        for t in temp_tdf.generic_tables:
+            setattr(temp_dat, t, getattr(clean_tdf.copy_to_pandas(ticDat, drop_pk_columns=False) ,t))
+        generic_free_dat, _ = utils.create_generic_free(temp_dat, temp_tdf)
+        check_dat = clean_tdf.TicDat()
+        for t in temp_tdf.generic_tables:
+            for r in getattr(generic_free_dat, t):
+                pks = clean_tdf.primary_key_fields[t]
+                getattr(check_dat, t)[r[pks[0]] if len(pks) == 1 else tuple(r[_] for _ in pks)] = \
+                    {df:r[df] for df in clean_tdf.data_fields.get(t, [])}
+        for t in (skip_tables or []):
+            for k,v in getattr(generic_free_dat, t).items():
+                getattr(check_dat, t)[k] = v
+        self.assertTrue(clean_tdf._same_data(check_dat, clean_tdf.copy_tic_dat(ticDat)))
+
     def testDenormalizedErrors(self):
         if not self.canRun:
             return
@@ -59,6 +80,8 @@ class TestPandas(unittest.TestCase):
         tdf = TicDatFactory(**dietSchema())
         tdf.enable_foreign_key_links()
         oldDat = tdf.freeze_me(tdf.TicDat(**{t:getattr(dietData(),t) for t in tdf.primary_key_fields}))
+        self._test_generic_free_copy(oldDat, tdf)
+        self._test_generic_free_copy(oldDat, tdf, ["nutritionQuantities"])
         ticDat = tdf.copy_to_pandas(oldDat)
         for k in oldDat.foods:
             self.assertTrue(oldDat.foods[k]["cost"] == ticDat.foods.cost[k])
@@ -84,6 +107,7 @@ class TestPandas(unittest.TestCase):
         tdf2 = TicDatFactory(**{t:'*' for t in tdf.all_tables})
         self.assertTrue(firesException(lambda : tdf2.set_data_type("nutritionQuantities", "qty")))
         genTicDat = tdf2.TicDat(**{t:getattr(ticDat, t) for t in tdf.all_tables})
+
         for k in oldDat.categories:
             self.assertTrue(oldDat.categories[k]["minNutrition"] == genTicDat.categories.minNutrition[k])
         for k1, k2 in oldDat.nutritionQuantities:
@@ -120,6 +144,8 @@ class TestPandas(unittest.TestCase):
         tdf.enable_foreign_key_links()
         addNetflowForeignKeys(tdf)
         oldDat = tdf.freeze_me(tdf.TicDat(**{t:getattr(netflowData(),t) for t in tdf.primary_key_fields}))
+        self._test_generic_free_copy(oldDat, tdf)
+        self._test_generic_free_copy(oldDat, tdf, ["arcs", "nodes"])
         ticDat = tdf.copy_to_pandas(oldDat, ["arcs", "cost"])
         self.assertTrue(all(hasattr(ticDat, t) == (t in ["arcs", "cost"]) for t in tdf.all_tables))
         self.assertTrue(len(ticDat.arcs.capacity.sloc["Boston",:]) == len(oldDat.nodes["Boston"].arcs_source) == 0)

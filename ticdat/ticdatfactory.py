@@ -69,11 +69,6 @@ class _TypeDictionary(namedtuple("TypeDictionary",
             return bool(self.nullable)
         return False
 
-def _duplicate_focused_tdf(tdf):
-    primary_key_fields = {k:v for k,v in tdf.primary_key_fields.items() if v}
-    if primary_key_fields:
-        return TicDatFactory(**{k:[[],v] for k,v in primary_key_fields.items()})
-
 class TicDatFactory(freezable_factory(object, "_isFrozen")) :
     """
     Primary class for ticdat library. This class is constructed with a schema,
@@ -640,8 +635,8 @@ foreign keys, the code throwing this exception will be removed.
         self.TicDat = TicDat
         self.xls = xls.XlsTicFactory(self)
         self.csv = csv.CsvTicFactory(self)
-        self.sql = sql.SQLiteTicFactory(self, _duplicate_focused_tdf(self))
-        self.mdb = mdb.MdbTicFactory(self, _duplicate_focused_tdf(self))
+        self.sql = sql.SQLiteTicFactory(self)
+        self.mdb = mdb.MdbTicFactory(self)
         self._isFrozen=True
 
     def _allFields(self, table):

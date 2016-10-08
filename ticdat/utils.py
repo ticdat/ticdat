@@ -184,6 +184,11 @@ def dict_overlay(d1, d2):
         rtn[k] = v
     return rtn
 
+def create_duplicate_focused_tdf(tdf):
+    primary_key_fields = {k:v for k,v in tdf.primary_key_fields.items() if v}
+    if primary_key_fields:
+        return ticdat.TicDatFactory(**{k:[[],v] for k,v in primary_key_fields.items()})
+
 def find_duplicates(td, tdf_for_dups):
     assert tdf_for_dups.good_tic_dat_object(td)
     assert not any(tdf_for_dups.primary_key_fields.values())
@@ -199,6 +204,17 @@ def find_duplicates(td, tdf_for_dups):
         if not rtn[t]:
             del(rtn[t])
     return rtn
+
+def create_generic_free(td, tdf):
+    assert tdf.good_tic_dat_object(td)
+    if not tdf.generic_tables:
+        return td, tdf
+    sch = {k:v for k,v in tdf.schema().items() if k not in tdf.generic_tables}
+    for t in tdf.generic_tables:
+        if len(getattr(td, t)):
+            sch[t] = [[],list(getattr(td, t).columns)]
+    rtn_tdf = ticdat.TicDatFactory(**sch)
+    return rtn_tdf.TicDat(**{t:getattr(td, t) for t in rtn_tdf.all_tables}), rtn_tdf
 
 class Slicer(object):
     """

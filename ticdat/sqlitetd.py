@@ -6,6 +6,7 @@ import os
 from collections import defaultdict
 from ticdat.utils import freezable_factory, TicDatError, verify, stringish, dictish, containerish
 from ticdat.utils import FrozenDict, all_underscore_replacements, find_duplicates
+from ticdat.utils import create_duplicate_focused_tdf
 
 
 try:
@@ -63,7 +64,7 @@ class SQLiteTicFactory(freezable_factory(object, "_isFrozen")) :
     Primary class for reading/writing SQLite files with ticDat objects.
     You need the sqlite3 package to be installed to use it.
     """
-    def __init__(self, tic_dat_factory, duplicate_focused_tdf):
+    def __init__(self, tic_dat_factory):
         """
         Don't call this function explicitly. A SQLiteTicFactory will
         automatically be associated with the sql attribute of the parent
@@ -72,7 +73,7 @@ class SQLiteTicFactory(freezable_factory(object, "_isFrozen")) :
         :return:
         """
         self.tic_dat_factory = tic_dat_factory
-        self._duplicate_focused_tdf = duplicate_focused_tdf
+        self._duplicate_focused_tdf = create_duplicate_focused_tdf(tic_dat_factory)
         self._isFrozen = True
     def _Rtn(self, freeze_it):
         if freeze_it:

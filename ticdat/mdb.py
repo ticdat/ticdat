@@ -9,6 +9,7 @@ import shutil
 import ticdat.utils as utils
 from ticdat.utils import freezable_factory, TicDatError, verify, stringish, dictish, containerish
 from ticdat.utils import debug_break, numericish, all_underscore_replacements, find_duplicates
+from ticdat.utils import create_duplicate_focused_tdf
 
 
 try:
@@ -62,7 +63,7 @@ class MdbTicFactory(freezable_factory(object, "_isFrozen")) :
     Your system will need the required pypyodbc package if you want to actually
     do something with it.
     """
-    def __init__(self, tic_dat_factory, duplicate_focused_tdf):
+    def __init__(self, tic_dat_factory):
         """
         Don't create this object explicitly. A MdbTicDatFactory will
         automatically be associated with the mdb attribute of the parent
@@ -71,7 +72,7 @@ class MdbTicFactory(freezable_factory(object, "_isFrozen")) :
         :return:
         """
         self.tic_dat_factory = tic_dat_factory
-        self._duplicate_focused_tdf = duplicate_focused_tdf
+        self._duplicate_focused_tdf = create_duplicate_focused_tdf(tic_dat_factory)
         self._isFrozen = True
     def create_tic_dat(self, mdb_file_path, freeze_it = False):
         """
