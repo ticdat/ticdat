@@ -12,7 +12,7 @@ import unittest
 #uncomment decorator to drop into debugger for assertTrue, assertFalse failures
 #@fail_to_debugger
 class TestXls(unittest.TestCase):
-    canRun = False
+    can_run = False
 
     @classmethod
     def setUpClass(cls):
@@ -29,9 +29,11 @@ class TestXls(unittest.TestCase):
         assert all(tdf.primary_key_fields.get(t) for t in tdf.all_tables)
         path = os.path.join(makeCleanDir(os.path.join(_scratchDir, "generic_copy")), "file.xls")
         replace_name  = lambda f : "name_" if f == "name" else f
-        clean_tdf = TicDatFactory(**{t:[map(replace_name, pks), dfs] for t,(pks, dfs) in tdf.schema().items()})
+        clean_tdf = TicDatFactory(**{t:[map(replace_name, pks), dfs] for t,(pks, dfs)
+                                     in tdf.schema().items()})
 
-        temp_tdf = TicDatFactory(**{t:v if t in (skip_tables or []) else '*' for t,v in clean_tdf.schema().items()})
+        temp_tdf = TicDatFactory(**{t:v if t in (skip_tables or []) else '*'
+                                    for t,v in clean_tdf.schema().items()})
         temp_dat = temp_tdf.TicDat(**{t:getattr(ticDat, t) for t in (skip_tables or [])})
         for t in temp_tdf.generic_tables:
             setattr(temp_dat, t, getattr(clean_tdf.copy_to_pandas(ticDat, drop_pk_columns=False) ,t))
@@ -53,7 +55,7 @@ class TestXls(unittest.TestCase):
         self.assertTrue(clean_tdf._same_data(check_dat, clean_tdf.copy_tic_dat(ticDat)))
 
     def testDiet(self):
-        if not self.canRun:
+        if not self.can_run:
             return
         tdf = TicDatFactory(**dietSchema())
         ticDat = tdf.freeze_me(tdf.TicDat(**{t:getattr(dietData(),t) for t in tdf.primary_key_fields}))
@@ -81,7 +83,7 @@ class TestXls(unittest.TestCase):
         self.assertTrue(all(len(getattr(ticDat, t))-1 == len(getattr(xlsTicDat, t)) for t in tdf.all_tables))
 
     def testNetflow(self):
-        if not self.canRun:
+        if not self.can_run:
             return
         tdf = TicDatFactory(**netflowSchema())
         ticDat = tdf.freeze_me(tdf.TicDat(**{t:getattr(netflowData(),t) for t in tdf.primary_key_fields}))
@@ -123,7 +125,7 @@ class TestXls(unittest.TestCase):
         self.assertTrue(tdf._same_data(ticDat, tdf.xls.create_tic_dat(filePath+"x", treat_large_as_inf=True)))
 
     def testSilly(self):
-        if not self.canRun:
+        if not self.can_run:
             return
         tdf = TicDatFactory(**sillyMeSchema())
         ticDat = tdf.TicDat(**sillyMeData())
@@ -243,7 +245,7 @@ class TestXls(unittest.TestCase):
         self.assertTrue(set(rowCount["b"]) == {(1,20,30)} and rowCount["b"][1,20,30]==2)
 
     def testSpacey(self):
-        if not self.canRun:
+        if not self.can_run:
             return
         tdf = TicDatFactory(**spacesSchema())
         ticDat = tdf.TicDat(**spacesData())
@@ -277,7 +279,7 @@ class TestXls(unittest.TestCase):
         self.assertTrue(tdf._same_data(ticDat, ticDat3))
 
     def testRowOffsets(self):
-        if not self.canRun:
+        if not self.can_run:
             return
         tdf = TicDatFactory(boger = [[],["the", "big", "boger"]],
                             woger = [[], ["the", "real", "big", "woger"]])
@@ -298,7 +300,7 @@ class TestXls(unittest.TestCase):
         self.assertTrue(td3.boger[0]["big"] == 200 and len(td3.boger) == 1)
 
     def testBiggie(self):
-        if not self.canRun:
+        if not self.can_run:
             return
         tdf = TicDatFactory(boger = [["the"],["big", "boger"]],
                             moger = [["the", "big"], ["boger"]],
@@ -335,8 +337,8 @@ if __name__ == "__main__":
     td = TicDatFactory()
     if not utils.DataFrame :
         print("!!!!!!!!!FAILING XLS UNIT TESTS DUE TO FAILURE TO LOAD PANDAS LIBRARIES!!!!!!!!")
-    if not _can_unit_test :
+    elif not _can_unit_test :
         print("!!!!!!!!!FAILING XLS UNIT TESTS DUE TO FAILURE TO LOAD XLS LIBRARIES!!!!!!!!")
     else:
-        TestXls.canRun = True
+        TestXls.can_run = True
     unittest.main()

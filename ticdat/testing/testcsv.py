@@ -12,6 +12,8 @@ from ticdat.csvtd import _can_unit_test
 
 #@fail_to_debugger
 class TestCsv(unittest.TestCase):
+    can_run = False
+
     @classmethod
     def setUpClass(cls):
         makeCleanDir(_scratchDir)
@@ -27,11 +29,41 @@ class TestCsv(unittest.TestCase):
         if e :
             self.assertTrue("TicDatError" in e.__class__.__name__)
             return str(e)
+    def _test_generic_copy(self, ticDat, tdf, skip_tables=None):
+        assert all(tdf.primary_key_fields.get(t) for t in tdf.all_tables)
+        path = makeCleanDir(os.path.join(_scratchDir, "generic_copy"))
+        replace_name  = lambda f : "name_" if f == "name" else f
+        clean_tdf = TicDatFactory(**{t:[map(replace_name, pks), dfs]
+                                     for t,(pks, dfs) in tdf.schema().items()})
+
+        temp_tdf = TicDatFactory(**{t:v if t in (skip_tables or []) else '*'
+                                    for t,v in clean_tdf.schema().items()})
+        temp_dat = temp_tdf.TicDat(**{t:getattr(ticDat, t) for t in (skip_tables or [])})
+        for t in temp_tdf.generic_tables:
+            setattr(temp_dat, t, getattr(clean_tdf.copy_to_pandas(ticDat, drop_pk_columns=False) ,t))
+
+        temp_tdf.csv.write_directory(temp_dat, path)
+        self.assertFalse(temp_tdf.csv.find_duplicates(path))
+        read_dat = temp_tdf.csv.create_tic_dat(path)
+        generic_free_dat, _ = utils.create_generic_free(read_dat, temp_tdf)
+        check_dat = clean_tdf.TicDat()
+
+        for t in temp_tdf.generic_tables:
+            for r in getattr(generic_free_dat, t):
+                pks = clean_tdf.primary_key_fields[t]
+                getattr(check_dat, t)[r[pks[0]] if len(pks) == 1 else tuple(r[_] for _ in pks)] = \
+                    {df:r[df] for df in clean_tdf.data_fields.get(t, [])}
+        for t in (skip_tables or []):
+            for k,v in getattr(generic_free_dat, t).items():
+                getattr(check_dat, t)[k] = v
+        self.assertTrue(clean_tdf._same_data(check_dat, clean_tdf.copy_tic_dat(ticDat)))
     def testDiet(self):
-        if not _can_unit_test:
+        if not self.can_run:
             return
         tdf = TicDatFactory(**dietSchema())
         ticDat = tdf.freeze_me(tdf.TicDat(**{t:getattr(dietData(),t) for t in tdf.primary_key_fields}))
+        self._test_generic_copy(ticDat, tdf)
+        self._test_generic_copy(ticDat, tdf, ["nutritionQuantities"])
         dirPath = os.path.join(_scratchDir, "diet")
         tdf.csv.write_directory(ticDat,dirPath)
         self.assertFalse(tdf.csv.find_duplicates(dirPath))
@@ -75,10 +107,12 @@ class TestCsv(unittest.TestCase):
 
 
     def testNetflow(self):
-        if not _can_unit_test:
+        if not self.can_run:
             return
         tdf = TicDatFactory(**netflowSchema())
         ticDat = tdf.TicDat(**{t:getattr(netflowData(),t) for t in tdf.primary_key_fields})
+        self._test_generic_copy(ticDat, tdf)
+        self._test_generic_copy(ticDat, tdf, ["arcs", "nodes"])
         dirPath = os.path.join(_scratchDir, "netflow")
         tdf.csv.write_directory(ticDat, dirPath)
         csvTicDat = tdf.csv.create_tic_dat(dirPath, freeze_it=True)
@@ -105,7 +139,7 @@ class TestCsv(unittest.TestCase):
         self.assertFalse(tdf._same_data(ticDat, csvTicDat))
 
     def testSilly(self):
-        if not _can_unit_test:
+        if not self.can_run:
             return
         def doTest(headersPresent) :
             tdf = TicDatFactory(**sillyMeSchema())
@@ -200,7 +234,12 @@ _scratchDir = TestCsv.__name__ + "_scratch"
 # Run the tests.
 if __name__ == "__main__":
     td = TicDatFactory()
-    if not _can_unit_test :
+    if not utils.DataFrame :
+        print("!!!!!!!!!FAILING CSV UNIT TESTS DUE TO FAILURE TO LOAD PANDAS LIBRARIES!!!!!!!!")
+    elif not _can_unit_test :
         print("!!!!!!!!!FAILING CSV UNIT TESTS DUE TO FAILURE TO LOAD CSV LIBRARIES!!!!!!!!")
+    else:
+        TestCsv.can_run = True
+
     unittest.main()
 

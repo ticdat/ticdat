@@ -210,7 +210,8 @@ class SQLiteTicFactory(freezable_factory(object, "_isFrozen")) :
                 for fk in fks.get(t, ()) :
                     processTable(fk.foreign_table)
                 rtn.append(t)
-        list(map(processTable, self.tic_dat_factory.all_tables))
+        tdf = self.tic_dat_factory
+        list(map(processTable, set(tdf.all_tables).difference(tdf.generic_tables)))
         return tuple(rtn)
     def _get_schema_sql(self):
         rtn = []
