@@ -4,6 +4,7 @@ PEP8
 """
 
 import os
+from ticdat.utils import DataFrame, create_generic_free
 from ticdat.utils import freezable_factory, TicDatError, verify, containerish, dictish
 from collections import defaultdict
 from itertools import product
@@ -52,6 +53,11 @@ class CsvTicFactory(freezable_factory(object, "_isFrozen")) :
                  into floats if possible.
         """
         verify(csv, "csv needs to be installed to use this subroutine")
+        tdf = self.tic_dat_factory
+        verify(headers_present or not tdf.generic_tables,
+               "headers need to be present to read generic tables")
+        verify(DataFrame or not tdf.generic_tables,
+               "Strange absence of pandas despite presence of generic tables")
         rtn =  self.tic_dat_factory.TicDat(**self._create_tic_dat(dir_path, dialect,
                                                                   headers_present))
         if freeze_it:
@@ -107,6 +113,7 @@ class CsvTicFactory(freezable_factory(object, "_isFrozen")) :
     def _get_data(self, csvfile, table, dialect, headers_present):
         tdf = self.tic_dat_factory
         fieldnames=tdf.primary_key_fields.get(table, ()) + tdf.data_fields.get(table, ())
+        assert fieldnames or table in self.tic_dat_factory.generic_tables
         for row in csv.DictReader(csvfile, dialect = dialect,
                             **({"fieldnames":fieldnames} if not headers_present else {})):
             if not headers_present:
@@ -115,9 +122,10 @@ class CsvTicFactory(freezable_factory(object, "_isFrozen")) :
                 yield {f: _try_float(row[f]) for f in fieldnames}
             else:
                 key_matching = defaultdict(list)
-                for k,f in product(row.keys(), fieldnames):
+                for k,f in product(row.keys(), fieldnames or row.keys()):
                     if k.lower() ==f.lower():
                         key_matching[f].append(k)
+                fieldnames = fieldnames or row.keys()
                 for f in fieldnames:
                     verify(f in key_matching, "Unable to find field name %s for table %s"%(f, table))
                     verify(len(key_matching[f]) <= 1,
@@ -143,6 +151,8 @@ class CsvTicFactory(freezable_factory(object, "_isFrozen")) :
                                 if len(tdf.primary_key_fields[table]) == 1 else \
                                 tuple(r[_] for _ in tdf.primary_key_fields[table])
                         rtn[p_key] = tuple(r[_] for _ in tdf.data_fields.get(table,()))
+                    elif table in tdf.generic_tables:
+                        rtn.append(r)
                     else:
                         rtn.append(tuple(r[_] for _ in tdf.data_fields[table]))
         return rtn
@@ -163,6 +173,9 @@ class CsvTicFactory(freezable_factory(object, "_isFrozen")) :
         verify(csv, "csv needs to be installed to use this subroutine")
         verify(dialect in csv.list_dialects(), "Invalid dialect %s"%dialect)
         verify(not os.path.isfile(dir_path), "A file is not a valid directory path")
+        if self.tic_dat_factory.generic_tables:
+            dat, tdf = create_generic_free(tic_dat, self.tic_dat_factory)
+            return tdf.csv.write_directory(dat, dir_path, allow_overwrite, dialect, write_header)
         tdf = self.tic_dat_factory
         msg = []
         if not self.tic_dat_factory.good_tic_dat_object(tic_dat, lambda m : msg.append(m)) :
