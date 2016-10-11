@@ -275,7 +275,7 @@ class SQLiteTicFactory(freezable_factory(object, "_isFrozen")) :
         :return:
         """
         verify(not self.tic_dat_factory.generic_tables,
-               "generic_tables are not compatible with this write_db_schema." +
+               "generic_tables are not compatible with write_db_schema. " +
                "Use write_db_data instead.")
         with _sql_con(db_file_path, foreign_keys=False) as con:
             for str in self._get_schema_sql(self.tic_dat_factory.all_tables):

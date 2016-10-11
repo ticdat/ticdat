@@ -25,9 +25,18 @@ except:
 def _code_dir():
     return os.path.dirname(os.path.abspath(inspect.getsourcefile(_code_dir)))
 
-def _standard_verify():
+def _standard_verify(generic_tables_present):
     verify(pyodbc or py,
         "pyodbc or pypyodbc (or both) needs to be installed to use this subroutine")
+    # notes on implementing generic tables here
+    # --> In general, look at sqlitetd.py for examples of how generic tables are handled
+    # -->--> When reading data, the fields present need to be queried. See
+    #        _check_tables_fields for how that can be done with a select *
+    # -->--> When writing data, simply exploit utils.create_generic_free
+    #        mdb.py has a good example of how that works in this context.
+    verify(not generic_tables_present,
+           "Generic tables functionality currently not implemented for mdb/accdb files.")
+
 
 _connect = (pyodbc or py).connect if (pyodbc or py) else None
 
@@ -83,7 +92,7 @@ class MdbTicFactory(freezable_factory(object, "_isFrozen")) :
         caveats : Numbers with absolute values larger than 1e+100 will
                   be read as float("inf") or float("-inf")
         """
-        _standard_verify()
+        _standard_verify(self.tic_dat_factory.generic_tables)
         rtn =  self.tic_dat_factory.TicDat(**self._create_tic_dat(mdb_file_path))
         if freeze_it:
             return self.tic_dat_factory.freeze_me(rtn)
@@ -98,7 +107,7 @@ class MdbTicFactory(freezable_factory(object, "_isFrozen")) :
                  and the value is the count of records in the mdb table with this primary key.
                  Row counts smaller than 2 are pruned off, as they aren't duplicates
         """
-        _standard_verify()
+        _standard_verify(self.tic_dat_factory.generic_tables)
         if not self._duplicate_focused_tdf:
             return {}
         return find_duplicates(self._duplicate_focused_tdf.mdb.create_tic_dat(mdb_file_path),
@@ -191,7 +200,10 @@ class MdbTicFactory(freezable_factory(object, "_isFrozen")) :
                             fields are double
         :return:
         """
-        _standard_verify()
+        verify(not self.tic_dat_factory.generic_tables,
+               "generic_tables are not compatible with write_schema. " +
+               "Use write_file instead.")
+        _standard_verify(self.tic_dat_factory.generic_tables)
         verify(dictish(field_types), "field_types should be a dict")
         for k,v in field_types.items() :
             verify(k in self.tic_dat_factory.all_tables, "%s isn't a table name"%k)
@@ -244,7 +256,7 @@ class MdbTicFactory(freezable_factory(object, "_isFrozen")) :
              For the latter, feel free to call the write_schema function on the data
              file first with explicitly identified field types.
         """
-        _standard_verify()
+        _standard_verify(self.tic_dat_factory.generic_tables)
         msg = []
         if not self.tic_dat_factory.good_tic_dat_object(tic_dat, lambda m : msg.append(m)) :
             raise TicDatError("Not a valid TicDat object for this schema : " + " : ".join(msg))
