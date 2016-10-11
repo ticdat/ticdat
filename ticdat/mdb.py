@@ -99,6 +99,8 @@ class MdbTicFactory(freezable_factory(object, "_isFrozen")) :
                  Row counts smaller than 2 are pruned off, as they aren't duplicates
         """
         _standard_verify()
+        if not self._duplicate_focused_tdf:
+            return {}
         return find_duplicates(self._duplicate_focused_tdf.mdb.create_tic_dat(mdb_file_path),
                               self._duplicate_focused_tdf)
     def _get_table_names(self, db_file_path, tables):
