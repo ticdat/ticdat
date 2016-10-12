@@ -69,10 +69,10 @@ def standard_main(dataFactory, solutionFactory, solve):
                                 (".xls", ".xlsx", ".db", ".sql", ".mdb", ".accdb")) \
                   else "directory"
     if not (os.path.exists(input_file)):
-        print "%s is not a valid input file or directory"%input_file
+        print("%s is not a valid input file or directory"%input_file)
     else:
-        print "input %s %s : output %s %s"%(file_or_dir(input_file), input_file,
-                                            file_or_dir(output_file), output_file)
+        print("input %s %s : output %s %s"%(file_or_dir(input_file), input_file,
+                                            file_or_dir(output_file), output_file))
         dat = None
         if os.path.isfile(input_file) and file_or_dir(input_file) == "file":
             if input_file.endswith(".xls") or input_file.endswith(".xlsx"):
@@ -93,8 +93,8 @@ def standard_main(dataFactory, solutionFactory, solve):
         verify(dat, "Failed to read from and/or recognize %s"%input_file)
         sln = solve(dat)
         if sln:
-            print "%s output %s %s"%("Overwriting" if os.path.exists(output_file) else "Creating",
-                                     file_or_dir(output_file), output_file)
+            print("%s output %s %s"%("Overwriting" if os.path.exists(output_file) else "Creating",
+                                     file_or_dir(output_file), output_file))
             if output_file.endswith(".xls") or output_file.endswith(".xlsx"):
                 solutionFactory.xls.write_file(sln, output_file, allow_overwrite=True)
             elif output_file.endswith(".db"):
@@ -106,7 +106,7 @@ def standard_main(dataFactory, solutionFactory, solve):
             else:
                 solutionFactory.csv.write_directory(sln, output_file, allow_overwrite=True)
         else:
-            print "No solution was created!"
+            print("No solution was created!")
 
 def verify(b, msg) :
     if not b :
