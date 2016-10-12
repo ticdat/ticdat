@@ -29,7 +29,7 @@ class TestXls(unittest.TestCase):
         assert all(tdf.primary_key_fields.get(t) for t in tdf.all_tables)
         path = os.path.join(makeCleanDir(os.path.join(_scratchDir, "generic_copy")), "file.xls")
         replace_name  = lambda f : "name_" if f == "name" else f
-        clean_tdf = TicDatFactory(**{t:[map(replace_name, pks), dfs] for t,(pks, dfs)
+        clean_tdf = TicDatFactory(**{t:[list(map(replace_name, pks)), dfs] for t,(pks, dfs)
                                      in tdf.schema().items()})
 
         temp_tdf = TicDatFactory(**{t:v if t in (skip_tables or []) else '*'
