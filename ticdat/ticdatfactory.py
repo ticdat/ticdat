@@ -414,6 +414,10 @@ foreign keys, the code throwing this exception will be removed.
         ex: TicDatFactory (categories =  [["name"],["minNutrition", "maxNutrition"]],
                            foods  =  [["name"],["cost"]]
                            nutritionQuantities = [["food", "category"],["qty"]])
+                           Use '*' instead of a pair of lists for generic tables,
+                           which will render as pandas.DataFrame objects.
+        ex: TicDatFactory (typical_table = [["primary key field"],["data field"]],
+                           generic_table = '*')
         :return: a TicDatFactory
         """
         self._has_been_used = [] # append to this to make it truthy

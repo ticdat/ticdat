@@ -441,6 +441,10 @@ CLASSES
      |      ex: TicDatFactory (categories =  [["name"],["minNutrition", "maxNutrition"]],
      |                         foods  =  [["name"],["cost"]]
      |                         nutritionQuantities = [["food", "category"],["qty"]])
+     |                         Use '*' instead of a pair of lists for generic tables,
+     |                         which will render as pandas.DataFrame objects.
+     |      ex: TicDatFactory (typical_table = [["primary key field"],["data field"]],
+     |                         generic_table = '*')
      |      :return: a TicDatFactory
      |  
      |  add_foreign_key(self, native_table, foreign_table, mappings)
