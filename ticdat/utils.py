@@ -10,8 +10,6 @@ import getopt
 import sys
 import os
 
-
-
 try:
     import pandas as pd
     from pandas import DataFrame
@@ -32,7 +30,9 @@ def standard_main(dataFactory, solutionFactory, solve):
     For the input/output command line arguments.
     --> endings in ".xls" or ".xlsx" imply reading/writing Excel files
     --> endings in ".mdb" or ".accdb" imply reading/writing Access files
-    --> ending in ".db" imply reading/writing SQLite files
+    --> ending in ".db" imply reading/writing SQLite database files
+    --> ending in ".sql" imply reading/writing SQLite text files rendered in
+        schema-less SQL statements
     --> otherwise, the assumption is that an input/output directory is being specified,
         which will be used for reading/writing .csv files.
         (Recall that .csv format is implemented as one-csv-file-per-table, so an entire
@@ -65,44 +65,48 @@ def standard_main(dataFactory, solutionFactory, solve):
             output_file = a
         else:
             verify(False, "unhandled option")
+    file_or_dir = lambda f :"file" if any(f.endswith(_) for _ in
+                                (".xls", ".xlsx", ".db", ".sql", ".mdb", ".accdb")) \
+                  else "directory"
     if not (os.path.exists(input_file)):
-        print ("%s is not a valid input file or directory"%input_file)
+        print("%s is not a valid input file or directory"%input_file)
     else:
-        print ("input file %s : output file %s"%(input_file, output_file))
+        print("input %s %s : output %s %s"%(file_or_dir(input_file), input_file,
+                                            file_or_dir(output_file), output_file))
         dat = None
-        if os.path.isfile(input_file):
+        if os.path.isfile(input_file) and file_or_dir(input_file) == "file":
             if input_file.endswith(".xls") or input_file.endswith(".xlsx"):
                 assert not dataFactory.xls.find_duplicates(input_file), "duplicate rows found"
                 dat = dataFactory.xls.create_tic_dat(input_file)
             if input_file.endswith(".db"):
                 assert not dataFactory.sql.find_duplicates(input_file), "duplicate rows found"
                 dat = dataFactory.sql.create_tic_dat(input_file)
+            if input_file.endswith(".sql"):
+                # no way to check a .sql file for duplications
+                dat = dataFactory.sql.create_tic_dat_from_sql(input_file)
             if input_file.endswith(".mdb") or input_file.endswith(".accdb"):
                 assert not dataFactory.mdb.find_duplicates(input_file), "duplicate rows found"
                 dat = dataFactory.mdb.create_tic_dat(input_file)
-        elif os.path.isdir(input_file):
+        elif os.path.isdir(input_file) and file_or_dir(input_file) == "directory":
             assert not dataFactory.csv.find_duplicates(input_file), "duplicate rows found"
             dat = dataFactory.csv.create_tic_dat(input_file)
-        verify(dat, "Failed to read from %s"%input_file)
+        verify(dat, "Failed to read from and/or recognize %s"%input_file)
         sln = solve(dat)
         if sln:
-            file_or_dir = "file" if any(output_file.endswith(_)
-                                        for _ in (".xls", ".xlsx", ".db", ".mdb", ".accdb")) \
-                          else "directory"
-            if os.path.exists(output_file):
-                print ("Overwriting output %s %s"%(file_or_dir, output_file))
-            else :
-                print ("Creating output %s %s"%(file_or_dir, output_file))
+            print("%s output %s %s"%("Overwriting" if os.path.exists(output_file) else "Creating",
+                                     file_or_dir(output_file), output_file))
             if output_file.endswith(".xls") or output_file.endswith(".xlsx"):
                 solutionFactory.xls.write_file(sln, output_file, allow_overwrite=True)
             elif output_file.endswith(".db"):
                 solutionFactory.sql.write_db_data(sln, output_file, allow_overwrite=True)
+            elif output_file.endswith(".sql"):
+                solutionFactory.sql.write_sql_file(sln, output_file, allow_overwrite=True)
             elif output_file.endswith(".mdb") or output_file.endswith(".accdb"):
                 solutionFactory.mdb.write_file(sln, output_file, allow_overwrite=True)
             else:
                 solutionFactory.csv.write_directory(sln, output_file, allow_overwrite=True)
         else:
-            print ("No solution was created!")
+            print("No solution was created!")
 
 def verify(b, msg) :
     if not b :
@@ -180,6 +184,11 @@ def dict_overlay(d1, d2):
         rtn[k] = v
     return rtn
 
+def create_duplicate_focused_tdf(tdf):
+    primary_key_fields = {k:v for k,v in tdf.primary_key_fields.items() if v}
+    if primary_key_fields:
+        return ticdat.TicDatFactory(**{k:[[],v] for k,v in primary_key_fields.items()})
+
 def find_duplicates(td, tdf_for_dups):
     assert tdf_for_dups.good_tic_dat_object(td)
     assert not any(tdf_for_dups.primary_key_fields.values())
@@ -195,6 +204,17 @@ def find_duplicates(td, tdf_for_dups):
         if not rtn[t]:
             del(rtn[t])
     return rtn
+
+def create_generic_free(td, tdf):
+    assert tdf.good_tic_dat_object(td)
+    if not tdf.generic_tables:
+        return td, tdf
+    sch = {k:v for k,v in tdf.schema().items() if k not in tdf.generic_tables}
+    for t in tdf.generic_tables:
+        if len(getattr(td, t)):
+            sch[t] = [[],list(getattr(td, t).columns)]
+    rtn_tdf = ticdat.TicDatFactory(**sch)
+    return rtn_tdf.TicDat(**{t:getattr(td, t) for t in rtn_tdf.all_tables}), rtn_tdf
 
 class Slicer(object):
     """
@@ -462,7 +482,7 @@ class Sloc(object):
             if isinstance(s, pd.DataFrame):
             # adding sloc just to the columns of the DataFrame and not to the DataFrame itself.
                 for c in s.columns:
-                    Sloc.add_sloc(getattr(s,c))
+                    Sloc.add_sloc(s[c])
             else:
                 s.sloc = Sloc(s)
             return s
