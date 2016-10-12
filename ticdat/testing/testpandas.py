@@ -22,7 +22,7 @@ class TestPandas(unittest.TestCase):
     def _test_generic_free_copy(self, ticDat, tdf, skip_tables=None):
         assert all(tdf.primary_key_fields.get(t) for t in tdf.all_tables)
         replace_name  = lambda f : "name_" if f == "name" else f
-        clean_tdf = TicDatFactory(**{t:[map(replace_name, pks), dfs] for t,(pks, dfs) in tdf.schema().items()})
+        clean_tdf = TicDatFactory(**{t:[list(map(replace_name, pks)), dfs] for t,(pks, dfs) in tdf.schema().items()})
 
         temp_tdf = TicDatFactory(**{t:v if t in (skip_tables or []) else '*' for t,v in clean_tdf.schema().items()})
         temp_dat = temp_tdf.TicDat(**{t:getattr(ticDat, t) for t in (skip_tables or [])})
