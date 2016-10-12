@@ -72,13 +72,17 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
         tdf = self.tic_dat_factory
         verify(not(treat_large_as_inf and tdf.generator_tables),
                "treat_large_as_inf not implemented for generator tables")
+        verify(headers_present or not tdf.generic_tables,
+               "headers need to be present to read generic tables")
+        verify(utils.DataFrame or not tdf.generic_tables,
+               "Strange absence of pandas despite presence of generic tables")
         rtn =  tdf.TicDat(**self._create_tic_dat_dict
                           (xls_file_path, row_offsets, headers_present))
         replaceable = defaultdict(dict)
         for t, dfs in tdf.data_types.items():
             replaceable[t] = {df for df, dt in dfs.items()
                            if (not dt.valid_data('')) and dt.valid_data(None)}
-        for t in set(tdf.all_tables).difference(tdf.generator_tables):
+        for t in set(tdf.all_tables).difference(tdf.generator_tables, tdf.generic_tables):
             _t =  getattr(rtn, t)
             for r in _t.values() if utils.dictish(_t) else _t:
                 for f,v in r.items():
@@ -146,13 +150,19 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
         ho = 1 if headers_present else 0
         for table, sheet in sheets.items() :
             fields = tdf.primary_key_fields.get(table, ()) + tdf.data_fields.get(table, ())
+            assert fields or table in self.tic_dat_factory.generic_tables
             indicies = field_indicies[table]
-            table_len = min(len(sheet.col_values(indicies[field])) for field in fields)
+            table_len = min(len(sheet.col_values(indicies[field]))
+                            for field in (fields or indicies))
             if tdf.primary_key_fields.get(table, ()) :
                 tableObj = {self._sub_tuple(tdf.primary_key_fields[table], indicies)(x) :
                             self._sub_tuple(tdf.data_fields.get(table, ()), indicies)(x)
                             for x in (sheet.row_values(i) for i in
                                         range(table_len)[row_offsets[table]+ho:])}
+            elif table in tdf.generic_tables:
+                tableObj = [{f:x[i] for f,i in field_indicies[table].items()}
+                            for x in (sheet.row_values(i) for i in
+                                      range(table_len)[row_offsets[table]+ho:])]
             else :
                 tableObj = [self._sub_tuple(tdf.data_fields.get(table, ()), indicies)(x)
                             for x in (sheet.row_values(i) for i in
@@ -222,14 +232,20 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
                     [f for i,f in enumerate(fields) if i >= row_len], [])
         if sheet.nrows - row_offset <= 0 :
             return {}, fields, []
-        temp_rtn = {field:list() for field in fields}
-        for field, (ind, val) in product(fields, enumerate(sheet.row_values(row_offset))) :
-            if field == val or (all(map(utils.stringish, (field, val))) and
-                                field.lower() == val.lower()):
-                temp_rtn[field].append(ind)
+        if table in self.tic_dat_factory.generic_tables:
+            temp_rtn = defaultdict(list)
+            for ind, val in enumerate(sheet.row_values(row_offset)):
+                temp_rtn[val].append(ind)
+        else:
+            temp_rtn =  {field:list() for field in fields}
+            for field, (ind, val) in product(fields, enumerate(sheet.row_values(row_offset))) :
+                if field == val or (all(map(utils.stringish, (field, val))) and
+                                    field.lower() == val.lower()):
+                    temp_rtn[field].append(ind)
         return ({field : inds[0] for field, inds in temp_rtn.items() if len(inds)==1},
                 [field for field, inds in temp_rtn.items() if len(inds) == 0],
                 [field for field, inds in temp_rtn.items() if len(inds) > 1])
+
 
     def write_file(self, tic_dat, file_path, allow_overwrite = False):
         """
@@ -255,6 +271,9 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
         verify(not os.path.isdir(file_path), "A directory is not a valid xls file path")
         verify(allow_overwrite or not os.path.exists(file_path),
                "The %s path exists and overwrite is not allowed"%file_path)
+        if self.tic_dat_factory.generic_tables:
+            dat, tdf = utils.create_generic_free(tic_dat, self.tic_dat_factory)
+            return tdf.xls.write_file(dat, file_path, allow_overwrite)
         if file_path.endswith(".xls"):
             self._xls_write(tic_dat, file_path)
         else:

@@ -13,6 +13,7 @@ import unittest
 
 #@fail_to_debugger
 class TestSql(unittest.TestCase):
+    can_run = False
     @classmethod
     def setUpClass(cls):
         makeCleanDir(_scratchDir)
@@ -25,8 +26,44 @@ class TestSql(unittest.TestCase):
             self.assertTrue("TicDatError" in e.__class__.__name__)
             return str(e)
 
+    def _test_generic_copy(self, ticDat, tdf, skip_tables=None):
+        assert all(tdf.primary_key_fields.get(t) for t in tdf.all_tables)
+        path = makeCleanDir(os.path.join(_scratchDir, "generic_copy"))
+        replace_name  = lambda f : "name_" if f == "name" else f
+        clean_tdf = TicDatFactory(**{t:[map(replace_name, pks), dfs]
+                                     for t,(pks, dfs) in tdf.schema().items()})
+
+        temp_tdf = TicDatFactory(**{t:v if t in (skip_tables or []) else '*'
+                                    for t,v in clean_tdf.schema().items()})
+        temp_dat = temp_tdf.TicDat(**{t:getattr(ticDat, t) for t in (skip_tables or [])})
+        for t in temp_tdf.generic_tables:
+            setattr(temp_dat, t, getattr(clean_tdf.copy_to_pandas(ticDat, drop_pk_columns=False) ,t))
+
+        temp_tdf.sql.write_db_data(temp_dat, os.path.join(path, "f.db"))
+        temp_tdf.sql.write_sql_file(temp_dat, os.path.join(path, "f1.sql"), include_schema=False)
+        temp_tdf.sql.write_sql_file(temp_dat, os.path.join(path, "f2.sql"), include_schema=True)
+
+        for file_name, includes_schema in [("f.db", False), ("f1.sql", False), ("f2.sql", True)]:
+            file_path = os.path.join(path, file_name)
+            if file_path.endswith(".db"):
+                self.assertFalse(temp_tdf.sql.find_duplicates(file_path))
+                read_dat = temp_tdf.sql.create_tic_dat(file_path)
+            else:
+                read_dat = temp_tdf.sql.create_tic_dat_from_sql(file_path, includes_schema)
+            generic_free_dat, _ = utils.create_generic_free(read_dat, temp_tdf)
+            check_dat = clean_tdf.TicDat()
+            for t in temp_tdf.generic_tables:
+                for r in getattr(generic_free_dat, t):
+                    pks = clean_tdf.primary_key_fields[t]
+                    getattr(check_dat, t)[r[pks[0]] if len(pks) == 1 else tuple(r[_] for _ in pks)] = \
+                        {df:r[df] for df in clean_tdf.data_fields.get(t, [])}
+            for t in (skip_tables or []):
+                for k,v in getattr(generic_free_dat, t).items():
+                    getattr(check_dat, t)[k] = v
+            self.assertTrue(clean_tdf._same_data(check_dat, clean_tdf.copy_tic_dat(ticDat)))
+
     def testDups(self):
-        if not _can_unit_test:
+        if not self.can_run:
             return
         tdf = TicDatFactory(one = [["a"],["b, c"]],
                             two = [["a", "b"],["c"]],
@@ -40,7 +77,7 @@ class TestSql(unittest.TestCase):
         self.assertTrue(dups ==  {'three': {(1, 2, 2): 2}, 'two': {(1, 2): 3}, 'one': {1: 3, 2: 2}})
 
     def testDiet(self):
-        if not _can_unit_test:
+        if not self.can_run:
             return
         def doTheTests(tdf) :
             ticDat = tdf.freeze_me(tdf.TicDat(**{t:getattr(dietData(),t) for t in tdf.primary_key_fields}))
@@ -68,7 +105,7 @@ class TestSql(unittest.TestCase):
             changeit()
             self.assertFalse(tdf._same_data(ticDat, sqlTicDat))
 
-            tdf.sql.write_sql_file(ticDat, filePath, include_schema=True)
+            tdf.sql.write_sql_file(ticDat, filePath, include_schema=True, allow_overwrite=True)
             sqlTicDat = tdf.sql.create_tic_dat_from_sql(filePath, includes_schema=True, freeze_it=True)
             self.assertTrue(tdf._same_data(ticDat, sqlTicDat))
             self.assertTrue(self.firesException(changeit))
@@ -87,6 +124,8 @@ class TestSql(unittest.TestCase):
         self.assertTrue(ordered.index("foods") < ordered.index("nutritionQuantities"))
 
         ticDat = tdf.TicDat(**{t:getattr(dietData(),t) for t in tdf.primary_key_fields})
+        self._test_generic_copy(ticDat, tdf)
+        self._test_generic_copy(ticDat, tdf, ["nutritionQuantities"])
         origTicDat = tdf.copy_tic_dat(ticDat)
         self.assertTrue(tdf._same_data(ticDat, origTicDat))
         self.assertFalse(tdf.find_foreign_key_failures(ticDat))
@@ -104,7 +143,7 @@ class TestSql(unittest.TestCase):
         doTheTests(tdf)
 
     def testWeirdDiets(self):
-        if not _can_unit_test:
+        if not self.can_run:
             return
         filePath = os.path.join(_scratchDir, "weirdDiet.db")
         tdf = TicDatFactory(**dietSchema())
@@ -132,7 +171,7 @@ class TestSql(unittest.TestCase):
         self.assertTrue(self.firesException(lambda : tdf3.sql.create_tic_dat(filePath)))
 
     def testNetflow(self):
-        if not _can_unit_test:
+        if not self.can_run:
             return
         tdf = TicDatFactory(**netflowSchema())
         addNetflowForeignKeys(tdf)
@@ -140,6 +179,8 @@ class TestSql(unittest.TestCase):
         self.assertTrue(ordered.index("nodes") < min(ordered.index(_) for _ in ("arcs", "cost", "inflow")))
         self.assertTrue(ordered.index("commodities") < min(ordered.index(_) for _ in ("cost", "inflow")))
         ticDat = tdf.freeze_me(tdf.TicDat(**{t:getattr(netflowData(),t) for t in tdf.primary_key_fields}))
+        self._test_generic_copy(ticDat, tdf)
+        self._test_generic_copy(ticDat, tdf, ["arcs", "nodes"])
         filePath = os.path.join(_scratchDir, "netflow.sql")
         tdf.sql.write_db_data(ticDat, filePath)
         self.assertFalse(tdf.sql.find_duplicates(filePath))
@@ -191,7 +232,7 @@ class TestSql(unittest.TestCase):
         self.assertTrue(tdf._same_data(ticDat3, ticDat4))
 
     def testSilly(self):
-        if not _can_unit_test:
+        if not self.can_run:
             return
         tdf = TicDatFactory(**sillyMeSchema())
         ticDat = tdf.TicDat(**sillyMeData())
@@ -244,7 +285,7 @@ class TestSql(unittest.TestCase):
         self.assertTrue(ticDatNone.a["theboger"]["aData2"] == None)
 
     def testInjection(self):
-        if not _can_unit_test:
+        if not self.can_run:
             return
         problems = [ "'", "''", '"', '""']
         tdf = TicDatFactory(boger = [["a"], ["b"]])
@@ -262,7 +303,7 @@ class TestSql(unittest.TestCase):
         self.assertTrue(firesException(lambda : tdf.sql.create_tic_dat_from_sql(filePath)))
 
     def testSpacey(self):
-        if not _can_unit_test:
+        if not self.can_run:
             return
         tdf = TicDatFactory(**spacesSchema())
         dat = tdf.TicDat(**spacesData())
@@ -283,6 +324,10 @@ _scratchDir = TestSql.__name__ + "_scratch"
 # Run the tests.
 if __name__ == "__main__":
     td = TicDatFactory()
-    if not hasattr(td, "sql") :
+    if not utils.DataFrame :
+        print("!!!!!!!!!FAILING SQL UNIT TESTS DUE TO FAILURE TO LOAD PANDAS LIBRARIES!!!!!!!!")
+    elif not _can_unit_test :
         print("!!!!!!!!!FAILING SQL UNIT TESTS DUE TO FAILURE TO LOAD SQL LIBRARIES!!!!!!!!")
+    else:
+        TestSql.can_run = True
     unittest.main()

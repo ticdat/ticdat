@@ -6,7 +6,7 @@ import os
 from collections import defaultdict
 from ticdat.utils import freezable_factory, TicDatError, verify, stringish, dictish, containerish
 from ticdat.utils import FrozenDict, all_underscore_replacements, find_duplicates
-
+from ticdat.utils import create_duplicate_focused_tdf, create_generic_free
 
 try:
     import sqlite3 as sql
@@ -63,7 +63,7 @@ class SQLiteTicFactory(freezable_factory(object, "_isFrozen")) :
     Primary class for reading/writing SQLite files with ticDat objects.
     You need the sqlite3 package to be installed to use it.
     """
-    def __init__(self, tic_dat_factory, duplicate_focused_tdf):
+    def __init__(self, tic_dat_factory):
         """
         Don't call this function explicitly. A SQLiteTicFactory will
         automatically be associated with the sql attribute of the parent
@@ -72,7 +72,7 @@ class SQLiteTicFactory(freezable_factory(object, "_isFrozen")) :
         :return:
         """
         self.tic_dat_factory = tic_dat_factory
-        self._duplicate_focused_tdf = duplicate_focused_tdf
+        self._duplicate_focused_tdf = create_duplicate_focused_tdf(tic_dat_factory)
         self._isFrozen = True
     def _Rtn(self, freeze_it):
         if freeze_it:
@@ -112,6 +112,8 @@ class SQLiteTicFactory(freezable_factory(object, "_isFrozen")) :
                  Row counts smaller than 2 are pruned off, as they aren't duplicates
         """
         verify(sql, "sqlite3 needs to be installed to use this subroutine")
+        if not self._duplicate_focused_tdf:
+            return {}
         return find_duplicates(self._duplicate_focused_tdf.sql.create_tic_dat(db_file_path),
                               self._duplicate_focused_tdf)
     def _fks(self):
@@ -123,9 +125,11 @@ class SQLiteTicFactory(freezable_factory(object, "_isFrozen")) :
         verify(os.path.exists(sql_file_path), "%s isn't a valid file path"%sql_file_path)
         verify(not self.tic_dat_factory.generator_tables,
                "recovery of generator tables from sql files not yet implemented")
+        tdf = self.tic_dat_factory
         with sql.connect(":memory:") as con:
             if not includes_schema:
-                for str in self._get_schema_sql():
+                for str in self._get_schema_sql(set(tdf.all_tables).
+                                                difference(tdf.generic_tables)):
                     con.execute(str)
             with open(sql_file_path, "r") as f:
                 for str in f.read().split(";"):
@@ -190,16 +194,23 @@ class SQLiteTicFactory(freezable_factory(object, "_isFrozen")) :
         rtn = {}
         for table in set(tdf.all_tables).difference(tdf.generator_tables) :
             fields = tdf.primary_key_fields.get(table, ()) + tdf.data_fields.get(table, ())
+            if not fields:
+                assert table in tdf.generic_tables
+                fields = tuple(x[1] for x in con.execute("PRAGMA table_info(%s)"%table))
             rtn[table]= {} if tdf.primary_key_fields.get(table, ())  else []
             for row in con.execute("Select %s from [%s]"%(", ".join(_brackets(fields)),
-                                                          table_names[table])) :
-                pk = row[:len(tdf.primary_key_fields.get(table, ()))]
-                data = list(map(_read_data_format,
-                                row[len(tdf.primary_key_fields.get(table, ())):]))
-                if dictish(rtn[table]) :
-                    rtn[table][pk[0] if len(pk) == 1 else tuple(pk)] = data
-                else :
-                    rtn[table].append(data)
+                                                          table_names[table])):
+                if table in tdf.generic_tables:
+                    rtn[table].append({f:_read_data_format(d) for f,d in zip(fields,row)})
+                else:
+                    pk = row[:len(tdf.primary_key_fields.get(table, ()))]
+                    data = list(map(_read_data_format,
+                                    row[len(tdf.primary_key_fields.get(table, ())):]))
+
+                    if dictish(rtn[table]) :
+                        rtn[table][pk[0] if len(pk) == 1 else tuple(pk)] = data
+                    else :
+                        rtn[table].append(data)
         return rtn
     def _ordered_tables(self):
         rtn = []
@@ -211,10 +222,11 @@ class SQLiteTicFactory(freezable_factory(object, "_isFrozen")) :
                 rtn.append(t)
         list(map(processTable, self.tic_dat_factory.all_tables))
         return tuple(rtn)
-    def _get_schema_sql(self):
+    def _get_schema_sql(self, tables):
+        assert not set(self.tic_dat_factory.generic_tables).intersection(tables)
         rtn = []
         fks = self._fks()
-        for t in self._ordered_tables() :
+        for t in [_ for _ in self._ordered_tables() if _ in tables]:
             str = "Create TABLE [%s] (\n"%t
             strl = _brackets(self.tic_dat_factory.primary_key_fields.get(t, ())) + \
                    ["[%s]"%f + " default [%s]"%self.tic_dat_factory.default_values.get(t, {}).get(f, 0)
@@ -262,8 +274,11 @@ class SQLiteTicFactory(freezable_factory(object, "_isFrozen")) :
         :param db_file_path: the file path of the SQLite database to create
         :return:
         """
+        verify(not self.tic_dat_factory.generic_tables,
+               "generic_tables are not compatible with write_db_schema. " +
+               "Use write_db_data instead.")
         with _sql_con(db_file_path, foreign_keys=False) as con:
-            for str in self._get_schema_sql():
+            for str in self._get_schema_sql(self.tic_dat_factory.all_tables):
                 con.execute(str)
     def write_db_data(self, tic_dat, db_file_path, allow_overwrite = False):
         """
@@ -279,6 +294,9 @@ class SQLiteTicFactory(freezable_factory(object, "_isFrozen")) :
         if not self.tic_dat_factory.good_tic_dat_object(tic_dat, lambda m : msg.append(m)) :
             raise TicDatError("Not a valid TicDat object for this schema : " + " : ".join(msg))
         verify(not os.path.isdir(db_file_path), "A directory is not a valid SQLite file path")
+        if self.tic_dat_factory.generic_tables:
+             dat, tdf = create_generic_free(tic_dat, self.tic_dat_factory)
+             return tdf.sql.write_db_data(dat, db_file_path, allow_overwrite)
         if not os.path.exists(db_file_path) :
             self.write_db_schema(db_file_path)
         table_names = self._check_tables_fields(db_file_path, self.tic_dat_factory.all_tables)
@@ -292,17 +310,30 @@ class SQLiteTicFactory(freezable_factory(object, "_isFrozen")) :
             for sql_str, data in self._get_data(tic_dat, as_sql=False):
                 con.execute(sql_str, list(data))
 
-    def write_sql_file(self, tic_dat, sql_file_path, include_schema = False):
+    def write_sql_file(self, tic_dat, sql_file_path, include_schema = False,
+                       allow_overwrite = False):
         """
         write the sql for the ticDat data to a text file
         :param tic_dat: the data object to write
         :param sql_file_path: the path of the text file to hold the sql statements for the data
         :param include_schema: boolean - should we write the schema sql first?
+        :param allow_overwrite: boolean - are we allowed to overwrite pre-existing file
         :return:
         caveats : float("inf"), float("-inf") are written as "inf", "-inf"
         """
         verify(sql, "sqlite3 needs to be installed to use this subroutine")
+        verify(allow_overwrite or not os.path.exists(sql_file_path),
+               "The %s path exists and overwrite is not allowed"%sql_file_path)
+        must_schema = set(self.tic_dat_factory.all_tables if include_schema else [])
+        if self.tic_dat_factory.generic_tables:
+             gt = self.tic_dat_factory.generic_tables
+             dat, tdf = create_generic_free(tic_dat, self.tic_dat_factory)
+             return tdf.sql._write_sql_file(dat, sql_file_path, must_schema.union(gt))
+        return self._write_sql_file(tic_dat, sql_file_path, must_schema)
+
+    def _write_sql_file(self, tic_dat, sql_file_path, schema_tables):
         with open(sql_file_path, "w") as f:
-            for str in (self._get_schema_sql() if include_schema else ()) + \
-                        self._get_data(tic_dat, as_sql=True):
+            for str in self._get_schema_sql(schema_tables) + \
+                       self._get_data(tic_dat, as_sql=True):
                 f.write(str + "\n")
+

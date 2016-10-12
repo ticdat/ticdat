@@ -69,11 +69,6 @@ class _TypeDictionary(namedtuple("TypeDictionary",
             return bool(self.nullable)
         return False
 
-def _duplicate_focused_tdf(tdf):
-    primary_key_fields = {k:v for k,v in tdf.primary_key_fields.items() if v}
-    if primary_key_fields:
-        return TicDatFactory(**{k:[[],v] for k,v in primary_key_fields.items()})
-
 class TicDatFactory(freezable_factory(object, "_isFrozen")) :
     """
     Primary class for ticdat library. This class is constructed with a schema,
@@ -99,6 +94,8 @@ class TicDatFactory(freezable_factory(object, "_isFrozen")) :
         tables_fields = {t: [list(self.primary_key_fields.get(t, [])),
                              list(self.data_fields.get(t, []))]
                           for t in set(self.primary_key_fields).union(self.data_fields)}
+        for t in self.generic_tables:
+            tables_fields[t]='*'
         if not include_ancillary_info:
             return tables_fields
         return {"tables_fields" : tables_fields,
@@ -172,6 +169,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen")) :
         verify(not self._has_been_used,
                "The data types can't be changed after a TicDatFactory has been used.")
         verify(table in self.all_tables, "Unrecognized table name %s"%table)
+        verify(table not in self.generic_tables, "Cannot set data type for generic table")
         verify(field in self.data_fields[table] + self.primary_key_fields[table],
                "%s does not refer to a field for %s"%(field, table))
 
@@ -253,6 +251,9 @@ class TicDatFactory(freezable_factory(object, "_isFrozen")) :
                "The generator tables can't be changed after a TicDatFactory has been used.")
         verify(containerish(g) and set(g).issubset(self.all_tables),
                "Generator_tables should be a container of table names")
+        verify(not set(g).intersection(self.generic_tables),
+               "Generator tables cannot refer to generic tables.\n" +
+               "I.e. generic tables cannot be generator tables.")
         verify(not any(self.primary_key_fields.get(t) for t in g),
                "Can not make generators from tables with primary keys")
         self._generator_tables[:] = [_ for _ in g]
@@ -322,6 +323,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen")) :
                 "The foreign keys can't be changed after a TicDatFactory has been used.")
         for t in (native_table, foreign_table):
             verify(t in self.all_tables, "%s is not a table name"%t)
+            verify(t not in self.generic_tables, "%s is a generic table"%t)
         verify(lupish(mappings) and mappings, "mappings needs to be a non empty list or a tuple")
         if lupish(mappings[0]):
             verify(all(len(_) == 2 for _ in mappings),
@@ -397,8 +399,10 @@ foreign keys, the code throwing this exception will be removed.
         dict_tables = {t for t,pk in self.primary_key_fields.items() if pk}
         for t in dict_tables:
             rtn[t] = {pk : {k:v for k,v in row.items()} for pk,row in getattr(ticdat,t).items()}
-        for t in set(self.all_tables).difference(dict_tables):
+        for t in set(self.all_tables).difference(dict_tables, self.generic_tables):
             rtn[t] = [{k:v for k,v in row.items()} for row in getattr(ticdat, t)]
+        for t in self.generic_tables:
+            rtn[t] = getattr(ticdat, t).to_dict()
         return rtn
     def __init__(self, **init_fields):
         """
@@ -410,6 +414,10 @@ foreign keys, the code throwing this exception will be removed.
         ex: TicDatFactory (categories =  [["name"],["minNutrition", "maxNutrition"]],
                            foods  =  [["name"],["cost"]]
                            nutritionQuantities = [["food", "category"],["qty"]])
+                           Use '*' instead of a pair of lists for generic tables,
+                           which will render as pandas.DataFrame objects.
+        ex: TicDatFactory (typical_table = [["primary key field"],["data field"]],
+                           generic_table = '*')
         :return: a TicDatFactory
         """
         self._has_been_used = [] # append to this to make it truthy
@@ -420,18 +428,25 @@ foreign keys, the code throwing this exception will be removed.
         verify(len(init_fields) == len({_.lower() for _ in init_fields}),
                "there are case insensitive duplicate table names")
         for k,v in init_fields.items():
-            verify(containerish(v) and len(v) == 2 and all(containerish(_) for _ in v),
-                   ("Table %s needs to specify two sublists, " +
-                    "one for primary key fields and one for data fields")%k)
-            verify(all(utils.stringish(s) for _ in v for s in _),
-                   "The field names for %s need to be strings"%k)
-            verify(v[0] or v[1], "No field names specified for table %s"%k)
-            verify(len(set(v[0]).union(v[1])) == len(v[0])+len(v[1]),
-                   "There are duplicate field names for table %s"%k)
-            verify(len({_.lower() for _ in list(v[0]) + list(v[1])}) == len(v[0])+len(v[1]),
-                   "There are case insensitive duplicate field names for %s"%k)
-        self._primary_key_fields = FrozenDict({k : tuple(v[0])for k,v in init_fields.items()})
-        self._data_fields = FrozenDict({k : tuple(v[1]) for k,v in init_fields.items()})
+            verify(v == '*' or
+                   (containerish(v) and len(v) == 2 and all(containerish(_) for _ in v)),
+                   ("Table %s needs to indicate it is a generic table by using '*'\n" +
+                    "or specify two sublists, one for primary key fields and one for data fields")
+                   %k)
+            if v != '*':
+                verify(all(utils.stringish(s) for _ in v for s in _),
+                       "The field names for %s need to be strings"%k)
+                verify(v[0] or v[1], "No field names specified for table %s"%k)
+                verify(len(set(v[0]).union(v[1])) == len(v[0])+len(v[1]),
+                       "There are duplicate field names for table %s"%k)
+                verify(len({_.lower() for _ in list(v[0]) + list(v[1])}) == len(v[0])+len(v[1]),
+                       "There are case insensitive duplicate field names for %s"%k)
+        self.generic_tables = frozenset(k for k,v in init_fields.items() if v == '*')
+        verify(not (self.generic_tables and not DataFrame),
+               "Need to install pandas in order to specify variable schema tables")
+        self._primary_key_fields = FrozenDict({k : tuple(v[0])for k,v in init_fields.items()
+                                               if v != '*'})
+        self._data_fields = FrozenDict({k : tuple(v[1]) for k,v in init_fields.items() if v != '*'})
         self._default_values = clt.defaultdict(dict)
         self._data_types = clt.defaultdict(dict)
         self._generator_tables = []
@@ -446,6 +461,7 @@ foreign keys, the code throwing this exception will be removed.
         goodticdattable = self.good_tic_dat_table
         superself = self
         def ticdattablefactory(alldatadicts, tablename, primarykey = (), rowfactory_ = None) :
+            assert tablename not in self.generic_tables
             assert containerish(primarykey)
             primarykey = primarykey or  self.primary_key_fields.get(tablename, ())
             keylen = len(primarykey)
@@ -492,7 +508,7 @@ foreign keys, the code throwing this exception will be removed.
             def _freeze(self):
                 if getattr(self, "_isFrozen", False) :
                     return
-                for t in superself.all_tables :
+                for t in set(superself.all_tables).difference(superself.generic_tables):
                     _t = getattr(self, t)
                     if utils.dictish(_t) or utils.containerish(_t) :
                         for v in getattr(_t, "values", lambda : _t)() :
@@ -524,7 +540,10 @@ foreign keys, the code throwing this exception will be removed.
                 self._made_foreign_links = False
                 for t in init_tables :
                     verify(t in superself.all_tables, "Unexpected table name %s"%t)
+                    if t in superself.generic_tables:
+                        setattr(self, t, DataFrame(init_tables[t]))
                 for t,v in init_tables.items():
+                  if t not in superself.generic_tables:
                     badticdattable = []
                     if not (goodticdattable(v, t, lambda x : badticdattable.append(x))) :
                         raise utils.TicDatError(t + " cannot be treated as a ticDat table : " +
@@ -558,6 +577,8 @@ foreign keys, the code throwing this exception will be removed.
                     if t in superself.generator_tables :
                         # a calleable that returns an empty generator
                         setattr(self, t, generatorfactory((), t))
+                    elif t in superself.generic_tables:
+                        setattr(self, t, DataFrame())
                     else :
                         setattr(self, t, ticdattablefactory(self._all_data_dicts, t)())
                 if init_tables :
@@ -618,8 +639,8 @@ foreign keys, the code throwing this exception will be removed.
         self.TicDat = TicDat
         self.xls = xls.XlsTicFactory(self)
         self.csv = csv.CsvTicFactory(self)
-        self.sql = sql.SQLiteTicFactory(self, _duplicate_focused_tdf(self))
-        self.mdb = mdb.MdbTicFactory(self, _duplicate_focused_tdf(self))
+        self.sql = sql.SQLiteTicFactory(self)
+        self.mdb = mdb.MdbTicFactory(self)
         self._isFrozen=True
 
     def _allFields(self, table):
@@ -638,10 +659,18 @@ foreign keys, the code throwing this exception will be removed.
             if not hasattr(data_obj, t) :
                 bad_message_handler(t + " not an attribute.")
                 return False
-            if DataFrame and isinstance(getattr(data_obj, t), DataFrame):
-                bad_message_handler(t + " is a DataFrame. " +
-                                    "Currently, DataFrames can only be used to construct a TicDat")
-                return False
+            if DataFrame:
+                if isinstance(getattr(data_obj, t), DataFrame) and t not in self.generic_tables:
+                    bad_message_handler(t + " is a DataFrame but not a generic table.\n" +
+                                        "DataFrames can only be used to construct a TicDat " +
+                                        "or as attributes for generic_tables")
+                    return False
+                if not isinstance(getattr(data_obj, t), DataFrame) and t in self.generic_tables:
+                    bad_message_handler(t + " is a generic table, but not a DataFrame")
+                    return False
+            elif t in self.generic_tables:
+                    bad_message_handler("Strangely, you have generic tables but not pandas")
+                    return False
             rtn = rtn and  self.good_tic_dat_table(getattr(data_obj, t), t,
                     lambda x : bad_message_handler(t + " : " + x))
         return rtn
@@ -840,7 +869,9 @@ foreign keys, the code throwing this exception will be removed.
 
         for tname in table_restrictions:
             tdtable = getattr(tic_dat, tname)
-            if len(tdtable) == 0 :
+            if tname in self.generic_tables:
+                df = tname
+            elif len(tdtable) == 0 :
                 df = DataFrame([], columns = self.primary_key_fields.get(tname,tuple()) +
                                                 self.data_fields.get(tname, tuple()))
             elif dictish(tdtable):
