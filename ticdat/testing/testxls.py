@@ -299,6 +299,41 @@ class TestXls(unittest.TestCase):
         self.assertTrue(all (td3.woger[i]["real"] == 200 for i in range(5)))
         self.assertTrue(td3.boger[0]["big"] == 200 and len(td3.boger) == 1)
 
+    def testIntHandling(self):
+        if not self.can_run:
+            return
+        tdf = TicDatFactory(boger = [["the"],["big", "boger"]],
+                            moger = [["the", "big"], ["boger"]],
+                            woger = [[], ["the","big", "boger"]])
+        for t in ["boger", "moger", "woger"]:
+            tdf.set_data_type(t, "big", must_be_int=True)
+        dat  = tdf.TicDat(boger = {1:[1.0, "t"], "b":[12, 11.1], 12.1:[14.0, 15.0]},
+                          moger = {(1,1.0):"t", ("b", 12):11.1, (12.1,14.0):15.0},
+                          woger = [(1,1.0,"t"),("b",12,11.1),(12.1,14.0,15.0)])
+        filePath = os.path.join(_scratchDir, "intHandling.xls")
+        tdf.xls.write_file(dat, filePath)
+        dat2 = tdf.xls.create_tic_dat(filePath)
+
+        tdf3 = TicDatFactory(boger = [["the"],["big", "boger"]],
+                            moger = [["the", "big"], ["boger"]],
+                            woger = [[], ["the","big", "boger"]])
+        dat3 = tdf3.xls.create_tic_dat(filePath)
+        self.assertFalse(any(map(tdf.find_data_type_failures, [dat, dat2, dat3])))
+        self.assertTrue(all(tdf._same_data(dat, _) for _ in [dat2, dat3]))
+
+        self.assertFalse(all(isinstance(r["big"], int) for r in list(dat.boger.values()) +
+                            list(dat.woger)))
+        self.assertTrue(all(isinstance(r["big"], int) for r in list(dat2.boger.values()) +
+                            list(dat2.woger)))
+        self.assertFalse(any(isinstance(r["big"], int) for r in list(dat3.boger.values()) +
+                            list(dat3.woger)))
+        self.assertTrue(all(isinstance(_.woger[1]["big"], int) for _ in [dat, dat2]))
+
+        self.assertFalse(all(isinstance(k[-1], int) for k in dat.moger))
+        self.assertTrue(any(isinstance(k[-1], int) for k in dat.moger))
+        self.assertTrue(all(isinstance(k[-1], int) for k in dat2.moger))
+        self.assertFalse(any(isinstance(k[-1], int) for k in dat3.moger))
+
     def testBiggie(self):
         if not self.can_run:
             return
