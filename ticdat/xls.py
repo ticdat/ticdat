@@ -64,9 +64,13 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
                  with underscore for table name matching.
                  Field names are considered case insensitive, but white space is respected.
                  (ticdat supports whitespace in field names but not table names).
-                 Any field for which an empty string is invalid data and None is valid data
-                 will replace the empty string with None. (This caveat requires the data_types
-                 to be set for the ticDatFactory)
+                 The following two caveats apply only if data_types are used.
+                 --> Any field for which an empty string is invalid data and None is
+                     valid data will replace the empty string with None.
+                 --> Any field for which must_be_int is true will replace numeric
+                     data that satisfies int(x)==x with int(x). In other words,
+                     the ticdat equivalent of pandas.read_excel convert_float
+                     is to set must_be_int to true in data_types.
         """
         verify(xlrd, "xlrd needs to be installed to use this subroutine")
         tdf = self.tic_dat_factory
