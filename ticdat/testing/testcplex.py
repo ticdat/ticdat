@@ -1,23 +1,23 @@
 from ticdat import TicDatFactory, Model, utils
-from ticdat.model import gurobi
+from ticdat.model import cplex
 from ticdat.testing.ticdattestutils import dietSolver, fail_to_debugger, nearlySame
 import unittest
 
 #@fail_to_debugger
-class TestGurobi(unittest.TestCase):
+class TestCplex(unittest.TestCase):
     can_run = False
     def testDiet(self):
-        sln, cost = dietSolver("gurobi")
+        sln, cost = dietSolver("cplex")
         self.assertTrue(sln)
         self.assertTrue(nearlySame(cost, 11.8289))
 
-_scratchDir = TestGurobi.__name__ + "_scratch"
+_scratchDir = TestCplex.__name__ + "_scratch"
 
 # Run the tests.
 if __name__ == "__main__":
     td = TicDatFactory()
-    if utils.stringish(gurobi) :
-        print("!!!!!!!!!FAILING GUROBI UNIT TESTS DUE TO FAILURE TO LOAD GUROBI LIBRARIES!!!!!!!!")
+    if utils.stringish(cplex) :
+        print("!!!!!!!!!FAILING CPLEX UNIT TESTS DUE TO FAILURE TO LOAD CPLEX LIBRARIES!!!!!!!!")
     else:
-        TestGurobi.can_run = True
+        TestCplex.can_run = True
     unittest.main()

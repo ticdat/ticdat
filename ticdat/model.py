@@ -33,11 +33,11 @@ class Model(object):
         verify(not utils.stringish(engines[model_type]),
                "You need to have the %s package installed to build this model type."%
                engines[model_type])
-        self._core_model = ({"gurobi":gurobi.Model, "cplex":cplex.Model,
-                             "xpress":xpress.problem}[model_type])(model_name)
+        self._core_model = getattr(engines[model_type],
+                            {"gurobi":"Model", "cplex":"Model","xpress":"problem"}[model_type])(model_name)
         self._model_type = model_type
-        self._sum = {"gurobi":gurobi.quicksum, "cplex":self.core_model.sum,
-                     "xpress":xpress.Sum}[model_type]
+        self._sum = ({"gurobi":lambda : gurobi.quicksum, "cplex": lambda : self.core_model.sum,
+                     "xpress":lambda : xpress.Sum}[model_type])()
 
     @property
     def core_model(self):
@@ -59,7 +59,9 @@ class Model(object):
         name_dict = {"name":name} if name else {}
         if self.model_type == "gurobi":
             vtype = {"continuous":gurobi.GRB.CONTINUOUS, "binary":gurobi.GRB.BINARY}[type]
-            return self.core_model.addVar(lb=lb, ub=ub, vtype=vtype, **name_dict)
+            rtn =  self.core_model.addVar(lb=lb, ub=ub, vtype=vtype, **name_dict)
+            self.core_model.update()        # issue 1323
+            return rtn
         if self.model_type == "cplex":
             if type == "continuous":
                 return self.core_model.continuous_var(lb=lb, ub=ub, **name_dict)
