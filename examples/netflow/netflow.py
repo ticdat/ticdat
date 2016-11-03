@@ -54,8 +54,8 @@ _model_type = "gurobi" # could also be 'cplex' or 'xpress'
 def solve(dat):
     """
     core solving routine
-    :param dat: a good ticdat for the dataFactory
-    :return: a good ticdat for the solutionFactory, or None
+    :param dat: a good ticdat for the input_factory
+    :return: a good ticdat for the solution_factory, or None
     """
 
     mdl = Model(_model_type, "netflow")
