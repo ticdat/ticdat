@@ -1,9 +1,6 @@
 #!/usr/bin/python
 
 # Copyright 2015, 2016 Opalytics, Inc.
-
-# edited with permission from Gurobi Optimization, Inc.
-
 #
 # This file solves the diet model with a static (i.e. hard coded) small data example.
 #
