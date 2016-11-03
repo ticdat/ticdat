@@ -12,7 +12,7 @@
 #
 # Provides command line interface via ticdat.standard_main
 # For example, typing
-#   python netflowmodel.py -i csv_data -o solution_csv_data
+#   python netflow.py -i csv_data -o solution_csv_data
 # will read from a model stored in .csv files in the csv_data directory
 # and write the solution to .csv files in the solution_csv_data directory
 
@@ -95,7 +95,7 @@ def solve(dat):
 # ---------------------------------------------------------------------------------
 
 # ------------------------ provide stand-alone functionality ----------------------
-# when run from the command line, will read/write xls/csv/db/mdb files
+# when run from the command line, will read/write xls/csv/db/sql/mdb files
 if __name__ == "__main__":
     standard_main(input_factory, solution_factory, solve)
 # ---------------------------------------------------------------------------------
