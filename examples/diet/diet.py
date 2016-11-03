@@ -52,6 +52,11 @@ solution_factory = TicDatFactory(
 # ------------------------ create a solve function --------------------------------
 _model_type = "gurobi" # could also be 'cplex' or 'xpress'
 def solve(dat):
+    """
+    core solving routine
+    :param dat: a good ticdat for the input_factory
+    :return: a good ticdat for the solution_factory, or None
+    """
     assert input_factory.good_tic_dat_object(dat)
     assert not input_factory.find_foreign_key_failures(dat)
     assert not input_factory.find_data_type_failures(dat)
