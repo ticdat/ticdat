@@ -5,7 +5,7 @@ import itertools
 import fnmatch
 from ticdat.utils import dictish, containerish, verify
 import unittest
-from ticdat import TicDatFactory, Model
+from ticdat import TicDatFactory, Model, Slicer
 
 __codeFile = []
 def _codeFile() :
@@ -440,6 +440,55 @@ def dietSolver(modelType):
         return (sln, sum(dat.foods[f]["cost"] * r["qty"] for f,r in sln.buyFood.items()))
 
 
+def netflowSolver(modelType):
+    tdf = TicDatFactory(**netflowSchema())
+    addNetflowForeignKeys(tdf)
+    addNetflowDataTypes(tdf)
+
+    dat = tdf.copy_tic_dat(netflowData())
+    assert not tdf.find_data_type_failures(dat) and not tdf.find_foreign_key_failures(dat)
+
+    mdl = Model(modelType, "netflow")
+
+    flow = {}
+    for h, i, j in dat.cost:
+        if (i,j) in dat.arcs:
+            flow[h,i,j] = mdl.add_var(name='flow_%s_%s_%s' % (h, i, j))
+
+    # docplex doesn't provide a native slicer so we use ticdat.Slicer
+    flowslice = Slicer(flow)
+
+    # Arc capacity constraints
+    for i_,j_ in dat.arcs:
+        mdl.add_constraint(mdl.sum(flow[h,i,j] for h,i,j in flowslice.slice('*',i_, j_))
+                     <= dat.arcs[i_,j_]["capacity"],
+                     name = 'cap_%s_%s' % (i_, j_))
+
+
+    # for readability purposes using a dummy variable thats always zero
+    zero = mdl.add_var(lb=0, ub=0, name = "forcedToZero")
+
+    # Flow conservation constraints. Constraints are generated only for relevant pairs.
+    # So we generate a conservation of flow constraint if there is negative or positive inflow
+    # quantity, or at least one inbound flow variable, or at least one outbound flow variable.
+    for h_,j_ in set(k for k,v in dat.inflow.items() if abs(v["quantity"]) > 0).union(
+            {(h,i) for h,i,j in flow}, {(h,j) for h,i,j in flow}) :
+        mdl.add_constraint(
+          (mdl.sum(flow[h,i,j] for h,i,j in flowslice.slice(h_,'*',j_)) or zero) +
+              dat.inflow.get((h_,j_), {"quantity":0})["quantity"] ==
+          (mdl.sum(flow[h,i,j] for h,i,j in flowslice.slice(h_, j_, '*')) or zero),
+                   name = 'node_%s_%s' % (h_, j_))
+
+    mdl.set_objective(mdl.sum(flow * dat.cost[h, i, j]["cost"] for (h, i, j),flow in flow.items()))
+    if mdl.optimize():
+        solutionFactory = TicDatFactory(
+                flow = [["commodity", "source", "destination"], ["quantity"]])
+        if mdl.optimize():
+            rtn = solutionFactory.TicDat()
+            for (h, i, j),var in flow.items():
+                if mdl.get_solution_value(var) > 0:
+                    rtn.flow[h,i,j] = mdl.get_solution_value(var)
+            return (rtn, sum(dat.cost[h,i,j]["cost"] * r["quantity"] for (h,i,j),r in rtn.flow.items()))
 
 def sillyMeSchema() :
     return {"a" : [("aField",),("aData1", "aData2", "aData3") ],
