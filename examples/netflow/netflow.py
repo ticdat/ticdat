@@ -1,12 +1,8 @@
 #!/usr/bin/python
 
 # Copyright 2015, 2016 Opalytics, Inc.
-#
-# edited with permission from Gurobi Optimization, Inc.
 
 # Solve a multi-commodity flow problem as python package.
-# This version of the file doesn't use pandas at all, but instead uses ticdat
-# dict-of-dicts to represent data tables and gurobipy.tuplelist for slicing.
 
 # Implement core functionality needed to achieve modularity.
 # 1. Define the input data schema
@@ -20,11 +16,10 @@
 # will read from a model stored in .csv files in the csv_data directory
 # and write the solution to .csv files in the solution_csv_data directory
 
-from gurobipy import *
-from ticdat import TicDatFactory, standard_main
+from ticdat import TicDatFactory, standard_main, Model, Slicer
 
 # ------------------------ define the input schema --------------------------------
-dataFactory = TicDatFactory (
+input_factory = TicDatFactory (
      commodities = [["name"],[]],
      nodes  = [["name"],[]],
      arcs = [["source", "destination"],["capacity"]],
@@ -33,94 +28,74 @@ dataFactory = TicDatFactory (
 )
 
 # add foreign key constraints
-dataFactory.add_foreign_key("arcs", "nodes", ['source', 'name'])
-dataFactory.add_foreign_key("arcs", "nodes", ['destination', 'name'])
-dataFactory.add_foreign_key("cost", "nodes", ['source', 'name'])
-dataFactory.add_foreign_key("cost", "nodes", ['destination', 'name'])
-dataFactory.add_foreign_key("cost", "commodities", ['commodity', 'name'])
-dataFactory.add_foreign_key("inflow", "commodities", ['commodity', 'name'])
-dataFactory.add_foreign_key("inflow", "nodes", ['node', 'name'])
+input_factory.add_foreign_key("arcs", "nodes", ['source', 'name'])
+input_factory.add_foreign_key("arcs", "nodes", ['destination', 'name'])
+input_factory.add_foreign_key("cost", "nodes", ['source', 'name'])
+input_factory.add_foreign_key("cost", "nodes", ['destination', 'name'])
+input_factory.add_foreign_key("cost", "commodities", ['commodity', 'name'])
+input_factory.add_foreign_key("inflow", "commodities", ['commodity', 'name'])
+input_factory.add_foreign_key("inflow", "nodes", ['node', 'name'])
 
 # the whole schema has only three data fields to type
-dataFactory.set_data_type("arcs", "capacity")
-dataFactory.set_data_type("cost", "cost")
+input_factory.set_data_type("arcs", "capacity")
+input_factory.set_data_type("cost", "cost")
 # except quantity which allows negatives
-dataFactory.set_data_type("inflow", "quantity", min=-float("inf"),
+input_factory.set_data_type("inflow", "quantity", min=-float("inf"),
                           inclusive_min=False)
 # ---------------------------------------------------------------------------------
 
 # ------------------------ define the output schema -------------------------------
-solutionFactory = TicDatFactory(
+solution_factory = TicDatFactory(
         flow = [["commodity", "source", "destination"], ["quantity"]])
 # ---------------------------------------------------------------------------------
 
 # ------------------------ solving section-----------------------------------------
+_model_type = "gurobi" # could also be 'cplex' or 'xpress'
 def solve(dat):
     """
     core solving routine
     :param dat: a good ticdat for the dataFactory
     :return: a good ticdat for the solutionFactory, or None
     """
-    m, flow = create_model(dat)
 
-    # Compute optimal solution
-    m.optimize()
+    mdl = Model(_model_type, "netflow")
 
-    if m.status == GRB.status.OPTIMAL:
-        rtn = solutionFactory.TicDat()
-        for (h, i, j),var in flow.items():
-            if var.x > 0:
-                # ticdat recognizes flow as a one-data-field table, thus making write through easy
-                rtn.flow[h,i,j] = var.x
-        return rtn
+    flow = {(h, i, j) : mdl.add_var(name='flow_%s_%s_%s' % (h, i, j))
+            for h, i, j in dat.cost if (i,j) in dat.arcs}
 
-def create_model(dat):
-    '''
-    :param dat: a good ticdat for the dataFactory
-    :return: a gurobi model and dictionary of gurboi flow variables
-    '''
-    assert dataFactory.good_tic_dat_object(dat)
-    assert not dataFactory.find_foreign_key_failures(dat)
-    assert not dataFactory.find_data_type_failures(dat)
-
-    # Create optimization model
-    m = Model('netflow')
-
-    # Create variables
-    flow = {}
-    for h, i, j in dat.cost:
-        if (i,j) in dat.arcs:
-            flow[h,i,j] = m.addVar(ub=dat.arcs[i,j]["capacity"], obj=dat.cost[h,i,j]["cost"],
-                                   name='flow_%s_%s_%s' % (h, i, j))
-    m.update()
-
-    flowselect = tuplelist(flow)
+    flowslice = Slicer(flow)
 
     # Arc capacity constraints
     for i_,j_ in dat.arcs:
-        m.addConstr(quicksum(flow[h,i,j] for h,i,j in flowselect.select('*',i_, j_)) <= dat.arcs[i_,j_]["capacity"],
-                    'cap_%s_%s' % (i_, j_))
+        mdl.add_constraint(mdl.sum(flow[h,i,j] for h,i,j in flowslice.slice('*',i_, j_))
+                     <= dat.arcs[i_,j_]["capacity"],
+                     name = 'cap_%s_%s' % (i_, j_))
 
-
-    # for readability purposes using a dummy variable thats always zero
-    zero = m.addVar(lb=0, ub=0, name = "forcedToZero")
-    m.update()
 
     # Flow conservation constraints. Constraints are generated only for relevant pairs.
     # So we generate a conservation of flow constraint if there is negative or positive inflow
     # quantity, or at least one inbound flow variable, or at least one outbound flow variable.
     for h_,j_ in set(k for k,v in dat.inflow.items() if abs(v["quantity"]) > 0).union(
             {(h,i) for h,i,j in flow}, {(h,j) for h,i,j in flow}) :
-        m.addConstr(
-          (quicksum(flow[h,i,j] for h,i,j in flowselect.select(h_,'*',j_)) or zero) +
+        mdl.add_constraint(
+          mdl.sum(flow[h,i,j] for h,i,j in flowslice.slice(h_,'*',j_)) +
               dat.inflow.get((h_,j_), {"quantity":0})["quantity"] ==
-          (quicksum(flow[h,i,j] for h,i,j in flowselect.select(h_, j_, '*')) or zero),
-                   'node_%s_%s' % (h_, j_))
-    return m, flow
+          mdl.sum(flow[h,i,j] for h,i,j in flowslice.slice(h_, j_, '*')),
+                   name = 'node_%s_%s' % (h_, j_))
+
+    mdl.set_objective(mdl.sum(flow * dat.cost[h, i, j]["cost"] for (h, i, j),flow in flow.items()))
+
+    # Compute optimal solution
+    if mdl.optimize():
+        rtn = solution_factory.TicDat()
+        for (h, i, j),var in flow.items():
+            if mdl.get_solution_value(var) > 0:
+                rtn.flow[h,i,j] = mdl.get_solution_value(var)
+        return rtn
 # ---------------------------------------------------------------------------------
 
 # ------------------------ provide stand-alone functionality ----------------------
 # when run from the command line, will read/write xls/csv/db/mdb files
 if __name__ == "__main__":
-    standard_main(dataFactory, solutionFactory, solve)
+    standard_main(input_factory, solution_factory, solve)
 # ---------------------------------------------------------------------------------

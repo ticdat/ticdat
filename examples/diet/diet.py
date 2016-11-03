@@ -15,88 +15,82 @@
 # will read from a model stored in the file input_data.xlsx and write the solution
 # to solution_data.xlsx.
 
-# this version of the file uses CPLEX
-
-from docplex.mp.model import Model
-from ticdat import TicDatFactory, freeze_me, standard_main
+from ticdat import TicDatFactory, standard_main, Model
 
 # ------------------------ define the input schema --------------------------------
 # There are three input tables, with 4 primary key fields and 4 data fields.
-dataFactory = TicDatFactory (
-     categories = [["name"],["minNutrition", "maxNutrition"]],
+input_factory = TicDatFactory (
+     categories = [["name"],["min_nutrition", "max_nutrition"]],
      foods  = [["name"],["cost"]],
-     nutritionQuantities = [["food", "category"], ["qty"]])
+     nutrition_quantities = [["food", "category"], ["qty"]])
 
 # the foreign key relationships are pretty much what you'd expect
-dataFactory.add_foreign_key("nutritionQuantities", "foods", ["food", "name"])
-dataFactory.add_foreign_key("nutritionQuantities", "categories",
+input_factory.add_foreign_key("nutrition_quantities", "foods", ["food", "name"])
+input_factory.add_foreign_key("nutrition_quantities", "categories",
                             ["category", "name"])
 
 # We set the most common data type - a non-negative, non-infinite number
 # that has no integrality restrictions.
-for table, fields in dataFactory.data_fields.items():
+for table, fields in input_factory.data_fields.items():
     for field in fields:
-        dataFactory.set_data_type(table, field)
-# We override the default data type for maxNutrition which can accept infinity
-dataFactory.set_data_type("categories", "maxNutrition", max=float("inf"),
+        input_factory.set_data_type(table, field)
+# We override the default data type for max_nutrition which can accept infinity
+input_factory.set_data_type("categories", "max_nutrition", max=float("inf"),
                           inclusive_max=True)
 # ---------------------------------------------------------------------------------
 
 
 # ------------------------ define the output schema -------------------------------
 # There are three solution tables, with 2 primary key fields and 3 data fields.
-solutionFactory = TicDatFactory(
-        parameters = [[],["totalCost"]],
-        buyFood = [["food"],["qty"]],
-        consumeNutrition = [["category"],["qty"]])
+solution_factory = TicDatFactory(
+        parameters = [[],["total_cost"]],
+        buy_food = [["food"],["qty"]],
+        consume_nutrition = [["category"],["qty"]])
 # ---------------------------------------------------------------------------------
 
 
 # ------------------------ create a solve function --------------------------------
+_model_type = "gurobi" # could also be 'cplex' or 'xpress'
 def solve(dat):
-    assert dataFactory.good_tic_dat_object(dat)
-    assert not dataFactory.find_foreign_key_failures(dat)
-    assert not dataFactory.find_data_type_failures(dat)
-    
-    # Model
-    mdl = Model("diet")
+    assert input_factory.good_tic_dat_object(dat)
+    assert not input_factory.find_foreign_key_failures(dat)
+    assert not input_factory.find_data_type_failures(dat)
 
+    mdl = Model(_model_type, "diet")
 
-    # Create decision variables for the nutrition information,
-    # which we limit via bounds
-    nutrition = {}
-    for c,n in dat.categories.items() :
-        nutrition[c] = mdl.continuous_var(lb=n["minNutrition"],
-                                          ub=n["maxNutrition"], name=c)
+    nutrition = {c:mdl.add_var(lb=n["min_nutrition"], ub=n["max_nutrition"], name=c)
+                for c,n in dat.categories.items()}
 
     # Create decision variables for the foods to buy
-    buy = {}
-    for f in dat.foods:
-        buy[f] = mdl.continuous_var(name=f)
+    buy = {f:mdl.add_var(name=f) for f in dat.foods}
 
      # Nutrition constraints
     for c in dat.categories:
-        mdl.add_constraint(mdl.sum(dat.nutritionQuantities[f,c]["qty"] * buy[f]
+        mdl.add_constraint(mdl.sum(dat.nutrition_quantities[f,c]["qty"] * buy[f]
                              for f in dat.foods)
                            == nutrition[c],
-                           ctname = c)
+                           name = c)
 
-    mdl.minimize(mdl.sum(buy[f] * c["cost"] for f,c in dat.foods.items()))
+    mdl.set_objective(mdl.sum(buy[f] * c["cost"] for f,c in dat.foods.items()))
 
-    if mdl.solve():
+    if mdl.optimize():
+        solutionFactory = TicDatFactory(
+                parameters = [[],["total_cost"]],
+                buy_food = [["food"],["qty"]],
+                consume_nutrition = [["category"],["qty"]])
         sln = solutionFactory.TicDat()
-        cplex_soln = mdl.solution
-        sln.parameters.append(cplex_soln.get_objective_value())
         for f,x in buy.items():
-            if cplex_soln.get_value(x) > 0.0001:
-                sln.buyFood[f] = cplex_soln.get_value(x)
+            if mdl.get_solution_value(x) > 0.0001:
+                sln.buy_food[f] = mdl.get_solution_value(x)
         for c,x in nutrition.items():
-            sln.consumeNutrition[c] = cplex_soln.get_value(x)
-        return freeze_me(sln)
+            sln.consume_nutrition[c] = mdl.get_solution_value(x)
+        sln.parameters.append(sum(dat.foods[f]["cost"] * r["qty"]
+                                  for f,r in sln.buy_food.items()))
+        return sln
 # ---------------------------------------------------------------------------------
 
 # ------------------------ provide stand-alone functionality ----------------------
 # when run from the command line, will read/write xls/csv/db/mdb files
 if __name__ == "__main__":
-    standard_main(dataFactory, solutionFactory, solve)
+    standard_main(input_factory, solution_factory, solve)
 # ---------------------------------------------------------------------------------

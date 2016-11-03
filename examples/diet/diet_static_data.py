@@ -1,21 +1,19 @@
 #!/usr/bin/python
 
-# Copyright 2015, Opalytics, Inc.
+# Copyright 2015, 2016 Opalytics, Inc.
 
 # edited with permission from Gurobi Optimization, Inc.
 
-# Separate the model (dietmodel.py) from the data file (dietstaticdata.py), so
-# that the model can be solved with different data files.
 #
-# This file solves the model with the static (i.e. hard coded) small data example.
+# This file solves the diet model with a static (i.e. hard coded) small data example.
 #
 # Nutrition guidelines, based on
 # USDA Dietary Guidelines for Americans, 2005
 # http://www.health.gov/DietaryGuidelines/dga2005/
 
-from dietmodel import solve, dataFactory
+from diet import solve, input_factory
 
-dat = dataFactory.freeze_me(dataFactory.TicDat(
+dat = input_factory.TicDat(
     categories = {
       'calories': [1800, 2200],
       'protein':  [91, float("inf")],
@@ -34,7 +32,7 @@ dat = dataFactory.freeze_me(dataFactory.TicDat(
       'ice cream': 1.59 },
 
 # Nutrition values for the foods
-    nutritionQuantities = {
+    nutrition_quantities = {
       ('hamburger', 'calories'): 410,
       ('hamburger', 'protein'):  24,
       ('hamburger', 'fat'):      26,
@@ -70,17 +68,17 @@ dat = dataFactory.freeze_me(dataFactory.TicDat(
       ('ice cream', 'calories'): 330,
       ('ice cream', 'protein'):  8,
       ('ice cream', 'fat'):      10,
-      ('ice cream', 'sodium'):   180 }))
+      ('ice cream', 'sodium'):   180 })
 
 solution =  solve(dat)
 
 if solution :
-    print('\nCost: %g' % solution.parameters[0]["totalCost"])
+    print('\nCost: %g' % solution.parameters[0]["total_cost"])
     print('\nBuy:')
-    for f,b in solution.buyFood.items():
+    for f,b in solution.buy_food.items():
         print('%s %g' % (f, b["qty"]))
     print('\nNutrition:')
-    for c,n in solution.consumeNutrition.items():
+    for c,n in solution.consume_nutrition.items():
         print('%s %g' % (c, n["qty"]))
 else :
     print('\nNo solution')

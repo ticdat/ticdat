@@ -11,7 +11,7 @@
 # USDA Dietary Guidelines for Americans, 2005
 # http://www.health.gov/DietaryGuidelines/dga2005/
 
-from dietmodel import solve, dataFactory
+from examples.diet.dietmodel import solve, dataFactory
 
 dat = dataFactory.freeze_me(dataFactory.TicDat(
     categories = {
