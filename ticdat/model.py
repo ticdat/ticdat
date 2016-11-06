@@ -100,21 +100,21 @@ class Model(object):
             self.core_model.setObjective(expression, sense=
                 {"maximize":xpress.maximize, "minimize":xpress.minimize}[sense])
 
-    def optimize(self):
+    def optimize(self, *args, **kwargs):
         if self.model_type == "gurobi":
-            self.core_model.optimize()
+            self.core_model.optimize(*args, **kwargs)
             if ((self.core_model.status == gurobi.GRB.OPTIMAL) or
                 ((self.core_model.status in [gurobi.GRB.INTERRUPTED,
                     gurobi.GRB.TIME_LIMIT, gurobi.GRB.ITERATION_LIMIT]) and
                  (all(hasattr(var, "x") for var in self.core_model.getVars())))):
                 return True
         if self.model_type == "cplex":
-            rtn = self.core_model.solve()
+            rtn = self.core_model.solve(*args, **kwargs)
             if rtn :
                 self._cplex_soln = self.core_model.solution
             return rtn
         if self.model_type == "xpress":
-            self.core_model.solve()
+            self.core_model.solve(*args, **kwargs)
             verify(False, "RESEARCH THE STATUSES!!!!!")
             return self.core_model.getProbStatus in [xpress.lp_optimal]
 
