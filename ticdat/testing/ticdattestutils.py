@@ -437,7 +437,7 @@ def dietSolver(modelType):
                 sln.buyFood[f] = mdl.get_solution_value(x)
         for c,x in nutrition.items():
             sln.consumeNutrition[c] = mdl.get_solution_value(x)
-        return (sln, sum(dat.foods[f]["cost"] * r["qty"] for f,r in sln.buyFood.items()))
+        return sln, sum(dat.foods[f]["cost"] * r["qty"] for f,r in sln.buyFood.items())
 
 
 def netflowSolver(modelType):
@@ -479,7 +479,7 @@ def netflowSolver(modelType):
             for (h, i, j),var in flow.items():
                 if mdl.get_solution_value(var) > 0:
                     rtn.flow[h,i,j] = mdl.get_solution_value(var)
-            return (rtn, sum(dat.cost[h,i,j]["cost"] * r["quantity"] for (h,i,j),r in rtn.flow.items()))
+            return rtn, sum(dat.cost[h,i,j]["cost"] * r["quantity"] for (h,i,j),r in rtn.flow.items())
 
 def sillyMeSchema() :
     return {"a" : [("aField",),("aData1", "aData2", "aData3") ],
