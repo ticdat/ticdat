@@ -1,8 +1,6 @@
 #!/usr/bin/python
 
-# Copyright 2015, Opalytics, Inc.
-
-# edited with permission from Gurobi Optimization, Inc.
+# Copyright 2015, 2016 Opalytics, Inc.
 
 # Separate the model (dietmodel.py) from the data file (dietstaticdata.py), so
 # that the model can be solved with different data files.
@@ -13,7 +11,7 @@
 # USDA Dietary Guidelines for Americans, 2005
 # http://www.health.gov/DietaryGuidelines/dga2005/
 
-from dietmodel import solve, dataFactory
+from examples.diet.dietmodel import solve, dataFactory
 
 dat = dataFactory.freeze_me(dataFactory.TicDat(
     categories = {

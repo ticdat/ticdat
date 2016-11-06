@@ -5,7 +5,7 @@ import itertools
 import fnmatch
 from ticdat.utils import dictish, containerish, verify
 import unittest
-from ticdat import TicDatFactory
+from ticdat import TicDatFactory, Model, Slicer
 
 __codeFile = []
 def _codeFile() :
@@ -276,6 +276,11 @@ def addNetflowForeignKeys(tdf) :
     tdf.add_foreign_key("inflow", "commodities", (u'commodity', u'name'))
     tdf.add_foreign_key("inflow", "nodes", [u'node', u'name'])
 
+def addNetflowDataTypes(tdf):
+    tdf.set_data_type("arcs", "capacity")
+    tdf.set_data_type("cost", "cost")
+    tdf.set_data_type("inflow", "quantity", min=-float("inf"),
+                              inclusive_min=False)
 
 # gurobi diet problem - http://www.gurobi.com/documentation/6.0/example-tour/diet_py
 def dietSchema():
@@ -318,6 +323,14 @@ def copyDataDietWeirdCase2(dat):
 def addDietForeignKeys(tdf) :
     tdf.add_foreign_key("nutritionQuantities", 'categories',[u'category', u'name'])
     tdf.add_foreign_key("nutritionQuantities", 'foods', (u'food', u'name'))
+
+def addDietDataTypes(tdf):
+    for table, fields in tdf.data_fields.items():
+        for field in fields:
+            tdf.set_data_type(table, field)
+    # We override the default data type for maxNutrition which can accept infinity
+    tdf.set_data_type("categories", "maxNutrition", max=float("inf"),
+                              inclusive_max=True)
 
 def dietData():
     # this is the gurobi diet data in ticDat format
@@ -385,6 +398,89 @@ def dietData():
 
     return dat
 
+def dietSolver(modelType):
+    tdf = TicDatFactory(**dietSchema())
+    addDietForeignKeys(tdf)
+    addDietDataTypes(tdf)
+
+    dat = tdf.copy_tic_dat(dietData())
+    assert not tdf.find_data_type_failures(dat) and not tdf.find_foreign_key_failures(dat)
+
+    mdl = Model(modelType, "diet")
+
+    nutrition = {}
+    for c,n in dat.categories.items() :
+        nutrition[c] = mdl.add_var(lb=n["minNutrition"], ub=n["maxNutrition"], name=c)
+
+    # Create decision variables for the foods to buy
+    buy = {}
+    for f in dat.foods:
+        buy[f] = mdl.add_var(name=f)
+
+     # Nutrition constraints
+    for c in dat.categories:
+        mdl.add_constraint(mdl.sum(dat.nutritionQuantities[f,c]["qty"] * buy[f]
+                             for f in dat.foods)
+                           == nutrition[c],
+                           name = c)
+
+    mdl.set_objective(mdl.sum(buy[f] * c["cost"] for f,c in dat.foods.items()))
+
+    if mdl.optimize():
+        solutionFactory = TicDatFactory(
+                parameters = [[],["totalCost"]],
+                buyFood = [["food"],["qty"]],
+                consumeNutrition = [["category"],["qty"]])
+        sln = solutionFactory.TicDat()
+        for f,x in buy.items():
+            if mdl.get_solution_value(x) > 0.0001:
+                sln.buyFood[f] = mdl.get_solution_value(x)
+        for c,x in nutrition.items():
+            sln.consumeNutrition[c] = mdl.get_solution_value(x)
+        return sln, sum(dat.foods[f]["cost"] * r["qty"] for f,r in sln.buyFood.items())
+
+
+def netflowSolver(modelType):
+    tdf = TicDatFactory(**netflowSchema())
+    addNetflowForeignKeys(tdf)
+    addNetflowDataTypes(tdf)
+
+    dat = tdf.copy_tic_dat(netflowData())
+    assert not tdf.find_data_type_failures(dat) and not tdf.find_foreign_key_failures(dat)
+
+    mdl = Model(modelType, "netflow")
+
+    flow = {}
+    for h, i, j in dat.cost:
+        if (i,j) in dat.arcs:
+            flow[h,i,j] = mdl.add_var(name='flow_%s_%s_%s' % (h, i, j))
+
+    flowslice = Slicer(flow)
+
+    for i_,j_ in dat.arcs:
+        mdl.add_constraint(mdl.sum(flow[h,i,j] for h,i,j in flowslice.slice('*',i_, j_))
+                     <= dat.arcs[i_,j_]["capacity"],
+                     name = 'cap_%s_%s' % (i_, j_))
+
+    for h_,j_ in set(k for k,v in dat.inflow.items() if abs(v["quantity"]) > 0).union(
+            {(h,i) for h,i,j in flow}, {(h,j) for h,i,j in flow}) :
+        mdl.add_constraint(
+          mdl.sum(flow[h,i,j] for h,i,j in flowslice.slice(h_,'*',j_)) +
+              dat.inflow.get((h_,j_), {"quantity":0})["quantity"] ==
+          mdl.sum(flow[h,i,j] for h,i,j in flowslice.slice(h_, j_, '*')),
+                   name = 'node_%s_%s' % (h_, j_))
+
+    mdl.set_objective(mdl.sum(flow * dat.cost[h, i, j]["cost"] for (h, i, j),flow in flow.items()))
+    if mdl.optimize():
+        solutionFactory = TicDatFactory(
+                flow = [["commodity", "source", "destination"], ["quantity"]])
+        if mdl.optimize():
+            rtn = solutionFactory.TicDat()
+            for (h, i, j),var in flow.items():
+                if mdl.get_solution_value(var) > 0:
+                    rtn.flow[h,i,j] = mdl.get_solution_value(var)
+            return rtn, sum(dat.cost[h,i,j]["cost"] * r["quantity"] for (h,i,j),r in rtn.flow.items())
+
 def sillyMeSchema() :
     return {"a" : [("aField",),("aData1", "aData2", "aData3") ],
             "b" : [("bField1", "bField2", "bField3"), ["bData"]],
@@ -397,3 +493,34 @@ def sillyMeData() :
         "b" : {(1, 2, 3) : 1, ("a", "b", "b") : 12},
         "c" : ((1, 2, 3, 4), ("a", "b", "c", "d"), ("a", "b", 12, 24) )
     }
+
+EPSILON = 1e-05
+
+def perError(x1, x2) :
+    x1 = float(x1)
+    x2 = float(x2)
+    if (x1 < 0) and (x2 <  0) :
+        return perError(-x1, -x2)
+    if (x1 == float("inf")) :
+        return 0 if (x2 == float("inf")) else x1
+    SMALL_NOT_ZERO = 1e-10
+    assert(EPSILON>SMALL_NOT_ZERO)
+    abs1 = abs(x1)
+    abs2 = abs(x2)
+    # is it safe to divide by the bigger absolute value
+    if (max(abs1, abs2) > SMALL_NOT_ZERO) :
+        rtn = ((max(x1, x2) - min(x1, x2)) / max(abs1, abs2))
+        return rtn
+    return 0
+
+def _nearlySame(x1, x2, epsilon) :
+    return perError(x1, x2) < epsilon
+
+def nearlySame(*args, **kwargs) :
+    assert not kwargs or kwargs.keys() == ["epsilon"]
+    epsilon = kwargs.get("epsilon", EPSILON)
+    if len(args) < 2 :
+        return True
+    return all (_nearlySame(x[0], x[1], epsilon) for x in
+                itertools.combinations(args, 2))
+
