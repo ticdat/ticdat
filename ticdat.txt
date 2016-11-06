@@ -12,20 +12,21 @@ DESCRIPTION
     Otherwise, each table is an enumerable of dictionaries (as in DictReader/DictWriter). When foreign keys are
     specified, they are used to create links between the "row dictionaries" of the parent table to the matching
     "row dictionaries" of the child objects.
-    
+
     Although ticDat was specifically designed with Mixed Integer Programming data sets in mind, it can be used for
     rapidly developing a wide variety of mathematical engines. It facilitates creating one definition of your
     input data schema and one solve module, and reusing this same code, unchanged, on data from different
     sources. This "separation of model from data" enables a user to move easily from toy, hard coded data to
     larger, more realistic data sets. In addition, Opalytics Inc. (the developer of the ticDat library) can support
     cloud deployments of solve engines that use the ticDat library.
-    
+
     The ticDat library is distributed under the BSD2 open source license.
 
 PACKAGE CONTENTS
     csvtd
     logfile
     mdb
+    model
     sqlitetd
     testing (package)
     ticdatfactory
@@ -34,6 +35,7 @@ PACKAGE CONTENTS
 
 CLASSES
     __builtin__.object
+        ticdat.model.Model
         ticdat.logfile.LogFile
         ticdat.utils.Sloc
     ticdat.utils._Freezeable(__builtin__.object)
@@ -46,25 +48,25 @@ CLASSES
         ticdat.xls.XlsTicFactory
     ticdat.utils._Freezeable(__builtin__.object)
         ticdat.sqlitetd.SQLiteTicFactory
-    
+
     class CsvTicFactory(ticdat.utils._Freezeable)
      |  Primary class for reading/writing csv files with ticDat objects.
      |  Your system will need the csv package if you want to use this class.
-     |  
+     |
      |  Method resolution order:
      |      CsvTicFactory
      |      ticdat.utils._Freezeable
      |      __builtin__.object
-     |  
+     |
      |  Methods defined here:
-     |  
+     |
      |  __init__(self, tic_dat_factory)
      |      Don't create this object explicitly. A CsvTicDatFactory will
      |      automatically be associated with the csv attribute of the parent
      |      TicDatFactory.
      |      :param tic_dat_factory:
      |      :return:
-     |  
+     |
      |  create_tic_dat(self, dir_path, dialect='excel', headers_present=True, freeze_it=False)
      |      Create a TicDat object from the csv files in a directory
      |      :param dir_path: the directory containing the .csv files.
@@ -77,7 +79,7 @@ CLASSES
      |               matching files throw an Exception.
      |               Data field values (but not primary key values) will be coerced
      |               into floats if possible.
-     |  
+     |
      |  find_duplicates(self, dir_path, dialect='excel', headers_present=True)
      |      Find the row counts for duplicated rows.
      |      :param dir_path: the directory containing .csv files.
@@ -91,7 +93,7 @@ CLASSES
      |               aren't duplicates
      |      caveats: Missing files resolve to an empty table, but missing fields (data or primary key) on
      |               matching files throw an Exception.
-     |  
+     |
      |  write_directory(self, tic_dat, dir_path, allow_overwrite=False, dialect='excel', write_header=True)
      |      write the ticDat data to a collection of csv files
      |      :param tic_dat: the data object
@@ -102,37 +104,37 @@ CLASSES
      |      :param write_header: Boolean. Should the header information be written
      |                           as the first row?
      |      :return:
-     |  
+     |
      |  ----------------------------------------------------------------------
      |  Methods inherited from ticdat.utils._Freezeable:
-     |  
+     |
      |  __delattr__(self, item)
-     |  
+     |
      |  __setattr__(self, key, value)
-     |  
+     |
      |  ----------------------------------------------------------------------
      |  Data descriptors inherited from ticdat.utils._Freezeable:
-     |  
+     |
      |  __dict__
      |      dictionary for instance variables (if defined)
-     |  
+     |
      |  __weakref__
      |      list of weak references to the object (if defined)
-    
+
     class LogFile(__builtin__.object)
      |  Utility class for writing log files to the Opalytics Cloud Platform.
      |  Also enables writing on-the-fly tables into log files.
-     |  
+     |
      |  Methods defined here:
-     |  
+     |
      |  __enter__(self)
-     |  
+     |
      |  __exit__(self, exc_type, exc_val, exc_tb)
-     |  
+     |
      |  __init__(self, path)
-     |  
+     |
      |  close(self)
-     |  
+     |
      |  log_table(self, table_name, seq, formatter=<function <lambda>>, max_write=10)
      |      Writes a table to the log file. Extremely useful functionality for
      |      on the fly errors, warnings and diagnostics.
@@ -148,37 +150,97 @@ CLASSES
      |                        the log file will link to a scrollable, sortable grid
      |                        with all the table entries.
      |      :return:
-     |  
+     |
      |  write(self, *args, **kwargs)
-     |  
+     |
      |  ----------------------------------------------------------------------
      |  Data descriptors defined here:
-     |  
+     |
      |  __dict__
      |      dictionary for instance variables (if defined)
-     |  
+     |
      |  __weakref__
      |      list of weak references to the object (if defined)
-    
+
+    class Model(__builtin__.object)
+     |  Mixed Integer Programming modeling object. Provides pass-through functionality to one
+     |  of the three main commercial MIP Python APIs (CPLEX, Gurobi, and XPRESS).
+     |
+     |  Methods defined here:
+     |
+     |  __init__(self, model_type='gurobi', model_name='model')
+     |      or another
+     |      :param model_type: either gurobi, cplex or xpress
+     |      :return: a Model object that encapsulates the appropriate engine model object
+     |
+     |  add_constraint(self, constraint, name='')
+     |      Add a constraint to the model.
+     |      :param constraint: A constraint created by via linear or quadratic combination of
+     |                         variables and numbers. Be sure to use Model.sum for summing
+     |                         over iterables.
+     |      :param name: The name of the constraint. Ignored if falsey.
+     |      :return: The constraint object associated with the model_type engine API
+     |
+     |  add_var(self, lb=0, ub=inf, type='continuous', name='')
+     |      Add a variable to the model.
+     |      :param lb: The lower bound of the variable.
+     |      :param ub: The upper bound of the variable.
+     |      :param type: either 'binary' or 'continuous'
+     |      :param name: The name of the variable. (Ignored if falsey).
+     |      :return: The variable object associated with the model_type engine API
+     |
+     |  get_solution_value(self, var)
+     |      Get the value for a variable in the solution. Only call after a successful optimize() call.
+     |      :param var: The variable returned from a pervious call to add_var()
+     |      :return: The value of this variable in the optimal solution.
+     |
+     |  optimize(self, *args, **kwargs)
+     |      Optimize the model.
+     |      :param args: Optional engine-specific arguments to pass to the model_type API
+     |      :param kwargs: Optional engine-specific arguments to pass to the model_type API
+     |      :return: True if the model solves successfully, False otherwise.
+     |
+     |  set_objective(self, expression, sense='minimize')
+     |      Set the objective for the model.
+     |      :param expression: A linear or quadratic combination of variables and numbers.
+     |                         Be sure to use Model.sum for summing over iterables.
+     |      :param sense: Either 'minimize' or 'maximize'
+     |      :return: None
+     |
+     |  ----------------------------------------------------------------------
+     |  Data descriptors defined here:
+     |
+     |  __dict__
+     |      dictionary for instance variables (if defined)
+     |
+     |  __weakref__
+     |      list of weak references to the object (if defined)
+     |
+     |  core_model
+     |
+     |  model_type
+     |
+     |  sum
+
     class MdbTicFactory(ticdat.utils._Freezeable)
      |  Primary class for reading/writing Access/MDB files with ticDat objects.
      |  Your system will need the required pypyodbc package if you want to actually
      |  do something with it.
-     |  
+     |
      |  Method resolution order:
      |      MdbTicFactory
      |      ticdat.utils._Freezeable
      |      __builtin__.object
-     |  
+     |
      |  Methods defined here:
-     |  
+     |
      |  __init__(self, tic_dat_factory)
      |      Don't create this object explicitly. A MdbTicDatFactory will
      |      automatically be associated with the mdb attribute of the parent
      |      TicDatFactory.
      |      :param tic_dat_factory:
      |      :return:
-     |  
+     |
      |  create_tic_dat(self, mdb_file_path, freeze_it=False)
      |      Create a TicDat object from an Access MDB file
      |      :param mdb_file_path: An Access db with a consistent schema.
@@ -195,7 +257,7 @@ CLASSES
      |            The inner dictionary is keyed by the primary key values encountered in the table,
      |            and the value is the count of records in the mdb table with this primary key.
      |            Row counts smaller than 2 are pruned off, as they aren't duplicates
-     |  
+     |
      |  write_file(self, tic_dat, mdb_file_path, allow_overwrite=False)
      |      write the ticDat data to an SQLite database file
      |      :param tic_dat: the data object to write
@@ -204,7 +266,7 @@ CLASSES
      |      :return:
      |      caveats : Numbers with absolute values larger than 1e+100 will
      |                be written as 1e+100 or -1e+100
-     |  
+     |
      |  write_schema(self, mdb_file_path, **field_types)
      |      :param mdb_file_path: The file path of the mdb database to create
      |      :param field_types: Named arguments are table names. Argument values
@@ -213,27 +275,27 @@ CLASSES
      |                          If missing, primary key fields are text, and data
      |                          fields are float
      |      :return:
-     |  
+     |
      |  ----------------------------------------------------------------------
      |  Data descriptors defined here:
-     |  
+     |
      |  can_write_new_file
      |      :return: True if this environment can write to a new mdb database files,
      |               False otherwise
-     |  
+     |
      |  ----------------------------------------------------------------------
      |  Methods inherited from ticdat.utils._Freezeable:
-     |  
+     |
      |  __delattr__(self, item)
-     |  
+     |
      |  __setattr__(self, key, value)
-     |  
+     |
      |  ----------------------------------------------------------------------
      |  Data descriptors inherited from ticdat.utils._Freezeable:
-     |  
+     |
      |  __dict__
      |      dictionary for instance variables (if defined)
-     |  
+     |
      |  __weakref__
      |      list of weak references to the object (if defined)
 
@@ -274,32 +336,32 @@ CLASSES
      |
      |  __weakref__
      |      list of weak references to the object (if defined)
-    
+
     class SQLiteTicFactory(ticdat.utils._Freezeable)
      |  Primary class for reading/writing SQLite files with ticDat objects.
      |  You need the sqlite3 package to be installed to use it.
-     |  
+     |
      |  Method resolution order:
      |      SQLiteTicFactory
      |      ticdat.utils._Freezeable
      |      __builtin__.object
-     |  
+     |
      |  Methods defined here:
-     |  
+     |
      |  __init__(self, tic_dat_factory)
      |      Don't call this function explicitly. A SQLiteTicFactory will
      |      automatically be associated with the sql attribute of the parent
      |      TicDatFactory.
      |      :param tic_dat_factory:
      |      :return:
-     |  
+     |
      |  create_tic_dat(self, db_file_path, freeze_it=False)
      |      Create a TicDat object from a SQLite database file
      |      :param db_file_path: A SQLite db with a consistent schema.
      |      :param freeze_it: boolean. should the returned object be frozen?
      |      :return: a TicDat object populated by the matching tables.
      |      caveats : "inf" and "-inf" (case insensitive) are read as floats
-     |  
+     |
      |  create_tic_dat_from_sql(self, sql_file_path, includes_schema=False, freeze_it=False)
      |      Create a TicDat object from an SQLite sql text file
      |      :param sql_file_path: A text file containing SQLite compatible SQL statements delimited by ;
@@ -315,7 +377,7 @@ CLASSES
      |            The inner dictionary is keyed by the primary key values encountered in the table,
      |            and the value is the count of records in the SQLite table with this primary key.
      |            Row counts smaller than 2 are pruned off, as they aren't duplicates
-     |  
+     |
      |  write_db_data(self, tic_dat, db_file_path, allow_overwrite=False)
      |      write the ticDat data to an SQLite database file
      |      :param tic_dat: the data object to write
@@ -323,11 +385,11 @@ CLASSES
      |      :param allow_overwrite: boolean - are we allowed to overwrite pre-existing data
      |      :return:
      |      caveats : float("inf"), float("-inf") are written as "inf", "-inf"
-     |  
+     |
      |  write_db_schema(self, db_file_path)
      |      :param db_file_path: the file path of the SQLite database to create
      |      :return:
-     |  
+     |
      |  write_sql_file(self, tic_dat, sql_file_path, include_schema=False, allow_overwrite = False)
      |      write the sql for the ticDat data to a text file
      |      :param tic_dat: the data object to write
@@ -336,51 +398,51 @@ CLASSES
      |      :param allow_overwrite: boolean - are we allowed to overwrite pre-existing file
      |      :return:
      |      caveats : float("inf"), float("-inf") are written as "inf", "-inf"
-     |  
+     |
      |  ----------------------------------------------------------------------
      |  Methods inherited from ticdat.utils._Freezeable:
-     |  
+     |
      |  __delattr__(self, item)
-     |  
+     |
      |  __setattr__(self, key, value)
-     |  
+     |
      |  ----------------------------------------------------------------------
      |  Data descriptors inherited from ticdat.utils._Freezeable:
-     |  
+     |
      |  __dict__
      |      dictionary for instance variables (if defined)
-     |  
+     |
      |  __weakref__
      |      list of weak references to the object (if defined)
-    
+
     class Slicer(__builtin__.object)
      |  Object to perform multi-index slicing over an index sequence
-     |  
+     |
      |  Methods defined here:
-     |  
+     |
      |  __init__(self, iter_of_iters)
      |      Construct a multi-index Slicer object
      |      :param iter_of_iters An iterable of iterables. Usually a list of lists, or a list
      |      of tuples. Each inner iterable must be the same size. The "*" string has a special
      |      flag meaning and cannot be a member of any of the inner iterables.
-     |  
+     |
      |  clear(self)
      |      reduce memory overheard by clearing out any archived slicing.
      |      this is a no-op if gurobipy is available
      |      :return:
-     |  
+     |
      |  slice(self, *args)
      |      Perform a multi-index slice. (Not to be confused with the native Python slice)
      |      :param *args a series of index values or '*'. The latter means 'match every value'
      |      :return: a list of tuples which match  args.
      |      :caveat will run faster if gurobipy is available
-     |  
+     |
      |  ----------------------------------------------------------------------
      |  Data descriptors defined here:
-     |  
+     |
      |  __dict__
      |      dictionary for instance variables (if defined)
-     |  
+     |
      |  __weakref__
      |      list of weak references to the object (if defined)
 
@@ -390,48 +452,48 @@ CLASSES
      |  encountering an empty slice.
      |  **All** credit for this class goes to the inimitable IL.
      |  https://github.com/pydata/pandas/issues/10695
-     |  
+     |
      |  Methods defined here:
-     |  
+     |
      |  __getitem__(self, key)
-     |  
+     |
      |  __init__(self, s)
      |      In general there is no need to create this object explicitly.
      |      TicDatFactory.copy_to_pandas can create them for each of your
      |      data columns, or you can use the add_sloc utility function.
      |      :param s: a Series object.
      |      :return:
-     |  
+     |
      |  ----------------------------------------------------------------------
      |  Static methods defined here:
-     |  
+     |
      |  add_sloc(s)
      |      adds an .sloc attribute to a the series or to every column of the data frame
      |      :param s: either a series or a data frame
      |      :return: s if .sloc could be added, None otherwise
-     |  
+     |
      |  ----------------------------------------------------------------------
      |  Data descriptors defined here:
-     |  
+     |
      |  __dict__
      |      dictionary for instance variables (if defined)
-     |  
+     |
      |  __weakref__
      |      list of weak references to the object (if defined)
-    
+
     class TicDatFactory(ticdat.utils._Freezeable)
      |  Primary class for ticdat library. This class is constructed with a schema,
      |  and can be used to generate TicDat objects, or to write TicDat objects to
      |  different file types. Analytical code that uses TicDat objects can be used,
      |  without change, on different data sources.
-     |  
+     |
      |  Method resolution order:
      |      TicDatFactory
      |      ticdat.utils._Freezeable
      |      __builtin__.object
-     |  
+     |
      |  Methods defined here:
-     |  
+     |
      |  __init__(self, **init_fields)
      |      create a TicDatFactory
      |      :param init_fields: a mapping of tables to primary key fields
@@ -446,7 +508,7 @@ CLASSES
      |      ex: TicDatFactory (typical_table = [["primary key field"],["data field"]],
      |                         generic_table = '*')
      |      :return: a TicDatFactory
-     |  
+     |
      |  add_foreign_key(self, native_table, foreign_table, mappings)
      |      Adds a foreign key relationship to the schema.  Adding a foreign key doesn't block
      |      the entry of child records that fail to find a parent match. It does make it easy
@@ -458,7 +520,7 @@ CLASSES
      |                       For compound foreign keys an iterable of [native_field, foreign_field]
      |                       pairs.
      |      :return:
-     |  
+     |
      |  as_dict(self, ticdat)
      |      Returns the ticdat object as a dictionary.
      |      Note that, as a nested class, TicDat  objects cannot be pickled
@@ -468,7 +530,7 @@ CLASSES
      |      :param ticdat: a TicDat object whose data is to be returned as a dict
      |      :return: A dictionary that can either be pickled, or unpacked to a
      |              TicDat constructor
-     |  
+     |
      |  clear_data_type(self, table, field)
      |      clears the data type for a field. By default, fields don't types.  Adding a data type doesn't block
      |      data of the wrong type from being entered. Data types are useful for recognizing errant data entries.
@@ -476,19 +538,19 @@ CLASSES
      |      :param table: table in the schema
      |      :param field:
      |      :return:
-     |  
+     |
      |  clear_foreign_keys(self, native_table=None)
      |      create a TicDatFactory
      |      :param native_table: optional. The table whose foreign keys should be cleared.
      |                           If omitted, all foreign keys are cleared.
-     |  
+     |
      |  copy_tic_dat(self, tic_dat, freeze_it=False)
      |      copies the tic_dat object into a new tic_dat object
      |      performs a deep copy
      |      :param tic_dat: a ticdat object
      |      :param freeze_it: boolean. should the returned object be frozen?
      |      :return: a deep copy of the tic_dat argument
-     |  
+     |
      |  copy_to_pandas(self, tic_dat, table_restrictions=None, drop_pk_columns=None)
      |      copies the tic_dat object into a new tic_dat object populated with data_frames
      |      performs a deep copy
@@ -500,7 +562,7 @@ CLASSES
      |                              into the index.
      |                              If None, then pk fields will be dropped only for tables with data fields
      |      :return: a deep copy of the tic_dat argument into DataFrames
-     |  
+     |
      |  enable_foreign_key_links(self)
      |      call to enable foreign key links. For ex. a TicDat object made from
      |      a factory with foreign key enabled will pass the following assert
@@ -510,16 +572,16 @@ CLASSES
      |      Note that by default, TicDatFactories don't create foreign key links since doing so
      |      can slow down TicDat creation.
      |      :return:
-     |  
+     |
      |  find_data_type_failures(self, tic_dat)
      |      Finds the data type failures for a ticdat object
      |      :param tic_dat: ticdat object
      |      :return: A dictionary constructed as follow:
-     |      
+     |
      |               The keys are namedTuples with members "table", "field". Each (table,field) pair
      |               has data values that are inconsistent with its data type. (table, field) pairs
      |               with no data type at all are never part of the returned dictionary.
-     |      
+     |
      |               The values of the returned dictionary are namedTuples with the following attributes.
      |               --> bad_values - the distinct values for the (table, field) pair that are inconsistent
      |                                with the data type for (table, field).
@@ -563,18 +625,18 @@ CLASSES
      |               can't find a foreign key match, and thus generate a foreign key failure.
      |               native_pks tells you which native table rows will be removed if you call
      |               remove_foreign_keys_failures().
-     |  
+     |
      |  freeze_me(self, tic_dat)
      |      Freezes a ticdat object
      |      :param tic_dat: ticdat object
      |      :return: tic_dat, after it has been frozen
-     |  
+     |
      |  good_tic_dat_object(self, data_obj, bad_message_handler=<function <lambda>>)
      |      determines if an object can be can be converted to a TicDat data object.
      |      :param data_obj: the object to verify
      |      :param bad_message_handler: a call back function to receive description of any failure message
      |      :return: True if the dataObj can be converted to a TicDat data object. False otherwise.
-     |  
+     |
      |  good_tic_dat_table(self, data_table, table_name, bad_message_handler=<function <lambda>>)
      |      determines if an object can be can be converted to a TicDat data table.
      |      :param dataObj: the object to verify
@@ -583,7 +645,7 @@ CLASSES
      |             description of any failure message
      |      :return: True if the dataObj can be converted to a TicDat
      |               data table. False otherwise.
-     |  
+     |
      |  obfusimplify(self, tic_dat, table_prepends={}, skip_tables=(), freeze_it=False)
      |      copies the tic_dat object into a new, obfuscated, simplified tic_dat object
      |      :param tic_dat: a ticdat object
@@ -600,14 +662,14 @@ CLASSES
      |                           this entry can be used to cross reference any diagnostic information gleaned from the
      |                           obfusimplified copy to the original names. For example, "P5 has no production"
      |                           can easily be recognized as "Product KX12212 has no production".
-     |  
+     |
      |  remove_foreign_keys_failures(self, tic_dat, propagate=True)
      |      Removes foreign key failures (i.e. child records with no parent table record)
      |      :param tic_dat: ticdat object
      |      :param propagate boolean: remove cascading failures? (if removing the child record
      |                                results in new failures, should those be removed as well?)
      |      :return: tic_dat, with the foreign key failures removed
-     |  
+     |
      |  replace_data_type_failures(self, tic_dat, replacement_values={})
      |      :param tic_dat:
      |      :param replacement_values: a dictionary mapping (table, field) to replacement value.
@@ -616,7 +678,7 @@ CLASSES
      |      Replaces any of the data failures found in find_data_type_failures() with the appropriate
      |      replacement_value.
      |      Note - won't perform primary key replacements.
-     |  
+     |
      |  schema(self, include_ancillary_info=False)
      |      :param include_ancillary_info: if True, include all the foreign key, default, and data type information
      |                                     as well. Otherwise, just return table-fields dictionary
@@ -624,8 +686,8 @@ CLASSES
      |               defining primary key fields and data fields
      |               If include_ancillary_info, this table-fields dictionary is just one entry in a more comprehensive
      |               dictionary.
-     |  
-     |  set_data_type(self, table, field, number_allowed=True, inclusive_min=True, inclusive_max=False, 
+     |
+     |  set_data_type(self, table, field, number_allowed=True, inclusive_min=True, inclusive_max=False,
      |                      min=0, max=inf, must_be_int=False, strings_allowed=(), nullable=False)
      |      sets the data type for a field. By default, fields don't have types. Adding a data type doesn't block
      |      data of the wrong type from being entered. Data types are useful for recognizing errant data entries
@@ -643,14 +705,14 @@ CLASSES
      |                              If a "*", then any string is accepted.
      |      :param nullable : boolean : can this value contain null (aka None)
      |      :return:
-     |  
+     |
      |  set_default_value(self, table, field, default_value)
      |      sets the default value for a specific field
      |      :param table: a table in the schema
      |      :param field: a field in the table
      |      :param default_value: the default value to apply
      |      :return:
-     |  
+     |
      |  set_default_values(self, **tableDefaults)
      |      sets the default values for the fields
      |      :param tableDefaults:
@@ -659,75 +721,75 @@ CLASSES
      |           Ex: tdf.set_default_values(categories = {"minNutrition":0, "maxNutrition":float("inf")},
      |                       foods = {"cost":0}, nutritionQuantities = {"qty":0})
      |      :return:
-     |  
+     |
      |  set_generator_tables(self, g)
      |      sets which tables are to be generator tables. Generator tables are represented as generators
      |      pulled from the actual data store. This prevents them from being fulled loaded into memory.
      |      Generator tables are only appropriate for truly massive data tables with no primary key.
      |      :param g:
      |      :return:
-     |  
+     |
      |  ----------------------------------------------------------------------
      |  Static methods defined here:
-     |  
+     |
      |  create_from_full_schema(full_schema)
      |      create a TicDatFactory complete with default values, data types, and foreign keys
      |      :param full_schema: a dictionary consistent with the data returned by a call to schema()
      |                          with include_ancillary_info = True
      |      :return: a TicDatFactory reflecting the tables, fields, default values, data types,
      |               and foreign keys consistent with the full_schema argument
-     |  
+     |
      |  ----------------------------------------------------------------------
      |  Data descriptors defined here:
-     |  
+     |
      |  data_fields
-     |  
+     |
      |  data_types
-     |  
+     |
      |  default_values
-     |  
+     |
      |  foreign_keys
-     |  
+     |
      |  generator_tables
-     |  
+     |
      |  primary_key_fields
-     |  
+     |
      |  ----------------------------------------------------------------------
      |  Methods inherited from ticdat.utils._Freezeable:
-     |  
+     |
      |  __delattr__(self, item)
-     |  
+     |
      |  __setattr__(self, key, value)
-     |  
+     |
      |  ----------------------------------------------------------------------
      |  Data descriptors inherited from ticdat.utils._Freezeable:
-     |  
+     |
      |  __dict__
      |      dictionary for instance variables (if defined)
-     |  
+     |
      |  __weakref__
      |      list of weak references to the object (if defined)
-    
+
     class XlsTicFactory(ticdat.utils._Freezeable)
      |  Primary class for reading/writing Excel files with ticDat objects.
      |  Your system will need the xlrd package to read .xls and .xlsx files,
      |  the xlwt package to write .xls files, and the xlsxwriter package to
      |  write .xlsx files.
-     |  
+     |
      |  Method resolution order:
      |      XlsTicFactory
      |      ticdat.utils._Freezeable
      |      __builtin__.object
-     |  
+     |
      |  Methods defined here:
-     |  
+     |
      |  __init__(self, tic_dat_factory)
      |      Don't create this object explicitly. A XlsTicDatFactory will
      |      automatically be associated with the xls attribute of the parent
      |      TicDatFactory.
      |      :param tic_dat_factory:
      |      :return:
-     |  
+     |
      |  create_tic_dat(self, xls_file_path, row_offsets={}, headers_present=True, freeze_it=False)
      |      Create a TicDat object from an Excel file
      |      :param xls_file_path: An Excel file containing sheets whose names match
@@ -738,15 +800,20 @@ CLASSES
      |                              column headers?
      |      :param freeze_it: boolean. should the returned object be frozen?
      |      :return: a TicDat object populated by the matching sheets.
-     |      caveats: Missing sheets resolve to an empty table, but missing fields
-     |               on matching sheets throw an Exception.
-     |               Sheet names are considered case insensitive, and white space is replaced
-     |               with underscore for table name matching. (ticdat supports whitespace in
-     |               field names but not table names).
-     |               Any field for which an empty string is invalid data and None is valid data
-     |               will replace the empty string with None. (This caveat requires the data_types
-     |               to be set for the ticDatFactory)
-     |  
+     |       caveats: Missing sheets resolve to an empty table, but missing fields
+     |                on matching sheets throw an Exception.
+     |                Sheet names are considered case insensitive, and white space is replaced
+     |                with underscore for table name matching.
+     |                Field names are considered case insensitive, but white space is respected.
+     |                (ticdat supports whitespace in field names but not table names).
+     |                The following two caveats apply only if data_types are used.
+     |                 --> Any field for which an empty string is invalid data and None is
+     |                     valid data will replace the empty string with None.
+     |                 --> Any field for which must_be_int is true will replace numeric
+     |                     data that satisfies int(x)==x with int(x). In other words,
+     |                     the ticdat equivalent of pandas.read_excel convert_float
+     |                     is to set must_be_int to true in data_types.
+     |
      |  find_duplicates(self, xls_file_path, row_offsets={}, headers_present=True)
      |      Find the row counts for duplicated rows.
      |      :param xls_file_path: An Excel file containing sheets whose names match
@@ -763,7 +830,7 @@ CLASSES
      |               primary key values encountered in the table, and the value is the count of records in the
      |               Excel sheet with this primary key. Row counts smaller than 2 are pruned off,
      |               as they aren't duplicates
-     |  
+     |
      |  write_file(self, tic_dat, file_path, allow_overwrite=False)
      |      write the ticDat data to an excel file
      |      :param tic_dat: the data object to write (typically a TicDat)
@@ -772,20 +839,20 @@ CLASSES
      |                              existing file?
      |      :return:
      |      caveats: None may be written out as an empty string. This reflects the behavior of xlwt.
-     |  
+     |
      |  ----------------------------------------------------------------------
      |  Methods inherited from ticdat.utils._Freezeable:
-     |  
+     |
      |  __delattr__(self, item)
-     |  
+     |
      |  __setattr__(self, key, value)
-     |  
+     |
      |  ----------------------------------------------------------------------
      |  Data descriptors inherited from ticdat.utils._Freezeable:
-     |  
+     |
      |  __dict__
      |      dictionary for instance variables (if defined)
-     |  
+     |
      |  __weakref__
      |      list of weak references to the object (if defined)
 
@@ -816,13 +883,13 @@ FUNCTIONS
                  Thus, a table that has a properly denormalized (pk_fields, data_fields)
                  sub-table will return an empty dictionary.
 
-    standard_main(dataFactory, solutionFactory, solve)
+    standard_main(input_schema, solution_schema, solve)
          provides standardized command line functionality for a ticdat solve engine
-        :param dataFactory: a TicDatFactory defining the input schema
-        :param solutionFactory: a TicDatFactory defining the output schema
-        :param solve: a function that takes a dataFactory.TicDat object and
-                      returns a solutionFactory.TicDat object
-        :return: N/A
+        :param input_schema: a TicDatFactory defining the input schema
+        :param solution_schema: a TicDatFactory defining the output schema
+        :param solve: a function that takes a input_schema.TicDat object and
+                      returns a solution_schema.TicDat object
+        :return: None
         Implements a command line signature of
         "python engine_file.py --input <input_file_or_dir> --output <output_file_or_dir>
         For the input/output command line arguments.
@@ -839,5 +906,4 @@ FUNCTIONS
 DATA
     __all__ = ['TicDatFactory', 'freeze_me', 'LogFile', 'Sloc', 'Slicer', 'Progress'
                'find_denormalized_sub_table_failures']
-
 

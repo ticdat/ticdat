@@ -64,9 +64,13 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
                  with underscore for table name matching.
                  Field names are considered case insensitive, but white space is respected.
                  (ticdat supports whitespace in field names but not table names).
-                 Any field for which an empty string is invalid data and None is valid data
-                 will replace the empty string with None. (This caveat requires the data_types
-                 to be set for the ticDatFactory)
+                 The following two caveats apply only if data_types are used.
+                 --> Any field for which an empty string is invalid data and None is
+                     valid data will replace the empty string with None.
+                 --> Any field for which must_be_int is true will replace numeric
+                     data that satisfies int(x)==x with int(x). In other words,
+                     the ticdat equivalent of pandas.read_excel convert_float
+                     is to set must_be_int to true in data_types.
         """
         verify(xlrd, "xlrd needs to be installed to use this subroutine")
         tdf = self.tic_dat_factory
@@ -132,8 +136,9 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
                 sheet = sheets[table]
                 table_len = min(len(sheet.col_values(field_indicies[table][field]))
                                for field in tdf.data_fields[table])
-                for x in (sheet.row_values(i) for i in range(table_len)[row_offset+ho:]) :
-                    yield self._sub_tuple(tdf.data_fields[table], field_indicies[table])(x)
+                for x in (sheet.row_values(i) for i in range(table_len)[row_offset+ho:]):
+                    yield self._sub_tuple(table, tdf.data_fields[table],
+                                          field_indicies[table])(x)
         return tableObj
 
     def _create_tic_dat_dict(self, xls_file_path, row_offsets, headers_present):
@@ -148,28 +153,28 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
                                     set(tdf.all_tables).difference(tdf.generator_tables),
                                     row_offsets, headers_present)
         ho = 1 if headers_present else 0
-        for table, sheet in sheets.items() :
-            fields = tdf.primary_key_fields.get(table, ()) + tdf.data_fields.get(table, ())
-            assert fields or table in self.tic_dat_factory.generic_tables
-            indicies = field_indicies[table]
+        for tbl, sheet in sheets.items() :
+            fields = tdf.primary_key_fields.get(tbl, ()) + tdf.data_fields.get(tbl, ())
+            assert fields or tbl in self.tic_dat_factory.generic_tables
+            indicies = field_indicies[tbl]
             table_len = min(len(sheet.col_values(indicies[field]))
                             for field in (fields or indicies))
-            if tdf.primary_key_fields.get(table, ()) :
-                tableObj = {self._sub_tuple(tdf.primary_key_fields[table], indicies)(x) :
-                            self._sub_tuple(tdf.data_fields.get(table, ()), indicies)(x)
+            if tdf.primary_key_fields.get(tbl, ()) :
+                tableObj = {self._sub_tuple(tbl, tdf.primary_key_fields[tbl], indicies)(x):
+                            self._sub_tuple(tbl, tdf.data_fields.get(tbl, ()), indicies)(x)
                             for x in (sheet.row_values(i) for i in
-                                        range(table_len)[row_offsets[table]+ho:])}
-            elif table in tdf.generic_tables:
-                tableObj = [{f:x[i] for f,i in field_indicies[table].items()}
+                                        range(table_len)[row_offsets[tbl]+ho:])}
+            elif tbl in tdf.generic_tables:
+                tableObj = [{f:x[i] for f,i in field_indicies[tbl].items()}
                             for x in (sheet.row_values(i) for i in
-                                      range(table_len)[row_offsets[table]+ho:])]
+                                      range(table_len)[row_offsets[tbl]+ho:])]
             else :
-                tableObj = [self._sub_tuple(tdf.data_fields.get(table, ()), indicies)(x)
+                tableObj = [self._sub_tuple(tbl, tdf.data_fields.get(tbl, ()), indicies)(x)
                             for x in (sheet.row_values(i) for i in
-                                        range(table_len)[row_offsets[table]+ho:])]
-            rtn[table] = tableObj
-        for table in tdf.generator_tables :
-            rtn[table] = self._create_generator_obj(xls_file_path, table, row_offsets[table],
+                                        range(table_len)[row_offsets[tbl]+ho:])]
+            rtn[tbl] = tableObj
+        for tbl in tdf.generator_tables :
+            rtn[tbl] = self._create_generator_obj(xls_file_path, tbl, row_offsets[tbl],
                                                     headers_present)
         return rtn
 
@@ -209,18 +214,27 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
             indicies = fieldIndicies[table]
             table_len = min(len(sheet.col_values(indicies[field])) for field in fields)
             for x in (sheet.row_values(i) for i in range(table_len)[row_offsets[table]+ho:]) :
-                rtn[table][self._sub_tuple(tdf.primary_key_fields[table], indicies)(x)] += 1
+                rtn[table][self._sub_tuple(table, tdf.primary_key_fields[table],
+                                           indicies)(x)] += 1
         for t in list(rtn.keys()):
             rtn[t] = {k:v for k,v in rtn[t].items() if v > 1}
             if not rtn[t]:
                 del(rtn[t])
         return rtn
-    def _sub_tuple(self, fields, field_indicies) :
+    def _sub_tuple(self, table, fields, field_indicies) :
         assert set(fields).issubset(field_indicies)
+        data_types = self.tic_dat_factory.data_types
+        def _convert_float(x, field):
+            rtn = x[field_indicies[field]]
+            if utils.numericish(rtn) and utils.safe_apply(int)(rtn) == rtn and \
+               table in data_types and field in data_types[table] and \
+               data_types[table][field].must_be_int:
+                return int(rtn)
+            return rtn
         def rtn(x) :
             if len(fields) == 1 :
-                return x[field_indicies[fields[0]]]
-            return tuple(x[field_indicies[field]] for field in fields)
+                return _convert_float(x, fields[0])
+            return tuple(_convert_float(x, field) for field in fields)
         return rtn
 
     def _get_field_indicies(self, table, sheet, row_offset, headers_present) :
