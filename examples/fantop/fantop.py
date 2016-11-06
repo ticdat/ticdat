@@ -139,7 +139,7 @@ def solve(dat):
                    sense="maximize")
 
     if not m.optimize():
-        print "No draft at all is possible!"
+        print("No draft at all is possible!")
         return
 
     sln = solutionFactory.TicDat()
@@ -150,15 +150,19 @@ def solve(dat):
                     key=lambda _p: expected_draft_position[_p])
     assert len(picked) <= len(dat.my_draft_positions)
     if len(picked) < len(dat.my_draft_positions):
-        print "Your model is over-constrained, and thus only a partial draft was possible"
+        print("Your model is over-constrained, and thus only a partial draft was possible")
 
+    draft_yield = 0
     for player_name, draft_position in zip(picked, sorted(dat.my_draft_positions)):
+        draft_yield += dat.players[player_name]["Expected Points"] * \
+                       (starter_weight if almostone(my_starters[player_name]) else reserve_weight)
         assert draft_position <= expected_draft_position[player_name]
         sln.my_draft[player_name]["Draft Position"] = draft_position
         sln.my_draft[player_name]["Position"] = dat.players[player_name]["Position"]
         sln.my_draft[player_name]["Planned Or Actual"] = "Actual" if player_name in already_drafted_by_me else "Planned"
         sln.my_draft[player_name]["Starter Or Reserve"] = \
             "Starter" if almostone(my_starters[player_name]) else "Reserve"
+    print("Total draft yield %g.\n"%draft_yield)
 
     return sln
 # ---------------------------------------------------------------------------------
