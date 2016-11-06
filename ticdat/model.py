@@ -48,6 +48,14 @@ class Model(object):
         return self._model_type
 
     def add_var(self, lb=0, ub=float("inf"), type="continuous", name=""):
+        """
+        Add a variable to the model.
+        :param lb: The lower bound of the variable.
+        :param ub: The upper bound of the variable.
+        :param type: either 'binary' or 'continuous'
+        :param name: The name of the variable. (Ignored if falsey).
+        :return: The variable object associated with the model_type engine API
+        """
         verify(type in ["continuous", "binary"], "type needs to be 'continuous' or 'binary'")
         verify(utils.numericish(lb) and utils.numericish(ub), "lb, ub need to be numbers")
         verify(ub>=lb, "lb cannot be bigger than ub")
@@ -77,6 +85,14 @@ class Model(object):
             return rtn
 
     def add_constraint(self, constraint, name=""):
+        """
+        Add a constraint to the model.
+        :param constraint: A constraint created by via linear or quadratic combination of
+                           variables and numbers. Be sure to use Model.sum for summing
+                           over iterables.
+        :param name: The name of the constraint. Ignored if falsey.
+        :return: The constraint object associated with the model_type engine API
+        """
         if self.model_type == "gurobi":
             return self.core_model.addConstr(constraint, **({"name":name} if name else {}))
         if self.model_type == "cplex":
@@ -88,6 +104,13 @@ class Model(object):
             return rtn
 
     def set_objective(self, expression, sense="minimize"):
+        """
+        Set the objective for the model.
+        :param expression: A linear or quadratic combination of variables and numbers.
+                           Be sure to use Model.sum for summing over iterables.
+        :param sense: Either 'minimize' or 'maximize'
+        :return: None
+        """
         verify(sense in ["maximize", "minimize"],
                "sense needs to be 'maximize' or 'minimize")
         if self.model_type == "gurobi":
@@ -101,6 +124,12 @@ class Model(object):
                 {"maximize":xpress.maximize, "minimize":xpress.minimize}[sense])
 
     def optimize(self, *args, **kwargs):
+        """
+        Optimize the model.
+        :param args: Optional engine-specific arguments to pass to the model_type API
+        :param kwargs: Optional engine-specific arguments to pass to the model_type API
+        :return: True if the model solves successfully, False otherwise.
+        """
         if self.model_type == "gurobi":
             self.core_model.optimize(*args, **kwargs)
             if ((self.core_model.status == gurobi.GRB.OPTIMAL) or
@@ -119,6 +148,11 @@ class Model(object):
             return self.core_model.getProbStatus in [xpress.lp_optimal]
 
     def get_solution_value(self, var):
+        """
+        Get the value for a variable in the solution. Only call after a successful optimize() call.
+        :param var: The variable returned from a pervious call to add_var()
+        :return: The value of this variable in the optimal solution.
+        """
         if self.model_type == "gurobi":
            return var.x
         if self.model_type == "cplex":
