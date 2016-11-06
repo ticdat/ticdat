@@ -17,14 +17,14 @@ except:
     pd = DataFrame =  None
 import inspect
 
-def standard_main(dataFactory, solutionFactory, solve):
+def standard_main(input_schema, solution_schema, solve):
     """
      provides standardized command line functionality for a ticdat solve engine
-    :param dataFactory: a TicDatFactory defining the input schema
-    :param solutionFactory: a TicDatFactory defining the output schema
-    :param solve: a function that takes a dataFactory.TicDat object and
-                  returns a solutionFactory.TicDat object
-    :return: N/A
+    :param input_schema: a TicDatFactory defining the input schema
+    :param solution_schema: a TicDatFactory defining the output schema
+    :param solve: a function that takes a input_schema.TicDat object and
+                  returns a solution_schema.TicDat object
+    :return: None
     Implements a command line signature of
     "python engine_file.py --input <input_file_or_dir> --output <output_file_or_dir>
     For the input/output command line arguments.
@@ -39,8 +39,8 @@ def standard_main(dataFactory, solutionFactory, solve):
         model will be stored in a directory containing a series of .csv files)
     Defaults are input.xlsx, output.xlsx
     """
-    verify(all(isinstance(_, ticdat.TicDatFactory) for _ in (dataFactory, solutionFactory)),
-               "dataFactory and solutionFactory both need to be TicDatFactory objects")
+    verify(all(isinstance(_, ticdat.TicDatFactory) for _ in (input_schema, solution_schema)),
+               "input_schema and solution_schema both need to be TicDatFactory objects")
     verify(callable(solve), "solve needs to be a function")
     _args = inspect.getargspec(solve).args
     verify(_args and len(_args) == 1, "solve needs to take just one argument")
@@ -76,35 +76,35 @@ def standard_main(dataFactory, solutionFactory, solve):
         dat = None
         if os.path.isfile(input_file) and file_or_dir(input_file) == "file":
             if input_file.endswith(".xls") or input_file.endswith(".xlsx"):
-                assert not dataFactory.xls.find_duplicates(input_file), "duplicate rows found"
-                dat = dataFactory.xls.create_tic_dat(input_file)
+                assert not input_schema.xls.find_duplicates(input_file), "duplicate rows found"
+                dat = input_schema.xls.create_tic_dat(input_file)
             if input_file.endswith(".db"):
-                assert not dataFactory.sql.find_duplicates(input_file), "duplicate rows found"
-                dat = dataFactory.sql.create_tic_dat(input_file)
+                assert not input_schema.sql.find_duplicates(input_file), "duplicate rows found"
+                dat = input_schema.sql.create_tic_dat(input_file)
             if input_file.endswith(".sql"):
                 # no way to check a .sql file for duplications
-                dat = dataFactory.sql.create_tic_dat_from_sql(input_file)
+                dat = input_schema.sql.create_tic_dat_from_sql(input_file)
             if input_file.endswith(".mdb") or input_file.endswith(".accdb"):
-                assert not dataFactory.mdb.find_duplicates(input_file), "duplicate rows found"
-                dat = dataFactory.mdb.create_tic_dat(input_file)
+                assert not input_schema.mdb.find_duplicates(input_file), "duplicate rows found"
+                dat = input_schema.mdb.create_tic_dat(input_file)
         elif os.path.isdir(input_file) and file_or_dir(input_file) == "directory":
-            assert not dataFactory.csv.find_duplicates(input_file), "duplicate rows found"
-            dat = dataFactory.csv.create_tic_dat(input_file)
+            assert not input_schema.csv.find_duplicates(input_file), "duplicate rows found"
+            dat = input_schema.csv.create_tic_dat(input_file)
         verify(dat, "Failed to read from and/or recognize %s"%input_file)
         sln = solve(dat)
         if sln:
             print("%s output %s %s"%("Overwriting" if os.path.exists(output_file) else "Creating",
                                      file_or_dir(output_file), output_file))
             if output_file.endswith(".xls") or output_file.endswith(".xlsx"):
-                solutionFactory.xls.write_file(sln, output_file, allow_overwrite=True)
+                solution_schema.xls.write_file(sln, output_file, allow_overwrite=True)
             elif output_file.endswith(".db"):
-                solutionFactory.sql.write_db_data(sln, output_file, allow_overwrite=True)
+                solution_schema.sql.write_db_data(sln, output_file, allow_overwrite=True)
             elif output_file.endswith(".sql"):
-                solutionFactory.sql.write_sql_file(sln, output_file, allow_overwrite=True)
+                solution_schema.sql.write_sql_file(sln, output_file, allow_overwrite=True)
             elif output_file.endswith(".mdb") or output_file.endswith(".accdb"):
-                solutionFactory.mdb.write_file(sln, output_file, allow_overwrite=True)
+                solution_schema.mdb.write_file(sln, output_file, allow_overwrite=True)
             else:
-                solutionFactory.csv.write_directory(sln, output_file, allow_overwrite=True)
+                solution_schema.csv.write_directory(sln, output_file, allow_overwrite=True)
         else:
             print("No solution was created!")
 

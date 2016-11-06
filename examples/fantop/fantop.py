@@ -19,7 +19,7 @@
 from ticdat import TicDatFactory, standard_main, Model
 
 # ------------------------ define the input schema --------------------------------
-dataFactory = TicDatFactory (
+input_schema = TicDatFactory (
  parameters = [["Key"],["Value"]],
  players = [['Player Name'],
             ['Position', 'Average Draft Position', 'Expected Points', 'Draft Status']],
@@ -30,34 +30,34 @@ dataFactory = TicDatFactory (
 )
 
 # add foreign key constraints (optional, but helps with preventing garbage-in, garbage-out)
-dataFactory.add_foreign_key("players", "roster_requirements", ['Position', 'Position'])
+input_schema.add_foreign_key("players", "roster_requirements", ['Position', 'Position'])
 
 # set data types (optional, but helps with preventing garbage-in, garbage-out)
-dataFactory.set_data_type("parameters", "Key", number_allowed = False,
+input_schema.set_data_type("parameters", "Key", number_allowed = False,
                           strings_allowed = ["Starter Weight", "Reserve Weight",
                                              "Maximum Number of Flex Starters"])
-dataFactory.set_data_type("parameters", "Value", min=0, max=float("inf"),
+input_schema.set_data_type("parameters", "Value", min=0, max=float("inf"),
                           inclusive_min = True, inclusive_max = False)
-dataFactory.set_data_type("players", "Average Draft Position", min=0, max=float("inf"),
+input_schema.set_data_type("players", "Average Draft Position", min=0, max=float("inf"),
                           inclusive_min = False, inclusive_max = False)
-dataFactory.set_data_type("players", "Expected Points", min=-float("inf"), max=float("inf"),
+input_schema.set_data_type("players", "Expected Points", min=-float("inf"), max=float("inf"),
                           inclusive_min = False, inclusive_max = False)
-dataFactory.set_data_type("players", "Draft Status",
+input_schema.set_data_type("players", "Draft Status",
                           strings_allowed = ["Un-drafted", "Drafted By Me", "Drafted By Someone Else"])
 for fld in ("Min Num Starters",  "Min Num Reserve", "Max Num Reserve"):
-    dataFactory.set_data_type("roster_requirements", fld, min=0, max=float("inf"),
+    input_schema.set_data_type("roster_requirements", fld, min=0, max=float("inf"),
                           inclusive_min = True, inclusive_max = False, must_be_int = True)
-dataFactory.set_data_type("roster_requirements", "Max Num Starters", min=0, max=float("inf"),
+input_schema.set_data_type("roster_requirements", "Max Num Starters", min=0, max=float("inf"),
                       inclusive_min = False, inclusive_max = True, must_be_int = True)
-dataFactory.set_data_type("roster_requirements", "Flex Status", number_allowed = False,
+input_schema.set_data_type("roster_requirements", "Flex Status", number_allowed = False,
                           strings_allowed = ["Flex Eligible", "Flex Ineligible"])
-dataFactory.set_data_type("my_draft_positions", "Draft Position", min=0, max=float("inf"),
+input_schema.set_data_type("my_draft_positions", "Draft Position", min=0, max=float("inf"),
                           inclusive_min = False, inclusive_max = False, must_be_int = True)
 # ---------------------------------------------------------------------------------
 
 
 # ------------------------ define the output schema -------------------------------
-solutionFactory = TicDatFactory(
+solution_schema = TicDatFactory(
         my_draft = [['Player Name'], ['Draft Position', 'Position', 'Planned Or Actual',
                                      'Starter Or Reserve']])
 # ---------------------------------------------------------------------------------
@@ -66,10 +66,9 @@ solutionFactory = TicDatFactory(
 # ------------------------ create a solve function --------------------------------
 _model_type = "gurobi" # could also be 'cplex' or 'xpress'
 def solve(dat):
-    assert dataFactory.good_tic_dat_object(dat)
-    assert not dataFactory.find_foreign_key_failures(dat)
-    assert not dataFactory.find_data_type_failures(dat)
-
+    assert input_schema.good_tic_dat_object(dat)
+    assert not input_schema.find_foreign_key_failures(dat)
+    assert not input_schema.find_data_type_failures(dat)
 
     expected_draft_position = {}
     # for our purposes, its fine to assume all those drafted by someone else are drafted
@@ -142,7 +141,7 @@ def solve(dat):
         print("No draft at all is possible!")
         return
 
-    sln = solutionFactory.TicDat()
+    sln = solution_schema.TicDat()
     def almostone(x):
         return abs(m.get_solution_value(x) -1) < 0.0001
     picked = sorted([player_name for player_name in can_be_drafted_by_me
@@ -170,5 +169,5 @@ def solve(dat):
 # ------------------------ provide stand-alone functionality ----------------------
 # when run from the command line, will read/write xls/csv/db/sql/mdb files
 if __name__ == "__main__":
-    standard_main(dataFactory, solutionFactory, solve)
+    standard_main(input_schema, solution_schema, solve)
 # ---------------------------------------------------------------------------------

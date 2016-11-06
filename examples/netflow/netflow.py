@@ -19,7 +19,7 @@
 from ticdat import TicDatFactory, standard_main, Model, Slicer
 
 # ------------------------ define the input schema --------------------------------
-input_factory = TicDatFactory (
+input_schema = TicDatFactory (
      commodities = [["name"],[]],
      nodes  = [["name"],[]],
      arcs = [["source", "destination"],["capacity"]],
@@ -28,24 +28,24 @@ input_factory = TicDatFactory (
 )
 
 # add foreign key constraints
-input_factory.add_foreign_key("arcs", "nodes", ['source', 'name'])
-input_factory.add_foreign_key("arcs", "nodes", ['destination', 'name'])
-input_factory.add_foreign_key("cost", "nodes", ['source', 'name'])
-input_factory.add_foreign_key("cost", "nodes", ['destination', 'name'])
-input_factory.add_foreign_key("cost", "commodities", ['commodity', 'name'])
-input_factory.add_foreign_key("inflow", "commodities", ['commodity', 'name'])
-input_factory.add_foreign_key("inflow", "nodes", ['node', 'name'])
+input_schema.add_foreign_key("arcs", "nodes", ['source', 'name'])
+input_schema.add_foreign_key("arcs", "nodes", ['destination', 'name'])
+input_schema.add_foreign_key("cost", "nodes", ['source', 'name'])
+input_schema.add_foreign_key("cost", "nodes", ['destination', 'name'])
+input_schema.add_foreign_key("cost", "commodities", ['commodity', 'name'])
+input_schema.add_foreign_key("inflow", "commodities", ['commodity', 'name'])
+input_schema.add_foreign_key("inflow", "nodes", ['node', 'name'])
 
 # the whole schema has only three data fields to type
-input_factory.set_data_type("arcs", "capacity")
-input_factory.set_data_type("cost", "cost")
+input_schema.set_data_type("arcs", "capacity")
+input_schema.set_data_type("cost", "cost")
 # except quantity which allows negatives
-input_factory.set_data_type("inflow", "quantity", min=-float("inf"),
+input_schema.set_data_type("inflow", "quantity", min=-float("inf"),
                           inclusive_min=False)
 # ---------------------------------------------------------------------------------
 
 # ------------------------ define the output schema -------------------------------
-solution_factory = TicDatFactory(
+solution_schema = TicDatFactory(
         flow = [["commodity", "source", "destination"], ["quantity"]])
 # ---------------------------------------------------------------------------------
 
@@ -54,8 +54,8 @@ _model_type = "gurobi" # could also be 'cplex' or 'xpress'
 def solve(dat):
     """
     core solving routine
-    :param dat: a good ticdat for the input_factory
-    :return: a good ticdat for the solution_factory, or None
+    :param dat: a good ticdat for the input_schema
+    :return: a good ticdat for the solution_schema, or None
     """
 
     mdl = Model(_model_type, "netflow")
@@ -87,7 +87,7 @@ def solve(dat):
 
     # Compute optimal solution
     if mdl.optimize():
-        rtn = solution_factory.TicDat()
+        rtn = solution_schema.TicDat()
         for (h, i, j),var in flow.items():
             if mdl.get_solution_value(var) > 0:
                 rtn.flow[h,i,j] = mdl.get_solution_value(var)
@@ -97,5 +97,5 @@ def solve(dat):
 # ------------------------ provide stand-alone functionality ----------------------
 # when run from the command line, will read/write xls/csv/db/sql/mdb files
 if __name__ == "__main__":
-    standard_main(input_factory, solution_factory, solve)
+    standard_main(input_schema, solution_schema, solve)
 # ---------------------------------------------------------------------------------

@@ -821,13 +821,13 @@ FUNCTIONS
                  Thus, a table that has a properly denormalized (pk_fields, data_fields)
                  sub-table will return an empty dictionary.
 
-    standard_main(dataFactory, solutionFactory, solve)
+    standard_main(input_schema, solution_schema, solve)
          provides standardized command line functionality for a ticdat solve engine
-        :param dataFactory: a TicDatFactory defining the input schema
-        :param solutionFactory: a TicDatFactory defining the output schema
-        :param solve: a function that takes a dataFactory.TicDat object and
-                      returns a solutionFactory.TicDat object
-        :return: N/A
+        :param input_schema: a TicDatFactory defining the input schema
+        :param solution_schema: a TicDatFactory defining the output schema
+        :param solve: a function that takes a input_schema.TicDat object and
+                      returns a solution_schema.TicDat object
+        :return: None
         Implements a command line signature of
         "python engine_file.py --input <input_file_or_dir> --output <output_file_or_dir>
         For the input/output command line arguments.

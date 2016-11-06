@@ -5,8 +5,8 @@
 # This file solves the netflow model with a static (i.e. hard coded) small data example.
 #
 
-from netflow import solve, input_factory
-dat = input_factory.TicDat(
+from netflow import solve, input_schema
+dat = input_schema.TicDat(
     commodities = ['Pencils', 'Pens'],
     nodes = ['Detroit', 'Denver', 'Boston', 'New York', 'Seattle'],
     arcs = {('Detroit', 'Boston'):   100,

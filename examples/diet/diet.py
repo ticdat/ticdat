@@ -19,30 +19,30 @@ from ticdat import TicDatFactory, standard_main, Model
 
 # ------------------------ define the input schema --------------------------------
 # There are three input tables, with 4 primary key fields and 4 data fields.
-input_factory = TicDatFactory (
+input_schema = TicDatFactory (
      categories = [["name"],["min_nutrition", "max_nutrition"]],
      foods  = [["name"],["cost"]],
      nutrition_quantities = [["food", "category"], ["qty"]])
 
 # the foreign key relationships are pretty much what you'd expect
-input_factory.add_foreign_key("nutrition_quantities", "foods", ["food", "name"])
-input_factory.add_foreign_key("nutrition_quantities", "categories",
+input_schema.add_foreign_key("nutrition_quantities", "foods", ["food", "name"])
+input_schema.add_foreign_key("nutrition_quantities", "categories",
                             ["category", "name"])
 
 # We set the most common data type - a non-negative, non-infinite number
 # that has no integrality restrictions.
-for table, fields in input_factory.data_fields.items():
+for table, fields in input_schema.data_fields.items():
     for field in fields:
-        input_factory.set_data_type(table, field)
+        input_schema.set_data_type(table, field)
 # We override the default data type for max_nutrition which can accept infinity
-input_factory.set_data_type("categories", "max_nutrition", max=float("inf"),
+input_schema.set_data_type("categories", "max_nutrition", max=float("inf"),
                           inclusive_max=True)
 # ---------------------------------------------------------------------------------
 
 
 # ------------------------ define the output schema -------------------------------
 # There are three solution tables, with 2 primary key fields and 3 data fields.
-solution_factory = TicDatFactory(
+solution_schema = TicDatFactory(
         parameters = [[],["total_cost"]],
         buy_food = [["food"],["qty"]],
         consume_nutrition = [["category"],["qty"]])
@@ -54,12 +54,12 @@ _model_type = "gurobi" # could also be 'cplex' or 'xpress'
 def solve(dat):
     """
     core solving routine
-    :param dat: a good ticdat for the input_factory
-    :return: a good ticdat for the solution_factory, or None
+    :param dat: a good ticdat for the input_schema
+    :return: a good ticdat for the solution_schema, or None
     """
-    assert input_factory.good_tic_dat_object(dat)
-    assert not input_factory.find_foreign_key_failures(dat)
-    assert not input_factory.find_data_type_failures(dat)
+    assert input_schema.good_tic_dat_object(dat)
+    assert not input_schema.find_foreign_key_failures(dat)
+    assert not input_schema.find_data_type_failures(dat)
 
     mdl = Model(_model_type, "diet")
 
@@ -97,5 +97,5 @@ def solve(dat):
 # ------------------------ provide stand-alone functionality ----------------------
 # when run from the command line, will read/write xls/csv/db/sql/mdb files
 if __name__ == "__main__":
-    standard_main(input_factory, solution_factory, solve)
+    standard_main(input_schema, solution_schema, solve)
 # ---------------------------------------------------------------------------------

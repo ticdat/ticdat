@@ -8,9 +8,9 @@
 # USDA Dietary Guidelines for Americans, 2005
 # http://www.health.gov/DietaryGuidelines/dga2005/
 
-from diet import solve, input_factory
+from diet import solve, input_schema
 
-dat = input_factory.TicDat(
+dat = input_schema.TicDat(
     categories = {
       'calories': [1800, 2200],
       'protein':  [91, float("inf")],
