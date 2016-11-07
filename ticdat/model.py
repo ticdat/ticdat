@@ -68,7 +68,6 @@ class Model(object):
         if self.model_type == "gurobi":
             vtype = {"continuous":gurobi.GRB.CONTINUOUS, "binary":gurobi.GRB.BINARY}[type]
             rtn =  self.core_model.addVar(lb=lb, ub=ub, vtype=vtype, **name_dict)
-            self.core_model.update()        # issue 1323
             return rtn
         if self.model_type == "cplex":
             if type == "continuous":
