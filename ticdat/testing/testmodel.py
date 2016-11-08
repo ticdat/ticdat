@@ -11,6 +11,8 @@ __codeFile = _codeFile()
 def _codeDir():
     return os.path.dirname(__codeFile)
 
+# issue 1104 deals with Jenkins / OCP support of Model and the three horseman of MIPocalypse
+
 #@fail_to_debugger
 class TestModel(unittest.TestCase):
     def _testDiet(self, modelType):
@@ -30,23 +32,17 @@ class TestModel(unittest.TestCase):
         self.assertTrue(sln and nearlySame(draft_yield, 2952.252))
 
     def testCplex(self):
-        if utils.stringish(cplex) :
-            print("\n\n\n!!!!!!!!!SKIPPING CPLEX UNIT TESTS DUE TO FAILURE TO LOAD CPLEX LIBRARIES!!!!!!!!")
-            return
+        self.assertFalse(utils.stringish(cplex))
         self._testDiet("cplex")
         self._testNetflow("cplex")
         self._testFantop("cplex")
     def testGurobi(self):
-        if utils.stringish(gurobi) :
-            print("\n\n\n!!!!!!!!!SKIPPING GUROBI UNIT TESTS DUE TO FAILURE TO LOAD GUROBI LIBRARIES!!!!!!!!")
-            return
+        self.assertFalse(utils.stringish(gurobi))
         self._testDiet("gurobi")
         self._testNetflow("gurobi")
         self._testFantop("gurobi")
     def testXpress(self):
-        if utils.stringish(xpress) :
-            print("\n\n\n!!!!!!!!!SKIPPING XPRESS UNIT TESTS DUE TO FAILURE TO LOAD XPRESS LIBRARIES!!!!!!!!")
-            return
+        self.assertFalse(utils.stringish(xpress))
         self._testDiet("xpress")
         self._testNetflow("xpress")
         self._testFantop("xpress")
