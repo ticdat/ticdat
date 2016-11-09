@@ -80,7 +80,7 @@ class Model(object):
         if self.model_type == "xpress":
             verify(type == "continuous", "binary not figured out for xpress yet")
             rtn = xpress.var(lb=lb, ub=ub, **name_dict)
-            self.core_model.addVar(rtn)
+            self.core_model.addVariable(rtn)
             return rtn
 
     def add_constraint(self, constraint, name=""):
