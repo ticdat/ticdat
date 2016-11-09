@@ -68,7 +68,6 @@ class Model(object):
         if self.model_type == "gurobi":
             vtype = {"continuous":gurobi.GRB.CONTINUOUS, "binary":gurobi.GRB.BINARY}[type]
             rtn =  self.core_model.addVar(lb=lb, ub=ub, vtype=vtype, **name_dict)
-            self.core_model.update()        # issue 1323
             return rtn
         if self.model_type == "cplex":
             if type == "continuous":
@@ -79,9 +78,9 @@ class Model(object):
                 self.core_model.add_constraint(rtn == rhs)
             return rtn
         if self.model_type == "xpress":
-            verify(type == "continuous", "binary not figured out for xpress yet")
-            rtn = xpress.var(lb=lb, ub=ub, **name_dict)
-            self.core_model.addVar(rtn)
+            vtype = {"continuous":xpress.continuous, "binary":xpress.binary}[type]
+            rtn = xpress.var(lb=lb, ub=ub, vartype=vtype,  **name_dict)
+            self.core_model.addVariable(rtn)
             return rtn
 
     def add_constraint(self, constraint, name=""):
@@ -144,8 +143,7 @@ class Model(object):
             return rtn
         if self.model_type == "xpress":
             self.core_model.solve(*args, **kwargs)
-            verify(False, "RESEARCH THE STATUSES!!!!!")
-            return self.core_model.getProbStatus in [xpress.lp_optimal]
+            return self.core_model.getProbStatus() in [xpress.lp_optimal, xpress.mip_optimal]
 
     def get_solution_value(self, var):
         """
