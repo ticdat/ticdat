@@ -143,8 +143,8 @@ class Model(object):
             return rtn
         if self.model_type == "xpress":
             self.core_model.solve(*args, **kwargs)
-            verify(False, "RESEARCH THE STATUSES!!!!!")
-            return self.core_model.getProbStatus in [xpress.lp_optimal]
+            print ("RESEARCH NEEDED ON XPRESS PROBLEM STATUSES!!!!!")
+            return self.core_model.getProbStatus() in [xpress.lp_optimal, xpress.mip_optimal]
 
     def get_solution_value(self, var):
         """
