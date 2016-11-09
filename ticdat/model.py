@@ -78,8 +78,8 @@ class Model(object):
                 self.core_model.add_constraint(rtn == rhs)
             return rtn
         if self.model_type == "xpress":
-            verify(type == "continuous", "binary not figured out for xpress yet")
-            rtn = xpress.var(lb=lb, ub=ub, **name_dict)
+            vtype = {"continuous":xpress.continuous, "binary":xpress.binary}[type]
+            rtn = xpress.var(lb=lb, ub=ub, vartype=vtype,  **name_dict)
             self.core_model.addVariable(rtn)
             return rtn
 
@@ -143,7 +143,6 @@ class Model(object):
             return rtn
         if self.model_type == "xpress":
             self.core_model.solve(*args, **kwargs)
-            print ("RESEARCH NEEDED ON XPRESS PROBLEM STATUSES!!!!!")
             return self.core_model.getProbStatus() in [xpress.lp_optimal, xpress.mip_optimal]
 
     def get_solution_value(self, var):

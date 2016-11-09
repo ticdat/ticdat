@@ -1,6 +1,7 @@
 from ticdat import TicDatFactory, Model, utils
 from ticdat.model import cplex, gurobi, xpress
-from ticdat.testing.ticdattestutils import dietSolver, fail_to_debugger, nearlySame, netflowSolver
+from ticdat.testing.ticdattestutils import dietSolver, nearlySame, netflowSolver
+from ticdat.testing.ticdattestutils import fail_to_debugger, flagged_as_run_alone
 import unittest
 import os
 import inspect
@@ -30,7 +31,6 @@ class TestModel(unittest.TestCase):
         self.assertTrue(sln and nearlySame(draft_yield, 2947.677))
         sln, draft_yield = _testFantop(modelType, "flex_constraint.sql")
         self.assertTrue(sln and nearlySame(draft_yield, 2952.252))
-
     def testCplex(self):
         self.assertFalse(utils.stringish(cplex))
         self._testDiet("cplex")
