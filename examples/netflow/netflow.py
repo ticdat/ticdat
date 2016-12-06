@@ -36,10 +36,9 @@ input_schema.add_foreign_key("cost", "commodities", ['commodity', 'name'])
 input_schema.add_foreign_key("inflow", "commodities", ['commodity', 'name'])
 input_schema.add_foreign_key("inflow", "nodes", ['node', 'name'])
 
-# the whole schema has only three data fields to type
-input_schema.set_data_type("arcs", "capacity")
+input_schema.set_data_type("arcs", "capacity",  max=float("inf"),
+                           inclusive_max=True)
 input_schema.set_data_type("cost", "cost")
-# except quantity which allows negatives
 input_schema.set_data_type("inflow", "quantity", min=-float("inf"),
                           inclusive_min=False)
 # ---------------------------------------------------------------------------------
