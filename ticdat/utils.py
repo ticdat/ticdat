@@ -54,7 +54,7 @@ def standard_main(input_schema, solution_schema, solve):
         print (str(err))  # will print something like "option -a not recognized"
         usage()
         sys.exit(2)
-    input_file, output_file = "input.xls", "output.xls"
+    input_file, output_file = "input.xlsx", "output.xlsx"
     for o, a in opts:
         if o in ("-h", "--help"):
             usage()
