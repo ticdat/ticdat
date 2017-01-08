@@ -1,0 +1,53 @@
+FOODS={
+<"Roasted Chicken",0.84,>
+<"Spaghetti W/ Sauce",0.78,>
+<"Tomato,Red,Ripe,Raw",0.27,>
+<"Apple,Raw,W/Skin",0.24,>
+<"Grapes",0.32,>
+<"Chocolate Chip Cookies",0.03,>
+<"Lowfat Milk",0.23,>
+<"Raisin Brn",0.34,>
+<"Hotdog",0.31,>
+};
+
+CATEGORIES={
+<"Calories",2000,2500,>
+<"Calcium",800,1600,>
+<"Iron",10,30,>
+<"Vit_A",5000,50000,>
+<"Dietary_Fiber",25,100,>
+<"Carbohydrates",0,300,>
+<"Protein",50,100,>
+};
+
+NUTRITION_QUANTITIES =  {<"Roasted Chicken" "Calories" 277.4> <"Roasted Chicken" "Calcium" 21.9>
+     <"Roasted Chicken" "Iron" 1.8> <"Roasted Chicken" "Vit_A" 77.4>
+     <"Roasted Chicken" "Protein" 42.2> <"Spaghetti W/ Sauce" "Calories" 358.2>
+     <"Spaghetti W/ Sauce" "Calcium" 80.2> <"Spaghetti W/ Sauce" "Iron" 2.3>
+     <"Spaghetti W/ Sauce" "Vit_A" 3055.2> <"Spaghetti W/ Sauce" "Dietary_Fiber"
+         11.6> <"Spaghetti W/ Sauce" "Carbohydrates" 58.3>
+     <"Spaghetti W/ Sauce" "Protein" 8.2> <"Tomato,Red,Ripe,Raw" "Calories"
+         25.8> <"Tomato,Red,Ripe,Raw" "Calcium" 6.2>
+     <"Tomato,Red,Ripe,Raw" "Iron" 0.6> <"Tomato,Red,Ripe,Raw" "Vit_A" 766.3>
+     <"Tomato,Red,Ripe,Raw" "Dietary_Fiber" 1.4> <"Tomato,Red,Ripe,Raw" "Carbohydrates"
+         5.7> <"Tomato,Red,Ripe,Raw" "Protein" 1> <"Apple,Raw,W/Skin" "Calories"
+         81.4> <"Apple,Raw,W/Skin" "Calcium" 9.7> <"Apple,Raw,W/Skin" "Iron"
+         0.2> <"Apple,Raw,W/Skin" "Vit_A" 73.1> <"Apple,Raw,W/Skin" "Dietary_Fiber"
+         3.7> <"Apple,Raw,W/Skin" "Carbohydrates" 21>
+     <"Apple,Raw,W/Skin" "Protein" 0.3> <"Grapes" "Calories" 15.1>
+     <"Grapes" "Calcium" 3.4> <"Grapes" "Iron" 0.1>
+     <"Grapes" "Vit_A" 24> <"Grapes" "Dietary_Fiber" 0.2>
+     <"Grapes" "Carbohydrates" 4.1> <"Grapes" "Protein" 0.2>
+     <"Chocolate Chip Cookies" "Calories" 78.1> <"Chocolate Chip Cookies" "Calcium"
+         6.2> <"Chocolate Chip Cookies" "Iron" 0.4>
+     <"Chocolate Chip Cookies" "Vit_A" 101.8> <"Chocolate Chip Cookies" "Carbohydrates"
+         9.3> <"Chocolate Chip Cookies" "Protein" 0.9>
+     <"Lowfat Milk" "Calories" 121.2> <"Lowfat Milk" "Calcium" 296.7>
+     <"Lowfat Milk" "Iron" 0.1> <"Lowfat Milk" "Vit_A" 500.2>
+     <"Lowfat Milk" "Carbohydrates" 11.7> <"Lowfat Milk" "Protein" 8.1>
+     <"Raisin Brn" "Calories" 115.1> <"Raisin Brn" "Calcium" 12.9>
+     <"Raisin Brn" "Iron" 16.8> <"Raisin Brn" "Vit_A" 1250.2>
+     <"Raisin Brn" "Dietary_Fiber" 4> <"Raisin Brn" "Carbohydrates" 27.9>
+     <"Raisin Brn" "Protein" 4> <"Hotdog" "Calories" 242.1>
+     <"Hotdog" "Calcium" 23.5> <"Hotdog" "Iron" 2.3>
+     <"Hotdog" "Carbohydrates" 18> <"Hotdog" "Protein" 10.4>};
