@@ -49,4 +49,26 @@ def create_opl_text(tdf, tic_dat):
 
     return rtn
 
+def read_opl_text(tdf, text):
+    verify(stringish(text), "text needs to be a string")
+    dict_with_lists = defaultdict(list)
+
+def _blank_out_internals(text):
+    rtn = []
+    inside_curly, inside_bracket, inside_quote= False, False, False
+    for i,c in enumerate(text):
+        if c == '"':
+            verify(inside_bracket, "Badly formatted string - quote not inside bracket. Character position [%s]."%i)
+            inside_quote = not inside_quote
+        if c == "{" and inside_curly:
+            verify(inside_quote, "Badly formatted string - curly inside curly but not inside quote. " +
+                                 "Character position [%s]."%i)
+        if c == "{" and not (inside_bracket or inside_quote):
+            inside_curly = True
+        elif c == "}" and inside_curly and not (inside_quote or inside_bracket):
+            inside_curly = False
+        rtn.append("*" if inside_curly else c)
+
+    assert len(rtn) == len(text)
+    return "".join(rtn)
 
