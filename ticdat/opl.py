@@ -1,5 +1,6 @@
-from ticdat.utils import verify
+from ticdat.utils import verify, containerish, stringish
 import os
+from collections import defaultdict
 
 def opl_run(mod_file, input_tdf, input_dat, soln_tdf):
     """
@@ -15,3 +16,37 @@ def opl_run(mod_file, input_tdf, input_dat, soln_tdf):
     verify(input_tdf.good_tic_dat_object(input_dat, msg.append),
            "tic_dat not a good object for the input_tdf factory : %s"%"\n".join(msg))
     verify(False, "!!!!Under Construction!!!!")
+
+def create_opl_text(tdf, tic_dat):
+    msg = []
+    verify(tdf.good_tic_dat_object(tic_dat, msg.append),
+           "tic_dat not a good object for this factory : %s"%"\n".join(msg))
+    verify(not tdf.generator_tables, "doesn't work with generator tables.")
+    verify(not tdf.generic_tables, "doesn't work with generic tables. (not yet - will add ASAP as needed) ")
+    dict_with_lists = defaultdict(list)
+    dict_tables = {t for t,pk in tdf.primary_key_fields.items() if pk}
+    for t in dict_tables:
+        for k,r in getattr(tic_dat, t).items():
+            row = list(k) if containerish(k) else [k]
+            for f in tdf.data_fields.get(t, []):
+                row.append(r[f])
+            dict_with_lists[t].append(row)
+    for t in set(tdf.all_tables).difference(dict_tables):
+        for r in getattr(tic_dat, t):
+            row = [r[f] for f in tdf.data_fields[t]]
+            dict_with_lists[t].append(row)
+
+    rtn = ""
+    for i, (t,l) in enumerate(dict_with_lists.items()):
+        rtn += "\n" if i > 0 else ""
+        rtn += "%s = {\n"%t
+        for r in l:
+            rtn += "<"
+            for i,v in enumerate(r):
+                rtn += ('"%s"'%v if stringish(v) else str(v)) + (", " if i < len(r)-1 else "")
+            rtn += ">\n"
+        rtn += "};\n"
+
+    return rtn
+
+
