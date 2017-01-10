@@ -49,70 +49,88 @@ def create_opl_text(tdf, tic_dat):
 
     return rtn
 
-def read_opl_text(text):
+def read_opl_text(tdf,text):
     verify(stringish(text), "text needs to be a string")
+    # probably want to verify something about the ticdat factory, look at the wiki
     dict_with_lists = defaultdict(list)
-    mode = 'none'
+    NONE, TABLE, ROW, FIELD, STRING,  NUMBER = 1, 2, 3, 4, 5, 6
+    mode = NONE
     field = ''
-    tbn = ''
+    table_name = ''
     row = []
-    '''
-    First I'm writing it without error handling, then I'll add all of that.
-    THINGS IDK HOW TO HANDLE YET QUOTES IN QUOTES(probably want them escaped) EMPTY FIELDS(skip) INFINITY
-    '''
+
+    def to_number(st, pos):
+        try:
+            return float(st)
+        except ValueError:
+            verify(False,
+                   "Badly formatted string - Field '%s' is not a valid number. Character position [%s]." % (st, pos))
+
     for i,c in enumerate(text):
-        if mode != 'inquotes' and c.isspace():
+        if mode != STRING and (c.isspace() or c == '{' or c == ';'):
             continue
 
-        elif mode is 'inquotes':
-            if c is '"':
-                row.append(field)
-                field = ''
-                mode = 'isrow'
+        elif mode is STRING:
+            if c == '"':
+                if text[i-1] == '\\':
+                    field = field[:-1] + '"'
+                else:
+                    mode = FIELD
             else:
                 field += c
+        # I can get tricky with these verify's to give some more helpful tips
+        elif c == '=':
+            verify(mode is NONE, "Badly formatted string, unrecognized '='. Character position [%s]"%i)
+            verify(len(table_name) > 0, "Badly formatted string, table name can't be blank. Character position [%s]"%i)
+            # is the dup table names check neccessary?
+            verify(table_name not in dict_with_lists.keys(), "Can't have duplicate table name. [Character position [%s]"%i)
+            dict_with_lists[table_name] = []
+            mode = TABLE
 
-        elif c is '=':
-            mode = 'intable'
+        elif c == '<':
+            verify(mode is TABLE, "Badly formatted string, unrecognized '<'. Character position [%s]"%i)
+            mode = ROW
 
-        elif c is '{':
-            continue
+        elif c == ',':
+            verify(mode is ROW or mode is FIELD or mode is NUMBER, "Badly formatted string, unrecognized ','. \
+                                                                    Character position [%s]"%i)
+            if mode is NUMBER:
+                field = to_number(field,i)
+            row.append(field)
+            field = ''
+            mode = ROW
 
-        elif c is '<':
-            mode = 'isrow'
+        elif c == '"':
+            verify(mode is ROW, "Badly formatted string, unrecognized '\"'. Character position [%s]"%i)
+            if mode is ROW:
+                mode = STRING
 
-        elif c is ',':
-            if mode is 'isnumber':
-                row.append(float(field))
-                field = ''
-                mode = 'isrow'
-
-        elif c is '"':
-            if mode is 'isrow':
-                mode = 'inquotes'
-
-        elif c is '}':
+        elif c == '}':
+            verify(mode is TABLE, "Badly formatted string, unrecognized '}'. Character position [%s]"%i)
             row = []
-            tbn = ''
-            mode = 'none'
+            table_name = ''
+            mode = NONE
 
-        elif c is '>':
-            if mode is 'isnumber':
+        elif c == '>':
+            verify(mode is ROW or mode is FIELD or mode is NUMBER, "Badly formatted string, unrecognized '>'. \
+                                                                    Character position [%s]"%i)
+            if mode is NUMBER:
+                field = to_number(field,i)
+                mode = FIELD
+            if mode is FIELD:
                 row.append(field)
                 field = ''
-            dict_with_lists[tbn].append(row)
+            # what about different sized rows? Does ticdat deal with this
+            dict_with_lists[table_name].append(row)
             row = []
-            mode = 'intable'
-
-        elif c is ';':
-            continue
-
+            mode = TABLE
         else:
-            # 'either a name of a table or a number'
-            if mode is 'none':
-                tbn += c
+            verify(mode is NONE or mode is ROW or mode is FIELD or mode is NUMBER, "Badly formatted string, \
+                                                                    unrecognized '%s'. Character position [%s]"%(c,i))
+            if mode is NONE:
+                table_name += c
             else:
-                mode = 'isnumber'
+                mode = NUMBER
                 field += c
-
     return dict_with_lists
+
