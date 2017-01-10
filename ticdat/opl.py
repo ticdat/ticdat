@@ -49,26 +49,70 @@ def create_opl_text(tdf, tic_dat):
 
     return rtn
 
-def read_opl_text(tdf, text):
+def read_opl_text(text):
     verify(stringish(text), "text needs to be a string")
     dict_with_lists = defaultdict(list)
-
-def _blank_out_internals(text):
-    rtn = []
-    inside_curly, inside_bracket, inside_quote= False, False, False
+    mode = 'none'
+    field = ''
+    tbn = ''
+    row = []
+    '''
+    First I'm writing it without error handling, then I'll add all of that.
+    THINGS IDK HOW TO HANDLE YET QUOTES IN QUOTES(probably want them escaped) EMPTY FIELDS(skip) INFINITY
+    '''
     for i,c in enumerate(text):
-        if c == '"':
-            verify(inside_bracket, "Badly formatted string - quote not inside bracket. Character position [%s]."%i)
-            inside_quote = not inside_quote
-        if c == "{" and inside_curly:
-            verify(inside_quote, "Badly formatted string - curly inside curly but not inside quote. " +
-                                 "Character position [%s]."%i)
-        if c == "{" and not (inside_bracket or inside_quote):
-            inside_curly = True
-        elif c == "}" and inside_curly and not (inside_quote or inside_bracket):
-            inside_curly = False
-        rtn.append("*" if inside_curly else c)
+        if mode != 'inquotes' and c.isspace():
+            continue
 
-    assert len(rtn) == len(text)
-    return "".join(rtn)
+        elif mode is 'inquotes':
+            if c is '"':
+                row.append(field)
+                field = ''
+                mode = 'isrow'
+            else:
+                field += c
 
+        elif c is '=':
+            mode = 'intable'
+
+        elif c is '{':
+            continue
+
+        elif c is '<':
+            mode = 'isrow'
+
+        elif c is ',':
+            if mode is 'isnumber':
+                row.append(float(field))
+                field = ''
+                mode = 'isrow'
+
+        elif c is '"':
+            if mode is 'isrow':
+                mode = 'inquotes'
+
+        elif c is '}':
+            row = []
+            tbn = ''
+            mode = 'none'
+
+        elif c is '>':
+            if mode is 'isnumber':
+                row.append(field)
+                field = ''
+            dict_with_lists[tbn].append(row)
+            row = []
+            mode = 'intable'
+
+        elif c is ';':
+            continue
+
+        else:
+            # 'either a name of a table or a number'
+            if mode is 'none':
+                tbn += c
+            else:
+                mode = 'isnumber'
+                field += c
+
+    return dict_with_lists
