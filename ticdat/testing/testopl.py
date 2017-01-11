@@ -1,5 +1,5 @@
 import os
-from ticdat.opl import create_opl_text
+from ticdat.opl import create_opl_text, read_opl_text
 import sys
 from ticdat.ticdatfactory import TicDatFactory, DataFrame
 from ticdat.testing.ticdattestutils import dietData, dietSchema, netflowData
@@ -15,6 +15,10 @@ class TestOpl(unittest.TestCase):
         tdf.enable_foreign_key_links()
         oldDat = tdf.freeze_me(tdf.TicDat(**{t:getattr(dietData(),t) for t in tdf.primary_key_fields}))
         oldDatStr = create_opl_text(tdf, oldDat)
+        new_tdf = read_opl_text(tdf, oldDatStr)
+        newDat = new_tdf.freeze_me(new_tdf)
+        self.assertTrue(tdf._same_data(oldDat, newDat))
+
     def testNetflow(self):
         tdf = TicDatFactory(**netflowSchema())
         tdf.enable_foreign_key_links()

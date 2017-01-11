@@ -132,5 +132,4 @@ def read_opl_text(tdf,text):
             else:
                 mode = NUMBER
                 field += c
-    return dict_with_lists
-
+    return tdf.TicDat(**dict_with_lists)
