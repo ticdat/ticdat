@@ -15,8 +15,7 @@ class TestOpl(unittest.TestCase):
         tdf.enable_foreign_key_links()
         oldDat = tdf.freeze_me(tdf.TicDat(**{t:getattr(dietData(),t) for t in tdf.primary_key_fields}))
         oldDatStr = create_opl_text(tdf, oldDat)
-        new_tdf = read_opl_text(tdf, oldDatStr)
-        newDat = new_tdf.freeze_me(new_tdf)
+        newDat = read_opl_text(tdf, oldDatStr)
         self.assertTrue(tdf._same_data(oldDat, newDat))
 
     def testNetflow(self):

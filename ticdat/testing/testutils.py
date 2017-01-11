@@ -669,6 +669,15 @@ class TestUtils(unittest.TestCase):
         self.assertTrue({x["foo"] for x in dat.boger} == {11,1,2})
         self.assertTrue({x["goo"] for x in dat.boger} == {2.1,1.1,1,2})
 
+    def testSeventeen(self):
+        tdf = TicDatFactory(bo = [["a","b"],["c"]])
+        dat = tdf.TicDat(bo = [[1, 2, 3], ["a", "b", "c"]])
+        self.assertTrue(set(dat.bo) == {(1,2), ("a","b")})
+        self.assertTrue(dat.bo[1,2]["c"] == 3 and dat.bo["a","b"]["c"] == "c")
+        tdf = TicDatFactory(bo = [["c"],[]])
+        dat = tdf.TicDat(bo = [1, "a"])
+        self.assertTrue(set(dat.bo) == {"a",1})
+
 
 
 

@@ -458,7 +458,7 @@ foreign keys, the code throwing this exception will be removed.
         datarowfactory = lambda t :  utils.td_row_factory(t, self.primary_key_fields.get(t, ()),
                         self.data_fields.get(t, ()), self.default_values.get(t, {}))
 
-        goodticdattable = self.good_tic_dat_table
+        goodticdattable = self._good_tic_dat_table_for_init
         superself = self
         def ticdattablefactory(alldatadicts, tablename, primarykey = (), rowfactory_ = None) :
             assert tablename not in self.generic_tables
@@ -560,6 +560,14 @@ foreign keys, the code throwing this exception will be removed.
                           v.apply(add_row, axis=1)
                       else :
                           v.apply(lambda r : getattr(self, t).append(row_dict(r)), axis=1)
+                    elif superself.primary_key_fields.get(t) and not utils.dictish(v):
+                        pklen = len(superself.primary_key_fields[t])
+                        setattr(self, t, ticdattablefactory(self._all_data_dicts, t)(
+                            {r if not utils.containerish(r) else
+                             (r[0] if pklen == 1 else tuple(r[:pklen])) :
+                             datarowfactory(t)([] if not utils.containerish(r) else r[pklen:])
+                             for r in v}
+                        ))
                     elif superself.primary_key_fields.get(t) :
                      for _k in v :
                         verify((hasattr(_k, "__len__") and
@@ -674,6 +682,16 @@ foreign keys, the code throwing this exception will be removed.
             rtn = rtn and  self.good_tic_dat_table(getattr(data_obj, t), t,
                     lambda x : bad_message_handler(t + " : " + x))
         return rtn
+
+    def _good_tic_dat_table_for_init(self, data_table, table_name,
+                                    bad_message_handler = lambda x : None):
+        if self.primary_key_fields.get(table_name, None) and containerish(data_table) \
+                and not dictish(data_table) and not utils.stringish(data_table) \
+                and not (utils.DataFrame and isinstance(data_table, utils.DataFrame)):
+            tdf = TicDatFactory(**{table_name:[[], list(self.primary_key_fields[table_name]) +
+                                                   list(self.data_fields.get(table_name, []))]})
+            return tdf.good_tic_dat_table(data_table, table_name, bad_message_handler)
+        return self.good_tic_dat_table(data_table, table_name, bad_message_handler)
 
     def good_tic_dat_table(self, data_table, table_name, bad_message_handler = lambda x : None) :
         """
