@@ -120,7 +120,8 @@ def read_opl_text(tdf,text):
             if mode is FIELD:
                 row.append(field)
                 field = ''
-            # what about different sized rows? Does ticdat deal with this
+            verify(len(row) == len((dict_with_lists[table_name] or [row])[0]),
+                   "Inconsistent row lengths found for table %s"%table_name)
             dict_with_lists[table_name].append(row)
             row = []
             mode = TABLE
