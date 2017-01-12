@@ -17,17 +17,20 @@ class TestOpl(unittest.TestCase):
         oldDatStr = create_opl_text(tdf, oldDat)
         newDat = read_opl_text(tdf, oldDatStr)
         self.assertTrue(tdf._same_data(oldDat, newDat))
-
     def testNetflow(self):
         tdf = TicDatFactory(**netflowSchema())
         tdf.enable_foreign_key_links()
         oldDat = tdf.freeze_me(tdf.TicDat(**{t:getattr(netflowData(),t) for t in tdf.primary_key_fields}))
         oldDatStr = create_opl_text(tdf, oldDat)
+        newDat = read_opl_text(tdf, oldDatStr)
+        self.assertTrue(tdf._same_data(oldDat, newDat))
     def testSilly(self):
         tdf = TicDatFactory(**sillyMeSchema())
         tdf.enable_foreign_key_links()
         oldDat = tdf.freeze_me(tdf.TicDat(**sillyMeData()))
         oldDatStr = create_opl_text(tdf, oldDat)
+        newDat = read_opl_text(tdf, oldDatStr)
+        self.assertTrue(tdf._same_data(oldDat, newDat))
 
 # Run the tests.
 if __name__ == "__main__":

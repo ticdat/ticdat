@@ -49,6 +49,27 @@ def create_opl_text(tdf, tic_dat):
 
     return rtn
 
+def create_opl_mod_text(tdf):
+    msg = []
+    verify(not tdf.generator_tables, "doesn't work with generator tables.")
+    verify(not tdf.generic_tables, "doesn't work with generic tables. (not yet - will add ASAP as needed) ")
+    rtn = ''
+    dict_tables = {t for t, pk in tdf.primary_key_fields.items() if pk}
+    for t in dict_tables:
+        rtn += "tuple " + t + "_type\n{"
+        def getType(data_types, table, field):
+            try:
+                return "float" if data_types[table][field].number_allowed else "string"
+            except KeyError:
+                return "string"
+        for pk in tdf.primary_key_fields[t]:
+            rtn += "\n\tkey " + getType(tdf.data_types, t, pk) + " " + pk + ";"
+        for df in tdf.data_fields[t]:
+            rtn += "\n\t" + getType(tdf.data_types, t, df) + " " + df + ";"
+        rtn += "\n};\n\n"
+        rtn += "{" + t + "_type} " + t.upper() + "=...;\n\n"
+    return rtn
+
 def read_opl_text(tdf,text):
     verify(stringish(text), "text needs to be a string")
     # probably want to verify something about the ticdat factory, look at the wiki
