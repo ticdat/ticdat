@@ -2,13 +2,17 @@ from ticdat.utils import verify, containerish, stringish
 import os
 from collections import defaultdict
 
-def opl_run(mod_file, input_tdf, input_dat, soln_tdf):
+INFINITY = 999999
+
+
+def opl_run(mod_file, input_tdf, input_dat, soln_tdf, infinity=INFINITY):
     """
     solve an optimization problem using an OPL .mod file
     :param mod_file: An OPL .mod file.
     :param input_tdf: A TicDatFactory defining the input schema
     :param input_dat: A TicDat object consistent with input_tdf
     :param soln_tdf: A TicDatFactory defining the solution schema
+    :param infinity: A number used to represent infinity in OPL
     :return: a TicDat object consistent with soln_tdf, or None if no solution found
     """
     verify(os.path.isfile(mod_file), "mod_file %s is not a valid file."%mod_file)
@@ -17,7 +21,7 @@ def opl_run(mod_file, input_tdf, input_dat, soln_tdf):
            "tic_dat not a good object for the input_tdf factory : %s"%"\n".join(msg))
     verify(False, "!!!!Under Construction!!!!")
 
-def create_opl_text(tdf, tic_dat):
+def create_opl_text(tdf, tic_dat, infinity=INFINITY):
     msg = []
     verify(tdf.good_tic_dat_object(tic_dat, msg.append),
            "tic_dat not a good object for this factory : %s"%"\n".join(msg))
@@ -39,12 +43,19 @@ def create_opl_text(tdf, tic_dat):
     rtn = ""
     for i, (t,l) in enumerate(dict_with_lists.items()):
         rtn += "\n" if i > 0 else ""
-        rtn += "%s = {\n"%t
-        for r in l:
-            rtn += "<"
+        rtn += "%s = {"%t
+        if len(l[0]) > 1:
+            rtn += "\n"
+        for x in range(len(l)):
+            r = l[x]
+            if len(r) > 1:
+                rtn += "<"
             for i,v in enumerate(r):
-                rtn += ('"%s"'%v if stringish(v) else str(v)) + (", " if i < len(r)-1 else "")
-            rtn += ">\n"
+                rtn += ('"%s"'%v if stringish(v) else (str(infinity) if float('inf') == v else str(v))) + (", " if i < len(r)-1 else "")
+            if len(r) == 1 and len(l)-1 != x:
+                rtn += ', '
+            if len(r) > 1:
+                rtn += ">\n"
         rtn += "};\n"
 
     return rtn
@@ -74,7 +85,7 @@ def read_opl_text(tdf,text):
     verify(stringish(text), "text needs to be a string")
     # probably want to verify something about the ticdat factory, look at the wiki
     dict_with_lists = defaultdict(list)
-    NONE, TABLE, ROW, FIELD, STRING,  NUMBER = 1, 2, 3, 4, 5, 6
+    NONE, TABLE, ROW, ROWSTRING, ROWNUM, FIELD, STRING,  NUMBER = 1, 2, 3, 4, 5, 6, 7, 8
     mode = NONE
     field = ''
     table_name = ''
@@ -88,15 +99,24 @@ def read_opl_text(tdf,text):
                    "Badly formatted string - Field '%s' is not a valid number. Character position [%s]." % (st, pos))
 
     for i,c in enumerate(text):
-        if mode != STRING and (c.isspace() or c == '{' or c == ';'):
+        if mode is not STRING and mode is not ROWSTRING and (c.isspace() or c == '{' or c == ';'):
             continue
 
-        elif mode is STRING:
+        elif mode is STRING or mode is ROWSTRING:
             if c == '"':
                 if text[i-1] == '\\':
                     field = field[:-1] + '"'
                 else:
-                    mode = FIELD
+                    if mode is ROWSTRING:
+                        row.append(field)
+                        field = ''
+                        verify(len(row) == len((dict_with_lists[table_name] or [row])[0]),
+                               "Inconsistent row lengths found for table %s" % table_name)
+                        dict_with_lists[table_name].append(row)
+                        row = []
+                        mode = TABLE
+                    else:
+                        mode = FIELD
             else:
                 field += c
         # I can get tricky with these verify's to give some more helpful tips
@@ -113,21 +133,40 @@ def read_opl_text(tdf,text):
             mode = ROW
 
         elif c == ',':
-            verify(mode is ROW or mode is FIELD or mode is NUMBER, "Badly formatted string, unrecognized ','. \
+            verify(mode is ROW or mode is FIELD or mode is NUMBER or mode is ROWNUM, "Badly formatted string, unrecognized ','. \
                                                                     Character position [%s]"%i)
-            if mode is NUMBER:
+            if mode is ROWNUM:
                 field = to_number(field,i)
-            row.append(field)
-            field = ''
-            mode = ROW
+                row.append(field)
+                field = ''
+                verify(len(row) == len((dict_with_lists[table_name] or [row])[0]),
+                       "Inconsistent row lengths found for table %s" % table_name)
+                dict_with_lists[table_name].append(row)
+                row = []
+                mode = TABLE
+            else:
+                if mode is NUMBER:
+                    field = to_number(field,i)
+                row.append(field)
+                field = ''
+                mode = ROW
 
         elif c == '"':
-            verify(mode is ROW, "Badly formatted string, unrecognized '\"'. Character position [%s]"%i)
+            verify(mode is ROW or mode is TABLE, "Badly formatted string, unrecognized '\"'. Character position [%s]"%i)
             if mode is ROW:
                 mode = STRING
+            if mode is TABLE:
+                mode = ROWSTRING
 
         elif c == '}':
-            verify(mode is TABLE, "Badly formatted string, unrecognized '}'. Character position [%s]"%i)
+            verify(mode is TABLE or mode is ROWNUM, "Badly formatted string, unrecognized '}'. Character position [%s]"%i)
+            if mode is ROWNUM:
+                field = to_number(field,i)
+                row.append(field)
+                field = ''
+                verify(len(row) == len((dict_with_lists[table_name] or [row])[0]),
+                       "Inconsistent row lengths found for table %s" % table_name)
+                dict_with_lists[table_name].append(row)
             row = []
             table_name = ''
             mode = NONE
@@ -147,10 +186,13 @@ def read_opl_text(tdf,text):
             row = []
             mode = TABLE
         else:
-            verify(mode is NONE or mode is ROW or mode is FIELD or mode is NUMBER, "Badly formatted string, \
+            verify(mode is NONE or mode is ROW or mode is ROWNUM or mode is FIELD or mode is NUMBER, "Badly formatted string, \
                                                                     unrecognized '%s'. Character position [%s]"%(c,i))
             if mode is NONE:
                 table_name += c
+            elif mode is TABLE:
+                mode = ROWNUM
+                field += c
             else:
                 mode = NUMBER
                 field += c
