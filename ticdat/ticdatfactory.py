@@ -441,6 +441,9 @@ foreign keys, the code throwing this exception will be removed.
                        "There are duplicate field names for table %s"%k)
                 verify(len({_.lower() for _ in list(v[0]) + list(v[1])}) == len(v[0])+len(v[1]),
                        "There are case insensitive duplicate field names for %s"%k)
+                verify(len({_.lower().replace(" ", "_") for _ in list(v[0]) + list(v[1])}) ==
+                       len(v[0])+len(v[1]),
+                       "There are case, space-underscore insensitive duplicate field names for %s"%k)
         self.generic_tables = frozenset(k for k,v in init_fields.items() if v == '*')
         verify(not (self.generic_tables and not DataFrame),
                "Need to install pandas in order to specify variable schema tables")
