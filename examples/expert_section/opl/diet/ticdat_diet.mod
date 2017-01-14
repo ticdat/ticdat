@@ -1,16 +1,16 @@
-tuple nutritionQuantities_type
+tuple nutrition_quantities_type
 {
 	key string food;
 	key string category;
-	string qty;
+	float qty;
 };
 
-{nutritionQuantities_type} NUTRITIONQUANTITIES=...;
+{nutrition_quantities_type} NUTRITION_QUANTITIES=...;
 
 tuple foods_type
 {
 	key string name;
-	string cost;
+	float cost;
 };
 
 {foods_type} FOODS=...;
@@ -18,8 +18,8 @@ tuple foods_type
 tuple categories_type
 {
 	key string name;
-	string minNutrition;
-	string maxNutrition;
+	float min_nutrition;
+	float max_nutrition;
 };
 
 {categories_type} CATEGORIES=...;

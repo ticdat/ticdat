@@ -1,4 +1,4 @@
-nutritionQuantities = {
+nutrition_quantities = {
 <"ice cream", "protein", 8>
 <"ice cream", "fat", 10>
 <"fries", "sodium", 270>
@@ -50,7 +50,7 @@ foods = {
 };
 
 categories = {
-<"protein", 91, 999999>
+<"protein", 91, 200>
 <"calories", 1800, 2200>
 <"fat", 0, 65>
 <"sodium", 0, 1779>
