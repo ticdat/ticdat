@@ -13,10 +13,16 @@ class TestOpl(unittest.TestCase):
     def testDiet(self):
         tdf = TicDatFactory(**dietSchema())
         tdf.enable_foreign_key_links()
-        oldDat = tdf.freeze_me(tdf.TicDat(**{t:getattr(dietData(),t) for t in tdf.primary_key_fields}))
+        oldDat = tdf.TicDat(**{t:getattr(dietData(),t) for t in tdf.primary_key_fields})
         oldDatStr = create_opl_text(tdf, oldDat)
         newDat = read_opl_text(tdf, oldDatStr)
         self.assertFalse(tdf._same_data(oldDat, newDat))
+        oldDat.categories["protein"]["maxNutrition"]=12 # Remove infinity from the data
+        changedDatStr = create_opl_text(tdf, oldDat)
+        with open("deb.out","w") as f:
+            f.write(changedDatStr)
+        changedDat = read_opl_text(tdf, changedDatStr)
+        self.assertTrue(tdf._same_data(oldDat,changedDat))
     def testNetflow(self):
         tdf = TicDatFactory(**netflowSchema())
         tdf.enable_foreign_key_links()
