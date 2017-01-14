@@ -5,7 +5,7 @@ tuple nutrition_quantities_type
 	float qty;
 };
 
-{nutrition_quantities_type} NUTRITION_QUANTITIES=...;
+{nutrition_quantities_type} nutrition_quantities=...;
 
 tuple foods_type
 {
@@ -13,7 +13,7 @@ tuple foods_type
 	float cost;
 };
 
-{foods_type} FOODS=...;
+{foods_type} foods=...;
 
 tuple categories_type
 {
@@ -22,5 +22,5 @@ tuple categories_type
 	float max_nutrition;
 };
 
-{categories_type} CATEGORIES=...;
+{categories_type} categories=...;
 
