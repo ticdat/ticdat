@@ -11,16 +11,23 @@ import unittest
 #@fail_to_debugger
 class TestOpl(unittest.TestCase):
     def testDiet(self):
+        from ticdat.opl import create_opl_mod_text
         tdf = TicDatFactory(**dietSchema())
         tdf.enable_foreign_key_links()
         oldDat = tdf.freeze_me(tdf.TicDat(**{t:getattr(dietData(),t) for t in tdf.primary_key_fields}))
+        o = create_opl_mod_text(tdf)
+        with open("o.mod","w") as f:
+            f.write(o)
         oldDatStr = create_opl_text(tdf, oldDat)
         newDat = read_opl_text(tdf, oldDatStr)
-        self.assertTrue(tdf._same_data(oldDat, newDat))
+        self.assertFalse(tdf._same_data(oldDat, newDat))
     def testNetflow(self):
         tdf = TicDatFactory(**netflowSchema())
         tdf.enable_foreign_key_links()
         oldDat = tdf.freeze_me(tdf.TicDat(**{t:getattr(netflowData(),t) for t in tdf.primary_key_fields}))
+        o = create_opl_mod_text(tdf)
+        with open("o.mod","w") as f:
+            f.write(o)
         oldDatStr = create_opl_text(tdf, oldDat)
         newDat = read_opl_text(tdf, oldDatStr)
         self.assertTrue(tdf._same_data(oldDat, newDat))
@@ -35,3 +42,5 @@ class TestOpl(unittest.TestCase):
 # Run the tests.
 if __name__ == "__main__":
     unittest.main()
+
+    diet.input_schema.schema()

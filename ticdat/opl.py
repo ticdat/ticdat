@@ -22,6 +22,13 @@ def opl_run(mod_file, input_tdf, input_dat, soln_tdf, infinity=INFINITY):
     verify(False, "!!!!Under Construction!!!!")
 
 def create_opl_text(tdf, tic_dat, infinity=INFINITY):
+    """
+    Generate a OPL .dat string from a TicDat object
+    :param tdf: A TicDatFactory defining the schema
+    :param tic_dat: A TicDat object consistent with tdf
+    :param infinity: A number used to represent infinity in OPL
+    :return: A string consistent with the OPL .dat format
+    """
     msg = []
     verify(tdf.good_tic_dat_object(tic_dat, msg.append),
            "tic_dat not a good object for this factory : %s"%"\n".join(msg))
@@ -61,27 +68,40 @@ def create_opl_text(tdf, tic_dat, infinity=INFINITY):
     return rtn
 
 def create_opl_mod_text(tdf):
-    msg = []
+    """
+    Generate a OPL .mod string from a TicDat object for diagnostic purposes
+    :param tdf: A TicDatFactory defining the schema
+    :return: A string consistent with the OPL .mod format
+    """
     verify(not tdf.generator_tables, "doesn't work with generator tables.")
     verify(not tdf.generic_tables, "doesn't work with generic tables. (not yet - will add ASAP as needed) ")
     rtn = ''
     dict_tables = {t for t, pk in tdf.primary_key_fields.items() if pk}
     for t in dict_tables:
-        rtn += "tuple " + t + "_type\n{"
         def getType(data_types, table, field):
             try:
                 return "float" if data_types[table][field].number_allowed else "string"
             except KeyError:
                 return "string"
-        for pk in tdf.primary_key_fields[t]:
-            rtn += "\n\tkey " + getType(tdf.data_types, t, pk) + " " + pk + ";"
-        for df in tdf.data_fields[t]:
-            rtn += "\n\t" + getType(tdf.data_types, t, df) + " " + df + ";"
-        rtn += "\n};\n\n"
-        rtn += "{" + t + "_type} " + t.upper() + "=...;\n\n"
+        if len(tdf.primary_key_fields[t]) is 1 and len(tdf.data_fields[t]) is 0:
+            rtn = "{" + getType(tdf.data_types, t, tdf.primary_key_fields[t][0]) + "} " + t + " = ...;\n\n"
+        else:
+            rtn += "tuple " + t + "_type\n{"
+            for pk in tdf.primary_key_fields[t]:
+                rtn += "\n\tkey " + getType(tdf.data_types, t, pk) + " " + pk + ";"
+            for df in tdf.data_fields[t]:
+                rtn += "\n\t" + getType(tdf.data_types, t, df) + " " + df + ";"
+            rtn += "\n};\n\n"
+            rtn += "{" + t + "_type} " + t.upper() + "=...;\n\n"
     return rtn
 
 def read_opl_text(tdf,text):
+    """
+    Read an OPL .dat string
+    :param tdf: A TicDatFactory defining the schema
+    :param text: A string consistent with the OPL .dat format
+    :return: A TicDat object consistent with tdf
+    """
     verify(stringish(text), "text needs to be a string")
     # probably want to verify something about the ticdat factory, look at the wiki
     dict_with_lists = defaultdict(list)
