@@ -88,8 +88,10 @@ def create_opl_mod_text(tdf):
         else:
             rtn += "tuple " + t + "_type\n{"
             for pk in tdf.primary_key_fields[t]:
+                pk.replace(' ', '_')
                 rtn += "\n\tkey " + getType(tdf.data_types, t, pk) + " " + pk + ";"
             for df in tdf.data_fields[t]:
+                df.replace(' ', '_')
                 rtn += "\n\t" + getType(tdf.data_types, t, df) + " " + df + ";"
             rtn += "\n};\n\n"
             rtn += "{" + t + "_type} " + t + "=...;\n\n"
