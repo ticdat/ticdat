@@ -92,7 +92,7 @@ def create_opl_mod_text(tdf):
             for df in tdf.data_fields[t]:
                 rtn += "\n\t" + getType(tdf.data_types, t, df) + " " + df + ";"
             rtn += "\n};\n\n"
-            rtn += "{" + t + "_type} " + t.upper() + "=...;\n\n"
+            rtn += "{" + t + "_type} " + t + "=...;\n\n"
     return rtn
 
 def read_opl_text(tdf,text):
