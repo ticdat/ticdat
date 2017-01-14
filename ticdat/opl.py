@@ -133,8 +133,10 @@ def read_opl_text(tdf,text):
             mode = ROW
 
         elif c == ',':
-            verify(mode is ROW or mode is FIELD or mode is NUMBER or mode is ROWNUM, "Badly formatted string, unrecognized ','. \
+            verify(mode is ROW or mode is FIELD or mode is NUMBER or mode is ROWNUM or mode is TABLE, "Badly formatted string, unrecognized ','. \
                                                                     Character position [%s]"%i)
+            if mode is TABLE:
+                continue
             if mode is ROWNUM:
                 field = to_number(field,i)
                 row.append(field)
