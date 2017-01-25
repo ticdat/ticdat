@@ -8,7 +8,7 @@ include "ticdat_diet.mod";
 {string} foodItems = {f | <f,c> in foods};
 float foodCost[foodItems] = [f: c | <f,c> in foods];
 
-dvar int+ purchase[foodItems];
+dvar float+ purchase[foodItems];
 
 minimize
   sum(f in foodItems) foodCost[f] * purchase[f];
