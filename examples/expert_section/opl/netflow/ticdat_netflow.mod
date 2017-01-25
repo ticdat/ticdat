@@ -1,4 +1,5 @@
 {string} nodes = ...;
+{string} commodities = ...;
 
 tuple cost_type
 {
