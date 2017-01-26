@@ -1,11 +1,10 @@
 from ticdat.utils import verify, containerish, stringish
-import os
+import os, subprocess
 from collections import defaultdict
 
 INFINITY = 999999
 
-
-def opl_run(mod_file, input_tdf, input_dat, soln_tdf, infinity=INFINITY):
+def opl_run(mod_file, input_tdf, input_dat, soln_tdf, infinity=INFINITY, oplrun_path=None, post_solve=None):
     """
     solve an optimization problem using an OPL .mod file
     :param mod_file: An OPL .mod file.
@@ -19,7 +18,18 @@ def opl_run(mod_file, input_tdf, input_dat, soln_tdf, infinity=INFINITY):
     msg  = []
     verify(input_tdf.good_tic_dat_object(input_dat, msg.append),
            "tic_dat not a good object for the input_tdf factory : %s"%"\n".join(msg))
-    verify(False, "!!!!Under Construction!!!!")
+    verify(os.path.isfile("oplrun"), "have to run setup script")
+    datfile = create_opl_text(input_tdf, input_dat, infinity)
+    with open("temp.dat", "w") as f:
+        f.write(datfile)
+    if not oplrun_path:
+        oplrun_path = ''
+    output = subprocess.check_output([oplrun_path, mod_file, "temp.dat"])
+    os.remove("temp.dat")
+    print output
+    if post_solve:
+        post_solve()
+
 
 def create_opl_text(tdf, tic_dat, infinity=INFINITY):
     """
