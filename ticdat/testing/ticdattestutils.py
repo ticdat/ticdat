@@ -33,8 +33,8 @@ def configure_oplrun_path():
     v_str = "Contact ticdat support at ticdat@opalytics.com"
     verify(os.path.isdir(opl_dir), "%s is strangely not a directory. %s"%(opl_dir, v_str))
     verify(os.path.isfile(os.path.join(opl_dir,"opl.py")), "opl.py is missing. %s"%v_str)
-    oplrun_path = os.path.abspath('./oplrun')
-    with open(opl_dir+"/oplrun_path", "w") as f:
+    oplrun_path = os.path.abspath('oplrun')
+    with open(os.path.join(opl_dir, "oplrun_path.txt"), "w") as f:
         f.write(oplrun_path)
 
 _debug = []
