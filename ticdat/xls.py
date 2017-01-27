@@ -24,6 +24,7 @@ except:
 _can_unit_test = xlrd and xlwt and xlsx
 
 _xlsx_hack_inf = 1e+100 # the xlsxwriter doesn't handle infinity as seamlessly as xls
+_longest_sheet = 30
 
 class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
     """
@@ -72,6 +73,7 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
                      the ticdat equivalent of pandas.read_excel convert_float
                      is to set must_be_int to true in data_types.
         """
+        self._verify_differentiable_sheet_names()
         verify(xlrd, "xlrd needs to be installed to use this subroutine")
         tdf = self.tic_dat_factory
         verify(not(treat_large_as_inf and tdf.generator_tables),
@@ -100,6 +102,13 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
         if freeze_it:
             return self.tic_dat_factory.freeze_me(rtn)
         return rtn
+    def _verify_differentiable_sheet_names(self):
+        rtn = defaultdict(set)
+        for t in self.tic_dat_factory.all_tables:
+            rtn[t[:_longest_sheet]].add(t)
+        rtn = [v for k,v in rtn.items() if len(v) > 1]
+        verify(not rtn, "The following tables collide when names are truncated to %s characters.\n%s"%
+               (_longest_sheet, sorted(map(sorted, rtn))))
     def _get_sheets_and_fields(self, xls_file_path, all_tables, row_offsets, headers_present):
         verify(utils.stringish(xls_file_path) and os.path.exists(xls_file_path),
                "xls_file_path argument %s is not a valid file path."%xls_file_path)
@@ -109,7 +118,7 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
             raise TicDatError("Unable to open %s as xls file : %s"%(xls_file_path, e.message))
         sheets = defaultdict(list)
         for table, sheet in product(all_tables, book.sheets()) :
-            if table.lower() == sheet.name.lower().replace(' ', '_'):
+            if table.lower()[:_longest_sheet] == sheet.name.lower().replace(' ', '_')[:_longest_sheet]:
                 sheets[table].append(sheet)
         duplicated_sheets = tuple(_t for _t,_s in sheets.items() if len(_s) > 1)
         verify(not duplicated_sheets, "The following sheet names were duplicated : " +
@@ -197,6 +206,7 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
                  Excel sheet with this primary key.
                  Row counts smaller than 2 are pruned off, as they aren't duplicates
         """
+        self._verify_differentiable_sheet_names()
         verify(xlrd, "xlrd needs to be installed to use this subroutine")
         verify(utils.dictish(row_offsets) and
                set(row_offsets).issubset(self.tic_dat_factory.all_tables) and
@@ -276,6 +286,7 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
         :return:
         caveats: None may be written out as an empty string. This reflects the behavior of xlwt.
         """
+        self._verify_differentiable_sheet_names()
         verify(utils.stringish(file_path) and
                (file_path.endswith(".xls") or file_path.endswith(".xlsx")),
                "file_path argument needs to end in .xls or .xlsx")
@@ -298,7 +309,7 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
         book = xlwt.Workbook()
         for t in  sorted(sorted(tdf.all_tables),
                          key=lambda x: len(tdf.primary_key_fields.get(x, ()))) :
-            sheet = book.add_sheet(t)
+            sheet = book.add_sheet(t[:_longest_sheet])
             for i,f in enumerate(tdf.primary_key_fields.get(t,()) + tdf.data_fields.get(t, ())) :
                 sheet.write(0, i, f)
             _t = getattr(tic_dat, t)
