@@ -79,11 +79,7 @@ def solve(dat):
     mdl.set_objective(mdl.sum(buy[f] * c["cost"] for f,c in dat.foods.items()))
 
     if mdl.optimize():
-        solutionFactory = TicDatFactory(
-                parameters = [[],["total_cost"]],
-                buy_food = [["food"],["qty"]],
-                consume_nutrition = [["category"],["qty"]])
-        sln = solutionFactory.TicDat()
+        sln = solution_schema.TicDat()
         for f,x in buy.items():
             if mdl.get_solution_value(x) > 0.0001:
                 sln.buy_food[f] = mdl.get_solution_value(x)
