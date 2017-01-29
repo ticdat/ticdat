@@ -24,3 +24,17 @@ tuple categories_type
 
 {categories_type} categories=...;
 
+tuple parameters_type {
+	string parameter_name;
+	float parameter_value;
+}
+
+tuple buy_food_type {
+	string food;
+	float quantity;
+}
+
+tuple consume_nutrition_type {
+	string category;
+	float quantity;
+}
