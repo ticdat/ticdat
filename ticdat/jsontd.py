@@ -110,7 +110,7 @@ class JsonTicFactory(freezable_factory(object, "_isFrozen")) :
         jdict = defaultdict(list)
         for t in tdf.all_tables:
             tbl = getattr(tic_dat, t)
-            if t in tdf.primary_key_fields:
+            if tdf.primary_key_fields.get(t):
                 for pk, data_row in tbl.items():
                     jdict[t].append((list(pk) if containerish(pk) else [pk]) +
                                     [data_row[df] for df in tdf.data_fields[t]])

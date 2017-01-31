@@ -70,6 +70,44 @@ class TestJson(unittest.TestCase):
             json.dump(jdict, f)
         self.assertTrue(self.firesException(lambda : tdf3.json.create_tic_dat(writePath)))
 
+    def testNetflow(self):
+        if not self.can_run:
+            return
+        tdf = TicDatFactory(**netflowSchema())
+        ticDat = tdf.TicDat(**{t:getattr(netflowData(),t) for t in tdf.primary_key_fields})
+
+        writePath = os.path.join(makeCleanDir(os.path.join(_scratchDir, "netflow")), "file.json")
+        tdf.json.write_file(ticDat, writePath)
+        jsonTicDat = tdf.json.create_tic_dat(writePath, freeze_it=True)
+        self.assertFalse(tdf.json.find_duplicates(writePath))
+        self.assertTrue(tdf._same_data(ticDat, jsonTicDat))
+
+        ticDat.nodes[12] = {}
+        tdf.json.write_file(ticDat, writePath, allow_overwrite=True)
+        jsonTicDat = tdf.json.create_tic_dat(writePath, freeze_it=True)
+        self.assertTrue(tdf._same_data(ticDat, jsonTicDat))
+
+        # unlike csv, json format respects strings that are floatable
+        del(ticDat.nodes[12])
+        ticDat.nodes['12'] = {}
+        self.assertTrue(firesException(lambda : tdf.json.write_file(ticDat, writePath)))
+        tdf.json.write_file(ticDat, writePath, allow_overwrite=True)
+        jsonTicDat = tdf.json.create_tic_dat(writePath, freeze_it=True)
+        self.assertTrue(tdf._same_data(ticDat, jsonTicDat))
+
+    def testDups(self):
+        if not self.can_run:
+            return
+        tdf = TicDatFactory(one = [["a"],["b", "c"]],
+                            two = [["a", "b"],["c"]],
+                            three = [["a", "b", "c"],[]])
+        tdf2 = TicDatFactory(**{t:[[],["a", "b", "c"]] for t in tdf.all_tables})
+        td = tdf2.TicDat(**{t:[[1, 2, 1], [1, 2, 2], [2, 1, 3], [2, 2, 3], [1, 2, 2], ["new", 1, 2]]
+                            for t in tdf.all_tables})
+        writePath = os.path.join(makeCleanDir(os.path.join(_scratchDir, "dups")), "file.json")
+        tdf2.json.write_file(td, writePath)
+        dups = tdf.json.find_duplicates(writePath)
+        self.assertTrue(dups == {'three': {(1, 2, 2): 2}, 'two': {(1, 2): 3}, 'one': {1: 3, 2: 2}})
 
 _scratchDir = TestJson.__name__ + "_scratch"
 
