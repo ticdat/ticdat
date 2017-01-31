@@ -1,4 +1,4 @@
-from ticdat.utils import verify, containerish, stringish
+from ticdat.utils import verify, containerish, stringish, find_duplicates_from_dict_ticdat
 import os, subprocess
 from collections import defaultdict
 
@@ -230,4 +230,6 @@ def read_opl_text(tdf,text):
             else:
                 mode = NUMBER
                 field += c
+    assert not find_duplicates_from_dict_ticdat(tdf, dict_with_lists), \
+           "duplicates were found - if asserts are disabled, duplicate rows will overwrite"
     return tdf.TicDat(**dict_with_lists)
