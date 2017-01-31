@@ -1,5 +1,4 @@
 import os
-import ticdat.utils as utils
 import shutil
 from ticdat.ticdatfactory import TicDatFactory
 from ticdat.testing.ticdattestutils import dietData, dietSchema, netflowData, dietSchemaWeirdCase
@@ -109,14 +108,23 @@ class TestJson(unittest.TestCase):
         dups = tdf.json.find_duplicates(writePath)
         self.assertTrue(dups == {'three': {(1, 2, 2): 2}, 'two': {(1, 2): 3}, 'one': {1: 3, 2: 2}})
 
+    def testSilly(self):
+        if not self.can_run:
+            return
+        tdf = TicDatFactory(**sillyMeSchema())
+        ticDat = tdf.TicDat(**sillyMeData())
+        writePath = os.path.join(makeCleanDir(os.path.join(_scratchDir, "netflow")), "file.json")
+        tdf.json.write_file(ticDat, writePath)
+        jsonTicDat = tdf.json.create_tic_dat(writePath, freeze_it=True)
+        self.assertFalse(tdf.json.find_duplicates(writePath))
+        self.assertTrue(tdf._same_data(ticDat, jsonTicDat))
+
 _scratchDir = TestJson.__name__ + "_scratch"
 
 # Run the tests.
 if __name__ == "__main__":
     td = TicDatFactory()
-    if not utils.DataFrame :
-        print("!!!!!!!!!FAILING JSON UNIT TESTS DUE TO FAILURE TO LOAD PANDAS LIBRARIES!!!!!!!!")
-    elif not _can_unit_test :
+    if not _can_unit_test :
         print("!!!!!!!!!FAILING JSON UNIT TESTS DUE TO FAILURE TO LOAD JSON LIBRARIES!!!!!!!!")
     else:
         TestJson.can_run = True
