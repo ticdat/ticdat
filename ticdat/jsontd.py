@@ -5,7 +5,7 @@ PEP8
 import os
 from collections import defaultdict
 from ticdat.utils import freezable_factory, TicDatError, verify, stringish, dictish, containerish
-from ticdat.utils import find_duplicates, create_duplicate_focused_tdf
+from ticdat.utils import find_duplicates_from_dict_ticdat
 
 try:
     import json
@@ -34,7 +34,6 @@ class JsonTicFactory(freezable_factory(object, "_isFrozen")) :
         :return:
         """
         self.tic_dat_factory = tic_dat_factory
-        self._duplicate_focused_tdf = create_duplicate_focused_tdf(tic_dat_factory)
         self._isFrozen = True
     def create_tic_dat(self, json_file_path, freeze_it = False):
         """
@@ -49,14 +48,7 @@ class JsonTicFactory(freezable_factory(object, "_isFrozen")) :
                  Dictionary keys that don't match any table are ignored.
         """
         _standard_verify(self.tic_dat_factory)
-        verify(os.path.isfile(json_file_path), "json_file_path is not a valid file path.")
-        try :
-            with open(json_file_path, "r") as fp:
-                jdict = json.load(fp)
-        except Exception as e:
-            raise TicDatError("Unable to interpret %s as json file : %s"%
-                              (json_file_path, e.message))
-        verify(dictish(jdict), "%s failed to load a dictionary"%json_file_path)
+        jdict = self._create_jdict(json_file_path)
         rtn = self.tic_dat_factory.TicDat(**self._create_tic_dat_dict(jdict))
         if freeze_it:
             return self.tic_dat_factory.freeze_me(rtn)
@@ -73,10 +65,23 @@ class JsonTicFactory(freezable_factory(object, "_isFrozen")) :
                  Row counts smaller than 2 are pruned off, as they aren't duplicates
         """
         _standard_verify(self.tic_dat_factory)
-        if not self._duplicate_focused_tdf:
-            return {}
-        return find_duplicates(self._duplicate_focused_tdf.json.create_tic_dat(json_file_path),
-                               self._duplicate_focused_tdf)
+        jdict = self._create_jdict(json_file_path)
+        rtn = find_duplicates_from_dict_ticdat(self.tic_dat_factory, jdict)
+        return rtn or {}
+    def _create_jdict(self, json_file_path):
+        verify(os.path.isfile(json_file_path), "json_file_path is not a valid file path.")
+        try :
+            with open(json_file_path, "r") as fp:
+                jdict = json.load(fp)
+        except Exception as e:
+            raise TicDatError("Unable to interpret %s as json file : %s"%
+                              (json_file_path, e.message))
+        verify(dictish(jdict), "%s failed to load a dictionary"%json_file_path)
+        verify(all(map(stringish, jdict)),
+               "The dictionary loaded from %s isn't indexed by strings"%json_file_path)
+        verify(all(map(containerish, jdict.values())),
+               "The dictionary loaded from %s doesn't have containers as values"%json_file_path)
+        return jdict
     def _create_tic_dat_dict(self, jdict):
         tdf = self.tic_dat_factory
         rtn = {}

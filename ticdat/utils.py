@@ -205,6 +205,29 @@ def find_duplicates(td, tdf_for_dups):
             del(rtn[t])
     return rtn
 
+def find_duplicates_from_dict_ticdat(tdf, dict_ticdat):
+    assert isinstance(tdf, ticdat.TicDatFactory)
+    assert dictish(dict_ticdat) and all(map(stringish, dict_ticdat)) and \
+           all(map(containerish, dict_ticdat.values()))
+    primary_key_fields = {k:v for k,v in tdf.primary_key_fields.items() if v}
+    if primary_key_fields:
+        old_schema = {k:v for k,v in tdf.schema().items() if k in primary_key_fields}
+        all_data_tdf = ticdat.TicDatFactory(**{t:[[], pks+dfs]
+                                               for t,(pks,dfs) in old_schema.items()})
+        td = all_data_tdf.TicDat(**{k:v for k,v in dict_ticdat.items()
+                                    if k in primary_key_fields})
+        rtn = {t:defaultdict(int) for t in primary_key_fields}
+        for t,flds in list(primary_key_fields.items()):
+            tbl = getattr(td, t)
+            for row in tbl:
+                k = tuple(row[f] for f in flds)
+                k = k[0] if len(k)==1 else k
+                rtn[t][k] += 1
+            rtn[t] = {k:v for k,v in rtn[t].items() if v > 1}
+            if not rtn[t]:
+                del(rtn[t])
+        return rtn
+
 def create_generic_free(td, tdf):
     assert tdf.good_tic_dat_object(td)
     if not tdf.generic_tables:
