@@ -12,6 +12,7 @@ import ticdat.xls as xls
 import ticdat.csvtd as csv
 import ticdat.sqlitetd as sql
 import ticdat.mdb as mdb
+import ticdat.jsontd as json
 import sys
 
 pd, DataFrame = utils.pd, utils.DataFrame # if pandas not installed will be falsey
@@ -652,6 +653,7 @@ foreign keys, the code throwing this exception will be removed.
         self.csv = csv.CsvTicFactory(self)
         self.sql = sql.SQLiteTicFactory(self)
         self.mdb = mdb.MdbTicFactory(self)
+        self.json = json.JsonTicFactory(self)
         self._isFrozen=True
 
     def _allFields(self, table):
