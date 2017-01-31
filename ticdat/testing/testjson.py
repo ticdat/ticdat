@@ -7,7 +7,7 @@ from ticdat.testing.ticdattestutils import  netflowSchema, firesException, copyD
 from ticdat.testing.ticdattestutils import sillyMeData, sillyMeSchema, fail_to_debugger
 from ticdat.testing.ticdattestutils import makeCleanDir, dietSchemaWeirdCase2, copyDataDietWeirdCase2
 import unittest
-from ticdat.jsontd import _can_unit_test
+from ticdat.jsontd import _can_unit_test, json
 
 #@fail_to_debugger
 class TestJson(unittest.TestCase):
@@ -40,6 +40,35 @@ class TestJson(unittest.TestCase):
         jsonTicDat = tdf.json.create_tic_dat(writePath)
         self.assertTrue(tdf._same_data(ticDat, jsonTicDat))
 
+        def change() :
+            jsonTicDat.categories["calories"]["minNutrition"]=12
+        self.assertFalse(firesException(change))
+        self.assertFalse(tdf._same_data(ticDat, jsonTicDat))
+        jsonTicDat = tdf.json.create_tic_dat(writePath, freeze_it=True)
+        self.assertTrue(firesException(change))
+        self.assertTrue(tdf._same_data(ticDat, jsonTicDat))
+
+        tdf2 = TicDatFactory(**dietSchemaWeirdCase())
+        dat2 = copyDataDietWeirdCase(ticDat)
+        tdf2.json.write_file(dat2, writePath, allow_overwrite=True)
+        jsonTicDat2 = tdf.json.create_tic_dat(writePath, freeze_it=True)
+        self.assertTrue(tdf._same_data(ticDat, jsonTicDat2))
+
+        tdf3 = TicDatFactory(**dietSchemaWeirdCase2())
+        dat3 = copyDataDietWeirdCase2(ticDat)
+        tdf3.json.write_file(dat3, writePath, allow_overwrite=True)
+        with open(writePath, "r") as f:
+            jdict = json.load(f)
+        jdict["nutrition quantities"] = jdict["nutrition_quantities"]
+        del(jdict["nutrition_quantities"])
+        with open(writePath, "w") as f:
+            json.dump(jdict, f)
+        jsonDat3 = tdf3.json.create_tic_dat(writePath)
+        self.assertTrue(tdf3._same_data(dat3, jsonDat3))
+        jdict["nutrition_quantities"] = jdict["nutrition quantities"]
+        with open(writePath, "w") as f:
+            json.dump(jdict, f)
+        self.assertTrue(self.firesException(lambda : tdf3.json.create_tic_dat(writePath)))
 
 
 _scratchDir = TestJson.__name__ + "_scratch"
