@@ -4,17 +4,6 @@ from collections import defaultdict
 
 INFINITY = 999999
 
-''''
-   I need to write the parsing to capture the output
-   Finish the opl_run method
-   Theres a couple optional arguments
-      oplrun path (use his mdb method of configure_blank_accdb and create a text file with the reference to it by default)
-      post solving routine (this confuses me, do this last)
-   unit test for diet and netflow (separate ones that use oplrun)
-II'm going to want a script that creates a new ticdat and copies it over to the lenticular directory
-
-'''
-
 def _code_dir():
     return os.path.dirname(os.path.abspath(inspect.getsourcefile(_code_dir)))
 
@@ -35,15 +24,13 @@ def opl_run(mod_file, input_tdf, input_dat, soln_tdf, infinity=INFINITY, oplrun_
     datfile = create_opl_text(input_tdf, input_dat, infinity)
     with open("temp.dat", "w") as f:
         f.write(datfile)
+    verify(os.path.isfile("temp.dat"), "Could not create temp.dat")
     if not oplrun_path:
         with open(os.path.join(_code_dir(),"oplrun_path.txt"),"r") as f:
             oplrun_path = f.read()
-    verify(os.path.isfile("temp.dat"), "Could not create temp.dat")
     verify(os.path.isfile(oplrun_path), "Not a valid path to oplrun")
-    subprocess.check_call('cd',oplrun_path)
-    output = subprocess.check_output(["oplrun", mod_file, "temp.dat"])
+    output = subprocess.check_output([oplrun_path, mod_file, "temp.dat"])
     os.remove("temp.dat")
-    print output
     if post_solve:
         post_solve()
 
