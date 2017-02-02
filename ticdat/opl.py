@@ -1,8 +1,22 @@
 from ticdat.utils import verify, containerish, stringish, find_duplicates_from_dict_ticdat
-import os, subprocess
+import os, subprocess, inspect
 from collections import defaultdict
 
 INFINITY = 999999
+
+''''
+   I need to write the parsing to capture the output
+   Finish the opl_run method
+   Theres a couple optional arguments
+      oplrun path (use his mdb method of configure_blank_accdb and create a text file with the reference to it by default)
+      post solving routine (this confuses me, do this last)
+   unit test for diet and netflow (separate ones that use oplrun)
+II'm going to want a script that creates a new ticdat and copies it over to the lenticular directory
+
+'''
+
+def _code_dir():
+    return os.path.dirname(os.path.abspath(inspect.getsourcefile(_code_dir)))
 
 def opl_run(mod_file, input_tdf, input_dat, soln_tdf, infinity=INFINITY, oplrun_path=None, post_solve=None):
     """
@@ -18,17 +32,61 @@ def opl_run(mod_file, input_tdf, input_dat, soln_tdf, infinity=INFINITY, oplrun_
     msg  = []
     verify(input_tdf.good_tic_dat_object(input_dat, msg.append),
            "tic_dat not a good object for the input_tdf factory : %s"%"\n".join(msg))
-    verify(os.path.isfile("oplrun"), "have to run setup script")
     datfile = create_opl_text(input_tdf, input_dat, infinity)
     with open("temp.dat", "w") as f:
         f.write(datfile)
     if not oplrun_path:
-        oplrun_path = ''
-    output = subprocess.check_output([oplrun_path, mod_file, "temp.dat"])
+        with open(os.path.join(_code_dir(),"oplrun_path.txt"),"r") as f:
+            oplrun_path = f.read()
+    verify(os.path.isfile("temp.dat"), "Could not create temp.dat")
+    verify(os.path.isfile(oplrun_path), "Not a valid path to oplrun")
+    subprocess.check_call('cd',oplrun_path)
+    output = subprocess.check_output(["oplrun", mod_file, "temp.dat"])
     os.remove("temp.dat")
     print output
     if post_solve:
         post_solve()
+
+    def pattern_finder(string, pattern, rsearch=False):
+        """
+        Searches a string for the pattern ignoring whitespace
+        :param string: A text string
+        :param pattern: A string containing the pattern to search for
+        :param rsearch: Optional parameter indicating if the search should be performed backwards
+        """
+        verify(len(pattern) <= len(string), "Pattern is larger than string, cannot be found. Pattern is '%s'" % pattern)
+        poss_string = []
+        if rsearch:
+            pattern = pattern[::-1]
+            string = string[::-1]
+        for i, j in enumerate(string):
+            if j.isspace():
+                continue
+            if len(poss_string) < len(pattern):
+                poss_string.append(str(j))
+            else:
+                poss_string.pop(0)
+                poss_string.append(str(j))
+                pass
+            if ''.join(poss_string) == pattern:
+                if rsearch:
+                    return len(string) - (i + 1 - len(poss_string))
+                return i - len(poss_string)
+        return False
+
+    min = len(output) + 1
+    for tbn in soln_tdf.primary_key_fields.keys():
+        pos = pattern_finder(output, tbn + '={')
+        verify(pos, "Invalid Output. Solution table '%s' not found." % tbn)
+        if min > pos:
+            min = pos
+    max = pattern_finder(output, '>}', True)
+    verify(max, "Invalid Output. Missing end of solution table.")
+    verify(max > min,
+           "Invalid Output. End of table (position %s) is positioned before table name is defined (position %s" % (
+           min, max))
+    return read_opl_text(soln_tdf, output[min:max], False)
+    # not sure how to return None if no solution found
 
 
 def create_opl_text(tdf, tic_dat, infinity=INFINITY):
@@ -107,7 +165,7 @@ def create_opl_mod_text(tdf):
             rtn += "{" + t + "_type} " + t + "=...;\n\n"
     return rtn
 
-def read_opl_text(tdf,text):
+def read_opl_text(tdf,text, commaseperator = True):
     """
     Read an OPL .dat string
     :param tdf: A TicDatFactory defining the schema
@@ -131,10 +189,12 @@ def read_opl_text(tdf,text):
                    "Badly formatted string - Field '%s' is not a valid number. Character position [%s]." % (st, pos))
 
     for i,c in enumerate(text):
-        if mode is not STRING and mode is not ROWSTRING and (c.isspace() or c == '{' or c == ';'):
-            continue
-
-        elif mode is STRING or mode is ROWSTRING:
+        if mode not in [STRING, ROWSTRING] and (c.isspace() or c == '{' or c == ';'):
+            if mode in [ROWNUM,FIELD] and not commaseperator:
+                c = ','
+            else:
+                continue
+        if mode in [STRING, ROWSTRING]:
             if c == '"':
                 if text[i-1] == '\\':
                     field = field[:-1] + '"'
@@ -151,21 +211,18 @@ def read_opl_text(tdf,text):
                         mode = FIELD
             else:
                 field += c
-        # I can get tricky with these verify's to give some more helpful tips
         elif c == '=':
             verify(mode is NONE, "Badly formatted string, unrecognized '='. Character position [%s]"%i)
             verify(len(table_name) > 0, "Badly formatted string, table name can't be blank. Character position [%s]"%i)
-            # is the dup table names check neccessary?
             verify(table_name not in dict_with_lists.keys(), "Can't have duplicate table name. [Character position [%s]"%i)
             dict_with_lists[table_name] = []
             mode = TABLE
-
         elif c == '<':
             verify(mode is TABLE, "Badly formatted string, unrecognized '<'. Character position [%s]"%i)
             mode = ROW
 
         elif c == ',':
-            verify(mode is ROW or mode is FIELD or mode is NUMBER or mode is ROWNUM or mode is TABLE, "Badly formatted string, unrecognized ','. \
+            verify(mode in [ROW, FIELD, NUMBER, ROWNUM, TABLE], "Badly formatted string, unrecognized ','. \
                                                                     Character position [%s]"%i)
             if mode is TABLE:
                 continue
@@ -186,14 +243,14 @@ def read_opl_text(tdf,text):
                 mode = ROW
 
         elif c == '"':
-            verify(mode is ROW or mode is TABLE, "Badly formatted string, unrecognized '\"'. Character position [%s]"%i)
+            verify(mode in [ROW, TABLE], "Badly formatted string, unrecognized '\"'. Character position [%s]"%i)
             if mode is ROW:
                 mode = STRING
             if mode is TABLE:
                 mode = ROWSTRING
 
         elif c == '}':
-            verify(mode is TABLE or mode is ROWNUM, "Badly formatted string, unrecognized '}'. Character position [%s]"%i)
+            verify(mode in [TABLE, ROWNUM], "Badly formatted string, unrecognized '}'. Character position [%s]"%i)
             if mode is ROWNUM:
                 field = to_number(field,i)
                 row.append(field)
@@ -206,7 +263,7 @@ def read_opl_text(tdf,text):
             mode = NONE
 
         elif c == '>':
-            verify(mode is ROW or mode is FIELD or mode is NUMBER, "Badly formatted string, unrecognized '>'. \
+            verify(mode in [ROW, FIELD, NUMBER], "Badly formatted string, unrecognized '>'. \
                                                                     Character position [%s]"%i)
             if mode is NUMBER:
                 field = to_number(field,i)
@@ -220,7 +277,7 @@ def read_opl_text(tdf,text):
             row = []
             mode = TABLE
         else:
-            verify(mode is NONE or mode is ROW or mode is ROWNUM or mode is FIELD or mode is NUMBER, "Badly formatted string, \
+            verify(mode in [NONE, ROW, ROWNUM, FIELD, NUMBER], "Badly formatted string, \
                                                                     unrecognized '%s'. Character position [%s]"%(c,i))
             if mode is NONE:
                 table_name += c
@@ -231,5 +288,5 @@ def read_opl_text(tdf,text):
                 mode = NUMBER
                 field += c
     assert not find_duplicates_from_dict_ticdat(tdf, dict_with_lists), \
-           "duplicates were found - if asserts are disabled, duplicate rows will overwrite"
+            "duplicates were found - if asserts are disabled, duplicate rows will overwrite"
     return tdf.TicDat(**dict_with_lists)
