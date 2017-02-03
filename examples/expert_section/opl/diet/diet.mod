@@ -24,11 +24,12 @@ subject to {
 float objValue = sum(f in foodItems) foodCost[f] * purchase[f];
 {parameters_type} parameters = {};
 {buy_food_type} buy_food = {<f,purchase[f]> | f in foodItems: purchase[f] > 0};
-{consume_nutrition_type} consume_nutrition 
-	= {<category,qty * purchase[f]> | <category,minNutrition,maxNutrition> in categories, <f,category,qty> in nutrition_quantities};
+float nutrition[<category,minN,maxN> in categories] = sum(<f,category,qty> in nutrition_quantities) qty * purchase[f];
+{consume_nutrition_type} consume_nutrition = {<category,nutrition[<category,minN,maxN>]> | <category,minN,maxN> in categories};
+
 execute {
   parameters.add("total_cost",objValue);
-  writeln(parameters);
+  writeln("parameters = ",parameters);
   writeln(buy_food);
   writeln(consume_nutrition);
 }
