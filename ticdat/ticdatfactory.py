@@ -3,11 +3,12 @@ Create TicDatFactory. Main entry point for ticdat library.
 PEP8
 """
 import collections as clt
+from collections import namedtuple
 import ticdat.utils as utils
 from ticdat.utils import verify, freezable_factory, FrozenDict, FreezeableDict
 from ticdat.utils import dictish, containerish, deep_freeze, lupish, safe_apply
 from string import ascii_uppercase as uppercase
-from collections import namedtuple
+from itertools import count
 import ticdat.xls as xls
 import ticdat.csvtd as csv
 import ticdat.sqlitetd as sql
@@ -205,6 +206,29 @@ class TicDatFactory(freezable_factory(object, "_isFrozen")) :
         verify(not self._has_been_used,
                "The data types can't be changed after a TicDatFactory has been used.")
         del(self._data_types[table][field])
+    def add_data_row_predicate(self, table, predicate, name = None):
+        """
+        Adds a data row predicate for a table. Row predicates can be used to check for
+        sophisticated data integrity problems of the sort that can't be easily handled with
+        a data type rule. For example, a min_supply column can be verified to be no larger than
+        a max_supply column.
+        :param table: table in the schema
+        :param predicate: A one argument function that accepts a table row as an argument and returns
+                          True if the row is valid and false otherwise. The argument passed to predicate
+                          will be a dict that maps field name to data value for all fields
+                          (both primary key and data field) in the table.
+        :param name: A brief description of the predicate. If ommitted, a number will be used
+        :return:
+        """
+        verify(not self._has_been_used,
+               "The data row predicates can't be changed after a TicDatFactory has been used.")
+        verify(table in self.all_tables, "Unrecognized table name %s"%table)
+        verify(table not in self.generic_tables, "Cannot add row predicate for generic table")
+        verify(callable(predicate), "predicate should be a one argument function")
+        if name is None:
+            name = next(i for i in count() if (table, i) not in self._data_row_predicates[table])
+        self._data_row_predicates[table][name] = predicate
+
     def set_default_value(self, table, field, default_value):
         """
         sets the default value for a specific field
@@ -449,6 +473,7 @@ foreign keys, the code throwing this exception will be removed.
         self._data_fields = FrozenDict({k : tuple(v[1]) for k,v in init_fields.items() if v != '*'})
         self._default_values = clt.defaultdict(dict)
         self._data_types = clt.defaultdict(dict)
+        self._data_row_predicates = clt.defaultdict(dict)
         self._generator_tables = []
         self._foreign_keys = clt.defaultdict(set)
         self.all_tables = frozenset(init_fields)
