@@ -33,7 +33,8 @@ def opl_run(mod_file, input_tdf, input_dat, soln_tdf, infinity=INFINITY, oplrun_
     os.remove("temp.dat")
     if post_solve:
         post_solve()
-
+    with open("testdebug","w") as f:
+        f.write(output)
     def pattern_finder(string, pattern, rsearch=False):
         """
         Searches a string for the pattern ignoring whitespace
@@ -43,19 +44,20 @@ def opl_run(mod_file, input_tdf, input_dat, soln_tdf, infinity=INFINITY, oplrun_
         """
         verify(len(pattern) <= len(string), "Pattern is larger than string, cannot be found. Pattern is '%s'" % pattern)
         poss_string = []
+        nospaces = lambda (k): filter(lambda j: not j.isspace(), k)
         if rsearch:
             pattern = pattern[::-1]
             string = string[::-1]
         for i, j in enumerate(string):
-            if j.isspace():
-                continue
-            if len(poss_string) < len(pattern):
+            if len(nospaces(poss_string)) < len(pattern):
                 poss_string.append(str(j))
             else:
+                while (poss_string[0].isspace()):
+                    poss_string.pop(0)
                 poss_string.pop(0)
                 poss_string.append(str(j))
                 pass
-            if ''.join(poss_string) == pattern:
+            if ''.join(nospaces(poss_string)) == pattern:
                 if rsearch:
                     return len(string) - (i + 1 - len(poss_string))
                 return i - len(poss_string)
