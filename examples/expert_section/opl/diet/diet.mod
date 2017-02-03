@@ -30,6 +30,6 @@ float nutrition[<category,minN,maxN> in categories] = sum(<f,category,qty> in nu
 execute {
   parameters.add("total_cost",objValue);
   writeln("parameters = ",parameters);
-  writeln(buy_food);
-  writeln(consume_nutrition);
+  writeln("buy_food = ",buy_food);
+  writeln("consume_nutrition = ",consume_nutrition);
 }
