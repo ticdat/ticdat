@@ -58,6 +58,8 @@ def opl_run(mod_file, input_tdf, input_dat, soln_tdf, infinity=INFINITY, oplrun_
                 poss_string.append(str(j))
                 pass
             if ''.join(nospaces(poss_string)) == pattern:
+                while (poss_string[0].isspace()):
+                    poss_string.pop(0)
                 if rsearch:
                     return len(string) - (i + 1 - len(poss_string))
                 return i - len(poss_string)
@@ -124,34 +126,52 @@ def create_opl_text(tdf, tic_dat, infinity=INFINITY):
 
     return rtn
 
-def create_opl_mod_text(tdf):
+def create_opl_mod_text(input_tdf, soln_tdf):
     """
     Generate a OPL .mod string from a TicDat object for diagnostic purposes
-    :param tdf: A TicDatFactory defining the schema
+    :param input_tdf: A TicDatFactory defining the input schema
+    :param soln_tdf: A TicDatFactory defining the solution schema (optional)
     :return: A string consistent with the OPL .mod format
     """
-    verify(not tdf.generator_tables, "doesn't work with generator tables.")
-    verify(not tdf.generic_tables, "doesn't work with generic tables. (not yet - will add ASAP as needed) ")
+    verify(not input_tdf.generator_tables, "Input schema error - doesn't work with generator tables.")
+    verify(not input_tdf.generic_tables, "Input schema error - doesn't work with generic tables. (not yet - will \
+            add ASAP as needed) ")
     rtn = ''
-    dict_tables = {t for t, pk in tdf.primary_key_fields.items() if pk}
-    for t in dict_tables:
-        def getType(data_types, table, field):
-            try:
-                return "float" if data_types[table][field].number_allowed else "string"
-            except KeyError:
-                return "string"
+    dict_tables = {t for t, pk in input_tdf.primary_key_fields.items() if pk}
+
+    def get_type(data_types, table, field):
+        try:
+            return "float" if data_types[table][field].number_allowed else "string"
+        except KeyError:
+            return "string"
+
+    def get_table_as_mod_text(tdf, tbn, is_soln=False):
+        rtn = ''
         if len(tdf.primary_key_fields[t]) is 1 and len(tdf.data_fields[t]) is 0:
-            rtn = "{" + getType(tdf.data_types, t, tdf.primary_key_fields[t][0]) + "} " + t + " = ...;\n\n"
+            rtn = "{" + get_type(tdf.data_types, t, tdf.primary_key_fields[t][0]) + "} " + t + " = ...;\n\n"
         else:
             rtn += "tuple " + t + "_type\n{"
             for pk in tdf.primary_key_fields[t]:
                 pk.replace(' ', '_')
-                rtn += "\n\tkey " + getType(tdf.data_types, t, pk) + " " + pk + ";"
+                rtn += "\n\tkey " + get_type(tdf.data_types, t, pk) + " " + pk + ";"
             for df in tdf.data_fields[t]:
                 df.replace(' ', '_')
-                rtn += "\n\t" + getType(tdf.data_types, t, df) + " " + df + ";"
-            rtn += "\n};\n\n"
-            rtn += "{" + t + "_type} " + t + "=...;\n\n"
+                rtn += "\n\t" + get_type(tdf.data_types, t, df) + " " + df + ";"
+            rtn += "\n};\n"
+            if not is_soln:
+                rtn += "\n{" + t + "_type} " + t + "=...;\n"
+            rtn += "\n"
+        return rtn
+
+    for t in dict_tables:
+        rtn += get_table_as_mod_text(input_tdf, t)
+    if soln_tdf:
+        verify(not soln_tdf.generator_tables, "Solution schema error - doesn't work with generator tables")
+        verify(not soln_tdf.generic_tables, "Solution schema error - doesn't work with generic tables (not yet - will \
+                add ASAP as needed) ")
+        soln_dict_tables = {t for t, pk in soln_tdf.primary_key_fields.items() if pk}
+        for t in soln_dict_tables:
+            rtn += get_table_as_mod_text(soln_tdf,t,True)
     return rtn
 
 def read_opl_text(tdf,text, commaseperator = True):
