@@ -1110,14 +1110,11 @@ foreign keys, the code throwing this exception will be removed.
         :return: A dictionary constructed as follow:
 
                  The keys are namedTuples with members "table", "predicate_name".
-                 Each (table, predicate_name) pair has table rows that indicated a data
-                 integrity problem. (Note that the predicate functions each return Falsey
-                 to indicate a data failure and Truthy to indicate a valid row).
 
                  The values of the returned dictionary are tuples indicating which rows
-                 failed the predicate test. For tables with a primary key, then the tuple will
-                 contain the primary key value of each failed row. Otherwise, the tuple will list
-                 the positions of the failed rows.
+                 failed the predicate test. For tables with a primary key this tuple will
+                 contain the primary key value of each failed row. Otherwise, this tuple
+                 will list the positions of the failed rows.
         """
         msg  = []
         verify(self.good_tic_dat_object(tic_dat, msg.append),
