@@ -339,7 +339,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen")) :
             verify(k in self._allFields(native_table),
                    "%s does not refer to one of %s 's fields"%(k, native_table))
             verify(v in self._allFields(foreign_table),
-                   "%s does not refer to one of %s 's fields"%(k, foreign_table))
+                   "%s does not refer to one of %s 's fields"%(v, foreign_table))
         verify(set(self.primary_key_fields.get(foreign_table, ())) == set(_mappings.values()),
             """%s is not the primary key for %s.
 This exception is being thrown because ticDat doesn't currently support many-to-many
