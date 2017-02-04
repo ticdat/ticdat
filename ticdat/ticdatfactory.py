@@ -206,7 +206,8 @@ class TicDatFactory(freezable_factory(object, "_isFrozen")) :
         verify(not self._has_been_used,
                "The data types can't be changed after a TicDatFactory has been used.")
         del(self._data_types[table][field])
-    def add_data_row_predicate(self, table, predicate, name = None):
+
+    def add_data_row_predicate(self, table, predicate, predicate_name = None):
         """
         Adds a data row predicate for a table. Row predicates can be used to check for
         sophisticated data integrity problems of the sort that can't be easily handled with
@@ -214,20 +215,30 @@ class TicDatFactory(freezable_factory(object, "_isFrozen")) :
         a max_supply column.
         :param table: table in the schema
         :param predicate: A one argument function that accepts a table row as an argument and returns
-                          True if the row is valid and false otherwise. The argument passed to predicate
-                          will be a dict that maps field name to data value for all fields
+                          Truthy if the row is valid and Falsey otherwise. The argument passed to
+                          predicate will be a dict that maps field name to data value for all fields
                           (both primary key and data field) in the table.
-        :param name: A brief description of the predicate. If ommitted, a number will be used
+                          Note - if None is passed as a predicate, then any previously added
+                          predicate matching (table, predicate_name) will be removed.
+        :param predicate_name: The name of the predicate. If omitted, the smallest non-colliding
+                               number will be used.
         :return:
         """
         verify(not self._has_been_used,
                "The data row predicates can't be changed after a TicDatFactory has been used.")
         verify(table in self.all_tables, "Unrecognized table name %s"%table)
         verify(table not in self.generic_tables, "Cannot add row predicate for generic table")
+        verify(table not in self.generator_tables, "Cannot add row predicate for generator table")
+
+        if predicate is None:
+            if table in self._data_row_predicates:
+                self._data_row_predicates[table].pop(predicate_name, None)
+            return
+
         verify(callable(predicate), "predicate should be a one argument function")
-        if name is None:
-            name = next(i for i in count() if (table, i) not in self._data_row_predicates[table])
-        self._data_row_predicates[table][name] = predicate
+        if predicate_name is None:
+            predicate_name = next(i for i in count() if i not in self._data_row_predicates[table])
+        self._data_row_predicates[table][predicate_name] = predicate
 
     def set_default_value(self, table, field, default_value):
         """
@@ -992,6 +1003,14 @@ foreign keys, the code throwing this exception will be removed.
             return self.remove_foreign_keys_failures(tic_dat)
         return tic_dat
 
+    def _get_full_row(self, ticdat, table, pk):
+        full_row = dict(getattr(ticdat, table)[pk])
+        if len(self.primary_key_fields[table]) == 1:
+            full_row[self.primary_key_fields[table][0]] = pk
+        else:
+            full_row = dict(full_row, **{f:d for f,d in
+                                         zip(self.primary_key_fields[table], pk)})
+        return full_row
     def find_data_type_failures(self, tic_dat):
         """
         Finds the data type failures for a ticdat object
@@ -1006,27 +1025,21 @@ foreign keys, the code throwing this exception will be removed.
                  --> bad_values - the distinct values for the (table, field) pair that are inconsistent
                                   with the data type for (table, field).
                  --> pks - the distinct primary key entries of the table containing the bad_values
-                                  data
+                           data. (will be None for tables with no primary key)
                  That is to say, bad_values tells you which values in field are failing the data type check,
-                 and  tells you which table rows will have their field entry changed if you call
+                 and pks tells you which table rows will have their field entry changed if you call
                  replace_data_type_failures().
         """
         msg  = []
         verify(self.good_tic_dat_object(tic_dat, msg.append),
                "tic_dat not a good object for this factory : %s"%"\n".join(msg))
 
-
         rtn_values, rtn_pks = clt.defaultdict(set), clt.defaultdict(set)
         for table, type_row in self._data_types.items():
             _table = getattr(tic_dat, table)
             if dictish(_table):
-                for pk, data_row in _table.items():
-                    full_row = dict(data_row)
-                    if len(self.primary_key_fields[table]) == 1:
-                        full_row[self.primary_key_fields[table][0]] = pk
-                    else:
-                        full_row = dict(full_row, **{f:d for f,d in
-                                                     zip(self.primary_key_fields[table], pk)})
+                for pk  in _table:
+                    full_row = self._get_full_row(tic_dat, table, pk)
                     for field, data_type in type_row.items():
                         if not data_type.valid_data(full_row[field]) :
                             rtn_values[(table, field)].add(full_row[field])
@@ -1089,6 +1102,41 @@ foreign keys, the code throwing this exception will be removed.
 
         assert not set(self.find_data_type_failures(tic_dat)).intersection(real_replacements)
         return tic_dat
+
+    def find_data_row_failures(self, tic_dat):
+        """
+        Finds the data row failures for a ticdat object
+        :param tic_dat: ticdat object
+        :return: A dictionary constructed as follow:
+
+                 The keys are namedTuples with members "table", "predicate_name".
+                 Each (table, predicate_name) pair has table rows that indicated a data
+                 integrity problem. (Note that the predicate functions each return Falsey
+                 to indicate a data failure and Truthy to indicate a valid row).
+
+                 The values of the returned dictionary are tuples indicating which rows
+                 failed the predicate test. For tables with a primary key, then the tuple will
+                 contain the primary key value of each failed row. Otherwise, the tuple will list
+                 the positions of the failed rows.
+        """
+        msg  = []
+        verify(self.good_tic_dat_object(tic_dat, msg.append),
+               "tic_dat not a good object for this factory : %s"%"\n".join(msg))
+        rtn = clt.defaultdict(set)
+        for tbl, row_predicates in self._data_row_predicates.items():
+            for pn, p in row_predicates.items():
+                _table = getattr(tic_dat, tbl)
+                if dictish(_table):
+                    for pk  in _table:
+                        full_row = self._get_full_row(tic_dat, tbl, pk)
+                        if not p(full_row):
+                            rtn[tbl, pn].add(pk)
+                else:
+                    for i, data_row in enumerate(_table):
+                        if not p(data_row):
+                            rtn[tbl, pn].add(i)
+        TPN = clt.namedtuple("TablePredicateName", ["table", "predicate_name"])
+        return {TPN(*k):tuple(v) for k,v in rtn.items()}
 
     def obfusimplify(self, tic_dat, table_prepends = utils.FrozenDict(), skip_tables = (),
                      freeze_it = False) :
