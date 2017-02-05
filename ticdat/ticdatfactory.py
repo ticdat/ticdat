@@ -13,6 +13,7 @@ import ticdat.xls as xls
 import ticdat.csvtd as csv
 import ticdat.sqlitetd as sql
 import ticdat.mdb as mdb
+import ticdat.jsontd as json
 import sys
 
 pd, DataFrame = utils.pd, utils.DataFrame # if pandas not installed will be falsey
@@ -494,7 +495,7 @@ foreign keys, the code throwing this exception will be removed.
         datarowfactory = lambda t :  utils.td_row_factory(t, self.primary_key_fields.get(t, ()),
                         self.data_fields.get(t, ()), self.default_values.get(t, {}))
 
-        goodticdattable = self.good_tic_dat_table
+        goodticdattable = self._good_tic_dat_table_for_init
         superself = self
         def ticdattablefactory(alldatadicts, tablename, primarykey = (), rowfactory_ = None) :
             assert tablename not in self.generic_tables
@@ -596,6 +597,19 @@ foreign keys, the code throwing this exception will be removed.
                           v.apply(add_row, axis=1)
                       else :
                           v.apply(lambda r : getattr(self, t).append(row_dict(r)), axis=1)
+                    elif superself.primary_key_fields.get(t) and not utils.dictish(v):
+                         pklen = len(superself.primary_key_fields[t])
+                         def handle_row_dict(r):
+                             if not utils.dictish(r):
+                                 return r
+                             return [r.get(k, 0) for k in superself.primary_key_fields[t] +
+                                      superself.data_fields.get(t,[])]
+                         setattr(self, t, ticdattablefactory(self._all_data_dicts, t)(
+                             {r if not utils.containerish(r) else
+                              (r[0] if pklen == 1 else tuple(r[:pklen])) :
+                              datarowfactory(t)([] if not utils.containerish(r) else r[pklen:])
+                              for _r in v for r in [handle_row_dict(_r)]}
+                         ))
                     elif superself.primary_key_fields.get(t) :
                      for _k in v :
                         verify((hasattr(_k, "__len__") and
@@ -677,6 +691,7 @@ foreign keys, the code throwing this exception will be removed.
         self.csv = csv.CsvTicFactory(self)
         self.sql = sql.SQLiteTicFactory(self)
         self.mdb = mdb.MdbTicFactory(self)
+        self.json = json.JsonTicFactory(self)
         self._isFrozen=True
 
     def _allFields(self, table):
@@ -710,6 +725,16 @@ foreign keys, the code throwing this exception will be removed.
             rtn = rtn and  self.good_tic_dat_table(getattr(data_obj, t), t,
                     lambda x : bad_message_handler(t + " : " + x))
         return rtn
+
+    def _good_tic_dat_table_for_init(self, data_table, table_name,
+                                     bad_message_handler = lambda x : None):
+         if self.primary_key_fields.get(table_name, None) and containerish(data_table) \
+                 and not dictish(data_table) and not utils.stringish(data_table) \
+                 and not (utils.DataFrame and isinstance(data_table, utils.DataFrame)):
+             tdf = TicDatFactory(**{table_name:[[], list(self.primary_key_fields[table_name]) +
+                                                    list(self.data_fields.get(table_name, []))]})
+             return tdf.good_tic_dat_table(data_table, table_name, bad_message_handler)
+         return self.good_tic_dat_table(data_table, table_name, bad_message_handler)
 
     def good_tic_dat_table(self, data_table, table_name, bad_message_handler = lambda x : None) :
         """

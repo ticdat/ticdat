@@ -65,7 +65,7 @@ class TestSql(unittest.TestCase):
     def testDups(self):
         if not self.can_run:
             return
-        tdf = TicDatFactory(one = [["a"],["b, c"]],
+        tdf = TicDatFactory(one = [["a"],["b", "c"]],
                             two = [["a", "b"],["c"]],
                             three = [["a", "b", "c"],[]])
         tdf2 = TicDatFactory(**{t:[[],["a", "b", "c"]] for t in tdf.all_tables})
