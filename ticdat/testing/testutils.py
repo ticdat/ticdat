@@ -670,6 +670,17 @@ class TestUtils(unittest.TestCase):
         self.assertTrue({x["goo"] for x in dat.boger} == {2.1,1.1,1,2})
 
     def testSeventeen(self):
+         tdf = TicDatFactory(bo = [["a","b"],["c"]])
+         dat = tdf.TicDat(bo = [[1, 2, 3], ["a", "b", "c"]])
+         dat2 = tdf.TicDat(bo = [{"b":2, "a":1},{"a":"a","b":"b"}])
+         self.assertTrue(set(dat.bo) == set(dat2.bo) == {(1,2), ("a","b")})
+         self.assertTrue(dat.bo[1,2]["c"] == 3 and dat.bo["a","b"]["c"] == "c")
+         self.assertTrue(dat2.bo[1,2]["c"] == 0 and dat2.bo["a","b"]["c"] == 0)
+         tdf = TicDatFactory(bo = [["c"],[]])
+         dat = tdf.TicDat(bo = [1, "a"])
+         self.assertTrue(set(dat.bo) == {"a",1})
+
+    def testEighteen(self):
         tdf = TicDatFactory(**dietSchema())
         dat = tdf.TicDat()
         dat.foods["a"] = 12
