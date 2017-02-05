@@ -676,6 +676,12 @@ class TestUtils(unittest.TestCase):
          self.assertTrue(set(dat.bo) == set(dat2.bo) == {(1,2), ("a","b")})
          self.assertTrue(dat.bo[1,2]["c"] == 3 and dat.bo["a","b"]["c"] == "c")
          self.assertTrue(dat2.bo[1,2]["c"] == 0 and dat2.bo["a","b"]["c"] == 0)
+         fd = utils.find_duplicates_from_dict_ticdat
+         self.assertFalse(fd(tdf, {"bo":[{"b":2, "a":1},{"a":"a","b":"b"}]}))
+         self.assertTrue(set(fd(tdf, {"bo":[{"b":2}, {"a":1}, {"a":1, "b":0}]})["bo"]) == {(1,0)})
+         self.assertTrue(set(fd(tdf, {"bo":[{"b":2}, {"a":1}, {"a":1, "b":0}, {"a":0, "b":2}]})["bo"]) ==
+                         {(1,0),(0,2)})
+
          tdf = TicDatFactory(bo = [["c"],[]])
          dat = tdf.TicDat(bo = [1, "a"])
          self.assertTrue(set(dat.bo) == {"a",1})
