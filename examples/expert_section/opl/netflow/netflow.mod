@@ -39,5 +39,5 @@ tuple resultType {
 {resultType} results = {<start,end,com,edgeFlow[<start,end>][com]> | 
   <start,end> in edges,com in commodities};
 execute {
-  writeln(results);
+  writeln("flow="+results);
 }  
