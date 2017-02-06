@@ -33,6 +33,7 @@ def standard_main(input_schema, solution_schema, solve):
     --> ending in ".db" imply reading/writing SQLite database files
     --> ending in ".sql" imply reading/writing SQLite text files rendered in
         schema-less SQL statements
+    --> ending in ".json" imply reading/writing .json files
     --> otherwise, the assumption is that an input/output directory is being specified,
         which will be used for reading/writing .csv files.
         (Recall that .csv format is implemented as one-csv-file-per-table, so an entire
@@ -66,7 +67,7 @@ def standard_main(input_schema, solution_schema, solve):
         else:
             verify(False, "unhandled option")
     file_or_dir = lambda f :"file" if any(f.endswith(_) for _ in
-                                (".xls", ".xlsx", ".db", ".sql", ".mdb", ".accdb")) \
+                            (".json", ".xls", ".xlsx", ".db", ".sql", ".mdb", ".accdb")) \
                   else "directory"
     if not (os.path.exists(input_file)):
         print("%s is not a valid input file or directory"%input_file)
@@ -75,6 +76,9 @@ def standard_main(input_schema, solution_schema, solve):
                                             file_or_dir(output_file), output_file))
         dat = None
         if os.path.isfile(input_file) and file_or_dir(input_file) == "file":
+            if input_file.endswith(".json"):
+                assert not input_schema.json.find_duplicates(input_file), "duplicate rows found"
+                dat = input_schema.json.create_tic_dat(input_file)
             if input_file.endswith(".xls") or input_file.endswith(".xlsx"):
                 assert not input_schema.xls.find_duplicates(input_file), "duplicate rows found"
                 dat = input_schema.xls.create_tic_dat(input_file)
@@ -95,7 +99,9 @@ def standard_main(input_schema, solution_schema, solve):
         if sln:
             print("%s output %s %s"%("Overwriting" if os.path.exists(output_file) else "Creating",
                                      file_or_dir(output_file), output_file))
-            if output_file.endswith(".xls") or output_file.endswith(".xlsx"):
+            if output_file.endswith(".json"):
+                solution_schema.json.write_file(sln, output_file, allow_overwrite=True)
+            elif output_file.endswith(".xls") or output_file.endswith(".xlsx"):
                 solution_schema.xls.write_file(sln, output_file, allow_overwrite=True)
             elif output_file.endswith(".db"):
                 solution_schema.sql.write_db_data(sln, output_file, allow_overwrite=True)

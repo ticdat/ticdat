@@ -926,6 +926,7 @@ FUNCTIONS
         --> ending in ".db" imply reading/writing SQLite files
         --> ending in ".sql" imply reading/writing SQLite text files rendered in
             schema-less SQL statements
+        --> ending in ".json" imply reading/writing .json files
         --> otherwise, the assumption is that an input/output directory is being specified,
             which will be used for reading/writing .csv files.
             (Recall that .csv format is implemented as one-csv-file-per-table, so an entire
