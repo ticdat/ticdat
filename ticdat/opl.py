@@ -7,6 +7,36 @@ INFINITY = 999999
 def _code_dir():
     return os.path.dirname(os.path.abspath(inspect.getsourcefile(_code_dir)))
 
+def pattern_finder(string, pattern, rsearch=False):
+    """
+    Searches a string for the pattern ignoring whitespace
+    :param string: A text string
+    :param pattern: A string containing the pattern to search for
+    :param rsearch: Optional parameter indicating if the search should be performed backwards
+    """
+    verify(len(pattern) <= len(string), "Pattern is larger than string, cannot be found. Pattern is '%s'" % pattern)
+    poss_string = []
+    nospaces = lambda (k): filter(lambda j: not j.isspace(), k)
+    if rsearch:
+        pattern = pattern[::-1]
+        string = string[::-1]
+    for i, j in enumerate(string):
+        if len(nospaces(poss_string)) < len(pattern):
+            poss_string.append(str(j))
+        else:
+            while (poss_string[0].isspace()):
+                poss_string.pop(0)
+            poss_string.pop(0)
+            poss_string.append(str(j))
+            pass
+        if ''.join(nospaces(poss_string)) == pattern:
+            while (poss_string[0].isspace()):
+                poss_string.pop(0)
+            if rsearch:
+                return len(string) - i + len(poss_string) - 2
+            return i + 1 - len(poss_string)
+    return False
+
 def opl_run(mod_file, input_tdf, input_dat, soln_tdf, infinity=INFINITY, oplrun_path=None, post_solve=None):
     """
     solve an optimization problem using an OPL .mod file
@@ -29,46 +59,20 @@ def opl_run(mod_file, input_tdf, input_dat, soln_tdf, infinity=INFINITY, oplrun_
         with open(os.path.join(_code_dir(),"oplrun_path.txt"),"r") as f:
             oplrun_path = f.read()
     verify(os.path.isfile(oplrun_path), "Not a valid path to oplrun")
+    if not oplrun_path in os.environ["LD_LIBRARY_PATH"]:
+        os.environ["LD_LIBRARY_PATH"] = oplrun_path + ":" + os.environ["LD_LIBRARY_PATH"]
     output = subprocess.check_output([oplrun_path, mod_file, "temp.dat"])
     os.remove("temp.dat")
     if post_solve:
         post_solve()
     with open("testdebug","w") as f:
         f.write(output)
-    def pattern_finder(string, pattern, rsearch=False):
-        """
-        Searches a string for the pattern ignoring whitespace
-        :param string: A text string
-        :param pattern: A string containing the pattern to search for
-        :param rsearch: Optional parameter indicating if the search should be performed backwards
-        """
-        verify(len(pattern) <= len(string), "Pattern is larger than string, cannot be found. Pattern is '%s'" % pattern)
-        poss_string = []
-        nospaces = lambda (k): filter(lambda j: not j.isspace(), k)
-        if rsearch:
-            pattern = pattern[::-1]
-            string = string[::-1]
-        for i, j in enumerate(string):
-            if len(nospaces(poss_string)) < len(pattern):
-                poss_string.append(str(j))
-            else:
-                while (poss_string[0].isspace()):
-                    poss_string.pop(0)
-                poss_string.pop(0)
-                poss_string.append(str(j))
-                pass
-            if ''.join(nospaces(poss_string)) == pattern:
-                while (poss_string[0].isspace()):
-                    poss_string.pop(0)
-                if rsearch:
-                    return len(string) - (i + 1 - len(poss_string))
-                return i - len(poss_string)
-        return False
-
     min = len(output) + 1
     for tbn in soln_tdf.primary_key_fields.keys():
         pos = pattern_finder(output, tbn + '={')
-        verify(pos, "Invalid Output. Solution table '%s' not found." % tbn)
+        if not pos:
+            # A solution table wasn't found, assume solution couldn't be generated
+            return None
         if min > pos:
             min = pos
     max = pattern_finder(output, '>}', True)
@@ -76,8 +80,7 @@ def opl_run(mod_file, input_tdf, input_dat, soln_tdf, infinity=INFINITY, oplrun_
     verify(max > min,
            "Invalid Output. End of table (position %s) is positioned before table name is defined (position %s" % (
            min, max))
-    return read_opl_text(soln_tdf, output[min:max], False)
-    # not sure how to return None if no solution found
+    return read_opl_text(soln_tdf, output[min:max+1], False)
 
 
 def create_opl_text(tdf, tic_dat, infinity=INFINITY):
