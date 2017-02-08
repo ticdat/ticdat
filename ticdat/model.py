@@ -122,6 +122,28 @@ class Model(object):
             self.core_model.setObjective(expression, sense=
                 {"maximize":xpress.maximize, "minimize":xpress.minimize}[sense])
 
+    def set_parameters(self, **kwargs):
+        """
+        Set one or more parameters in the core model
+        :param kwargs: A mapping of parameter keyword to parameter value.
+                       The keywords need to be on the list of known parameters, as follows.
+                       MIP_Gap : set the MIP optimization tolerance
+        :return: None
+        """
+        known_parameters = ("MIP_Gap",)
+        for k,v in kwargs.items():
+            verify(k in known_parameters,
+                   "set_parameter does not yet know how to set %s.\n"%k +
+                   "The list of known parameters is %s\n"%list(known_parameters) +
+                   "Feel free to set this parameter directly using core_model.")
+            if k == "MIP_Gap":
+                verify(self.model_type != "xpress",
+                       "MIP_Gap parameter not yet implemented for xpress.")
+                if self.model_type == "gurobi":
+                    self.core_model.Params.MIPGap = v
+                elif self.model_type == "cplex":
+                    self.core_model.parameters.mip.tolerances.mipgap = v
+
     def optimize(self, *args, **kwargs):
         """
         Optimize the model.

@@ -200,6 +200,13 @@ CLASSES
      |      :param kwargs: Optional engine-specific arguments to pass to the model_type API
      |      :return: True if the model solves successfully, False otherwise.
      |
+     |  set_parameters(self, **kwargs)
+     |      Set one or more parameters in the core model
+     |      :param kwargs: A mapping of parameter keyword to parameter value.
+     |                     The keywords need to be on the list of known parameters, as follows.
+     |                     MIP_Gap : set the MIP optimization tolerance
+     |      :return: None
+     |
      |  set_objective(self, expression, sense='minimize')
      |      Set the objective for the model.
      |      :param expression: A linear or quadratic combination of variables and numbers.
