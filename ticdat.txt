@@ -200,6 +200,13 @@ CLASSES
      |      :param kwargs: Optional engine-specific arguments to pass to the model_type API
      |      :return: True if the model solves successfully, False otherwise.
      |
+     |  set_parameters(self, **kwargs)
+     |      Set one or more parameters in the core model
+     |      :param kwargs: A mapping of parameter keyword to parameter value.
+     |                     The keywords need to be on the list of known parameters, as follows.
+     |                     MIP_Gap : set the MIP optimization tolerance
+     |      :return: None
+     |
      |  set_objective(self, expression, sense='minimize')
      |      Set the objective for the model.
      |      :param expression: A linear or quadratic combination of variables and numbers.
@@ -509,6 +516,22 @@ CLASSES
      |                         generic_table = '*')
      |      :return: a TicDatFactory
      |
+     |  add_data_row_predicate(self, table, predicate, predicate_name=None)
+     |      Adds a data row predicate for a table. Row predicates can be used to check for
+     |      sophisticated data integrity problems of the sort that can't be easily handled with
+     |      a data type rule. For example, a min_supply column can be verified to be no larger than
+     |      a max_supply column.
+     |      :param table: table in the schema
+     |      :param predicate: A one argument function that accepts a table row as an argument and returns
+     |                        Truthy if the row is valid and Falsey otherwise. The argument passed to
+     |                        predicate will be a dict that maps field name to data value for all fields
+     |                        (both primary key and data field) in the table.
+     |                        Note - if None is passed as a predicate, then any previously added
+     |                        predicate matching (table, predicate_name) will be removed.
+     |      :param predicate_name: The name of the predicate. If omitted, the smallest non-colliding
+     |                             number will be used.
+     |      :return:
+     |
      |  add_foreign_key(self, native_table, foreign_table, mappings)
      |      Adds a foreign key relationship to the schema.  Adding a foreign key doesn't block
      |      the entry of child records that fail to find a parent match. It does make it easy
@@ -572,6 +595,18 @@ CLASSES
      |      Note that by default, TicDatFactories don't create foreign key links since doing so
      |      can slow down TicDat creation.
      |      :return:
+     |
+     |  find_data_row_failures(self, tic_dat)
+     |      Finds the data row failures for a ticdat object
+     |      :param tic_dat: ticdat object
+     |      :return: A dictionary constructed as follow:
+     |
+     |               The keys are namedTuples with members "table", "predicate_name".
+     |
+     |               The values of the returned dictionary are tuples indicating which rows
+     |               failed the predicate test. For tables with a primary key this tuple will
+     |               contain the primary key value of each failed row. Otherwise, this tuple
+     |               will list the positions of the failed rows.
      |
      |  find_data_type_failures(self, tic_dat)
      |      Finds the data type failures for a ticdat object
@@ -898,6 +933,7 @@ FUNCTIONS
         --> ending in ".db" imply reading/writing SQLite files
         --> ending in ".sql" imply reading/writing SQLite text files rendered in
             schema-less SQL statements
+        --> ending in ".json" imply reading/writing .json files
         --> otherwise, the assumption is that an input/output directory is being specified,
             which will be used for reading/writing .csv files.
             (Recall that .csv format is implemented as one-csv-file-per-table, so an entire

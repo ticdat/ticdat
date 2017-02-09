@@ -1,24 +1,28 @@
 #!/usr/bin/python
 
-# Copyright 2015, 2016 Opalytics, Inc.
+# Copyright 2015, 2016, 2017 Opalytics, Inc.
 #
 
-# Implement core functionality needed to achieve modularity.
-# 1. Define the input data schema
-# 2. Define the output data schema
-# 3. Create a solve function that accepts a data set consistent with the input
-#    schema and (if possible) returns a data set consistent with the output schema.
-#
+# Simple toy solver to begin playing around with Python and ticdat.
+# This solver does nothing but validate the input data passed sanity checks,
+# and writes this same data back out as the 'solution'. This solver serves
+# no purpose other than to provide an example for how to get started with
+# ticdat.
+
 # Provides command line interface via ticdat.standard_main
 # For example, typing
-#   python diet.py -i input_data.xlsx -o solution_data.xlsx
+#   python echo_solver.py -i input_data.xlsx -o input_copy_dir
 # will read from a model stored in the file input_data.xlsx and write the solution
-# to solution_data.xlsx.
+# to .csv files in created directory input_copy_dir
 
 from ticdat import TicDatFactory, standard_main, Model
 
 # ------------------------ define the input schema --------------------------------
-# There are three input tables, with 4 primary key fields and 4 data fields.
+# NOTE - defining the diet schema here.
+# ***You should rewrite this section to define your own schema.***
+# Please try to implement all the data integrity rules. Primary key fields vs
+# data fields, data types for data fields, and foreign key relationships.
+
 input_schema = TicDatFactory (
      categories = [["name"],["min_nutrition", "max_nutrition"]],
      foods  = [["name"],["cost"]],
@@ -41,53 +45,31 @@ input_schema.set_data_type("categories", "max_nutrition", max=float("inf"),
 
 
 # ------------------------ define the output schema -------------------------------
-# There are three solution tables, with 2 primary key fields and 3 data fields.
-solution_schema = TicDatFactory(
-        parameters = [[],["total_cost"]],
-        buy_food = [["food"],["qty"]],
-        consume_nutrition = [["category"],["qty"]])
+# Since this solver does nothing other than echo the input data back out as a
+# solution, the solution schema is the same as the input schema. For real solvers
+# you'd define a proper solution schema. This task would be similar to, and
+# usually much easier than, defining the input schema. (For example, there is generally no
+# need to define data types and foreign key rules for the solution schema).
+solution_schema = input_schema
 # ---------------------------------------------------------------------------------
 
 
 # ------------------------ create a solve function --------------------------------
-_model_type = "gurobi" # could also be 'cplex' or 'xpress'
+
 def solve(dat):
     """
     core solving routine
     :param dat: a good ticdat for the input_schema
     :return: a good ticdat for the solution_schema, or None
+    This is a dummy solver. We just return a copy of the input data as the solution.
+    No need to edit this.
     """
     assert input_schema.good_tic_dat_object(dat)
     assert not input_schema.find_foreign_key_failures(dat)
     assert not input_schema.find_data_type_failures(dat)
 
-    mdl = Model(_model_type, "diet")
-
-    nutrition = {c:mdl.add_var(lb=n["min_nutrition"], ub=n["max_nutrition"], name=c)
-                for c,n in dat.categories.items()}
-
-    # Create decision variables for the foods to buy
-    buy = {f:mdl.add_var(name=f) for f in dat.foods}
-
-     # Nutrition constraints
-    for c in dat.categories:
-        mdl.add_constraint(mdl.sum(dat.nutrition_quantities[f,c]["qty"] * buy[f]
-                             for f in dat.foods)
-                           == nutrition[c],
-                           name = c)
-
-    mdl.set_objective(mdl.sum(buy[f] * c["cost"] for f,c in dat.foods.items()))
-
-    if mdl.optimize():
-        sln = solution_schema.TicDat()
-        for f,x in buy.items():
-            if mdl.get_solution_value(x) > 0.0001:
-                sln.buy_food[f] = mdl.get_solution_value(x)
-        for c,x in nutrition.items():
-            sln.consume_nutrition[c] = mdl.get_solution_value(x)
-        sln.parameters.append(sum(dat.foods[f]["cost"] * r["qty"]
-                                  for f,r in sln.buy_food.items()))
-        return sln
+    return solution_schema.TicDat(**{t: getattr(dat, t)
+                                     for t in input_schema.all_tables})
 # ---------------------------------------------------------------------------------
 
 # ------------------------ provide stand-alone functionality ----------------------

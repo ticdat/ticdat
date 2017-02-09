@@ -31,21 +31,27 @@ class TestModel(unittest.TestCase):
         self.assertTrue(sln and nearlySame(draft_yield, 2947.677))
         sln, draft_yield = _testFantop(modelType, "flex_constraint.sql")
         self.assertTrue(sln and nearlySame(draft_yield, 2952.252))
+    def _testParameters(self, modelType):
+        mdl = Model(modelType, "parameters")
+        mdl.set_parameters(MIP_Gap =  0.01)
     def testCplex(self):
         self.assertFalse(utils.stringish(cplex))
         self._testDiet("cplex")
         self._testNetflow("cplex")
         self._testFantop("cplex")
+        self._testParameters("cplex")
     def testGurobi(self):
         self.assertFalse(utils.stringish(gurobi))
         self._testDiet("gurobi")
         self._testNetflow("gurobi")
         self._testFantop("gurobi")
+        self._testParameters("gurobi")
     def testXpress(self):
         self.assertFalse(utils.stringish(xpress))
         self._testDiet("xpress")
         self._testNetflow("xpress")
         self._testFantop("xpress")
+        self._testParameters("xpress") # not yet working
 
 def _testFantop(modelType, sqlFile):
     dataFactory = TicDatFactory (

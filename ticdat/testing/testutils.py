@@ -669,7 +669,72 @@ class TestUtils(unittest.TestCase):
         self.assertTrue({x["foo"] for x in dat.boger} == {11,1,2})
         self.assertTrue({x["goo"] for x in dat.boger} == {2.1,1.1,1,2})
 
+    def testSeventeen(self):
+         tdf = TicDatFactory(bo = [["a","b"],["c"]])
+         dat = tdf.TicDat(bo = [[1, 2, 3], ["a", "b", "c"]])
+         dat2 = tdf.TicDat(bo = [{"b":2, "a":1},{"a":"a","b":"b"}])
+         self.assertTrue(set(dat.bo) == set(dat2.bo) == {(1,2), ("a","b")})
+         self.assertTrue(dat.bo[1,2]["c"] == 3 and dat.bo["a","b"]["c"] == "c")
+         self.assertTrue(dat2.bo[1,2]["c"] == 0 and dat2.bo["a","b"]["c"] == 0)
+         fd = utils.find_duplicates_from_dict_ticdat
+         self.assertFalse(fd(tdf, {"bo":[{"b":2, "a":1},{"a":"a","b":"b"}]}))
+         self.assertTrue(set(fd(tdf, {"bo":[{"b":2}, {"a":1}, {"a":1, "b":0}]})["bo"]) == {(1,0)})
+         self.assertTrue(set(fd(tdf, {"bo":[{"b":2}, {"a":1}, {"a":1, "b":0}, {"a":0, "b":2}]})["bo"]) ==
+                         {(1,0),(0,2)})
 
+         tdf = TicDatFactory(bo = [["c"],[]])
+         dat = tdf.TicDat(bo = [1, "a"])
+         self.assertTrue(set(dat.bo) == {"a",1})
+
+    def testEighteen(self):
+        tdf = TicDatFactory(**dietSchema())
+        dat = tdf.TicDat()
+        dat.foods["a"] = 12
+        dat.foods["b"] = dat.foods["c"] = None
+        dat.categories[1] = {"maxNutrition":100, "minNutrition":40}
+        dat.categories[2] = [21,20]
+        dat.categories[3] = [20,21]
+        for f, p in itertools.product(dat.foods, dat.categories):
+            dat.nutritionQuantities[f,p] = 6
+        dat.nutritionQuantities['b', 3] = 5
+        dat.nutritionQuantities['a', 2] = 12
+        dat = tdf.freeze_me(dat)
+
+        self.assertFalse(tdf.find_data_row_failures(dat))
+        tdf = TicDatFactory(**dietSchema())
+        tdf.add_data_row_predicate("categories", lambda row : row["minNutrition"] <= row["maxNutrition"],
+                                   "minmax")
+        tdf.add_data_row_predicate("nutritionQuantities",
+                                   lambda row : row["category"] < 3 or row["qty"] % 2)
+        failures = tdf.find_data_row_failures(dat)
+        self.assertTrue(any(k for k in failures if
+                            k.table == "nutritionQuantities" and k.predicate_name == 0))
+        self.assertTrue(any(k for k in failures if
+                            k.table == "categories" and k.predicate_name == "minmax"))
+        self.assertTrue(failures["categories","minmax"] == (2,))
+        self.assertTrue(set(failures["nutritionQuantities", 0]) == {("a",3), ("c",3)})
+        tdf.add_data_row_predicate("nutritionQuantities", predicate=None, predicate_name=0)
+        self.assertTrue(set(tdf.find_data_row_failures(dat)) == {("categories","minmax")})
+        for i in range(1,4):
+            tdf.add_data_row_predicate("nutritionQuantities",
+                (lambda j : lambda row : row["category"] < 3 or row["qty"] % j)(i))
+        failures = tdf.find_data_row_failures(dat)
+        self.assertTrue(failures["categories","minmax"] == (2,))
+        self.assertTrue(set(failures["nutritionQuantities", 0]) == {("a",3), ("b",3), ("c",3)})
+        self.assertTrue(set(failures["nutritionQuantities", 1]) ==
+                        set(failures["nutritionQuantities", 2]) == {("a",3), ("c",3)})
+
+        tdf = TicDatFactory(**spacesSchema())
+        tdf.add_data_row_predicate("c_table",
+                                   lambda row : len(filter(utils.numericish, row.values())) >= 2,
+                                   predicate_name= "two_nums")
+        tdf.add_data_row_predicate("c_table",
+                                   lambda row : all(map(utils.stringish, row.values())),
+                                   predicate_name= "all_strings")
+        dat = tdf.TicDat(**spacesData())
+        failures = tdf.find_data_row_failures(dat)
+        self.assertTrue(failures["c_table", "two_nums"] == (1,))
+        self.assertTrue(failures["c_table", "all_strings"] == (0,2))
 
 
 

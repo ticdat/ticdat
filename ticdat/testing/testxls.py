@@ -365,6 +365,20 @@ class TestXls(unittest.TestCase):
         #self.assertTrue(tdf._same_data(bigdat, bigdat2))
         self.assertTrue(all(len(getattr(bigdat, t)) == len(getattr(bigdat2, t)) for t in tdf.all_tables))
 
+    def testLongName(self):
+        prepend = "b"*20
+        tdf = TicDatFactory(**{prepend*2+t:v for t,v in dietSchema().items()})
+        self.assertTrue(self.firesException(lambda : tdf.xls._verify_differentiable_sheet_names()))
+
+        tdf = TicDatFactory(**{prepend+t:v for t,v in dietSchema().items()})
+        ticDat = tdf.freeze_me(tdf.TicDat(**{t:getattr(dietData(),t.replace(prepend, ""))
+                                             for t in tdf.primary_key_fields}))
+        filePath = os.path.join(_scratchDir, "longname.xls")
+        tdf.xls.write_file(ticDat, filePath)
+        self.assertFalse(tdf.xls.find_duplicates(filePath))
+        ticDat2 = tdf.xls.create_tic_dat(filePath)
+        self.assertTrue(tdf._same_data(ticDat, ticDat2))
+
 _scratchDir = TestXls.__name__ + "_scratch"
 
 # Run the tests.
