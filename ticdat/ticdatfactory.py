@@ -966,8 +966,10 @@ foreign keys, the code throwing this exception will be removed.
         Finds the foreign key failures for a ticdat object
         :param tic_dat: ticdat object
         :return: A dictionary constructed as follow:
-                 The keys are namedTuples with members "native_table", "foreign_table", "mapping"
-                 The key data matches the arguments to add_foreign_key that constructed the foreign key.
+                 The keys are namedTuples with members "native_table", "foreign_table",
+                 "mapping", "cardinality".
+                 The key data matches the arguments to add_foreign_key that constructed the
+                 foreign key (with "cardinality" being deduced from the overall schema).
                  The values are namedTuples with the following members.
                  --> native_values - the values of the native fields that failed to match
                  --> native_pks - the primary key entries of the native table rows
