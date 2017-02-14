@@ -60,7 +60,7 @@ def opl_run(mod_file, input_tdf, input_dat, soln_tdf, infinity=INFINITY, oplrun_
             oplrun_path = f.read()
     verify(os.path.isfile(oplrun_path), "Not a valid path to oplrun")
     if not oplrun_path in os.environ["LD_LIBRARY_PATH"]:
-        os.environ["LD_LIBRARY_PATH"] = oplrun_path + ":" + os.environ["LD_LIBRARY_PATH"]
+        os.environ["LD_LIBRARY_PATH"] = os.path.abspath(os.path.join(oplrun_path,'..')) + ":" + os.environ["LD_LIBRARY_PATH"]
     output = subprocess.check_output([oplrun_path, mod_file, "temp.dat"])
     os.remove("temp.dat")
     if post_solve:
@@ -82,6 +82,7 @@ def opl_run(mod_file, input_tdf, input_dat, soln_tdf, infinity=INFINITY, oplrun_
            min, max))
     return read_opl_text(soln_tdf, output[min:max+1], False)
 
+_can_run_oplrun_tests = os.path.isfile(os.path.join(_code_dir(),"oplrun_path.txt"))
 
 def create_opl_text(tdf, tic_dat, infinity=INFINITY):
     """
