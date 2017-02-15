@@ -566,6 +566,9 @@ CLASSES
      |      create a TicDatFactory
      |      :param native_table: optional. The table whose foreign keys should be cleared.
      |                           If omitted, all foreign keys are cleared.
+     |  clone(self)
+     |      clones the TicDatFactory
+     |      :return: a clone of the TicDatFactory
      |
      |  copy_tic_dat(self, tic_dat, freeze_it=False)
      |      copies the tic_dat object into a new tic_dat object
