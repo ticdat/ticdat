@@ -252,6 +252,7 @@ class TestSql(unittest.TestCase):
 
         tdf2, tdf3, tdf4, tdf5, tdf6 = (TicDatFactory(**x) for x in (schema2, schema3, schema4, schema5, schema6))
         tdf5.set_generator_tables(("a","c"))
+        tdf5 = tdf5.clone()
         filePath = os.path.join(_scratchDir, "silly.db")
         tdf.sql.write_db_data(ticDat, filePath)
         self.assertFalse(tdf.sql.find_duplicates(filePath))
