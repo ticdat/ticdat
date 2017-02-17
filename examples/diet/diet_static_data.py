@@ -70,13 +70,13 @@ dat = input_schema.TicDat(
 solution =  solve(dat)
 
 if solution :
-    print('\nCost: %g' % solution.parameters[0]["total_cost"])
+    print('\nCost: %g' % solution.parameters['Total Cost']['Value'])
     print('\nBuy:')
     for f,b in solution.buy_food.items():
-        print('%s %g' % (f, b["qty"]))
+        print('%s %g' % (f, b["Quantity"]))
     print('\nNutrition:')
     for c,n in solution.consume_nutrition.items():
-        print('%s %g' % (c, n["qty"]))
+        print('%s %g' % (c, n["Quantity"]))
 else :
     print('\nNo solution')
 

@@ -58,7 +58,8 @@ input_schema.set_data_type("my_draft_positions", "Draft Position", min=0, max=fl
 
 # ------------------------ define the output schema -------------------------------
 solution_schema = TicDatFactory(
-        my_draft = [['Player Name'], ['Draft Position', 'Position', 'Planned Or Actual',
+    parameters = [["Key"],["Value"]],
+    my_draft = [['Player Name'], ['Draft Position', 'Position', 'Planned Or Actual',
                                      'Starter Or Reserve']])
 # ---------------------------------------------------------------------------------
 
@@ -161,7 +162,8 @@ def solve(dat):
         sln.my_draft[player_name]["Planned Or Actual"] = "Actual" if player_name in already_drafted_by_me else "Planned"
         sln.my_draft[player_name]["Starter Or Reserve"] = \
             "Starter" if almostone(my_starters[player_name]) else "Reserve"
-    print("Total draft yield %g.\n"%draft_yield)
+    sln.parameters["Total Yield"] = draft_yield
+    sln.parameters["Feasible"] = len(sln.my_draft) == len(dat.my_draft_positions)
 
     return sln
 # ---------------------------------------------------------------------------------

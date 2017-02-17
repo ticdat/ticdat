@@ -20,32 +20,33 @@ from ticdat import TicDatFactory, standard_main, Model, Slicer
 
 # ------------------------ define the input schema --------------------------------
 input_schema = TicDatFactory (
-     commodities = [["name"],[]],
-     nodes  = [["name"],[]],
-     arcs = [["source", "destination"],["capacity"]],
-     cost = [["commodity", "source", "destination"], ["cost"]],
-     inflow = [["commodity", "node"],["quantity"]]
+     commodities = [["Name"],[]],
+     nodes  = [["Name"],[]],
+     arcs = [["Source", "Destination"],["Capacity"]],
+     cost = [["Commodity", "Source", "Destination"], ["Cost"]],
+     inflow = [["Commodity", "Node"],["Quantity"]]
 )
 
 # add foreign key constraints
-input_schema.add_foreign_key("arcs", "nodes", ['source', 'name'])
-input_schema.add_foreign_key("arcs", "nodes", ['destination', 'name'])
-input_schema.add_foreign_key("cost", "nodes", ['source', 'name'])
-input_schema.add_foreign_key("cost", "nodes", ['destination', 'name'])
-input_schema.add_foreign_key("cost", "commodities", ['commodity', 'name'])
-input_schema.add_foreign_key("inflow", "commodities", ['commodity', 'name'])
-input_schema.add_foreign_key("inflow", "nodes", ['node', 'name'])
+input_schema.add_foreign_key("arcs", "nodes", ['Source', 'Name'])
+input_schema.add_foreign_key("arcs", "nodes", ['Destination', 'Name'])
+input_schema.add_foreign_key("cost", "nodes", ['Source', 'Name'])
+input_schema.add_foreign_key("cost", "nodes", ['Destination', 'Name'])
+input_schema.add_foreign_key("cost", "commodities", ['Commodity', 'Name'])
+input_schema.add_foreign_key("inflow", "commodities", ['Commodity', 'Name'])
+input_schema.add_foreign_key("inflow", "nodes", ['Node', 'Name'])
 
-input_schema.set_data_type("arcs", "capacity",  max=float("inf"),
+input_schema.set_data_type("arcs", "Capacity",  max=float("inf"),
                            inclusive_max=True)
-input_schema.set_data_type("cost", "cost")
-input_schema.set_data_type("inflow", "quantity", min=-float("inf"),
+input_schema.set_data_type("cost", "Cost")
+input_schema.set_data_type("inflow", "Quantity", min=-float("inf"),
                           inclusive_min=False)
 # ---------------------------------------------------------------------------------
 
 # ------------------------ define the output schema -------------------------------
 solution_schema = TicDatFactory(
-        flow = [["commodity", "source", "destination"], ["quantity"]])
+        flow = [["Commodity", "Source", "Destination"], ["Quantity"]],
+        parameters = [["Key"],["Value"]])
 # ---------------------------------------------------------------------------------
 
 # ------------------------ solving section-----------------------------------------
@@ -64,25 +65,26 @@ def solve(dat):
 
     flowslice = Slicer(flow)
 
-    # Arc capacity constraints
+    # Arc Capacity constraints
     for i_,j_ in dat.arcs:
         mdl.add_constraint(mdl.sum(flow[h,i,j] for h,i,j in flowslice.slice('*',i_, j_))
-                     <= dat.arcs[i_,j_]["capacity"],
-                     name = 'cap_%s_%s' % (i_, j_))
+                     <= dat.arcs[i_,j_]["Capacity"],
+                     name='cap_%s_%s' % (i_, j_))
 
 
     # Flow conservation constraints. Constraints are generated only for relevant pairs.
     # So we generate a conservation of flow constraint if there is negative or positive inflow
     # quantity, or at least one inbound flow variable, or at least one outbound flow variable.
-    for h_,j_ in set(k for k,v in dat.inflow.items() if abs(v["quantity"]) > 0).union(
+    for h_,j_ in set(k for k,v in dat.inflow.items() if abs(v["Quantity"]) > 0).union(
             {(h,i) for h,i,j in flow}, {(h,j) for h,i,j in flow}) :
         mdl.add_constraint(
           mdl.sum(flow[h,i,j] for h,i,j in flowslice.slice(h_,'*',j_)) +
-              dat.inflow.get((h_,j_), {"quantity":0})["quantity"] ==
+              dat.inflow.get((h_,j_), {"Quantity":0})["Quantity"] ==
           mdl.sum(flow[h,i,j] for h,i,j in flowslice.slice(h_, j_, '*')),
-                   name = 'node_%s_%s' % (h_, j_))
+                   name='node_%s_%s' % (h_, j_))
 
-    mdl.set_objective(mdl.sum(flow * dat.cost[h, i, j]["cost"] for (h, i, j),flow in flow.items()))
+    mdl.set_objective(mdl.sum(flow * dat.cost[h, i, j]["Cost"]
+                              for (h, i, j),flow in flow.items()))
 
     # Compute optimal solution
     if mdl.optimize():
@@ -90,6 +92,8 @@ def solve(dat):
         for (h, i, j),var in flow.items():
             if mdl.get_solution_value(var) > 0:
                 rtn.flow[h,i,j] = mdl.get_solution_value(var)
+        rtn.parameters["Total Cost"] = sum(dat.cost[h,i,j]["Cost"] * r["Quantity"]
+                                          for (h,i,j),r in rtn.flow.items())
         return rtn
 # ---------------------------------------------------------------------------------
 

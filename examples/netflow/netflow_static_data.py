@@ -42,10 +42,9 @@ dat = input_schema.TicDat(
 solution =  solve(dat)
 
 if solution :
-    print('\nCost: %g' % sum(dat.cost[h,i,j]["cost"] * r["quantity"]
-                             for (h,i,j),r in solution.flow.items()))
+    print('\nCost: %g' % solution.parameters["Total Cost"]["Value"])
     print('\nFlow:')
     for (h,i,j),r in solution.flow.items():
-        print('%s %s %s %g' % (h, i, j, r["quantity"]))
+        print('%s %s %s %g' % (h, i, j, r["Quantity"]))
 else :
     print('\nNo solution')
