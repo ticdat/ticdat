@@ -57,6 +57,9 @@ def solve(dat):
     :param dat: a good ticdat for the input_schema
     :return: a good ticdat for the solution_schema, or None
     """
+    assert input_schema.good_tic_dat_object(dat)
+    assert not input_schema.find_foreign_key_failures(dat)
+    assert not input_schema.find_data_type_failures(dat)
 
     mdl = Model(_model_type, "netflow")
 
