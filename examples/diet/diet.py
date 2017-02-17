@@ -41,7 +41,7 @@ input_schema.set_data_type("categories", "Max Nutrition", max=float("inf"),
 # We also want to insure that Max Nutrition doesn't fall below Min Nutrition
 input_schema.add_data_row_predicate(
     "categories", predicate_name="Min Max Check",
-    predicate=lambda row : row["Max Nutrition"] >= row["MinNutrition"])
+    predicate=lambda row : row["Max Nutrition"] >= row["Min Nutrition"])
 # ---------------------------------------------------------------------------------
 
 
@@ -65,6 +65,7 @@ def solve(dat):
     assert input_schema.good_tic_dat_object(dat)
     assert not input_schema.find_foreign_key_failures(dat)
     assert not input_schema.find_data_type_failures(dat)
+    assert not input_schema.find_data_row_failures(dat)
 
     mdl = Model(_model_type, "diet")
 
