@@ -20,32 +20,37 @@ from ticdat import TicDatFactory, standard_main, Model
 # ------------------------ define the input schema --------------------------------
 # There are three input tables, with 4 primary key fields and 4 data fields.
 input_schema = TicDatFactory (
-     categories = [["name"],["min_nutrition", "max_nutrition"]],
-     foods  = [["name"],["cost"]],
-     nutrition_quantities = [["food", "category"], ["qty"]])
+    categories = [["Name"],["Min Nutrition", "Max Nutrition"]],
+    foods  = [["Name"],["Cost"]],
+    nutrition_quantities = [["Food", "Category"], ["Quantity"]])
 
 # the foreign key relationships are pretty much what you'd expect
-input_schema.add_foreign_key("nutrition_quantities", "foods", ["food", "name"])
+input_schema.add_foreign_key("nutrition_quantities", "foods", ["Food", "Name"])
 input_schema.add_foreign_key("nutrition_quantities", "categories",
-                            ["category", "name"])
+                            ["Category", "Name"])
 
 # We set the most common data type - a non-negative, non-infinite number
 # that has no integrality restrictions.
 for table, fields in input_schema.data_fields.items():
     for field in fields:
         input_schema.set_data_type(table, field)
-# We override the default data type for max_nutrition which can accept infinity
-input_schema.set_data_type("categories", "max_nutrition", max=float("inf"),
-                          inclusive_max=True)
+# We override the default data type for Max Nutrition which can accept infinity
+input_schema.set_data_type("categories", "Max Nutrition", max=float("inf"),
+                           inclusive_max=True)
+
+# We also want to insure that Max Nutrition doesn't fall below Min Nutrition
+input_schema.add_data_row_predicate(
+    "categories", predicate_name="Min Max Check",
+    predicate=lambda row : row["Max Nutrition"] >= row["MinNutrition"])
 # ---------------------------------------------------------------------------------
 
 
 # ------------------------ define the output schema -------------------------------
 # There are three solution tables, with 2 primary key fields and 3 data fields.
 solution_schema = TicDatFactory(
-        parameters = [[],["total_cost"]],
-        buy_food = [["food"],["qty"]],
-        consume_nutrition = [["category"],["qty"]])
+    parameters = [["Key"],["Value"]],
+    buy_food = [["Food"],["Quantity"]],
+    consume_nutrition = [["Category"],["Quantity"]])
 # ---------------------------------------------------------------------------------
 
 
@@ -63,7 +68,7 @@ def solve(dat):
 
     mdl = Model(_model_type, "diet")
 
-    nutrition = {c:mdl.add_var(lb=n["min_nutrition"], ub=n["max_nutrition"], name=c)
+    nutrition = {c:mdl.add_var(lb=n["Min Nutrition"], ub=n["Max Nutrition"], name=c)
                 for c,n in dat.categories.items()}
 
     # Create decision variables for the foods to buy
@@ -71,12 +76,12 @@ def solve(dat):
 
      # Nutrition constraints
     for c in dat.categories:
-        mdl.add_constraint(mdl.sum(dat.nutrition_quantities[f,c]["qty"] * buy[f]
+        mdl.add_constraint(mdl.sum(dat.nutrition_quantities[f,c]["Quantity"] * buy[f]
                              for f in dat.foods)
                            == nutrition[c],
                            name = c)
 
-    mdl.set_objective(mdl.sum(buy[f] * c["cost"] for f,c in dat.foods.items()))
+    mdl.set_objective(mdl.sum(buy[f] * c["Cost"] for f,c in dat.foods.items()))
 
     if mdl.optimize():
         sln = solution_schema.TicDat()
@@ -85,8 +90,8 @@ def solve(dat):
                 sln.buy_food[f] = mdl.get_solution_value(x)
         for c,x in nutrition.items():
             sln.consume_nutrition[c] = mdl.get_solution_value(x)
-        sln.parameters.append(sum(dat.foods[f]["cost"] * r["qty"]
-                                  for f,r in sln.buy_food.items()))
+        sln.parameters['Total Cost'] = sum(dat.foods[f]["Cost"] * r["Quantity"]
+                                           for f,r in sln.buy_food.items())
         return sln
 # ---------------------------------------------------------------------------------
 
