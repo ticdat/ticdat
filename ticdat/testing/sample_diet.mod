@@ -1,4 +1,4 @@
-include "sample_diet_schema.mod";
+include "ticdat_sample_diet.mod";
 
 {string} foodItems = {f | <f,c> in foods};
 float foodCost[foodItems] = [f: c | <f,c> in foods];

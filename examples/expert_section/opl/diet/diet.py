@@ -48,6 +48,12 @@ solution_schema = TicDatFactory(
         parameters = [["parameter_name"],["parameter_value"]],
         buy_food = [["food"],["qty"]],
         consume_nutrition = [["category"],["qty"]])
+
+# We set the most common data type - a non-negative, non-infinite number
+# that has no integrality restrictions.
+for table, fields in solution_schema.data_fields.items():
+    for field in fields:
+        solution_schema.set_data_type(table, field)
 # ---------------------------------------------------------------------------------
 
 
@@ -58,7 +64,6 @@ def solve(dat):
     :param dat: a good ticdat for the input_schema
     :return: a good ticdat for the solution_schema, or None
     """
-    # !!!! FOLLOWING NOT YET DEVELOPED !!!!
     return opl_run("diet.mod", input_schema, dat, solution_schema)
 # ---------------------------------------------------------------------------------
 

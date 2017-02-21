@@ -48,6 +48,7 @@ input_schema.set_data_type("inflow", "quantity", min=-float("inf"),
 # ------------------------ define the output schema -------------------------------
 solution_schema = TicDatFactory(
         flow = [["commodity", "source", "destination"], ["quantity"]])
+solution_schema.set_data_type("flow","quantity")
 # ---------------------------------------------------------------------------------
 
 # ------------------------ solving section-----------------------------------------
@@ -57,7 +58,6 @@ def solve(dat):
     :param dat: a good ticdat for the input_schema
     :return: a good ticdat for the solution_schema, or None
     """
-    # !!!! FOLLOWING NOT YET DEVELOPED !!!!
     return opl_run("netflow.mod", input_schema, dat, solution_schema)
 
 # ---------------------------------------------------------------------------------

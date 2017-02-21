@@ -1,4 +1,4 @@
-include "sample_netflow_schema.mod";
+include "ticdat_sample_netflow.mod";
 
 tuple edgeType {
 	string start;

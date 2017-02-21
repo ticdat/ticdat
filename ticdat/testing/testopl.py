@@ -19,12 +19,9 @@ class TestOpl(unittest.TestCase):
         soln_tdf = TicDatFactory(
             parameters=[["parameter_name"], ["parameter_value"]],
             buy_food=[["food"], ["qty"]],consume_nutrition=[["category"], ["qty"]])
-        soln_tdf.set_data_type("parameters","parameter_value")
-        soln_tdf.set_data_type("buy_food", "qty")
-        soln_tdf.set_data_type("consume_nutrition","qty")
-        ticdat_mod = create_opl_mod_text(in_tdf, soln_tdf)
-        with open("sample_diet_schema.mod", "w") as f:
-            f.write(ticdat_mod)
+        for table, fields in soln_tdf.data_fields.items():
+            for field in fields:
+                soln_tdf.set_data_type(table, field)
         dat = in_tdf.TicDat(**{t:getattr(dietData(), t) for t in in_tdf.primary_key_fields})
         opl_soln = opl_run("sample_diet.mod", in_tdf, dat, soln_tdf)
         os.remove("sample_diet_schema.mod")
@@ -37,9 +34,6 @@ class TestOpl(unittest.TestCase):
         addNetflowDataTypes(in_tdf)
         soln_tdf = TicDatFactory(flow=[["source", "destination", "commodity"], ["quantity"]])
         soln_tdf.set_data_type("flow","quantity")
-        ticdat_mod = create_opl_mod_text(in_tdf, soln_tdf)
-        with open("sample_netflow_schema.mod", "w") as f:
-            f.write(ticdat_mod)
         dat = in_tdf.TicDat(**{t: getattr(netflowData(), t) for t in in_tdf.primary_key_fields})
         opl_soln = opl_run("sample_netflow.mod", in_tdf, dat, soln_tdf)
         os.remove("sample_netflow_schema.mod")
