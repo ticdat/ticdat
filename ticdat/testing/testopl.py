@@ -24,7 +24,6 @@ class TestOpl(unittest.TestCase):
                 soln_tdf.set_data_type(table, field)
         dat = in_tdf.TicDat(**{t:getattr(dietData(), t) for t in in_tdf.primary_key_fields})
         opl_soln = opl_run("sample_diet.mod", in_tdf, dat, soln_tdf)
-        os.remove("sample_diet_schema.mod")
         self.assertTrue(nearlySame(opl_soln.parameters["total_cost"]["parameter_value"], 11.829, epsilon=0.0001))
         self.assertTrue(nearlySame(opl_soln.consume_nutrition["protein"]["qty"], 91, epsilon=0.0001))
     def testNetflow_oplrunRequired(self):
@@ -36,7 +35,6 @@ class TestOpl(unittest.TestCase):
         soln_tdf.set_data_type("flow","quantity")
         dat = in_tdf.TicDat(**{t: getattr(netflowData(), t) for t in in_tdf.primary_key_fields})
         opl_soln = opl_run("sample_netflow.mod", in_tdf, dat, soln_tdf)
-        os.remove("sample_netflow_schema.mod")
         self.assertTrue(nearlySame(opl_soln.flow["Detroit", "New York", "Pens"]["quantity"], 30))
     def testDiet(self):
         tdf = TicDatFactory(**dietSchema())
