@@ -862,6 +862,16 @@ FUNCTIONS
         :param x: ticdat object
         :return: x, after it has been frozen
 
+    opl_run(mod_file, input_tdf, input_dat, soln_tdf, infinity=999999, oplrun_path=None,
+            post_solve=None)
+        solve an optimization problem using an OPL .mod file
+        :param mod_file: An OPL .mod file.
+        :param input_tdf: A TicDatFactory defining the input schema
+        :param input_dat: A TicDat object consistent with input_tdf
+        :param soln_tdf: A TicDatFactory defining the solution schema
+        :param infinity: A number used to represent infinity in OPL
+        :return: a TicDat object consistent with soln_tdf, or None if no solution found
+
     find_denormalized_sub_table_failures(table, pk_fields, data_fields)
         checks to see if the table argument contains a denormalized sub-table
         indexed by pk_fields with data fields data_fields
