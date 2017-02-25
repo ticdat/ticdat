@@ -857,6 +857,16 @@ CLASSES
      |      list of weak references to the object (if defined)
 
 FUNCTIONS
+    create_opl_mod_output_text(tdf)
+        Generate a OPL .mod string from a TicDat object for diagnostic purposes
+        :param tdf: A TicDatFactory defining the input schema
+        :return: A string consistent with the OPL .mod output format
+
+    create_opl_mod_text(tdf)
+        Generate a OPL .mod string from a TicDat object for diagnostic purposes
+        :param tdf: A TicDatFactory defining the input schema
+        :return: A string consistent with the OPL .mod input format
+
     freeze_me(x)
         Freezes a ticdat object
         :param x: ticdat object
@@ -916,4 +926,3 @@ FUNCTIONS
 DATA
     __all__ = ['TicDatFactory', 'freeze_me', 'LogFile', 'Sloc', 'Slicer', 'Progress'
                'find_denormalized_sub_table_failures']
-
