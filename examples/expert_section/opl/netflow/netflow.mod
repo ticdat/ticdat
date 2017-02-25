@@ -30,14 +30,21 @@ subject to {
     sum(com in commodities) edgeFlow[<start,end>][com] <= edgeCapacity[<start,end>];
 
 }
-tuple resultType {
-  string start;
-  string end;
-  string commodity;
-  float flow;
-}
-{resultType} results = {<start,end,com,edgeFlow[<start,end>][com]> | 
-  <start,end> in edges,com in commodities};
+include "ticdat_netflow_output.mod";
+
+//flow = {resultType} results = {<start,end,com,edgeFlow[<start,end>][com]> | 
+//  <start,end> in edges,com in commodities};
+
+float total_cost = sum(<com,start,end,flowCost> in cost) flowCost * edgeFlow[<start,end>][com];
 execute {
-  writeln("flow="+results);
+   for (var c in commodities){
+      for (var e in edges) {
+         flow.add(c,e.start,e.end,edgeFlow[e][c]);      
+      }
+   }
+
+   parameters.add("Total Cost",total_cost);
+   var ofile = new IloOplOutputFile("results.txt");
+   ofile.writeln("parameters = ",parameters);
+   ofile.writeln("flow = ", flow);
 }  
