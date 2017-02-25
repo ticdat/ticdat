@@ -79,7 +79,7 @@ def opl_run(mod_file, input_tdf, input_dat, soln_tdf, infinity=INFINITY, oplrun_
         with open(os.path.join(_code_dir(),"oplrun_path.txt"),"r") as f:
             oplrun_path = f.read()
     verify(os.path.isfile(oplrun_path), "%s not a valid path to oplrun"%oplrun_path)
-    if development_deployed_environment:
+    if tu.development_deployed_environment:
         if "LD_LIBRARY_PATH" not in os.environ.keys():
             os.environ["LD_LIBRARY_PATH"] = os.path.abspath(os.path.join(oplrun_path,'..'))
         elif not oplrun_path in os.environ["LD_LIBRARY_PATH"]:
