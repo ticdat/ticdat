@@ -47,8 +47,10 @@ input_schema.set_data_type("inflow", "quantity", min=-float("inf"),
 
 # ------------------------ define the output schema -------------------------------
 solution_schema = TicDatFactory(
-        flow = [["commodity", "source", "destination"], ["quantity"]])
+        flow = [["commodity", "source", "destination"], ["quantity"]],
+        parameters = [["paramKey"],["value"]])
 solution_schema.set_data_type("flow","quantity")
+solution_schema.set_data_type("parameters","value")
 # ---------------------------------------------------------------------------------
 
 # ------------------------ solving section-----------------------------------------
