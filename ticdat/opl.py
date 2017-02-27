@@ -85,16 +85,19 @@ def opl_run(mod_file, input_tdf, input_dat, soln_tdf, infinity=INFINITY, oplrun_
         elif not oplrun_path in os.environ["LD_LIBRARY_PATH"]:
             os.environ["LD_LIBRARY_PATH"] = os.path.abspath(os.path.join(oplrun_path,'..')) + \
                                             ":" + os.environ["LD_LIBRARY_PATH"]
-
-    output = subprocess.check_output([oplrun_path, mod_file, datfile], cwd=working_dir)
+    try:
+        output = subprocess.check_output([oplrun_path, mod_file, datfile], cwd=working_dir, stderr=subprocess.STDOUT)
+    except subprocess.CalledProcessError as err:
+        output = err.output
+    output_txt = os.path.join(working_dir, "output.txt")
+    with open(output_txt, "w") as f:
+        f.write(output)
     results_txt = os.path.join(working_dir, "results.txt")
-    verify(os.path.isfile(results_txt), "%s is not a valid file."%results_txt)
+    verify(os.path.isfile(results_txt), "%s is not a valid file. Check 'output.txt' for details."%results_txt)
     with open(results_txt, "r") as f:
         output = f.read()
     if post_solve:
         post_solve()
-    # !! NEED TO PLAY AROUND WITH INFEASIBILITY!! Perhaps results.txt never gets
-    # generated?
     return read_opl_text(soln_tdf, output, False)
 
 _can_run_oplrun_tests = os.path.isfile(os.path.join(_code_dir(),"oplrun_path.txt"))
@@ -176,9 +179,10 @@ def _create_opl_mod_text(tdf, output):
 
     def get_table_as_mod_text(tdf, tbn, output):
         rtn = ''
+        sig = '{}' if output else '...'
         if len(tdf.primary_key_fields[tbn]) is 1 and len(tdf.data_fields[tbn]) is 0:
             rtn = "{" + get_type(tdf.data_types, tbn, tdf.primary_key_fields[tbn][0]) + "} " + \
-                  tbn + " = ...;\n\n"
+                  tbn + " = " + sig + ";\n\n"
         else:
             rtn += "tuple " + tbn + "_type\n{"
             for pk in tdf.primary_key_fields[tbn]:
@@ -187,9 +191,7 @@ def _create_opl_mod_text(tdf, output):
             for df in tdf.data_fields[tbn]:
                 df.replace(' ', '_')
                 rtn += "\n\t" + get_type(tdf.data_types, tbn, df) + " " + df + ";"
-            rtn += "\n};\n"
-            sig = '{}' if output else '...'
-            rtn += "\n{" + tbn + "_type} " + tbn + "=" + sig + ";\n\n"
+            rtn += "\n};\n\n{" + tbn + "_type} " + tbn + "=" + sig + ";\n\n"
         return rtn
 
     for t in dict_tables:
