@@ -17,8 +17,9 @@ The ticDat library is distributed under the BSD2 open source license.
 from ticdat.ticdatfactory import TicDatFactory, freeze_me
 from ticdat.utils import Sloc, LogFile, Progress, Slicer, \
                          find_denormalized_sub_table_failures, standard_main
-from ticdat.opl import opl_run
+from ticdat.opl import opl_run, create_opl_mod_text, create_opl_mod_output_text
 from ticdat.model import Model
 __all__ = ["TicDatFactory", "freeze_me", "LogFile", "Sloc", "Slicer", "Progress"
-            "find_denormalized_sub_table_failures", "standard_main", "Model", "opl_run"]
+           "find_denormalized_sub_table_failures", "standard_main", "Model", "opl_run",
+           "create_opl_mod_text", "create_opl_mod_output_text"]
 

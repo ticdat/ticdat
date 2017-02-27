@@ -857,10 +857,30 @@ CLASSES
      |      list of weak references to the object (if defined)
 
 FUNCTIONS
+    create_opl_mod_output_text(tdf)
+        Generate a OPL .mod string from a TicDat object for diagnostic purposes
+        :param tdf: A TicDatFactory defining the input schema
+        :return: A string consistent with the OPL .mod output format
+
+    create_opl_mod_text(tdf)
+        Generate a OPL .mod string from a TicDat object for diagnostic purposes
+        :param tdf: A TicDatFactory defining the input schema
+        :return: A string consistent with the OPL .mod input format
+
     freeze_me(x)
         Freezes a ticdat object
         :param x: ticdat object
         :return: x, after it has been frozen
+
+    opl_run(mod_file, input_tdf, input_dat, soln_tdf, infinity=999999, oplrun_path=None,
+            post_solve=None)
+        solve an optimization problem using an OPL .mod file
+        :param mod_file: An OPL .mod file.
+        :param input_tdf: A TicDatFactory defining the input schema
+        :param input_dat: A TicDat object consistent with input_tdf
+        :param soln_tdf: A TicDatFactory defining the solution schema
+        :param infinity: A number used to represent infinity in OPL
+        :return: a TicDat object consistent with soln_tdf, or None if no solution found
 
     find_denormalized_sub_table_failures(table, pk_fields, data_fields)
         checks to see if the table argument contains a denormalized sub-table
@@ -906,4 +926,3 @@ FUNCTIONS
 DATA
     __all__ = ['TicDatFactory', 'freeze_me', 'LogFile', 'Sloc', 'Slicer', 'Progress'
                'find_denormalized_sub_table_failures']
-
