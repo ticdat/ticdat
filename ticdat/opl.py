@@ -65,9 +65,9 @@ def opl_run(mod_file, input_tdf, input_dat, soln_tdf, infinity=INFINITY, oplrun_
         mod_file = _
     datfile = os.path.join(working_dir, "temp.dat")
     output_txt = os.path.join(working_dir, "output.txt")
-    results_txt = os.path.join(working_dir, "results.txt")
-    if os.path.isfile(results_txt):
-        os.remove(results_txt)
+    results_dat = os.path.join(working_dir, "results.dat")
+    if os.path.isfile(results_dat):
+        os.remove(results_dat)
     with open(datfile, "w") as f:
         f.write(create_opl_text(input_tdf, input_dat, infinity))
     verify(os.path.isfile(datfile), "Could not create temp.dat")
@@ -95,10 +95,10 @@ def opl_run(mod_file, input_tdf, input_dat, soln_tdf, infinity=INFINITY, oplrun_
         output = err.output
     with open(output_txt, "w") as f:
         f.write(output)
-    if not os.path.isfile(results_txt):
-        print("%s is not a valid file. A solution was likely not generated. Check 'output.txt' for details."%results_txt)
+    if not os.path.isfile(results_dat):
+        print("%s is not a valid file. A solution was likely not generated. Check 'output.txt' for details."%results_dat)
         return None
-    with open(results_txt, "r") as f:
+    with open(results_dat, "r") as f:
         output = f.read()
     if post_solve:
         post_solve()
