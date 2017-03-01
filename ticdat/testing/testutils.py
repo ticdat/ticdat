@@ -33,12 +33,10 @@ class TestUtils(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         makeCleanDir(_scratchDir)
-        cls._original_value = utils.development_deployed_environment
-        utils.development_deployed_environment = True
     @classmethod
     def tearDownClass(cls):
         shutil.rmtree(_scratchDir)
-        utils.development_deployed_environment = cls._original_value
+
     def firesException(self, f):
         e = firesException(f)
         if e :

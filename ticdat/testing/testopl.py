@@ -2,6 +2,7 @@ import os
 from ticdat.opl import create_opl_text, read_opl_text, pattern_finder, opl_run, create_opl_mod_text, _can_run_oplrun_tests
 import sys
 from ticdat.ticdatfactory import TicDatFactory, DataFrame
+import ticdat.utils as utils
 from ticdat.testing.ticdattestutils import dietData, dietSchema, addDietDataTypes
 from ticdat.testing.ticdattestutils import netflowData, addNetflowDataTypes, nearlySame
 from ticdat.testing.ticdattestutils import  netflowSchema, firesException, spacesData, spacesSchema
@@ -11,6 +12,13 @@ import unittest
 
 #@fail_to_debugger
 class TestOpl(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls._original_value = utils.development_deployed_environment
+        utils.development_deployed_environment = True
+    @classmethod
+    def tearDownClass(cls):
+        utils.development_deployed_environment = cls._original_value
     def testDiet_oplrunRequired(self):
         self.assertTrue(_can_run_oplrun_tests)
         in_tdf = TicDatFactory(**dietSchema())

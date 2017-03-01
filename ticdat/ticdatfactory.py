@@ -3,11 +3,12 @@ Create TicDatFactory. Main entry point for ticdat library.
 PEP8
 """
 import collections as clt
+from collections import namedtuple
 import ticdat.utils as utils
 from ticdat.utils import verify, freezable_factory, FrozenDict, FreezeableDict
 from ticdat.utils import dictish, containerish, deep_freeze, lupish, safe_apply
 from string import ascii_uppercase as uppercase
-from collections import namedtuple
+from itertools import count
 import ticdat.xls as xls
 import ticdat.csvtd as csv
 import ticdat.sqlitetd as sql
@@ -206,6 +207,40 @@ class TicDatFactory(freezable_factory(object, "_isFrozen")) :
         verify(not self._has_been_used,
                "The data types can't be changed after a TicDatFactory has been used.")
         del(self._data_types[table][field])
+
+    def add_data_row_predicate(self, table, predicate, predicate_name = None):
+        """
+        Adds a data row predicate for a table. Row predicates can be used to check for
+        sophisticated data integrity problems of the sort that can't be easily handled with
+        a data type rule. For example, a min_supply column can be verified to be no larger than
+        a max_supply column.
+        :param table: table in the schema
+        :param predicate: A one argument function that accepts a table row as an argument and returns
+                          Truthy if the row is valid and Falsey otherwise. The argument passed to
+                          predicate will be a dict that maps field name to data value for all fields
+                          (both primary key and data field) in the table.
+                          Note - if None is passed as a predicate, then any previously added
+                          predicate matching (table, predicate_name) will be removed.
+        :param predicate_name: The name of the predicate. If omitted, the smallest non-colliding
+                               number will be used.
+        :return:
+        """
+        verify(not self._has_been_used,
+               "The data row predicates can't be changed after a TicDatFactory has been used.")
+        verify(table in self.all_tables, "Unrecognized table name %s"%table)
+        verify(table not in self.generic_tables, "Cannot add row predicate for generic table")
+        verify(table not in self.generator_tables, "Cannot add row predicate for generator table")
+
+        if predicate is None:
+            if table in self._data_row_predicates:
+                self._data_row_predicates[table].pop(predicate_name, None)
+            return
+
+        verify(callable(predicate), "predicate should be a one argument function")
+        if predicate_name is None:
+            predicate_name = next(i for i in count() if i not in self._data_row_predicates[table])
+        self._data_row_predicates[table][predicate_name] = predicate
+
     def set_default_value(self, table, field, default_value):
         """
         sets the default value for a specific field
@@ -339,7 +374,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen")) :
             verify(k in self._allFields(native_table),
                    "%s does not refer to one of %s 's fields"%(k, native_table))
             verify(v in self._allFields(foreign_table),
-                   "%s does not refer to one of %s 's fields"%(v, foreign_table))
+                   "%s does not refer to one of %s 's fields"%(k, foreign_table))
         verify(set(self.primary_key_fields.get(foreign_table, ())) == set(_mappings.values()),
             """%s is not the primary key for %s.
 This exception is being thrown because ticDat doesn't currently support many-to-many
@@ -442,9 +477,6 @@ foreign keys, the code throwing this exception will be removed.
                        "There are duplicate field names for table %s"%k)
                 verify(len({_.lower() for _ in list(v[0]) + list(v[1])}) == len(v[0])+len(v[1]),
                        "There are case insensitive duplicate field names for %s"%k)
-                verify(len({_.lower().replace(" ", "_") for _ in list(v[0]) + list(v[1])}) ==
-                       len(v[0])+len(v[1]),
-                       "There are case, space-underscore insensitive duplicate field names for %s"%k)
         self.generic_tables = frozenset(k for k,v in init_fields.items() if v == '*')
         verify(not (self.generic_tables and not DataFrame),
                "Need to install pandas in order to specify variable schema tables")
@@ -453,6 +485,7 @@ foreign keys, the code throwing this exception will be removed.
         self._data_fields = FrozenDict({k : tuple(v[1]) for k,v in init_fields.items() if v != '*'})
         self._default_values = clt.defaultdict(dict)
         self._data_types = clt.defaultdict(dict)
+        self._data_row_predicates = clt.defaultdict(dict)
         self._generator_tables = []
         self._foreign_keys = clt.defaultdict(set)
         self.all_tables = frozenset(init_fields)
@@ -565,13 +598,18 @@ foreign keys, the code throwing this exception will be removed.
                       else :
                           v.apply(lambda r : getattr(self, t).append(row_dict(r)), axis=1)
                     elif superself.primary_key_fields.get(t) and not utils.dictish(v):
-                        pklen = len(superself.primary_key_fields[t])
-                        setattr(self, t, ticdattablefactory(self._all_data_dicts, t)(
-                            {r if not utils.containerish(r) else
-                             (r[0] if pklen == 1 else tuple(r[:pklen])) :
-                             datarowfactory(t)([] if not utils.containerish(r) else r[pklen:])
-                             for r in v}
-                        ))
+                         pklen = len(superself.primary_key_fields[t])
+                         def handle_row_dict(r):
+                             if not utils.dictish(r):
+                                 return r
+                             return [r.get(k, 0) for k in superself.primary_key_fields[t] +
+                                      superself.data_fields.get(t,[])]
+                         setattr(self, t, ticdattablefactory(self._all_data_dicts, t)(
+                             {r if not utils.containerish(r) else
+                              (r[0] if pklen == 1 else tuple(r[:pklen])) :
+                              datarowfactory(t)([] if not utils.containerish(r) else r[pklen:])
+                              for _r in v for r in [handle_row_dict(_r)]}
+                         ))
                     elif superself.primary_key_fields.get(t) :
                      for _k in v :
                         verify((hasattr(_k, "__len__") and
@@ -689,14 +727,14 @@ foreign keys, the code throwing this exception will be removed.
         return rtn
 
     def _good_tic_dat_table_for_init(self, data_table, table_name,
-                                    bad_message_handler = lambda x : None):
-        if self.primary_key_fields.get(table_name, None) and containerish(data_table) \
-                and not dictish(data_table) and not utils.stringish(data_table) \
-                and not (utils.DataFrame and isinstance(data_table, utils.DataFrame)):
-            tdf = TicDatFactory(**{table_name:[[], list(self.primary_key_fields[table_name]) +
-                                                   list(self.data_fields.get(table_name, []))]})
-            return tdf.good_tic_dat_table(data_table, table_name, bad_message_handler)
-        return self.good_tic_dat_table(data_table, table_name, bad_message_handler)
+                                     bad_message_handler = lambda x : None):
+         if self.primary_key_fields.get(table_name, None) and containerish(data_table) \
+                 and not dictish(data_table) and not utils.stringish(data_table) \
+                 and not (utils.DataFrame and isinstance(data_table, utils.DataFrame)):
+             tdf = TicDatFactory(**{table_name:[[], list(self.primary_key_fields[table_name]) +
+                                                    list(self.data_fields.get(table_name, []))]})
+             return tdf.good_tic_dat_table(data_table, table_name, bad_message_handler)
+         return self.good_tic_dat_table(data_table, table_name, bad_message_handler)
 
     def good_tic_dat_table(self, data_table, table_name, bad_message_handler = lambda x : None) :
         """
@@ -847,6 +885,18 @@ foreign keys, the code throwing this exception will be removed.
                     if not any (samerow(r1, r2) for r2 in _iter(t2)) :
                         return False
         return True
+    def clone(self):
+        """
+        clones the TicDatFactory
+        :return: a clone of the TicDatFactory
+        """
+        rtn = TicDatFactory.create_from_full_schema(self.schema(include_ancillary_info=True))
+        rtn.set_generator_tables(self.generator_tables)
+        for tbl, row_predicates in self._data_row_predicates.items():
+            for pn, p in row_predicates.items():
+                rtn.add_data_row_predicate(tbl, predicate=p, predicate_name=pn)
+        rtn.enable_foreign_key_links() if self._foreign_key_links_enabled else None
+        return rtn
     def copy_tic_dat(self, tic_dat, freeze_it = False):
         """
         copies the tic_dat object into a new tic_dat object
@@ -928,8 +978,10 @@ foreign keys, the code throwing this exception will be removed.
         Finds the foreign key failures for a ticdat object
         :param tic_dat: ticdat object
         :return: A dictionary constructed as follow:
-                 The keys are namedTuples with members "native_table", "foreign_table", "mapping"
-                 The key data matches the arguments to add_foreign_key that constructed the foreign key.
+                 The keys are namedTuples with members "native_table", "foreign_table",
+                 "mapping", "cardinality".
+                 The key data matches the arguments to add_foreign_key that constructed the
+                 foreign key (with "cardinality" being deduced from the overall schema).
                  The values are namedTuples with the following members.
                  --> native_values - the values of the native fields that failed to match
                  --> native_pks - the primary key entries of the native table rows
@@ -990,6 +1042,14 @@ foreign keys, the code throwing this exception will be removed.
             return self.remove_foreign_keys_failures(tic_dat)
         return tic_dat
 
+    def _get_full_row(self, ticdat, table, pk):
+        full_row = dict(getattr(ticdat, table)[pk])
+        if len(self.primary_key_fields[table]) == 1:
+            full_row[self.primary_key_fields[table][0]] = pk
+        else:
+            full_row = dict(full_row, **{f:d for f,d in
+                                         zip(self.primary_key_fields[table], pk)})
+        return full_row
     def find_data_type_failures(self, tic_dat):
         """
         Finds the data type failures for a ticdat object
@@ -1004,27 +1064,21 @@ foreign keys, the code throwing this exception will be removed.
                  --> bad_values - the distinct values for the (table, field) pair that are inconsistent
                                   with the data type for (table, field).
                  --> pks - the distinct primary key entries of the table containing the bad_values
-                                  data
+                           data. (will be None for tables with no primary key)
                  That is to say, bad_values tells you which values in field are failing the data type check,
-                 and  tells you which table rows will have their field entry changed if you call
+                 and pks tells you which table rows will have their field entry changed if you call
                  replace_data_type_failures().
         """
         msg  = []
         verify(self.good_tic_dat_object(tic_dat, msg.append),
                "tic_dat not a good object for this factory : %s"%"\n".join(msg))
 
-
         rtn_values, rtn_pks = clt.defaultdict(set), clt.defaultdict(set)
         for table, type_row in self._data_types.items():
             _table = getattr(tic_dat, table)
             if dictish(_table):
-                for pk, data_row in _table.items():
-                    full_row = dict(data_row)
-                    if len(self.primary_key_fields[table]) == 1:
-                        full_row[self.primary_key_fields[table][0]] = pk
-                    else:
-                        full_row = dict(full_row, **{f:d for f,d in
-                                                     zip(self.primary_key_fields[table], pk)})
+                for pk  in _table:
+                    full_row = self._get_full_row(tic_dat, table, pk)
                     for field, data_type in type_row.items():
                         if not data_type.valid_data(full_row[field]) :
                             rtn_values[(table, field)].add(full_row[field])
@@ -1087,6 +1141,38 @@ foreign keys, the code throwing this exception will be removed.
 
         assert not set(self.find_data_type_failures(tic_dat)).intersection(real_replacements)
         return tic_dat
+
+    def find_data_row_failures(self, tic_dat):
+        """
+        Finds the data row failures for a ticdat object
+        :param tic_dat: ticdat object
+        :return: A dictionary constructed as follow:
+
+                 The keys are namedTuples with members "table", "predicate_name".
+
+                 The values of the returned dictionary are tuples indicating which rows
+                 failed the predicate test. For tables with a primary key this tuple will
+                 contain the primary key value of each failed row. Otherwise, this tuple
+                 will list the positions of the failed rows.
+        """
+        msg  = []
+        verify(self.good_tic_dat_object(tic_dat, msg.append),
+               "tic_dat not a good object for this factory : %s"%"\n".join(msg))
+        rtn = clt.defaultdict(set)
+        for tbl, row_predicates in self._data_row_predicates.items():
+            for pn, p in row_predicates.items():
+                _table = getattr(tic_dat, tbl)
+                if dictish(_table):
+                    for pk  in _table:
+                        full_row = self._get_full_row(tic_dat, tbl, pk)
+                        if not p(full_row):
+                            rtn[tbl, pn].add(pk)
+                else:
+                    for i, data_row in enumerate(_table):
+                        if not p(data_row):
+                            rtn[tbl, pn].add(i)
+        TPN = clt.namedtuple("TablePredicateName", ["table", "predicate_name"])
+        return {TPN(*k):tuple(v) for k,v in rtn.items()}
 
     def obfusimplify(self, tic_dat, table_prepends = utils.FrozenDict(), skip_tables = (),
                      freeze_it = False) :
