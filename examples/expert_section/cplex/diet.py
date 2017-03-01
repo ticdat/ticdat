@@ -44,6 +44,9 @@ input_schema.set_data_type("nutrition_quantities", "Quantity", min=0, max=float(
 input_schema.add_data_row_predicate(
     "categories", predicate_name="Min Max Check",
     predicate=lambda row : row["Max Nutrition"] >= row["Min Nutrition"])
+
+# The default-default of zero makes sense everywhere except for Max Nutrition
+input_schema.set_default_value("categories", "Max Nutrition", float("inf"))
 # ---------------------------------------------------------------------------------
 
 
