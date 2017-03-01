@@ -36,6 +36,7 @@ def standard_main(input_schema, solution_schema, solve):
     --> ending in ".db" imply reading/writing SQLite database files
     --> ending in ".sql" imply reading/writing SQLite text files rendered in
         schema-less SQL statements
+    --> ending in ".json" imply reading/writing .json files
     --> otherwise, the assumption is that an input/output directory is being specified,
         which will be used for reading/writing .csv files.
         (Recall that .csv format is implemented as one-csv-file-per-table, so an entire
@@ -69,7 +70,7 @@ def standard_main(input_schema, solution_schema, solve):
         else:
             verify(False, "unhandled option")
     file_or_dir = lambda f :"file" if any(f.endswith(_) for _ in
-                                (".xls", ".xlsx", ".db", ".sql", ".mdb", ".accdb")) \
+                            (".json", ".xls", ".xlsx", ".db", ".sql", ".mdb", ".accdb")) \
                   else "directory"
     if not (os.path.exists(input_file)):
         print("%s is not a valid input file or directory"%input_file)
@@ -78,6 +79,9 @@ def standard_main(input_schema, solution_schema, solve):
                                             file_or_dir(output_file), output_file))
         dat = None
         if os.path.isfile(input_file) and file_or_dir(input_file) == "file":
+            if input_file.endswith(".json"):
+                assert not input_schema.json.find_duplicates(input_file), "duplicate rows found"
+                dat = input_schema.json.create_tic_dat(input_file)
             if input_file.endswith(".xls") or input_file.endswith(".xlsx"):
                 assert not input_schema.xls.find_duplicates(input_file), "duplicate rows found"
                 dat = input_schema.xls.create_tic_dat(input_file)
@@ -98,7 +102,9 @@ def standard_main(input_schema, solution_schema, solve):
         if sln:
             print("%s output %s %s"%("Overwriting" if os.path.exists(output_file) else "Creating",
                                      file_or_dir(output_file), output_file))
-            if output_file.endswith(".xls") or output_file.endswith(".xlsx"):
+            if output_file.endswith(".json"):
+                solution_schema.json.write_file(sln, output_file, allow_overwrite=True)
+            elif output_file.endswith(".xls") or output_file.endswith(".xlsx"):
                 solution_schema.xls.write_file(sln, output_file, allow_overwrite=True)
             elif output_file.endswith(".db"):
                 solution_schema.sql.write_db_data(sln, output_file, allow_overwrite=True)
@@ -209,27 +215,27 @@ def find_duplicates(td, tdf_for_dups):
     return rtn
 
 def find_duplicates_from_dict_ticdat(tdf, dict_ticdat):
-    assert isinstance(tdf, ticdat.TicDatFactory)
-    assert dictish(dict_ticdat) and all(map(stringish, dict_ticdat)) and \
-           all(map(containerish, dict_ticdat.values()))
-    primary_key_fields = {k:v for k,v in tdf.primary_key_fields.items() if v}
-    if primary_key_fields:
-        old_schema = {k:v for k,v in tdf.schema().items() if k in primary_key_fields}
-        all_data_tdf = ticdat.TicDatFactory(**{t:[[], pks+dfs]
-                                               for t,(pks,dfs) in old_schema.items()})
-        td = all_data_tdf.TicDat(**{k:v for k,v in dict_ticdat.items()
-                                    if k in primary_key_fields})
-        rtn = {t:defaultdict(int) for t in primary_key_fields}
-        for t,flds in list(primary_key_fields.items()):
-            tbl = getattr(td, t)
-            for row in tbl:
-                k = tuple(row[f] for f in flds)
-                k = k[0] if len(k)==1 else k
-                rtn[t][k] += 1
-            rtn[t] = {k:v for k,v in rtn[t].items() if v > 1}
-            if not rtn[t]:
-                del(rtn[t])
-        return rtn
+     assert isinstance(tdf, ticdat.TicDatFactory)
+     assert dictish(dict_ticdat) and all(map(stringish, dict_ticdat)) and \
+            all(map(containerish, dict_ticdat.values()))
+     primary_key_fields = {k:v for k,v in tdf.primary_key_fields.items() if v}
+     if primary_key_fields:
+         old_schema = {k:v for k,v in tdf.schema().items() if k in primary_key_fields}
+         all_data_tdf = ticdat.TicDatFactory(**{t:[[], pks+dfs]
+                                                for t,(pks,dfs) in old_schema.items()})
+         td = all_data_tdf.TicDat(**{k:v for k,v in dict_ticdat.items()
+                                     if k in primary_key_fields})
+         rtn = {t:defaultdict(int) for t in primary_key_fields}
+         for t,flds in list(primary_key_fields.items()):
+             tbl = getattr(td, t)
+             for row in tbl:
+                 k = tuple(row[f] for f in flds)
+                 k = k[0] if len(k)==1 else k
+                 rtn[t][k] += 1
+             rtn[t] = {k:v for k,v in rtn[t].items() if v > 1}
+             if not rtn[t]:
+                 del(rtn[t])
+         return rtn
 
 def create_generic_free(td, tdf):
     assert tdf.good_tic_dat_object(td)

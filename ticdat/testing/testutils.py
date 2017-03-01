@@ -33,12 +33,10 @@ class TestUtils(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         makeCleanDir(_scratchDir)
-        cls._original_value = utils.development_deployed_environment
-        utils.development_deployed_environment = True
     @classmethod
     def tearDownClass(cls):
         shutil.rmtree(_scratchDir)
-        utils.development_deployed_environment = cls._original_value
+
     def firesException(self, f):
         e = firesException(f)
         if e :
@@ -310,97 +308,101 @@ class TestUtils(unittest.TestCase):
         self.assertFalse(tdf.foreign_keys)
 
     def testSix(self):
-        tdf = TicDatFactory(plants = [["name"], ["stuff", "otherstuff"]],
-                            lines = [["name"], ["plant", "weird stuff"]],
-                            line_descriptor = [["name"], ["booger"]],
-                            products = [["name"],["gover"]],
-                            production = [["line", "product"], ["min", "max"]],
-                            pureTestingTable = [[], ["line", "plant", "product", "something"]],
-                            extraProduction = [["line", "product"], ["extramin", "extramax"]],
-                            weirdProduction = [["line1", "line2", "product"], ["weirdmin", "weirdmax"]])
-        tdf.add_foreign_key("production", "lines", ("line", "name"))
-        tdf.add_foreign_key("production", "products", ("product", "name"))
-        tdf.add_foreign_key("lines", "plants", ("plant", "name"))
-        tdf.add_foreign_key("line_descriptor", "lines", ("name", "name"))
-        for f in set(tdf.data_fields["pureTestingTable"]).difference({"something"}):
-            tdf.add_foreign_key("pureTestingTable", "%ss"%f, (f,"name"))
-        tdf.add_foreign_key("extraProduction", "production", (("line", "line"), ("product","product")))
-        tdf.add_foreign_key("weirdProduction", "production", (("line1", "line"), ("product","product")))
-        tdf.add_foreign_key("weirdProduction", "extraProduction", (("line2","line"), ("product","product")))
-        self._testTdfReproduction(tdf)
+        for cloning in [True, False]:
+            clone_me_maybe = lambda x : x.clone() if cloning else x
 
-        goodDat = tdf.TicDat()
-        goodDat.plants["Cleveland"] = ["this", "that"]
-        goodDat.plants["Newark"]["otherstuff"] =1
-        goodDat.products["widgets"] = goodDat.products["gadgets"] = "shizzle"
+            tdf = TicDatFactory(plants = [["name"], ["stuff", "otherstuff"]],
+                                lines = [["name"], ["plant", "weird stuff"]],
+                                line_descriptor = [["name"], ["booger"]],
+                                products = [["name"],["gover"]],
+                                production = [["line", "product"], ["min", "max"]],
+                                pureTestingTable = [[], ["line", "plant", "product", "something"]],
+                                extraProduction = [["line", "product"], ["extramin", "extramax"]],
+                                weirdProduction = [["line1", "line2", "product"], ["weirdmin", "weirdmax"]])
+            tdf.add_foreign_key("production", "lines", ("line", "name"))
+            tdf.add_foreign_key("production", "products", ("product", "name"))
+            tdf.add_foreign_key("lines", "plants", ("plant", "name"))
+            tdf.add_foreign_key("line_descriptor", "lines", ("name", "name"))
+            for f in set(tdf.data_fields["pureTestingTable"]).difference({"something"}):
+                tdf.add_foreign_key("pureTestingTable", "%ss"%f, (f,"name"))
+            tdf.add_foreign_key("extraProduction", "production", (("line", "line"), ("product","product")))
+            tdf.add_foreign_key("weirdProduction", "production", (("line1", "line"), ("product","product")))
+            tdf.add_foreign_key("weirdProduction", "extraProduction", (("line2","line"), ("product","product")))
+            self._testTdfReproduction(tdf)
+            tdf = clone_me_maybe(tdf)
 
-        for i,p in enumerate(goodDat.plants):
-            goodDat.lines[i]["plant"] = p
+            goodDat = tdf.TicDat()
+            goodDat.plants["Cleveland"] = ["this", "that"]
+            goodDat.plants["Newark"]["otherstuff"] =1
+            goodDat.products["widgets"] = goodDat.products["gadgets"] = "shizzle"
 
-        for i,(pl, pd) in enumerate(itertools.product(goodDat.lines, goodDat.products)):
-            goodDat.production[pl, pd] = {"min":1, "max":10+i}
+            for i,p in enumerate(goodDat.plants):
+                goodDat.lines[i]["plant"] = p
 
-        badDat1 = tdf.copy_tic_dat(goodDat)
-        badDat1.production["notaline", "widgets"] = [0,1]
-        badDat2 = tdf.copy_tic_dat(badDat1)
+            for i,(pl, pd) in enumerate(itertools.product(goodDat.lines, goodDat.products)):
+                goodDat.production[pl, pd] = {"min":1, "max":10+i}
 
-        fk, fkm = _ForeignKey, _ForeignKeyMapping
-        self.assertTrue(tdf.find_foreign_key_failures(badDat1) == tdf.find_foreign_key_failures(badDat2) ==
-                        {fk('production', 'lines', fkm('line', 'name'), 'many-to-one'):
-                             (('notaline',), (('notaline', 'widgets'),))})
-        badDat1.lines["notaline"]["plant"] = badDat2.lines["notaline"]["plant"] = "notnewark"
-        self.assertTrue(tdf.find_foreign_key_failures(badDat1) == tdf.find_foreign_key_failures(badDat2) ==
-                        {fk('lines', 'plants', fkm('plant', 'name'), 'many-to-one'):
-                             (('notnewark',), ('notaline',))})
-        tdf.remove_foreign_keys_failures(badDat1, propagate=False)
-        tdf.remove_foreign_keys_failures(badDat2, propagate=True)
-        self.assertTrue(tdf._same_data(badDat2, goodDat) and not tdf.find_foreign_key_failures(badDat2))
-        self.assertTrue(tdf.find_foreign_key_failures(badDat1) ==
-                {fk('production', 'lines', fkm('line', 'name'), 'many-to-one'):
-                     (('notaline',), (('notaline', 'widgets'),))})
+            badDat1 = tdf.copy_tic_dat(goodDat)
+            badDat1.production["notaline", "widgets"] = [0,1]
+            badDat2 = tdf.copy_tic_dat(badDat1)
 
-        tdf.remove_foreign_keys_failures(badDat1, propagate=False)
-        self.assertTrue(tdf._same_data(badDat1, goodDat) and not tdf.find_foreign_key_failures(badDat1))
+            fk, fkm = _ForeignKey, _ForeignKeyMapping
+            self.assertTrue(tdf.find_foreign_key_failures(badDat1) == tdf.find_foreign_key_failures(badDat2) ==
+                            {fk('production', 'lines', fkm('line', 'name'), 'many-to-one'):
+                                 (('notaline',), (('notaline', 'widgets'),))})
+            badDat1.lines["notaline"]["plant"] = badDat2.lines["notaline"]["plant"] = "notnewark"
+            self.assertTrue(tdf.find_foreign_key_failures(badDat1) == tdf.find_foreign_key_failures(badDat2) ==
+                            {fk('lines', 'plants', fkm('plant', 'name'), 'many-to-one'):
+                                 (('notnewark',), ('notaline',))})
+            tdf.remove_foreign_keys_failures(badDat1, propagate=False)
+            tdf.remove_foreign_keys_failures(badDat2, propagate=True)
+            self.assertTrue(tdf._same_data(badDat2, goodDat) and not tdf.find_foreign_key_failures(badDat2))
+            self.assertTrue(tdf.find_foreign_key_failures(badDat1) ==
+                    {fk('production', 'lines', fkm('line', 'name'), 'many-to-one'):
+                         (('notaline',), (('notaline', 'widgets'),))})
 
-        _ = len(goodDat.lines)
-        for i,p in enumerate(list(goodDat.plants.keys()) + list(goodDat.plants.keys())):
-            goodDat.lines[i+_]["plant"] = p
-        for l in goodDat.lines:
-            if i%2:
-                goodDat.line_descriptor[l] = i+10
+            tdf.remove_foreign_keys_failures(badDat1, propagate=False)
+            self.assertTrue(tdf._same_data(badDat1, goodDat) and not tdf.find_foreign_key_failures(badDat1))
 
-        for i,(l,pl,pdct) in enumerate(sorted(itertools.product(goodDat.lines, goodDat.plants, goodDat.products))):
-            goodDat.pureTestingTable.append((l,pl,pdct,i))
-        self.assertFalse(tdf.find_foreign_key_failures(goodDat))
-        badDat = tdf.copy_tic_dat(goodDat)
-        badDat.pureTestingTable.append(("j", "u", "nk", "ay"))
-        l = len(goodDat.pureTestingTable)
-        self.assertTrue(tdf.find_foreign_key_failures(badDat) ==
-         {fk('pureTestingTable', 'plants', fkm('plant', 'name'), 'many-to-one'): (('u',),(l,)),
-          fk('pureTestingTable', 'products', fkm('product', 'name'), 'many-to-one'): (('nk',), (l,)),
-          fk('pureTestingTable', 'lines', fkm('line', 'name'), 'many-to-one'): (('j',), (l,))})
+            _ = len(goodDat.lines)
+            for i,p in enumerate(list(goodDat.plants.keys()) + list(goodDat.plants.keys())):
+                goodDat.lines[i+_]["plant"] = p
+            for l in goodDat.lines:
+                if i%2:
+                    goodDat.line_descriptor[l] = i+10
 
-        obfudat = tdf.obfusimplify(goodDat, {"plants": "P"}, freeze_it=True)
-        self.assertTrue(all(len(getattr(obfudat.copy, t)) == len(getattr(goodDat, t))
-                            for t in tdf.all_tables))
-        for n in list(goodDat.plants) + list(goodDat.lines) + list(goodDat.products) :
-            self.assertTrue(n in {_[1] for _ in obfudat.renamings.values()})
-            self.assertFalse(n in obfudat.renamings)
-        self.assertTrue(obfudat.copy.plants['P2']['otherstuff'] == 1)
-        self.assertFalse(tdf._same_data(obfudat.copy, goodDat))
-        for k,r in obfudat.copy.line_descriptor.items():
-            i = r.values()[0] - 10
-            self.assertTrue(i%2 and (goodDat.line_descriptor[i].values()[0] == i+10))
+            for i,(l,pl,pdct) in enumerate(sorted(itertools.product(goodDat.lines, goodDat.plants, goodDat.products))):
+                goodDat.pureTestingTable.append((l,pl,pdct,i))
+            self.assertFalse(tdf.find_foreign_key_failures(goodDat))
+            badDat = tdf.copy_tic_dat(goodDat)
+            badDat.pureTestingTable.append(("j", "u", "nk", "ay"))
+            l = len(goodDat.pureTestingTable)
+            self.assertTrue(tdf.find_foreign_key_failures(badDat) ==
+             {fk('pureTestingTable', 'plants', fkm('plant', 'name'), 'many-to-one'): (('u',),(l,)),
+              fk('pureTestingTable', 'products', fkm('product', 'name'), 'many-to-one'): (('nk',), (l,)),
+              fk('pureTestingTable', 'lines', fkm('line', 'name'), 'many-to-one'): (('j',), (l,))})
 
-        obfudat2 = tdf.obfusimplify(goodDat, {"plants": "P", "lines" : "L", "products" :"PR"})
-        self.assertTrue(tdf._same_data(obfudat.copy, obfudat2.copy))
+            obfudat = tdf.obfusimplify(goodDat, {"plants": "P"}, freeze_it=True)
+            self.assertTrue(all(len(getattr(obfudat.copy, t)) == len(getattr(goodDat, t))
+                                for t in tdf.all_tables))
+            for n in list(goodDat.plants) + list(goodDat.lines) + list(goodDat.products) :
+                self.assertTrue(n in {_[1] for _ in obfudat.renamings.values()})
+                self.assertFalse(n in obfudat.renamings)
+            self.assertTrue(obfudat.copy.plants['P2']['otherstuff'] == 1)
+            self.assertFalse(tdf._same_data(obfudat.copy, goodDat))
+            for k,r in obfudat.copy.line_descriptor.items():
+                i = r.values()[0] - 10
+                self.assertTrue(i%2 and (goodDat.line_descriptor[i].values()[0] == i+10))
 
-        obfudat3 = tdf.obfusimplify(goodDat, skip_tables=["plants", "lines", "products"])
-        self.assertTrue(tdf._same_data(obfudat3.copy, goodDat))
+            obfudat2 = tdf.obfusimplify(goodDat, {"plants": "P", "lines" : "L", "products" :"PR"})
+            self.assertTrue(tdf._same_data(obfudat.copy, obfudat2.copy))
 
-        obfudat4 = tdf.obfusimplify(goodDat, skip_tables=["lines", "products"])
-        self.assertFalse(tdf._same_data(obfudat4.copy, goodDat))
-        self.assertFalse(tdf._same_data(obfudat4.copy, obfudat.copy))
+            obfudat3 = tdf.obfusimplify(goodDat, skip_tables=["plants", "lines", "products"])
+            self.assertTrue(tdf._same_data(obfudat3.copy, goodDat))
+
+            obfudat4 = tdf.obfusimplify(goodDat, skip_tables=["lines", "products"])
+            self.assertFalse(tdf._same_data(obfudat4.copy, goodDat))
+            self.assertFalse(tdf._same_data(obfudat4.copy, obfudat.copy))
 
     def testSeven(self):
         tdf = TicDatFactory(**dietSchema())
@@ -431,108 +433,118 @@ class TestUtils(unittest.TestCase):
                         td.nutritionQuantities['junk',1]["qty"] == 0)
 
     def testEight(self):
-        tdf = TicDatFactory(**dietSchema())
-        def makeIt() :
-            rtn = tdf.TicDat()
-            rtn.foods["a"] = 12
-            rtn.foods["b"] = None
-            rtn.categories["1"] = {"maxNutrition":100, "minNutrition":40}
-            rtn.categories["2"] = [10,20]
-            for f, p in itertools.product(rtn.foods, rtn.categories):
-                rtn.nutritionQuantities[f,p] = 5
-            rtn.nutritionQuantities['a', 2] = 12
-            return tdf.freeze_me(rtn)
-        dat = makeIt()
-        self.assertFalse(tdf.find_data_type_failures(dat))
+        for cloning in [True, False]:
+            clone_me_maybe = lambda x : x.clone() if cloning else x
 
-        tdf = TicDatFactory(**dietSchema())
-        tdf.set_data_type("foods", "cost", nullable=False)
-        tdf.set_data_type("nutritionQuantities", "qty", min=5, inclusive_min=False, max=12, inclusive_max=True)
+            tdf = TicDatFactory(**dietSchema())
+            def makeIt() :
+                rtn = tdf.TicDat()
+                rtn.foods["a"] = 12
+                rtn.foods["b"] = None
+                rtn.categories["1"] = {"maxNutrition":100, "minNutrition":40}
+                rtn.categories["2"] = [10,20]
+                for f, p in itertools.product(rtn.foods, rtn.categories):
+                    rtn.nutritionQuantities[f,p] = 5
+                rtn.nutritionQuantities['a', 2] = 12
+                return tdf.freeze_me(rtn)
+            dat = makeIt()
+            self.assertFalse(tdf.find_data_type_failures(dat))
 
-        tdf.set_default_value("foods", "cost", 2)
-        self._testTdfReproduction(tdf)
-        dat = makeIt()
-        failed = tdf.find_data_type_failures(dat)
-        self.assertTrue(set(failed) == {('foods', 'cost'), ('nutritionQuantities', 'qty')})
-        self.assertTrue(set(failed['nutritionQuantities', 'qty'].pks) ==
-                        {('b', '1'), ('a', '2'), ('a', '1'), ('b', '2')})
-        self.assertTrue(failed['nutritionQuantities', 'qty'].bad_values == (5,))
-        ex = self.firesException(lambda : tdf.replace_data_type_failures(tdf.copy_tic_dat(dat)))
-        self.assertTrue(all(_ in ex for _ in ("replacement value", "nutritionQuantities", "qty")))
-        fixedDat = tdf.replace_data_type_failures(tdf.copy_tic_dat(dat),
-                            replacement_values={("nutritionQuantities", "qty"):5.001})
-        self.assertFalse(tdf.find_data_type_failures(fixedDat) or tdf._same_data(fixedDat, dat))
-        self.assertTrue(all(fixedDat.nutritionQuantities[pk]["qty"] == 5.001 for pk in
-                            failed['nutritionQuantities', 'qty'].pks))
-        self.assertTrue(fixedDat.foods["a"]["cost"] == 12 and fixedDat.foods["b"]["cost"] == 2 and
-                        fixedDat.nutritionQuantities['a', 2]["qty"] == 12)
+            tdf = TicDatFactory(**dietSchema())
+            tdf.set_data_type("foods", "cost", nullable=False)
+            tdf.set_data_type("nutritionQuantities", "qty", min=5, inclusive_min=False, max=12, inclusive_max=True)
 
-        tdf = TicDatFactory(**dietSchema())
-        tdf.set_data_type("foods", "cost", nullable=False)
-        tdf.set_data_type("nutritionQuantities", "qty", min=5, inclusive_min=False, max=12, inclusive_max=True)
-        fixedDat2 = tdf.replace_data_type_failures(tdf.copy_tic_dat(dat),
-                            replacement_values={("nutritionQuantities", "qty"):5.001, ("foods", "cost") : 2})
-        self.assertTrue(tdf._same_data(fixedDat, fixedDat2))
+            tdf.set_default_value("foods", "cost", 2)
+            tdf = clone_me_maybe(tdf)
+            self._testTdfReproduction(tdf)
+            dat = makeIt()
+            failed = tdf.find_data_type_failures(dat)
+            self.assertTrue(set(failed) == {('foods', 'cost'), ('nutritionQuantities', 'qty')})
+            self.assertTrue(set(failed['nutritionQuantities', 'qty'].pks) ==
+                            {('b', '1'), ('a', '2'), ('a', '1'), ('b', '2')})
+            self.assertTrue(failed['nutritionQuantities', 'qty'].bad_values == (5,))
+            ex = self.firesException(lambda : tdf.replace_data_type_failures(tdf.copy_tic_dat(dat)))
+            self.assertTrue(all(_ in ex for _ in ("replacement value", "nutritionQuantities", "qty")))
+            fixedDat = tdf.replace_data_type_failures(tdf.copy_tic_dat(dat),
+                                replacement_values={("nutritionQuantities", "qty"):5.001})
+            self.assertFalse(tdf.find_data_type_failures(fixedDat) or tdf._same_data(fixedDat, dat))
+            self.assertTrue(all(fixedDat.nutritionQuantities[pk]["qty"] == 5.001 for pk in
+                                failed['nutritionQuantities', 'qty'].pks))
+            self.assertTrue(fixedDat.foods["a"]["cost"] == 12 and fixedDat.foods["b"]["cost"] == 2 and
+                            fixedDat.nutritionQuantities['a', 2]["qty"] == 12)
 
-        tdf = TicDatFactory(**dietSchema())
-        tdf.set_data_type("foods", "cost", nullable=True)
-        tdf.set_data_type("nutritionQuantities", "qty",number_allowed=False)
-        failed = tdf.find_data_type_failures(dat)
-        self.assertTrue(set(failed) == {('nutritionQuantities', 'qty')})
-        self.assertTrue(set(failed['nutritionQuantities', 'qty'].pks) == set(dat.nutritionQuantities))
-        ex = self.firesException(lambda : tdf.replace_data_type_failures(tdf.copy_tic_dat(dat)))
-        self.assertTrue(all(_ in ex for _ in ("replacement value", "nutritionQuantities", "qty")))
+            tdf = TicDatFactory(**dietSchema())
+            tdf.set_data_type("foods", "cost", nullable=False)
+            tdf.set_data_type("nutritionQuantities", "qty", min=5, inclusive_min=False, max=12, inclusive_max=True)
+            tdf = clone_me_maybe(tdf)
+            fixedDat2 = tdf.replace_data_type_failures(tdf.copy_tic_dat(dat),
+                                replacement_values={("nutritionQuantities", "qty"):5.001, ("foods", "cost") : 2})
+            self.assertTrue(tdf._same_data(fixedDat, fixedDat2))
 
-        tdf = TicDatFactory(**dietSchema())
-        tdf.set_data_type("foods", "cost")
-        self._testTdfReproduction(tdf)
-        fixedDat = tdf.replace_data_type_failures(tdf.copy_tic_dat(makeIt()))
-        self.assertTrue(fixedDat.foods["a"]["cost"] == 12 and fixedDat.foods["b"]["cost"] == 0)
+            tdf = TicDatFactory(**dietSchema())
+            tdf.set_data_type("foods", "cost", nullable=True)
+            tdf.set_data_type("nutritionQuantities", "qty",number_allowed=False)
+            tdf = clone_me_maybe(tdf)
+            failed = tdf.find_data_type_failures(dat)
+            self.assertTrue(set(failed) == {('nutritionQuantities', 'qty')})
+            self.assertTrue(set(failed['nutritionQuantities', 'qty'].pks) == set(dat.nutritionQuantities))
+            ex = self.firesException(lambda : tdf.replace_data_type_failures(tdf.copy_tic_dat(dat)))
+            self.assertTrue(all(_ in ex for _ in ("replacement value", "nutritionQuantities", "qty")))
 
-        tdf = TicDatFactory(**netflowSchema())
-        addNetflowForeignKeys(tdf)
-        self._testTdfReproduction(tdf)
-        dat = tdf.copy_tic_dat(netflowData(), freeze_it=1)
-        self.assertFalse(hasattr(dat.nodes["Detroit"], "arcs_source"))
+            tdf = TicDatFactory(**dietSchema())
+            tdf.set_data_type("foods", "cost")
+            self._testTdfReproduction(tdf)
+            fixedDat = tdf.replace_data_type_failures(tdf.copy_tic_dat(makeIt()))
+            self.assertTrue(fixedDat.foods["a"]["cost"] == 12 and fixedDat.foods["b"]["cost"] == 0)
 
-        tdf = TicDatFactory(**netflowSchema())
-        addNetflowForeignKeys(tdf)
-        tdf.enable_foreign_key_links()
-        dat = tdf.copy_tic_dat(netflowData(), freeze_it=1)
-        self.assertTrue(hasattr(dat.nodes["Detroit"], "arcs_source"))
+            tdf = TicDatFactory(**netflowSchema())
+            addNetflowForeignKeys(tdf)
+            tdf = clone_me_maybe(tdf)
+            self._testTdfReproduction(tdf)
+            dat = tdf.copy_tic_dat(netflowData(), freeze_it=1)
+            self.assertFalse(hasattr(dat.nodes["Detroit"], "arcs_source"))
 
-        tdf = TicDatFactory(**netflowSchema())
-        def makeIt() :
-            if not tdf.foreign_keys:
-                tdf.enable_foreign_key_links()
-                addNetflowForeignKeys(tdf)
-            orig = netflowData()
-            rtn = tdf.copy_tic_dat(orig)
-            for n in rtn.nodes["Detroit"].arcs_source:
-                rtn.arcs["Detroit", n] = n
-            self.assertTrue(all(len(getattr(rtn, t)) == len(getattr(orig, t)) for t in tdf.all_tables))
-            return tdf.freeze_me(rtn)
-        dat = makeIt()
-        self.assertFalse(tdf.find_data_type_failures(dat))
+            tdf = TicDatFactory(**netflowSchema())
+            addNetflowForeignKeys(tdf)
+            tdf.enable_foreign_key_links()
+            tdf = clone_me_maybe(tdf)
+            dat = tdf.copy_tic_dat(netflowData(), freeze_it=1)
+            self.assertTrue(hasattr(dat.nodes["Detroit"], "arcs_source"))
 
-        tdf = TicDatFactory(**netflowSchema())
-        tdf.set_data_type("arcs", "capacity", strings_allowed="*")
-        dat = makeIt()
-        self.assertFalse(tdf.find_data_type_failures(dat))
+            tdf = clone_me_maybe(TicDatFactory(**netflowSchema()))
+            def makeIt() :
+                if not tdf.foreign_keys:
+                    tdf.enable_foreign_key_links()
+                    addNetflowForeignKeys(tdf)
+                orig = netflowData()
+                rtn = tdf.copy_tic_dat(orig)
+                for n in rtn.nodes["Detroit"].arcs_source:
+                    rtn.arcs["Detroit", n] = n
+                self.assertTrue(all(len(getattr(rtn, t)) == len(getattr(orig, t)) for t in tdf.all_tables))
+                return tdf.freeze_me(rtn)
+            dat = makeIt()
+            self.assertFalse(tdf.find_data_type_failures(dat))
 
-        tdf = TicDatFactory(**netflowSchema())
-        tdf.set_data_type("arcs", "capacity", strings_allowed=["Boston", "Seattle", "lumberjack"])
-        dat = makeIt()
-        failed = tdf.find_data_type_failures(dat)
-        self.assertTrue(failed == {('arcs', 'capacity'):(("New York",), (("Detroit", "New York"),))})
-        fixedDat = tdf.replace_data_type_failures(tdf.copy_tic_dat(makeIt()))
-        netflowData_ = tdf.copy_tic_dat(netflowData())
-        self.assertFalse(tdf.find_data_type_failures(fixedDat) or tdf._same_data(dat, netflowData_))
-        fixedDat = tdf.copy_tic_dat(tdf.replace_data_type_failures(tdf.copy_tic_dat(makeIt()),
-                                        {("arcs", "capacity"):80, ("cost","cost") :"imok"}))
-        fixedDat.arcs["Detroit", "Boston"] = 100
-        fixedDat.arcs["Detroit", "Seattle"] = 120
-        self.assertTrue(tdf._same_data(fixedDat, netflowData_))
+            tdf = TicDatFactory(**netflowSchema())
+            tdf.set_data_type("arcs", "capacity", strings_allowed="*")
+            tdf = clone_me_maybe(tdf)
+            dat = makeIt()
+            self.assertFalse(tdf.find_data_type_failures(dat))
+
+            tdf = TicDatFactory(**netflowSchema())
+            tdf.set_data_type("arcs", "capacity", strings_allowed=["Boston", "Seattle", "lumberjack"])
+            tdf = clone_me_maybe(tdf)
+            dat = makeIt()
+            failed = tdf.find_data_type_failures(dat)
+            self.assertTrue(failed == {('arcs', 'capacity'):(("New York",), (("Detroit", "New York"),))})
+            fixedDat = tdf.replace_data_type_failures(tdf.copy_tic_dat(makeIt()))
+            netflowData_ = tdf.copy_tic_dat(netflowData())
+            self.assertFalse(tdf.find_data_type_failures(fixedDat) or tdf._same_data(dat, netflowData_))
+            fixedDat = tdf.copy_tic_dat(tdf.replace_data_type_failures(tdf.copy_tic_dat(makeIt()),
+                                            {("arcs", "capacity"):80, ("cost","cost") :"imok"}))
+            fixedDat.arcs["Detroit", "Boston"] = 100
+            fixedDat.arcs["Detroit", "Seattle"] = 120
+            self.assertTrue(tdf._same_data(fixedDat, netflowData_))
 
     def testNine(self):
         for schema in (dietSchema(), sillyMeSchema(), netflowSchema()) :
@@ -672,15 +684,76 @@ class TestUtils(unittest.TestCase):
         self.assertTrue({x["goo"] for x in dat.boger} == {2.1,1.1,1,2})
 
     def testSeventeen(self):
-        tdf = TicDatFactory(bo = [["a","b"],["c"]])
-        dat = tdf.TicDat(bo = [[1, 2, 3], ["a", "b", "c"]])
-        self.assertTrue(set(dat.bo) == {(1,2), ("a","b")})
-        self.assertTrue(dat.bo[1,2]["c"] == 3 and dat.bo["a","b"]["c"] == "c")
-        tdf = TicDatFactory(bo = [["c"],[]])
-        dat = tdf.TicDat(bo = [1, "a"])
-        self.assertTrue(set(dat.bo) == {"a",1})
+         tdf = TicDatFactory(bo = [["a","b"],["c"]])
+         dat = tdf.TicDat(bo = [[1, 2, 3], ["a", "b", "c"]])
+         dat2 = tdf.TicDat(bo = [{"b":2, "a":1},{"a":"a","b":"b"}])
+         self.assertTrue(set(dat.bo) == set(dat2.bo) == {(1,2), ("a","b")})
+         self.assertTrue(dat.bo[1,2]["c"] == 3 and dat.bo["a","b"]["c"] == "c")
+         self.assertTrue(dat2.bo[1,2]["c"] == 0 and dat2.bo["a","b"]["c"] == 0)
+         fd = utils.find_duplicates_from_dict_ticdat
+         self.assertFalse(fd(tdf, {"bo":[{"b":2, "a":1},{"a":"a","b":"b"}]}))
+         self.assertTrue(set(fd(tdf, {"bo":[{"b":2}, {"a":1}, {"a":1, "b":0}]})["bo"]) == {(1,0)})
+         self.assertTrue(set(fd(tdf, {"bo":[{"b":2}, {"a":1}, {"a":1, "b":0}, {"a":0, "b":2}]})["bo"]) ==
+                         {(1,0),(0,2)})
 
+         tdf = TicDatFactory(bo = [["c"],[]])
+         dat = tdf.TicDat(bo = [1, "a"])
+         self.assertTrue(set(dat.bo) == {"a",1})
 
+    def testEighteen(self):
+        for cloning in [True, False]:
+            clone_me_maybe = lambda x : x.clone() if cloning else x
+            tdf = TicDatFactory(**dietSchema())
+            dat = tdf.TicDat()
+            dat.foods["a"] = 12
+            dat.foods["b"] = dat.foods["c"] = None
+            dat.categories[1] = {"maxNutrition":100, "minNutrition":40}
+            dat.categories[2] = [21,20]
+            dat.categories[3] = [20,21]
+            for f, p in itertools.product(dat.foods, dat.categories):
+                dat.nutritionQuantities[f,p] = 6
+            dat.nutritionQuantities['b', 3] = 5
+            dat.nutritionQuantities['a', 2] = 12
+            dat = tdf.freeze_me(dat)
+
+            self.assertFalse(tdf.find_data_row_failures(dat))
+            tdf = TicDatFactory(**dietSchema())
+            tdf.add_data_row_predicate("categories", lambda row : row["minNutrition"] <= row["maxNutrition"],
+                                       "minmax")
+            tdf.add_data_row_predicate("nutritionQuantities",
+                                       lambda row : row["category"] < 3 or row["qty"] % 2)
+            tdf = clone_me_maybe(tdf)
+            failures = tdf.find_data_row_failures(dat)
+            self.assertTrue(any(k for k in failures if
+                                k.table == "nutritionQuantities" and k.predicate_name == 0))
+            self.assertTrue(any(k for k in failures if
+                                k.table == "categories" and k.predicate_name == "minmax"))
+            self.assertTrue(failures["categories","minmax"] == (2,))
+            self.assertTrue(set(failures["nutritionQuantities", 0]) == {("a",3), ("c",3)})
+            tdf.add_data_row_predicate("nutritionQuantities", predicate=None, predicate_name=0)
+            self.assertTrue(set(tdf.find_data_row_failures(dat)) == {("categories","minmax")})
+            for i in range(1,4):
+                tdf.add_data_row_predicate("nutritionQuantities",
+                    (lambda j : lambda row : row["category"] < 3 or row["qty"] % j)(i))
+            tdf = clone_me_maybe(tdf)
+            failures = tdf.find_data_row_failures(dat)
+            self.assertTrue(failures["categories","minmax"] == (2,))
+            self.assertTrue(set(failures["nutritionQuantities", 0]) == {("a",3), ("b",3), ("c",3)})
+            self.assertTrue(set(failures["nutritionQuantities", 1]) ==
+                            set(failures["nutritionQuantities", 2]) == {("a",3), ("c",3)})
+
+            tdf = TicDatFactory(**spacesSchema())
+            tdf.add_data_row_predicate("c_table",
+                                       lambda row : len(filter(utils.numericish, row.values())) >= 2,
+                                       predicate_name= "two_nums")
+            tdf.add_data_row_predicate("c_table",
+                                       lambda row : all(map(utils.stringish, row.values())),
+                                       predicate_name= "all_strings")
+            tdf = clone_me_maybe(tdf)
+            dat = tdf.TicDat(**spacesData())
+            failures = tdf.find_data_row_failures(dat)
+            self.assertTrue(failures["c_table", "two_nums"] == (1,))
+            self.assertTrue(failures["c_table", "all_strings"] == (0,2))
 
 
 
@@ -690,4 +763,3 @@ _scratchDir = TestUtils.__name__ + "_scratch"
 # Run the tests.
 if __name__ == "__main__":
     unittest.main()
-
