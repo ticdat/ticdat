@@ -17,6 +17,9 @@ except:
     pd = DataFrame =  None
 import inspect
 
+# likely replace this with some sort of sys.platform call that makes a good guess
+development_deployed_environment = False
+
 def standard_main(input_schema, solution_schema, solve):
     """
      provides standardized command line functionality for a ticdat solve engine
