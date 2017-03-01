@@ -23,82 +23,78 @@ from ticdat import TicDatFactory, standard_main
 import gurobipy as gu
 
 # ------------------------ define the input schema --------------------------------
-dataFactory = TicDatFactory (
+input_schema = TicDatFactory (
  parameters = [["Key"],["Value"]],
  players = [['Player Name'],
-            ['Position', 'Average Draft Position', 'Expected Points']],
+            ['Position', 'Average Draft Position', 'Expected Points', 'Draft Status']],
  roster_requirements = [['Position'],
                        ['Min Num Starters', 'Max Num Starters', 'Min Num Reserve', 'Max Num Reserve',
                         'Flex Status']],
- drafted = [['Player Name'], ['Draft Position']],
  my_draft_positions = [['Draft Position'],[]]
 )
 
 # add foreign key constraints (optional, but helps with preventing garbage-in, garbage-out)
-dataFactory.add_foreign_key("drafted", "players", ['Player Name', 'Player Name'])
-dataFactory.add_foreign_key("players", "roster_requirements", ['Position', 'Position'])
+input_schema.add_foreign_key("players", "roster_requirements", ['Position', 'Position'])
 
 # set data types (optional, but helps with preventing garbage-in, garbage-out)
-dataFactory.set_data_type("parameters", "Key", number_allowed = False,
+input_schema.set_data_type("parameters", "Key", number_allowed = False,
                           strings_allowed = ["Starter Weight", "Reserve Weight",
                                              "Maximum Number of Flex Starters"])
-dataFactory.set_data_type("parameters", "Value", min=0, max=float("inf"),
+input_schema.set_data_type("parameters", "Value", min=0, max=float("inf"),
                           inclusive_min = True, inclusive_max = False)
-dataFactory.set_data_type("players", "Average Draft Position", min=0, max=float("inf"),
+input_schema.set_data_type("players", "Average Draft Position", min=0, max=float("inf"),
                           inclusive_min = False, inclusive_max = False)
-dataFactory.set_data_type("players", "Expected Points", min=-float("inf"), max=float("inf"),
+input_schema.set_data_type("players", "Expected Points", min=-float("inf"), max=float("inf"),
                           inclusive_min = False, inclusive_max = False)
+input_schema.set_data_type("players", "Draft Status",
+                          strings_allowed = ["Un-drafted", "Drafted By Me", "Drafted By Someone Else"])
 for fld in ("Min Num Starters",  "Min Num Reserve", "Max Num Reserve"):
-    dataFactory.set_data_type("roster_requirements", fld, min=0, max=float("inf"),
+    input_schema.set_data_type("roster_requirements", fld, min=0, max=float("inf"),
                           inclusive_min = True, inclusive_max = False, must_be_int = True)
-dataFactory.set_data_type("roster_requirements", "Max Num Starters", min=0, max=float("inf"),
+input_schema.set_data_type("roster_requirements", "Max Num Starters", min=0, max=float("inf"),
                       inclusive_min = False, inclusive_max = True, must_be_int = True)
-dataFactory.set_data_type("roster_requirements", "Flex Status", number_allowed = False,
+input_schema.set_data_type("roster_requirements", "Flex Status", number_allowed = False,
                           strings_allowed = ["Flex Eligible", "Flex Ineligible"])
-for tbl in ("drafted", "my_draft_positions"):
-    dataFactory.set_data_type(tbl, "Draft Position", min=0, max=float("inf"),
+input_schema.set_data_type("my_draft_positions", "Draft Position", min=0, max=float("inf"),
                           inclusive_min = False, inclusive_max = False, must_be_int = True)
 # ---------------------------------------------------------------------------------
 
 
 # ------------------------ define the output schema -------------------------------
-solutionFactory = TicDatFactory(
-        my_draft = [['Player Name'], ['Draft Position', 'Position', 'Planned Or Actual',
-                                     'Starter Or Reserve']])
+solution_schema = TicDatFactory(
+    parameters = [["Key"],["Value"]],
+    my_draft = [['Player Name'], ['Draft Position', 'Position', 'Planned Or Actual',
+                                  'Starter Or Reserve']])
 # ---------------------------------------------------------------------------------
-
 
 # ------------------------ create a solve function --------------------------------
 def solve(dat):
-    assert dataFactory.good_tic_dat_object(dat)
-    assert not dataFactory.find_foreign_key_failures(dat)
-    assert not dataFactory.find_data_type_failures(dat)
-    if dat.drafted:
-        draft_positions = {x["Draft Position"] for x in dat.drafted.values()}
-        assert min(draft_positions) == 1 and len(draft_positions) == max(draft_positions), \
-               "draft positions should be sequential"
+    assert input_schema.good_tic_dat_object(dat)
+    assert not input_schema.find_foreign_key_failures(dat)
+    assert not input_schema.find_data_type_failures(dat)
 
-    # if a player has already been drafted, then we know his expected draft position
-    expected_draft_position = {player_name:row["Draft Position"] for player_name,row in
-                               dat.drafted.items()}
-    # the undrafted players are then sorted by their average draft position
-    for player_name in sorted([p for p in set(dat.players).difference(expected_draft_position)],
-                                          key=lambda _p: dat.players[_p]["Average Draft Position"]):
+    expected_draft_position = {}
+    # for our purposes, its fine to assume all those drafted by someone else are drafted
+    # prior to any players drafted by me
+    for player_name in sorted(dat.players,
+                              key=lambda _p: {"Un-drafted":dat.players[_p]["Average Draft Position"],
+                                              "Drafted By Me":-1,
+                                              "Drafted By Someone Else":-2}[dat.players[_p]["Draft Status"]]):
         expected_draft_position[player_name] = len(expected_draft_position) + 1
     assert max(expected_draft_position.values()) == len(set(expected_draft_position.values())) == len(dat.players)
     assert min(expected_draft_position.values()) == 1
 
-    already_drafted_by_me = {player_name for player_name in dat.drafted if
-                             dat.drafted[player_name]["Draft Position"] in dat.my_draft_positions}
-    can_be_drafted_by_me = set(dat.players).difference(dat.drafted).union(already_drafted_by_me)
-    m = gu.Model('fantop')
-    my_starters = {}
-    my_reserves = {}
-    for player_name in can_be_drafted_by_me:
-        my_starters[player_name] = m.addVar(vtype=gu.GRB.BINARY, name="starter_%s"%player_name)
-        my_reserves[player_name] = m.addVar(vtype=gu.GRB.BINARY, name="reserve_%s"%player_name)
+    already_drafted_by_me = {player_name for player_name,row in dat.players.items() if
+                            row["Draft Status"] == "Drafted By Me"}
+    can_be_drafted_by_me = {player_name for player_name,row in dat.players.items() if
+                            row["Draft Status"] != "Drafted By Someone Else"}
 
-    m.update()
+    m = gu.Model('fantop')
+    my_starters = {player_name:m.addVar(vtype=gu.GRB.BINARY, name="starter_%s"%player_name)
+                  for player_name in can_be_drafted_by_me}
+    my_reserves = {player_name:m.addVar(vtype=gu.GRB.BINARY, name="reserve_%s"%player_name)
+                  for player_name in can_be_drafted_by_me}
+
 
     for player_name in can_be_drafted_by_me:
         if player_name in already_drafted_by_me:
@@ -116,7 +112,8 @@ def solve(dat):
 
     my_draft_size = gu.quicksum(my_starters[player_name] + my_reserves[player_name]
                                 for player_name in can_be_drafted_by_me)
-    m.addConstr(my_draft_size >= len(already_drafted_by_me) + 1, name = "need_to_extend_by_at_least_one")
+    m.addConstr(my_draft_size >= len(already_drafted_by_me) + 1,
+                name = "need_to_extend_by_at_least_one")
     m.addConstr(my_draft_size <= len(dat.my_draft_positions), name = "cant_exceed_draft_total")
 
     for position, row in dat.roster_requirements.items():
@@ -141,29 +138,36 @@ def solve(dat):
     m.setObjective(gu.quicksum(dat.players[player_name]["Expected Points"] *
                                (my_starters[player_name] * starter_weight + my_reserves[player_name] * reserve_weight)
                                for player_name in can_be_drafted_by_me),
-                   gu.GRB.MAXIMIZE)
+                   sense=gu.GRB.MAXIMIZE)
 
     m.optimize()
+
     if m.status != gu.GRB.OPTIMAL:
-        print "No draft at all is possible!"
+        print("No draft at all is possible!")
         return
 
-    sln = solutionFactory.TicDat()
-    def almostone(x) :
+    sln = solution_schema.TicDat()
+    def almostone(x):
         return abs(x.x-1) < 0.0001
     picked = sorted([player_name for player_name in can_be_drafted_by_me
                      if almostone(my_starters[player_name]) or almostone(my_reserves[player_name])],
                     key=lambda _p: expected_draft_position[_p])
     assert len(picked) <= len(dat.my_draft_positions)
     if len(picked) < len(dat.my_draft_positions):
-        print "Your model is over-constrained, and thus only a partial draft was possible"
+        print("Your model is over-constrained, and thus only a partial draft was possible")
 
+    draft_yield = 0
     for player_name, draft_position in zip(picked, sorted(dat.my_draft_positions)):
+        draft_yield += dat.players[player_name]["Expected Points"] * \
+                       (starter_weight if almostone(my_starters[player_name]) else reserve_weight)
         assert draft_position <= expected_draft_position[player_name]
         sln.my_draft[player_name]["Draft Position"] = draft_position
         sln.my_draft[player_name]["Position"] = dat.players[player_name]["Position"]
         sln.my_draft[player_name]["Planned Or Actual"] = "Actual" if player_name in already_drafted_by_me else "Planned"
-        sln.my_draft[player_name]["Starter Or Reserve"] = "Starter" if almostone(my_starters[player_name]) else "Reserve"
+        sln.my_draft[player_name]["Starter Or Reserve"] = \
+            "Starter" if almostone(my_starters[player_name]) else "Reserve"
+    sln.parameters["Total Yield"] = draft_yield
+    sln.parameters["Feasible"] = len(sln.my_draft) == len(dat.my_draft_positions)
 
     return sln
 # ---------------------------------------------------------------------------------
@@ -171,5 +175,5 @@ def solve(dat):
 # ------------------------ provide stand-alone functionality ----------------------
 # when run from the command line, will read/write xls/csv/db/mdb files
 if __name__ == "__main__":
-    standard_main(dataFactory, solutionFactory, solve)
+    standard_main(input_schema, solution_schema, solve)
 # ---------------------------------------------------------------------------------

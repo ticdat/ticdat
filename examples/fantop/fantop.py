@@ -12,9 +12,11 @@
 # The current draft standing can be filled in as you go in the drafted table.
 # A user can thus re-optimize for each of his draft picks.
 #
-# Uses the ticdat package to simplify file IO and provide command line functionality.
-# Can read from .csv, Access, Excel or SQLite files. Self validates the input data
-# before solving to prevent strange errors or garbage-in, garbage-out problems.
+# Provides command line interface via ticdat.standard_main
+# For example, typing
+#   python fantop.py -i input_data.xlsx -o solution_data.xlsx
+# will read from a model stored in the file input_data.xlsx and write the solution
+# to solution_data.xlsx.
 
 from ticdat import TicDatFactory, standard_main, Model
 
@@ -60,7 +62,7 @@ input_schema.set_data_type("my_draft_positions", "Draft Position", min=0, max=fl
 solution_schema = TicDatFactory(
     parameters = [["Key"],["Value"]],
     my_draft = [['Player Name'], ['Draft Position', 'Position', 'Planned Or Actual',
-                                     'Starter Or Reserve']])
+                                  'Starter Or Reserve']])
 # ---------------------------------------------------------------------------------
 
 
@@ -106,7 +108,7 @@ def solve(dat):
         m.add_constraint(m.sum(my_starters[player_name] + my_reserves[player_name]
                                 for player_name in can_be_drafted_by_me
                                 if expected_draft_position[player_name] < draft_position) <= i,
-                    name = "at_most_%s_can_be_ahead_of_%s"%(i,draft_position))
+                         name = "at_most_%s_can_be_ahead_of_%s"%(i,draft_position))
 
     my_draft_size = m.sum(my_starters[player_name] + my_reserves[player_name]
                           for player_name in can_be_drafted_by_me)
@@ -128,8 +130,8 @@ def solve(dat):
         players = {player_name for player_name in can_be_drafted_by_me if
                    dat.roster_requirements[dat.players[player_name]["Position"]]["Flex Status"] == "Flex Eligible"}
         m.add_constraint(m.sum(my_starters[player_name] for player_name in players)
-                    <= dat.parameters["Maximum Number of Flex Starters"]["Value"],
-                    name = "max_flex")
+                         <= dat.parameters["Maximum Number of Flex Starters"]["Value"],
+                         name = "max_flex")
 
     starter_weight = dat.parameters["Starter Weight"]["Value"] if "Starter Weight" in dat.parameters else 1
     reserve_weight = dat.parameters["Reserve Weight"]["Value"] if "Reserve Weight" in dat.parameters else 1
@@ -144,7 +146,7 @@ def solve(dat):
 
     sln = solution_schema.TicDat()
     def almostone(x):
-        return abs(m.get_solution_value(x) -1) < 0.0001
+        return abs(m.get_solution_value(x)-1) < 0.0001
     picked = sorted([player_name for player_name in can_be_drafted_by_me
                      if almostone(my_starters[player_name]) or almostone(my_reserves[player_name])],
                     key=lambda _p: expected_draft_position[_p])
