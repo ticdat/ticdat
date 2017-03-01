@@ -90,7 +90,7 @@ def opl_run(mod_file, input_tdf, input_dat, soln_tdf, infinity=INFINITY, oplrun_
             os.environ["LD_LIBRARY_PATH"] = os.path.abspath(os.path.join(oplrun_path,'..')) + \
                                             ":" + os.environ["LD_LIBRARY_PATH"]
     try:
-        output = subprocess.check_output([oplrun_path, mod_file, datfile], cwd=working_dir, stderr=subprocess.STDOUT)
+        output = subprocess.check_output([oplrun_path, mod_file, datfile], stderr=subprocess.STDOUT)
     except subprocess.CalledProcessError as err:
         output = err.output
     with open(output_txt, "w") as f:
