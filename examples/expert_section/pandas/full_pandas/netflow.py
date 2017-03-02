@@ -1,8 +1,12 @@
 #!/usr/bin/python
 
-# Copyright 2015, 2016 Opalytics, Inc.
+# Copyright 2015, Opalytics, Inc.
+#
+# edited with permission from Gurobi Optimization, Inc.
 
 # Solve a multi-commodity flow problem as python package.
+# This version of the file uses pandas both for table and for complex data
+# manipulation. There is no slicing or iterating over indexes.
 
 # Implement core functionality needed to achieve modularity.
 # 1. Define the input data schema
@@ -16,7 +20,8 @@
 # will read from a model stored in .csv files in the csv_data directory
 # and write the solution to .csv files in the solution_csv_data directory
 
-from ticdat import TicDatFactory, standard_main, Model, Slicer
+import gurobipy as gu
+from ticdat import TicDatFactory, standard_main
 
 # ------------------------ define the input schema --------------------------------
 input_schema = TicDatFactory (
@@ -55,57 +60,70 @@ solution_schema = TicDatFactory(
 # ---------------------------------------------------------------------------------
 
 # ------------------------ solving section-----------------------------------------
-_model_type = "gurobi" # could also be 'cplex' or 'xpress'
 def solve(dat):
     """
     core solving routine
-    :param dat: a good ticdat for the input_schema
-    :return: a good ticdat for the solution_schema, or None
+    :param dat: a good ticdat for the dataFactory
+    :return: a good ticdat for the solutionFactory, or None
     """
     assert input_schema.good_tic_dat_object(dat)
     assert not input_schema.find_foreign_key_failures(dat)
     assert not input_schema.find_data_type_failures(dat)
 
-    mdl = Model(_model_type, "netflow")
+    dat = input_schema.copy_to_pandas(dat, drop_pk_columns=False)
 
-    flow = {(h, i, j): mdl.add_var(name='flow_%s_%s_%s' % (h, i, j))
-            for h, i, j in dat.cost if (i,j) in dat.arcs}
+    # Create optimization model
+    m = gu.Model('netflow')
 
-    flowslice = Slicer(flow)
+    flow = dat.cost.join(dat.arcs, on = ["Source", "Destination"],
+                         how = "inner", rsuffix="_arcs")\
+           .apply(lambda r : m.addVar(ub=r.Capacity, obj=r.Cost,
+                                   name='flow_%s_%s_%s'%
+                                        (r.Commodity, r.Source, r.Destination)),
+                   axis=1, reduce=True)
+    flow.name = "flow"
 
-    # Arc Capacity constraints
-    for i_,j_ in dat.arcs:
-        mdl.add_constraint(mdl.sum(flow[h,i,j] for h,i,j in flowslice.slice('*',i_, j_))
-                           <= dat.arcs[i_,j_]["Capacity"],
-                           name='cap_%s_%s' % (i_, j_))
+    # combining aggregate with gurobipy.quicksum is more efficient than using sum
+    flow.groupby(level=["Source", "Destination"])\
+        .aggregate({"flow": gu.quicksum})\
+        .join(dat.arcs)\
+        .apply(lambda r : m.addConstr(r.flow <= r.Capacity,
+                                      'cap_%s_%s' %(r.Source, r.Destination)),
+               axis =1)
 
-    # Flow conservation constraints. Constraints are generated only for relevant pairs.
-    # So we generate a conservation of flow constraint if there is negative or positive inflow
-    # quantity, or at least one inbound flow variable, or at least one outbound flow variable.
-    for h,j in set(k for k,v in dat.inflow.items() if abs(v["Quantity"]) > 0)\
-               .union({(h,i) for h,i,j in flow}, {(h,j) for h,i,j in flow}):
-        mdl.add_constraint(
-            mdl.sum(flow[h_,i_,j_] for h_,i_,j_ in flowslice.slice(h,'*',j)) +
-            dat.inflow.get((h,j), {"Quantity":0})["Quantity"] ==
-            mdl.sum(flow[h_,i_,j_] for h_,i_,j_ in flowslice.slice(h, j, '*')),
-            name='node_%s_%s' % (h, j))
+    m.update()
+    def flow_subtotal(node_fld, sum_field_name):
+        rtn = flow.groupby(level=['Commodity',node_fld])\
+                  .aggregate({sum_field_name : gu.quicksum})
+        rtn.index.names = ['Commodity', 'Node']
+        return rtn
 
-    mdl.set_objective(mdl.sum(flow * dat.cost[h, i, j]["Cost"]
-                              for (h, i, j), flow in flow.items()))
+    # We need a proxy for zero because of the toehold problem, and
+    # we use quicksum([]) instead of a dummy variable because of the fillna problem.
+    # (see notebooks in this directory and parent directory)
+    zero_proxy = gu.quicksum([])
+    flow_subtotal("Destination", "flow_in")\
+        .join(dat.inflow[abs(dat.inflow.Quantity) > 0].Quantity, how="outer")\
+        .join(flow_subtotal("Source", "flow_out"), how = "outer")\
+        .fillna(zero_proxy)\
+        .apply(lambda r : m.addConstr(r.flow_in + r.Quantity  - r.flow_out == 0,
+                                      'cons_flow_%s_%s' % r.name),
+               axis =1)
 
     # Compute optimal solution
-    if mdl.optimize():
-        rtn = solution_schema.TicDat()
-        for (h, i, j),var in flow.items():
-            if mdl.get_solution_value(var) > 0:
-                rtn.flow[h, i, j] = mdl.get_solution_value(var)
-        rtn.parameters["Total Cost"] = sum(dat.cost[h, i, j]["Cost"] * r["Quantity"]
-                                           for (h, i, j), r in rtn.flow.items())
+    m.optimize()
+
+    if m.status == gu.GRB.status.OPTIMAL:
+        t = flow.apply(lambda r : r.x)
+        # TicDat is smart enough to handle a Series for a single data field table
+        rtn = solution_schema.TicDat(flow = t[t > 0])
+        rtn.parameters["Total Cost"] = dat.cost.join(t).apply(lambda r: r.Cost * r.flow,
+                                                              axis=1).sum()
         return rtn
 # ---------------------------------------------------------------------------------
 
 # ------------------------ provide stand-alone functionality ----------------------
-# when run from the command line, will read/write xls/csv/db/sql/mdb files
+# when run from the command line, will read/write xls/csv/db/mdb files
 if __name__ == "__main__":
     standard_main(input_schema, solution_schema, solve)
 # ---------------------------------------------------------------------------------
