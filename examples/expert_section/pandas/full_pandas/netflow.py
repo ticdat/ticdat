@@ -91,7 +91,6 @@ def solve(dat):
                                       'cap_%s_%s' %(r.Source, r.Destination)),
                axis =1)
 
-    m.update()
     def flow_subtotal(node_fld, sum_field_name):
         rtn = flow.groupby(level=['Commodity',node_fld])\
                   .aggregate({sum_field_name : gu.quicksum})
