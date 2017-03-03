@@ -52,6 +52,14 @@ solution_schema = TicDatFactory(
         parameters = [["parameter_name"],["parameter_value"]],
         buy_food = [["food"],["qty"]],
         consume_nutrition = [["category"],["qty"]])
+
+# Define the data types
+solution_schema.set_data_type("parameters", "parameter_value", min=0, max=float("inf"),
+                           inclusive_min=True, inclusive_max=False)
+solution_schema.set_data_type("buy_food", "qty", min=0, max=float("inf"),
+                           inclusive_min=True, inclusive_max=True)
+solution_schema.set_data_type("consume_nutrition", "qty", min=0, max=float("inf"),
+                           inclusive_min=True, inclusive_max=False)
 # ---------------------------------------------------------------------------------
 
 
