@@ -24,7 +24,7 @@ from ticdat import TicDatFactory, standard_main, opl_run
 input_schema = TicDatFactory (
      categories = [["name"],["min_nutrition", "max_nutrition"]],
      foods  = [["name"],["cost"]],
-     nutrition_quantities = [["food", "category"], ["qty"]])
+     nutrition_quantities = [["food", "category"], ["quantity"]])
 
 # Define the data types
 input_schema.set_data_type("categories", "min_nutrition", min=0, max=float("inf"),
