@@ -22,7 +22,7 @@ subject to {
 
 }
 include "ticdat_diet_output.mod";
-float nutrition_consumed[c in categories] = sum(nq in nutrition_quantities: nq.category == c.name) nq.qty * purchase[nq.food];
+float nutrition_consumed[c in categories] = sum(nq in nutrition_quantities: nq.category == c.name) nq.quantity * purchase[nq.food];
 
 float total_cost = sum(f in foodItems) foodCost[f] * purchase[f];
 execute {
