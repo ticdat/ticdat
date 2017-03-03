@@ -26,19 +26,23 @@ input_schema = TicDatFactory (
      foods  = [["name"],["cost"]],
      nutrition_quantities = [["food", "category"], ["qty"]])
 
-# the foreign key relationships are pretty much what you'd expect
-input_schema.add_foreign_key("nutrition_quantities", "foods", ["food", "name"])
-input_schema.add_foreign_key("nutrition_quantities", "categories",
-                            ["category", "name"])
+# Define the data types
+input_schema.set_data_type("categories", "min_nutrition", min=0, max=float("inf"),
+                           inclusive_min=True, inclusive_max=False)
+input_schema.set_data_type("categories", "max_nutrition", min=0, max=float("inf"),
+                           inclusive_min=True, inclusive_max=True)
+input_schema.set_data_type("foods", "cost", min=0, max=float("inf"),
+                           inclusive_min=True, inclusive_max=False)
+input_schema.set_data_type("nutrition_quantities", "quantity", min=0, max=float("inf"),
+                           inclusive_min=True, inclusive_max=False)
 
-# We set the most common data type - a non-negative, non-infinite number
-# that has no integrality restrictions.
-for table, fields in input_schema.data_fields.items():
-    for field in fields:
-        input_schema.set_data_type(table, field)
-# We override the default data type for max_nutrition which can accept infinity
-input_schema.set_data_type("categories", "max_nutrition", max=float("inf"),
-                          inclusive_max=True)
+# We also want to insure that Max Nutrition doesn't fall below Min Nutrition
+input_schema.add_data_row_predicate(
+    "categories", predicate_name="Min Max Check",
+    predicate=lambda row : row["max_nutrition"] >= row["min_nutrition"])
+
+# The default-default of zero makes sense everywhere except for Max Nutrition
+input_schema.set_default_value("categories", "max_nutrition", float("inf"))
 # ---------------------------------------------------------------------------------
 
 
@@ -48,12 +52,6 @@ solution_schema = TicDatFactory(
         parameters = [["parameter_name"],["parameter_value"]],
         buy_food = [["food"],["qty"]],
         consume_nutrition = [["category"],["qty"]])
-
-# We set the most common data type - a non-negative, non-infinite number
-# that has no integrality restrictions.
-for table, fields in solution_schema.data_fields.items():
-    for field in fields:
-        solution_schema.set_data_type(table, field)
 # ---------------------------------------------------------------------------------
 
 
@@ -64,6 +62,11 @@ def solve(dat):
     :param dat: a good ticdat for the input_schema
     :return: a good ticdat for the solution_schema, or None
     """
+    assert input_schema.good_tic_dat_object(dat)
+    assert not input_schema.find_foreign_key_failures(dat)
+    assert not input_schema.find_data_type_failures(dat)
+    assert not input_schema.find_data_row_failures(dat)
+
     return opl_run("diet.mod", input_schema, dat, solution_schema)
 # ---------------------------------------------------------------------------------
 
