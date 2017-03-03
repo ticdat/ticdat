@@ -744,7 +744,7 @@ class TestUtils(unittest.TestCase):
 
             tdf = TicDatFactory(**spacesSchema())
             tdf.add_data_row_predicate("c_table",
-                                       lambda row : len(filter(utils.numericish, row.values())) >= 2,
+                                       lambda row : len(list(filter(utils.numericish, row.values()))) >= 2,
                                        predicate_name= "two_nums")
             tdf.add_data_row_predicate("c_table",
                                        lambda row : all(map(utils.stringish, row.values())),

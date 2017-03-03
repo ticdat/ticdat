@@ -17,7 +17,7 @@ def pattern_finder(string, pattern, rsearch=False):
     """
     verify(len(pattern) <= len(string), "Pattern is larger than string, cannot be found. Pattern is '%s'" % pattern)
     poss_string = []
-    nospaces = lambda (k): filter(lambda j: not j.isspace(), k)
+    nospaces = lambda k: list(filter(lambda j: not j.isspace(), k))
     if rsearch:
         pattern = pattern[::-1]
         string = string[::-1]
