@@ -71,7 +71,7 @@ class _TypeDictionary(namedtuple("TypeDictionary",
             return bool(self.nullable)
         return False
 
-class TicDatFactory(freezable_factory(object, "_isFrozen")) :
+class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend"})) :
     """
     Primary class for ticdat library. This class is constructed with a schema,
     and can be used to generate TicDat objects, or to write TicDat objects to
@@ -692,6 +692,7 @@ foreign keys, the code throwing this exception will be removed.
         self.sql = sql.SQLiteTicFactory(self)
         self.mdb = mdb.MdbTicFactory(self)
         self.json = json.JsonTicFactory(self)
+        self._prepends = {}
         self._isFrozen=True
 
     def _allFields(self, table):
@@ -1328,6 +1329,15 @@ foreign keys, the code throwing this exception will be removed.
             converted_table = list(_table if containerish(_table) else _table())
         return utils.find_denormalized_sub_table_failures(converted_table,
                             sub_table_pk_fields, sub_table_data_fields)
+
+    @property
+    def opl_prepend(self):
+        return self._prepends.get("opl", "")
+
+    @opl_prepend.setter
+    def opl_prepend(self, value):
+        verify(utils.stringish(value), "opl_prepend should be a string")
+        self._prepends["opl"] = value
 
 def freeze_me(x) :
     """
