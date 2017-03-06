@@ -53,6 +53,7 @@ solution_schema = TicDatFactory(
         buy_food = [["food"],["qty"]],
         consume_nutrition = [["category"],["qty"]])
 
+
 # Need to define solution data types to insure ticdat-OPL connection.
 # Also useful for debugging in general.
 solution_schema.set_data_type("parameters", "parameter_value", min=0, max=float("inf"),
