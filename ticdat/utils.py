@@ -360,16 +360,18 @@ def baseConverter(number, base):
     rtn.append(number%base)
     return rtn
 
-def freezable_factory(baseClass, freezeAttr) :
+def freezable_factory(baseClass, freezeAttr, alwaysEditable = None) :
+    alwaysEditable = alwaysEditable or set()
     class _Freezeable(baseClass) :
         def __setattr__(self, key, value):
-            if not getattr(self, freezeAttr, False):
+            if key in alwaysEditable or not getattr(self, freezeAttr, False):
                 return super(_Freezeable, self).__setattr__(key, value)
             raise TicDatError("can't set attributes to a frozen " + self.__class__.__name__)
         def __delattr__(self, item):
             if not getattr(self, freezeAttr, False):
                 return super(_Freezeable, self).__delattr__(item)
             raise TicDatError("can't del attributes to a frozen " + self.__class__.__name__)
+
     return _Freezeable
 
 

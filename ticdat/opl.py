@@ -50,6 +50,11 @@ def opl_run(mod_file, input_tdf, input_dat, soln_tdf, infinity=INFINITY, oplrun_
     """
     verify(mod_file[-4:] == '.mod', "file %s does not have a .mod extension"%mod_file)
     verify(os.path.isfile(mod_file), "mod_file %s is not a valid file."%mod_file)
+    verify(len({input_tdf.opl_prepend + t for t in input_tdf.all_tables}.union(
+               {soln_tdf.opl_prepend + t for t in soln_tdf.all_tables})) ==
+           len(input_tdf.all_tables) + len(soln_tdf.all_tables),
+           "There are colliding input and solution table names.\nSet opl_prepend so " +
+           "as to insure the input and solution table names are effectively distinct.")
     mod_file_name = os.path.basename(mod_file)[:-4]
     msg  = []
     verify(input_tdf.good_tic_dat_object(input_dat, msg.append),
@@ -135,7 +140,7 @@ def create_opl_text(tdf, tic_dat, infinity=INFINITY):
     rtn = ""
     for i, (t,l) in enumerate(dict_with_lists.items()):
         rtn += "\n" if i > 0 else ""
-        rtn += "%s = {"%t
+        rtn += "%s = {"%(tdf.opl_prepend + t)
         if len(l[0]) > 1:
             rtn += "\n"
         for x in range(len(l)):
@@ -174,7 +179,9 @@ def _create_opl_mod_text(tdf, output):
             add ASAP as needed) ")
     rtn = ''
     dict_tables = {t for t, pk in tdf.primary_key_fields.items() if pk}
+    verify(set(dict_tables) == set(tdf.all_tables), "not yet handling non-PK tables of any sort")
 
+    prepend = getattr(tdf, "opl_prepend", "")
     def get_type(data_types, table, field):
         try:
             return "float" if data_types[table][field].number_allowed else "string"
@@ -186,16 +193,16 @@ def _create_opl_mod_text(tdf, output):
         sig = '{}' if output else '...'
         if len(tdf.primary_key_fields[tbn]) is 1 and len(tdf.data_fields[tbn]) is 0:
             rtn = "{" + get_type(tdf.data_types, tbn, tdf.primary_key_fields[tbn][0]) + "} " + \
-                  tbn + " = " + sig + ";\n\n"
+                  prepend + tbn + " = " + sig + ";\n\n"
         else:
-            rtn += "tuple " + tbn + "_type\n{"
+            rtn += "tuple " + prepend + tbn + "_type\n{"
             for pk in tdf.primary_key_fields[tbn]:
                 pk.replace(' ', '_')
                 rtn += "\n\tkey " + get_type(tdf.data_types, tbn, pk) + " " + pk + ";"
             for df in tdf.data_fields[tbn]:
                 df.replace(' ', '_')
                 rtn += "\n\t" + get_type(tdf.data_types, tbn, df) + " " + df + ";"
-            rtn += "\n};\n\n{" + tbn + "_type} " + tbn + "=" + sig + ";\n\n"
+            rtn += "\n};\n\n{" + prepend + tbn + "_type} " + prepend + tbn + "=" + sig + ";\n\n"
         return rtn
 
     for t in dict_tables:
@@ -326,4 +333,5 @@ def read_opl_text(tdf,text, commaseperator = True):
                 field += c
     assert not find_duplicates_from_dict_ticdat(tdf, dict_with_lists), \
             "duplicates were found - if asserts are disabled, duplicate rows will overwrite"
-    return tdf.TicDat(**dict_with_lists)
+
+    return tdf.TicDat(**{k.replace(tdf.opl_prepend,"",1):v for k,v in dict_with_lists.items()})

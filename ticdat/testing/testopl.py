@@ -74,10 +74,13 @@ class TestOpl(unittest.TestCase):
         self.assertFalse(tdf._same_data(oldDat, newDat))
         oldDat.categories["protein"]["maxNutrition"]=12 # Remove infinity from the data
         changedDatStr = create_opl_text(tdf, oldDat)
-        with open("deb.out","w") as f:
-            f.write(changedDatStr)
         changedDat = read_opl_text(tdf, changedDatStr)
         self.assertTrue(tdf._same_data(oldDat,changedDat))
+        tdf.opl_prepend = "pre_"
+        changedDatStr = create_opl_text(tdf, oldDat)
+        changedDat = read_opl_text(tdf, changedDatStr)
+        self.assertTrue(tdf._same_data(oldDat,changedDat))
+
     def testNetflow(self):
         tdf = TicDatFactory(**netflowSchema())
         tdf.enable_foreign_key_links()
@@ -85,6 +88,11 @@ class TestOpl(unittest.TestCase):
         oldDatStr = create_opl_text(tdf, oldDat)
         newDat = read_opl_text(tdf, oldDatStr)
         self.assertTrue(tdf._same_data(oldDat, newDat))
+        tdf.opl_prepend = "stuff"
+        oldDatStr = create_opl_text(tdf, oldDat)
+        newDat = read_opl_text(tdf, oldDatStr)
+        self.assertTrue(tdf._same_data(oldDat, newDat))
+
     def testSilly(self):
         tdf = TicDatFactory(**sillyMeSchema())
         tdf.enable_foreign_key_links()
@@ -92,6 +100,11 @@ class TestOpl(unittest.TestCase):
         oldDatStr = create_opl_text(tdf, oldDat)
         newDat = read_opl_text(tdf, oldDatStr)
         self.assertTrue(tdf._same_data(oldDat, newDat))
+        tdf.opl_prepend = "ooooo"
+        oldDatStr = create_opl_text(tdf, oldDat)
+        newDat = read_opl_text(tdf, oldDatStr)
+        self.assertTrue(tdf._same_data(oldDat, newDat))
+
     def testPatternFinder(self):
         testpattern = 'parameters={'
         test1 = 'be sk={ipped}=\tme.\nLP86\n parameters={<"test" 0001>}\n\n<<< post process\n\n\n<<< done\n\n'
