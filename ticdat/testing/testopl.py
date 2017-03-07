@@ -1,5 +1,6 @@
 import os
-from ticdat.opl import create_opl_text, read_opl_text, pattern_finder, opl_run, create_opl_mod_text, _can_run_oplrun_tests
+from ticdat.opl import create_opl_text, read_opl_text, opl_run,create_opl_mod_text
+from ticdat.opl import _can_run_oplrun_tests, pattern_finder, _find_case_space_duplicates
 import sys
 from ticdat.ticdatfactory import TicDatFactory, DataFrame
 import ticdat.utils as utils
@@ -134,5 +135,18 @@ class TestOpl(unittest.TestCase):
         test11 = '>}'
         self.assertTrue(1 == pattern_finder(test11, testpattern, True))
         # Run the tests.
+    def testFindCaseSpaceDuplicates(self):
+        test2 = TicDatFactory(table=[['PK 1','PK 2'],['DF 1','DF 2']])
+        self.assertFalse(_find_case_space_duplicates(test2))
+        test3 = TicDatFactory(table=[['PK 1', 'PK_1'], []])
+        self.assertEqual(len(_find_case_space_duplicates(test3).keys()),1)
+        test4 = TicDatFactory(table=[[], ['DF 1', 'df_1']])
+        self.assertEqual(len(_find_case_space_duplicates(test4).keys()),1)
+        test5 = TicDatFactory(table=[['is Dup'], ['is_Dup']])
+        self.assertEqual(len(_find_case_space_duplicates(test5).keys()),1)
+        test6 = TicDatFactory(table1=[['test'],[]], table2=[['test'],[]])
+        self.assertFalse(_find_case_space_duplicates(test6))
+        test7 = TicDatFactory(table1=[['dup 1', 'Dup_1'],[]], table2=[['Dup 2', 'Dup_2'],[]])
+        self.assertEqual(len(_find_case_space_duplicates(test7).keys()),2)
 if __name__ == "__main__":
     unittest.main()

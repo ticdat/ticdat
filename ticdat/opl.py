@@ -38,6 +38,20 @@ def pattern_finder(string, pattern, rsearch=False):
             return i + 1 - len(poss_string)
     return False
 
+def _find_case_space_duplicates(tdf):
+    '''Need to loop through the tables'''
+    '''compare case insensitive versions of the fields in a table'''
+    '''if there's a dup, that table is one of the ones returned'''
+    '''hi'''
+    schema = tdf.schema()
+    tables_with_case_insensitive_dups = {}
+    for table in schema.keys():
+        fields = set(schema[table][0]).union(schema[table][1])
+        case_insensitive_fields = set(map(lambda k: k.lower().replace(" ", "_"),fields))
+        if len(fields) != len(case_insensitive_fields):
+            tables_with_case_insensitive_dups[table] = fields
+    return tables_with_case_insensitive_dups
+
 def opl_run(mod_file, input_tdf, input_dat, soln_tdf, infinity=INFINITY, oplrun_path=None, post_solve=None):
     """
     solve an optimization problem using an OPL .mod file
@@ -48,8 +62,9 @@ def opl_run(mod_file, input_tdf, input_dat, soln_tdf, infinity=INFINITY, oplrun_
     :param infinity: A number used to represent infinity in OPL
     :return: a TicDat object consistent with soln_tdf, or None if no solution found
     """
-    verify(mod_file[-4:] == '.mod', "file %s does not have a .mod extension"%mod_file)
     verify(os.path.isfile(mod_file), "mod_file %s is not a valid file."%mod_file)
+    verify(not _find_case_space_duplicates(input_tdf), "There are case space duplicate field names in the input schema.")
+    verify(not _find_case_space_duplicates(soln_tdf), "There are case space duplicate field names in the solution schema.")
     verify(len({input_tdf.opl_prepend + t for t in input_tdf.all_tables}.union(
                {soln_tdf.opl_prepend + t for t in soln_tdf.all_tables})) ==
            len(input_tdf.all_tables) + len(soln_tdf.all_tables),
