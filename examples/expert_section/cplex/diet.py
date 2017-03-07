@@ -15,7 +15,8 @@
 # will read from a model stored in the file input_data.xlsx and write the solution
 # to solution_data.xlsx.
 
-from ticdat import TicDatFactory, standard_main, Model
+from ticdat import TicDatFactory, standard_main
+from docplex.mp.model import Model
 
 # ------------------------ define the input schema --------------------------------
 # There are three input tables, with 4 primary key fields and 4 data fields.
@@ -59,7 +60,6 @@ solution_schema = TicDatFactory(
 
 
 # ------------------------ create a solve function --------------------------------
-_model_type = "gurobi" # could also be 'cplex' or 'xpress'
 def solve(dat):
     """
     core solving routine
@@ -71,30 +71,30 @@ def solve(dat):
     assert not input_schema.find_data_type_failures(dat)
     assert not input_schema.find_data_row_failures(dat)
 
-    mdl = Model(_model_type, "diet")
+    mdl = Model('diet')
 
-    nutrition = {c:mdl.add_var(lb=n["Min Nutrition"], ub=n["Max Nutrition"], name=c)
+    nutrition = {c:mdl.continuous_var(lb=n["Min Nutrition"], ub=n["Max Nutrition"], name=c)
                 for c,n in dat.categories.items()}
 
     # Create decision variables for the foods to buy
-    buy = {f:mdl.add_var(name=f) for f in dat.foods}
+    buy = {f:mdl.continuous_var(name=f) for f in dat.foods}
 
      # Nutrition constraints
     for c in dat.categories:
         mdl.add_constraint(mdl.sum(dat.nutrition_quantities[f,c]["Quantity"] * buy[f]
                              for f in dat.foods)
                            == nutrition[c],
-                           name = c)
+                           ctname = c)
 
-    mdl.set_objective(mdl.sum(buy[f] * c["Cost"] for f,c in dat.foods.items()))
+    mdl.minimize(mdl.sum(buy[f] * c["Cost"] for f,c in dat.foods.items()))
 
-    if mdl.optimize():
+    if mdl.solve():
         sln = solution_schema.TicDat()
         for f,x in buy.items():
-            if mdl.get_solution_value(x) > 0:
-                sln.buy_food[f] = mdl.get_solution_value(x)
+            if mdl.solution.get_value(x) > 0:
+                sln.buy_food[f] = mdl.solution.get_value(x)
         for c,x in nutrition.items():
-            sln.consume_nutrition[c] = mdl.get_solution_value(x)
+            sln.consume_nutrition[c] = mdl.solution.get_value(x)
         sln.parameters['Total Cost'] = sum(dat.foods[f]["Cost"] * r["Quantity"]
                                            for f,r in sln.buy_food.items())
         return sln

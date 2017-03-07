@@ -1,4 +1,4 @@
-import os
+import os,sys
 import unittest
 from shutil import rmtree, copy
 import itertools
@@ -26,6 +26,20 @@ def configure_blank_accdb():
     verify(os.path.isdir(mdb_dir), "%s is strangely not a directory. %s"%(mdb_dir, v_str))
     verify(os.path.isfile(os.path.join(mdb_dir, "mdb.py")), "mdb.py is missing. %s"%v_str)
     copy("blank.accdb", mdb_dir)
+
+def configure_oplrun_path():
+    if sys.platform in ['win32']:
+        oplrun_name = os.path.abspath('oplrun.exe')
+    else:
+        oplrun_name = os.path.abspath('oplrun')
+    verify(os.path.isfile(oplrun_name), "You need to be in the directory containing oplrun")
+    opl_dir = os.path.abspath(os.path.join(_codeDir(), ".."))
+    v_str = "Contact ticdat support at ticdat@opalytics.com"
+    verify(os.path.isdir(opl_dir), "%s is strangely not a directory. %s"%(opl_dir, v_str))
+    verify(os.path.isfile(os.path.join(opl_dir,"opl.py")), "opl.py is missing. %s"%v_str)
+    oplrun_path = os.path.abspath(oplrun_name)
+    with open(os.path.join(opl_dir, "oplrun_path.txt"), "w") as f:
+        f.write(oplrun_path)
 
 _debug = []
 def _asserting() :

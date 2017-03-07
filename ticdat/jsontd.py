@@ -118,4 +118,4 @@ class JsonTicFactory(freezable_factory(object, "_isFrozen")) :
                 for data_row in tbl:
                     jdict[t].append([data_row[df] for df in tdf.data_fields[t]])
         with open(json_file_path, "w") as fp:
-            json.dump(jdict, fp)
+            json.dump(jdict, fp, sort_keys=True, indent=2)

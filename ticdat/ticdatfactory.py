@@ -71,7 +71,7 @@ class _TypeDictionary(namedtuple("TypeDictionary",
             return bool(self.nullable)
         return False
 
-class TicDatFactory(freezable_factory(object, "_isFrozen")) :
+class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend"})) :
     """
     Primary class for ticdat library. This class is constructed with a schema,
     and can be used to generate TicDat objects, or to write TicDat objects to
@@ -484,6 +484,9 @@ foreign keys, the code throwing this exception will be removed.
                                                if v != '*'})
         self._data_fields = FrozenDict({k : tuple(v[1]) for k,v in init_fields.items() if v != '*'})
         self._default_values = clt.defaultdict(dict)
+        for tbl,flds in self._data_fields.items():
+            for fld in flds:
+                self._default_values[tbl][fld] = 0
         self._data_types = clt.defaultdict(dict)
         self._data_row_predicates = clt.defaultdict(dict)
         self._generator_tables = []
@@ -692,6 +695,7 @@ foreign keys, the code throwing this exception will be removed.
         self.sql = sql.SQLiteTicFactory(self)
         self.mdb = mdb.MdbTicFactory(self)
         self.json = json.JsonTicFactory(self)
+        self._prepends = {}
         self._isFrozen=True
 
     def _allFields(self, table):
@@ -730,7 +734,8 @@ foreign keys, the code throwing this exception will be removed.
                                      bad_message_handler = lambda x : None):
          if self.primary_key_fields.get(table_name, None) and containerish(data_table) \
                  and not dictish(data_table) and not utils.stringish(data_table) \
-                 and not (utils.DataFrame and isinstance(data_table, utils.DataFrame)):
+                 and not (utils.DataFrame and isinstance(data_table, utils.DataFrame)) \
+                 and not (pd.Series and isinstance(data_table, pd.Series)):
              tdf = TicDatFactory(**{table_name:[[], list(self.primary_key_fields[table_name]) +
                                                     list(self.data_fields.get(table_name, []))]})
              return tdf.good_tic_dat_table(data_table, table_name, bad_message_handler)
@@ -1327,6 +1332,15 @@ foreign keys, the code throwing this exception will be removed.
             converted_table = list(_table if containerish(_table) else _table())
         return utils.find_denormalized_sub_table_failures(converted_table,
                             sub_table_pk_fields, sub_table_data_fields)
+
+    @property
+    def opl_prepend(self):
+        return self._prepends.get("opl", "")
+
+    @opl_prepend.setter
+    def opl_prepend(self, value):
+        verify(utils.stringish(value), "opl_prepend should be a string")
+        self._prepends["opl"] = value
 
 def freeze_me(x) :
     """
