@@ -22,45 +22,45 @@ from ticdat import TicDatFactory, standard_main, opl_run
 # ------------------------ define the input schema --------------------------------
 # There are three input tables, with 4 primary key fields and 4 data fields.
 input_schema = TicDatFactory (
-     categories = [["name"],["min_nutrition", "max_nutrition"]],
-     foods  = [["name"],["cost"]],
-     nutrition_quantities = [["food", "category"], ["quantity"]])
+    categories = [["Name"],["Min Nutrition", "Max Nutrition"]],
+    foods  = [["Name"],["Cost"]],
+    nutrition_quantities = [["Food", "Category"], ["Quantity"]])
 
 # Define the data types
-input_schema.set_data_type("categories", "min_nutrition", min=0, max=float("inf"),
+input_schema.set_data_type("categories", "Min Nutrition", min=0, max=float("inf"),
                            inclusive_min=True, inclusive_max=False)
-input_schema.set_data_type("categories", "max_nutrition", min=0, max=float("inf"),
+input_schema.set_data_type("categories", "Max Nutrition", min=0, max=float("inf"),
                            inclusive_min=True, inclusive_max=True)
-input_schema.set_data_type("foods", "cost", min=0, max=float("inf"),
+input_schema.set_data_type("foods", "Cost", min=0, max=float("inf"),
                            inclusive_min=True, inclusive_max=False)
-input_schema.set_data_type("nutrition_quantities", "quantity", min=0, max=float("inf"),
+input_schema.set_data_type("nutrition_quantities", "Quantity", min=0, max=float("inf"),
                            inclusive_min=True, inclusive_max=False)
 
 # We also want to insure that Max Nutrition doesn't fall below Min Nutrition
 input_schema.add_data_row_predicate(
     "categories", predicate_name="Min Max Check",
-    predicate=lambda row : row["max_nutrition"] >= row["min_nutrition"])
+    predicate=lambda row : row["Max Nutrition"] >= row["Min Nutrition"])
 
 # The default-default of zero makes sense everywhere except for Max Nutrition
-input_schema.set_default_value("categories", "max_nutrition", float("inf"))
+input_schema.set_default_value("categories", "Max Nutrition", float("inf"))
 # ---------------------------------------------------------------------------------
 
 
 # ------------------------ define the output schema -------------------------------
 # There are three solution tables, with 2 primary key fields and 3 data fields.
 solution_schema = TicDatFactory(
-        parameters = [["parameter_name"],["parameter_value"]],
-        buy_food = [["food"],["qty"]],
-        consume_nutrition = [["category"],["qty"]])
+    parameters = [["Key"],["Value"]],
+    buy_food = [["Food"],["Quantity"]],
+    consume_nutrition = [["Category"],["Quantity"]])
 
 
 # Need to define solution data types to insure ticdat-OPL connection.
 # Also useful for debugging in general.
-solution_schema.set_data_type("parameters", "parameter_value", min=0, max=float("inf"),
+solution_schema.set_data_type("parameters", "Value", min=0, max=float("inf"),
                            inclusive_min=True, inclusive_max=False)
-solution_schema.set_data_type("buy_food", "qty", min=0, max=float("inf"),
+solution_schema.set_data_type("buy_food", "Quantity", min=0, max=float("inf"),
                            inclusive_min=True, inclusive_max=True)
-solution_schema.set_data_type("consume_nutrition", "qty", min=0, max=float("inf"),
+solution_schema.set_data_type("consume_nutrition", "Quantity", min=0, max=float("inf"),
                            inclusive_min=True, inclusive_max=False)
 # ---------------------------------------------------------------------------------
 

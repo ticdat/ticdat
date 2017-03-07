@@ -21,36 +21,36 @@
 from ticdat import TicDatFactory, standard_main, opl_run
 
 # ------------------------ define the input schema --------------------------------
-input_schema = TicDatFactory (
-     commodities = [["name"],[]],
-     nodes  = [["name"],[]],
-     arcs = [["source", "destination"],["capacity"]],
-     cost = [["commodity", "source", "destination"], ["cost"]],
-     inflow = [["commodity", "node"],["quantity"]]
+input_schema = TicDatFactory(
+    commodities=[["Name"], []],
+    nodes=[["Name"], []],
+    arcs=[["Source", "Destination"], ["Capacity"]],
+    cost=[["Commodity", "Source", "Destination"], ["Cost"]],
+    inflow=[["Commodity", "Node"], ["Quantity"]]
 )
 
 # add foreign key constraints
-input_schema.add_foreign_key("arcs", "nodes", ['source', 'name'])
-input_schema.add_foreign_key("arcs", "nodes", ['destination', 'name'])
-input_schema.add_foreign_key("cost", "nodes", ['source', 'name'])
-input_schema.add_foreign_key("cost", "nodes", ['destination', 'name'])
-input_schema.add_foreign_key("cost", "commodities", ['commodity', 'name'])
-input_schema.add_foreign_key("inflow", "commodities", ['commodity', 'name'])
-input_schema.add_foreign_key("inflow", "nodes", ['node', 'name'])
+input_schema.add_foreign_key("arcs", "nodes", ['Source', 'Name'])
+input_schema.add_foreign_key("arcs", "nodes", ['Destination', 'Name'])
+input_schema.add_foreign_key("cost", "nodes", ['Source', 'Name'])
+input_schema.add_foreign_key("cost", "nodes", ['Destination', 'Name'])
+input_schema.add_foreign_key("cost", "commodities", ['Commodity', 'Name'])
+input_schema.add_foreign_key("inflow", "commodities", ['Commodity', 'Name'])
+input_schema.add_foreign_key("inflow", "nodes", ['Node', 'Name'])
 
-input_schema.set_data_type("arcs", "capacity",  max=float("inf"),
+input_schema.set_data_type("arcs", "Capacity",  max=float("inf"),
                            inclusive_max=True)
-input_schema.set_data_type("cost", "cost")
-input_schema.set_data_type("inflow", "quantity", min=-float("inf"),
+input_schema.set_data_type("cost", "Cost")
+input_schema.set_data_type("inflow", "Quantity", min=-float("inf"),
                           inclusive_min=False)
 # ---------------------------------------------------------------------------------
 
 # ------------------------ define the output schema -------------------------------
 solution_schema = TicDatFactory(
-        flow = [["commodity", "source", "destination"], ["quantity"]],
-        parameters = [["paramKey"],["value"]])
-solution_schema.set_data_type("flow","quantity")
-solution_schema.set_data_type("parameters","value")
+    flow=[["Commodity", "Source", "Destination"], ["Quantity"]],
+    parameters=[["Key"], ["Value"]])
+solution_schema.set_data_type("flow","Quantity")
+solution_schema.set_data_type("parameters","Value")
 # ---------------------------------------------------------------------------------
 
 # ------------------------ solving section-----------------------------------------

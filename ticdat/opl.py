@@ -212,10 +212,10 @@ def _create_opl_mod_text(tdf, output):
         else:
             rtn += "tuple " + prepend + tbn + "_type\n{"
             for pk in tdf.primary_key_fields[tbn]:
-                pk.replace(' ', '_')
+                pk.lower().replace(' ', '_')
                 rtn += "\n\tkey " + get_type(tdf.data_types, tbn, pk) + " " + pk + ";"
             for df in tdf.data_fields[tbn]:
-                df.replace(' ', '_')
+                df.lower().replace(' ', '_')
                 rtn += "\n\t" + get_type(tdf.data_types, tbn, df) + " " + df + ";"
             rtn += "\n};\n\n{" + prepend + tbn + "_type} " + prepend + tbn + "=" + sig + ";\n\n"
         return rtn
