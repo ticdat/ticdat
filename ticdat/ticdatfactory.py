@@ -484,6 +484,9 @@ foreign keys, the code throwing this exception will be removed.
                                                if v != '*'})
         self._data_fields = FrozenDict({k : tuple(v[1]) for k,v in init_fields.items() if v != '*'})
         self._default_values = clt.defaultdict(dict)
+        for tbl,flds in self._data_fields.items():
+            for fld in flds:
+                self._default_values[tbl][fld] = 0
         self._data_types = clt.defaultdict(dict)
         self._data_row_predicates = clt.defaultdict(dict)
         self._generator_tables = []
