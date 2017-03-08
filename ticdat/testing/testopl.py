@@ -2,13 +2,11 @@ import os
 from ticdat.opl import create_opl_text, read_opl_text, opl_run,create_opl_mod_text
 from ticdat.opl import _can_run_oplrun_tests, pattern_finder, _find_case_space_duplicates
 import sys
-from ticdat.ticdatfactory import TicDatFactory, DataFrame
+from ticdat.ticdatfactory import TicDatFactory
 import ticdat.utils as utils
-from ticdat.testing.ticdattestutils import dietData, dietSchema, addDietDataTypes
-from ticdat.testing.ticdattestutils import netflowData, addNetflowDataTypes, nearlySame
-from ticdat.testing.ticdattestutils import  netflowSchema, firesException, spacesData, spacesSchema
-from ticdat.testing.ticdattestutils import sillyMeData, sillyMeSchema, fail_to_debugger, flagged_as_run_alone
-from ticdat.testing.ticdattestutils import  makeCleanDir, addNetflowForeignKeys, clean_denormalization_errors
+from ticdat.testing.ticdattestutils import dietData, dietSchema, netflowData, addNetflowDataTypes, nearlySame
+from ticdat.testing.ticdattestutils import  netflowSchema,sillyMeData, sillyMeSchema
+from ticdat.testing.ticdattestutils import fail_to_debugger, flagged_as_run_alone, get_testing_file_path
 import unittest
 
 #@fail_to_debugger
@@ -22,29 +20,84 @@ class TestOpl(unittest.TestCase):
         utils.development_deployed_environment = cls._original_value
     def testDiet_oplrunRequired(self):
         self.assertTrue(_can_run_oplrun_tests)
-        in_tdf = TicDatFactory(**dietSchema())
-        in_tdf.enable_foreign_key_links()
+        diet_schema = {"categories" : (("Name",),["Min Nutrition", "Max Nutrition"]),
+                       "foods" :[["Name"],("Cost",)],
+                       "nutritionQuantities" : (["Food", "Category"], ["Qty"])
+                      }
+        in_tdf = TicDatFactory(**diet_schema)
         soln_tdf = TicDatFactory(
-            parameters=[["parameter_name"], ["parameter_value"]],
-            buy_food=[["food"], ["qty"]],consume_nutrition=[["category"], ["qty"]])
-        dat = in_tdf.TicDat(**{t:getattr(dietData(), t) for t in in_tdf.primary_key_fields})
+            parameters=[["Parameter Name"], ["Parameter Value"]],
+            buy_food=[["Food"], ["Qty"]],consume_nutrition=[["Category"], ["Qty"]])
+        makeDat = lambda : in_tdf.TicDat(
+            categories = {'calories': [1800, 2200],
+                          'protein':  [91,   float("inf")],
+                          'fat':      [0, 65],
+                          'sodium':   [0, 1779]},
+
+            foods = {'hamburger': 2.49,
+                      'chicken':   2.89,
+                      'hot dog':   1.50,
+                      'fries':     1.89,
+                      'macaroni':  2.09,
+                      'pizza':     1.99,
+                      'salad':     2.49,
+                      'milk':      0.89,
+                      'ice cream': 1.59},
+            nutritionQuantities= [('hamburger', 'calories', 410),
+                                  ('hamburger', 'protein', 24),
+                                  ('hamburger', 'fat', 26),
+                                  ('hamburger', 'sodium', 730),
+                                  ('chicken',   'calories', 420),
+                                  ('chicken',   'protein', 32),
+                                  ('chicken',   'fat', 10),
+                                  ('chicken',   'sodium', 1190),
+                                  ('hot dog',   'calories', 560),
+                                  ('hot dog',   'protein', 20),
+                                  ('hot dog',   'fat', 32),
+                                  ('hot dog',   'sodium', 1800),
+                                  ('fries',     'calories', 380),
+                                  ('fries',     'protein', 4),
+                                  ('fries',     'fat', 19),
+                                  ('fries',     'sodium', 270),
+                                  ('macaroni',  'calories', 320),
+                                  ('macaroni',  'protein', 12),
+                                  ('macaroni',  'fat', 10),
+                                  ('macaroni',  'sodium', 930),
+                                  ('pizza',     'calories', 320),
+                                  ('pizza',     'protein', 15),
+                                  ('pizza',     'fat', 12),
+                                  ('pizza',     'sodium', 820),
+                                  ('salad',     'calories', 320),
+                                  ('salad',     'protein', 31),
+                                  ('salad',     'fat', 12),
+                                  ('salad',     'sodium', 1230),
+                                  ('milk',      'calories', 100),
+                                  ('milk',      'protein', 8),
+                                  ('milk',      'fat', 2.5),
+                                  ('milk',      'sodium', 125),
+                                  ('ice cream', 'calories', 330),
+                                  ('ice cream', 'protein', 8),
+                                  ('ice cream', 'fat', 10),
+                                  ('ice cream', 'sodium', 180) ] )
         # opl_run should not complete before adding the data types, because opl can't read the generated mod file
-        opl_soln = opl_run("sample_diet.mod", in_tdf, dat, soln_tdf)
+        opl_soln = opl_run(get_testing_file_path("sample_diet.mod"), in_tdf, makeDat(), soln_tdf)
         self.assertIsNone(opl_soln)
         # opl_run should return a solution after adding the data types
-        in_tdf = TicDatFactory(**dietSchema())
-        in_tdf.enable_foreign_key_links()
-        addDietDataTypes(in_tdf)
+        in_tdf = TicDatFactory(**diet_schema)
+        for table, fields in in_tdf.data_fields.items():
+            for field in fields:
+                in_tdf.set_data_type(table, field)
+        in_tdf.set_data_type("categories", "Max Nutrition", max=float("inf"), inclusive_max=True)
         for table, fields in soln_tdf.data_fields.items():
             for field in fields:
                 soln_tdf.set_data_type(table, field)
-        dat = in_tdf.TicDat(**{t: getattr(dietData(), t) for t in in_tdf.primary_key_fields})
-        opl_soln = opl_run("sample_diet.mod", in_tdf, dat, soln_tdf)
+        opl_soln = opl_run(get_testing_file_path("sample_diet.mod"), in_tdf, makeDat(), soln_tdf)
         self.assertTrue(nearlySame(opl_soln.parameters["Total Cost"]["parameter_value"], 11.829, epsilon=0.0001))
         self.assertTrue(nearlySame(opl_soln.consume_nutrition["protein"]["qty"], 91, epsilon=0.0001))
         # opl_run should return None when there is an infeasible solution
-        dat.categories["calories"]["minNutrition"] = dat.categories["calories"]["maxNutrition"]+1
-        opl_soln = opl_run("sample_diet.mod", in_tdf, dat, soln_tdf)
+        dat = makeDat()
+        dat.categories["calories"]["Min Nutrition"] = dat.categories["calories"]["Max Nutrition"]+1
+        opl_soln = opl_run(get_testing_file_path("sample_diet.mod"), in_tdf, dat, soln_tdf)
         self.assertIsNone(opl_soln)
     def testNetflow_oplrunRequired(self):
         self.assertTrue(_can_run_oplrun_tests)
