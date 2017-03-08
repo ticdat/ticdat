@@ -92,8 +92,8 @@ class TestOpl(unittest.TestCase):
             for field in fields:
                 soln_tdf.set_data_type(table, field)
         opl_soln = opl_run(get_testing_file_path("sample_diet.mod"), in_tdf, makeDat(), soln_tdf)
-        self.assertTrue(nearlySame(opl_soln.parameters["Total Cost"]["parameter_value"], 11.829, epsilon=0.0001))
-        self.assertTrue(nearlySame(opl_soln.consume_nutrition["protein"]["qty"], 91, epsilon=0.0001))
+        self.assertTrue(nearlySame(opl_soln.parameters["Total Cost"]["Parameter Value"], 11.829, epsilon=0.0001))
+        self.assertTrue(nearlySame(opl_soln.consume_nutrition["protein"]["Qty"], 91, epsilon=0.0001))
         # opl_run should return None when there is an infeasible solution
         dat = makeDat()
         dat.categories["calories"]["Min Nutrition"] = dat.categories["calories"]["Max Nutrition"]+1
