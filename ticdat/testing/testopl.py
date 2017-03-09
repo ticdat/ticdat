@@ -1,6 +1,7 @@
 import os
 from ticdat.opl import create_opl_text, read_opl_text, opl_run,create_opl_mod_text
 from ticdat.opl import _can_run_oplrun_tests, pattern_finder, _find_case_space_duplicates
+from ticdat.opl import _fix_fields_with_opl_keywords, _unfix_fields_with_opl_keywords
 import sys
 from ticdat.ticdatfactory import TicDatFactory
 import ticdat.utils as utils
@@ -201,5 +202,25 @@ class TestOpl(unittest.TestCase):
         self.assertFalse(_find_case_space_duplicates(test6))
         test7 = TicDatFactory(table1=[['dup 1', 'Dup_1'],[]], table2=[['Dup 2', 'Dup_2'],[]])
         self.assertEqual(len(_find_case_space_duplicates(test7).keys()),2)
+    def testChangeFieldsWithOplKeywords(self):
+        input_schema = TicDatFactory(
+            categories=[["Name"], ["Min Nutrition", "Max Nutrition"]],
+            foods=[["Name"], ["Cost"]],
+            nutrition_quantities=[["Food", "Category"], ["Quantity"]])
+        input_schema.set_data_type("categories", "Min Nutrition", min=0, max=float("inf"),
+                                   inclusive_min=True, inclusive_max=False)
+        input_schema.set_data_type("categories", "Max Nutrition", min=0, max=float("inf"),
+                                   inclusive_min=True, inclusive_max=True)
+        input_schema.set_data_type("foods", "Cost", min=0, max=float("inf"),
+                                   inclusive_min=True, inclusive_max=False)
+        input_schema.set_data_type("nutrition_quantities", "Quantity", min=0, max=float("inf"),
+                                   inclusive_min=True, inclusive_max=False)
+        input_schema.add_data_row_predicate(
+            "categories", predicate_name="Min Max Check",
+            predicate=lambda row: row["Max Nutrition"] >= row["Min Nutrition"])
+        input_schema.set_default_value("categories", "Max Nutrition", float("inf"))
+        new_input_schema = _fix_fields_with_opl_keywords(input_schema)
+        self.assertDictEqual(input_schema.data_types, new_input_schema.data_types)
+
 if __name__ == "__main__":
     unittest.main()

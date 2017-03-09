@@ -1,9 +1,21 @@
 from ticdat.utils import verify, containerish, stringish, find_duplicates_from_dict_ticdat
 import ticdat.utils as tu
+from ticdat.ticdatfactory import TicDatFactory
 import os, subprocess, inspect, time, uuid, shutil
 from collections import defaultdict
+from ticdat.jsontd import make_json_dict
 
 INFINITY = 999999
+
+opl_keywords = ["initial", "template", "struct", "all", "and", "assert", "boolean", "constraints", "CP",
+                "CPLEX", "cumulFunction", "DBConnection", "DBExecute", "DBRead", "DBUpdate", "dexpr",
+                "diff", "div", "dvar", "else", "execute", "false", "float", "float+", "forall", "from",
+                "in", "if", "include", "infinity", "int", "int+", "intensity", "inter", "interval",
+                "invoke", "key", "main", "max", "maximize", "maxint", "min", "minimize", "mod", "not",
+                "optional", "or", "ordered", "piecewise", "prepare", "prod", "pwlFunction", "range",
+                "reversed", "sequence", "setof", "SheetConnection", "SheetRead", "SheetWrite", "size",
+                "sorted", "SPSSConnection", "SPSSRead", "stateFunction", "stepFunction", "stepwise",
+                "string", "subject", "sum", "symdiff", "to", "true", "tuple", "types", "union", "using", "with"]
 
 def _code_dir():
     return os.path.dirname(os.path.abspath(inspect.getsourcefile(_code_dir)))
@@ -46,12 +58,33 @@ def _find_case_space_duplicates(tdf):
     """
     schema = tdf.schema()
     tables_with_case_insensitive_dups = {}
-    for table in schema.keys():
+    for table in schema:
         fields = set(schema[table][0]).union(schema[table][1])
         case_insensitive_fields = set(map(lambda k: k.lower().replace(" ", "_"),fields))
         if len(fields) != len(case_insensitive_fields):
             tables_with_case_insensitive_dups[table] = fields
     return tables_with_case_insensitive_dups
+
+def _change_fields_with_opl_keywords(tdf, undo=False):
+    tdf_schema = tdf.schema()
+    for table, fields in tdf_schema.items():
+        for field_type in [fields[0], fields[1]]:
+            for f in range(len(field_type)):
+                if undo:
+                    verify(not field_type[f].startswith('_', "Field names cannot start with '_', in table %s, \
+                                                                        field is %s" % (table, field_type[f])))
+                    if field_type[f] in opl_keywords:
+                        field_type[f] = '_' + field_type[f]
+                else:
+                    if field_type[f].startswith('_'):
+                        field_type[f] = field_type[f][1:]
+    return TicDatFactory(**tdf_schema)
+
+def _fix_fields_with_opl_keywords(tdf):
+    return _change_fields_with_opl_keywords(tdf)
+
+def _unfix_fields_with_opl_keywords(tdf):
+    return _change_fields_with_opl_keywords(tdf, True)
 
 def opl_run(mod_file, input_tdf, input_dat, soln_tdf, infinity=INFINITY, oplrun_path=None, post_solve=None):
     """
@@ -71,12 +104,14 @@ def opl_run(mod_file, input_tdf, input_dat, soln_tdf, infinity=INFINITY, oplrun_
            len(input_tdf.all_tables) + len(soln_tdf.all_tables),
            "There are colliding input and solution table names.\nSet opl_prepend so " +
            "as to insure the input and solution table names are effectively distinct.")
+    json_dict = make_json_dict(input_tdf, input_dat)
+    input_tdf = _fix_fields_with_opl_keywords(input_tdf)
+    soln_tdf = _fix_fields_with_opl_keywords(soln_tdf)
+    input_dat = input_tdf.TicDat(**json_dict)
     mod_file_name = os.path.basename(mod_file)[:-4]
     msg  = []
     verify(input_tdf.good_tic_dat_object(input_dat, msg.append),
            "tic_dat not a good object for the input_tdf factory : %s"%"\n".join(msg))
-    #verify('input_tdf doesnt have any tables/fields with leading __')
-    #erify('output_tdf doesnt have any tables/fields with leading _')
     working_dir = os.path.abspath(os.path.dirname(mod_file))
     if tu.development_deployed_environment:
         working_dir = os.path.join(working_dir, "oplticdat_%s"%uuid.uuid4())
@@ -127,6 +162,7 @@ def opl_run(mod_file, input_tdf, input_dat, soln_tdf, infinity=INFINITY, oplrun_
         output = f.read()
     if post_solve:
         post_solve()
+    soln_tdf = _unfix_fields_with_opl_keywords(soln_tdf)
     return read_opl_text(soln_tdf, output, False)
 
 _can_run_oplrun_tests = os.path.isfile(os.path.join(_code_dir(),"oplrun_path.txt"))
