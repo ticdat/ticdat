@@ -221,6 +221,7 @@ class TestOpl(unittest.TestCase):
         input_schema.set_default_value("categories", "Max Nutrition", float("inf"))
         new_input_schema = _fix_fields_with_opl_keywords(input_schema)
         self.assertDictEqual(input_schema.data_types, new_input_schema.data_types)
+        self.assertDictEqual(input_schema.default_values, new_input_schema.default_values)
 
 if __name__ == "__main__":
     unittest.main()

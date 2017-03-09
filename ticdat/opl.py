@@ -67,18 +67,31 @@ def _find_case_space_duplicates(tdf):
 
 def _change_fields_with_opl_keywords(tdf, undo=False):
     tdf_schema = tdf.schema()
+    mapping = {}
     for table, fields in tdf_schema.items():
-        for field_type in [fields[0], fields[1]]:
-            for f in range(len(field_type)):
-                if undo:
-                    verify(not field_type[f].startswith('_', "Field names cannot start with '_', in table %s, \
-                                                                        field is %s" % (table, field_type[f])))
-                    if field_type[f] in opl_keywords:
-                        field_type[f] = '_' + field_type[f]
+        for fields_list in [fields[0], fields[1]]:
+            for findex in range(len(fields_list)):
+                original_field = fields_list[findex]
+                if not undo:
+                    verify(not fields_list[findex].startswith('_'),
+                           ("Field names cannot start with '_', in table %s : " +
+                            "field is %s") % (table, fields_list[findex]))
+                    if fields_list[findex] in opl_keywords:
+                        fields_list[findex] = '_' + fields_list[findex]
                 else:
-                    if field_type[f].startswith('_'):
-                        field_type[f] = field_type[f][1:]
-    return TicDatFactory(**tdf_schema)
+                    if fields_list[findex].startswith('_'):
+                        fields_list[findex] = fields_list[findex][1:]
+                mapping[table,original_field] = fields_list[findex]
+
+    rtn = TicDatFactory(**tdf_schema)
+    for (table, original_field),new_field in mapping.items():
+        if original_field in tdf.default_values.get(table, ()):
+            rtn.set_default_value(table, new_field,
+                                  tdf.default_values[table][original_field])
+        if original_field in tdf.data_types.get(table, ()):
+            rtn.set_data_type(table, new_field,
+                              *(tdf.data_types[table][original_field]))
+    return rtn
 
 def _fix_fields_with_opl_keywords(tdf):
     return _change_fields_with_opl_keywords(tdf)
