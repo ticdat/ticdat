@@ -76,7 +76,7 @@ def opl_run(mod_file, input_tdf, input_dat, soln_tdf, infinity=INFINITY, oplrun_
     verify(input_tdf.good_tic_dat_object(input_dat, msg.append),
            "tic_dat not a good object for the input_tdf factory : %s"%"\n".join(msg))
     #verify('input_tdf doesnt have any tables/fields with leading __')
-    v#erify('output_tdf doesnt have any tables/fields with leading _')
+    #erify('output_tdf doesnt have any tables/fields with leading _')
     working_dir = os.path.abspath(os.path.dirname(mod_file))
     if tu.development_deployed_environment:
         working_dir = os.path.join(working_dir, "oplticdat_%s"%uuid.uuid4())
