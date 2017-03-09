@@ -39,10 +39,11 @@ def pattern_finder(string, pattern, rsearch=False):
     return False
 
 def _find_case_space_duplicates(tdf):
-    '''Need to loop through the tables'''
-    '''compare case insensitive versions of the fields in a table'''
-    '''if there's a dup, that table is one of the ones returned'''
-    '''hi'''
+    """
+    Finds fields that are case space duplicates
+    :param tdf: A TicDatFactory defining the schema
+    :return: A dictionary with the keys being tables that have case space duplicates
+    """
     schema = tdf.schema()
     tables_with_case_insensitive_dups = {}
     for table in schema.keys():
@@ -74,6 +75,8 @@ def opl_run(mod_file, input_tdf, input_dat, soln_tdf, infinity=INFINITY, oplrun_
     msg  = []
     verify(input_tdf.good_tic_dat_object(input_dat, msg.append),
            "tic_dat not a good object for the input_tdf factory : %s"%"\n".join(msg))
+    #verify('input_tdf doesnt have any tables/fields with leading __')
+    v#erify('output_tdf doesnt have any tables/fields with leading _')
     working_dir = os.path.abspath(os.path.dirname(mod_file))
     if tu.development_deployed_environment:
         working_dir = os.path.join(working_dir, "oplticdat_%s"%uuid.uuid4())
@@ -112,6 +115,8 @@ def opl_run(mod_file, input_tdf, input_dat, soln_tdf, infinity=INFINITY, oplrun_
     try:
         output = subprocess.check_output([oplrun_path, mod_file, datfile], stderr=subprocess.STDOUT)
     except subprocess.CalledProcessError as err:
+        if tu.development_deployed_environment:
+            raise Exception("oplrun failed to complete: " + err.output)
         output = err.output
     with open(output_txt, "w") as f:
         f.write(output)
