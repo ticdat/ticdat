@@ -25,7 +25,7 @@ from ticdat import TicDatFactory, standard_main, opl_run
 # using all lower case field names with underscores until #1658 resolved
 input_schema = TicDatFactory (
      parameters = [["key"],["value"]],
-     gasoline = [["name"],["demand","sales_price","min_octane_rating", "max_lead_contents"]],
+     gas = [["name"],["demand","sales_price","min_octane_rating", "max_lead_contents"]],
      oil = [["name"],["supply","purchase_price","octane_rating", "lead_contents"]])
 
 # no foreign keys
@@ -34,13 +34,13 @@ input_schema.set_data_type("parameters", "key", number_allowed = False,
                            strings_allowed= ["Maximum Production", "Production Cost"])
 input_schema.set_data_type("parameters", "value", min=0, max=float("inf"),
                            inclusive_min=True, inclusive_max=True)
-input_schema.set_data_type("gasoline", "demand", min=0, max=float("inf"),
+input_schema.set_data_type("gas", "demand", min=0, max=float("inf"),
                            inclusive_min=True, inclusive_max=False)
-input_schema.set_data_type("gasoline", "sales_price", min=0, max=float("inf"),
+input_schema.set_data_type("gas", "sales_price", min=0, max=float("inf"),
                            inclusive_min=True, inclusive_max=False)
-input_schema.set_data_type("gasoline", "min_octane_rating", min=0, max=float("inf"),
+input_schema.set_data_type("gas", "min_octane_rating", min=0, max=float("inf"),
                            inclusive_min=True, inclusive_max=False)
-input_schema.set_data_type("gasoline", "max_lead_contents", min=0, max=float("inf"),
+input_schema.set_data_type("gas", "max_lead_contents", min=0, max=float("inf"),
                            inclusive_min=True, inclusive_max=True)
 input_schema.set_data_type("oil", "supply", min=0, max=float("inf"),
                            inclusive_min=True, inclusive_max=True)
@@ -54,14 +54,18 @@ input_schema.set_data_type("oil", "lead_contents", min=0, max=float("inf"),
 input_schema.add_data_row_predicate("parameters",
                                     lambda row : not (row["key"] == "Production Cost" and
                                                       row["value"] == float("inf")))
+
+input_schema.opl_prepend = "inp_" # avoid table name collisions
 # ---------------------------------------------------------------------------------
 
 
 # ------------------------ define the output schema -------------------------------
 solution_schema = TicDatFactory(
     parameters = [["key"],["value"]],
-    advertising = [["gasoline"],["dollars_spent"]],
-    blending = [["oil","gasoline"],["quantity"]])
+    advertising = [["gas"],["dollars_spent"]],
+    blending = [["oil","gas"],["quantity"]])
+
+solution_schema.opl_prepend = "sln_" # avoid table name collisions
 # ---------------------------------------------------------------------------------
 
 # ------------------------ create a solve function --------------------------------
