@@ -24,12 +24,14 @@ tuple oilType {
   float lead;
 }
 
-/* next 4 lines are probably wrong - please review */
-gasType Gas[Gasolines] = ...;
-oilType Oil[Oils] = ...;
-float MaxProduction = ...;
-float ProdCost = ...;
+/* PJC-JOSH next 2 lines are probably wrong - please review */
+gasType Gas[Gasolines] = [n: <d,s,o,l> |  <n,d,s,o,l> in inp_gas];
+oilType Oil[Oils] = [n: <s,p,o,l> | <n,s,p,o,l> in inp_oil];
+/* PJC-JOSH - really flailing next 2 lines - just trying to get parameter value or zero if missing
+float MaxProduction = sum(v for <k,v> in inp_parameters if k == "Maximum Production");
+float ProdCost = sum(v for <k,v> in inp_parameters if k == "Production Cost");
 
+/* begin block of code that's exactly the same as https://goo.gl/kqXmQE */
 dvar float+ a[Gasolines];
 dvar float+ Blend[Oils][Gasolines];
 
@@ -65,7 +67,26 @@ execute DISPLAY_REDUCED_COSTS{
     writeln("a[",g,"].reducedCost = ",a[g].reducedCost);
   }
 }
+/* end block of code that's exactly the same as https://goo.gl/kqXmQE */
 
-
+/* write out solution */
 include "ticdat_oil_blend_output.mod";
-
+float total_advertising = sum(g in Gasolines) a[g];
+float total_purchase_cost = sum( g in Gasolines , o in Oils ) Oil[o].price * Blend[o][g]
+float total_production_cost = sum( g in Gasolines , o in Oils ) ProdCost * Blend[o][g]
+float total_revenue = sum( g in Gasolines , o in Oils ) Gas[g].price * Blend[o][g]
+execute {
+   for (var o in Oils){
+        for (var g in Gasolines){
+            sln_blending.add(o,g,Blend[o][g])
+        }
+   }
+   for (var g in Gasolines){
+        sln_advertising.add(g,a[g])
+   }
+   parameters.add("Total Advertising Spend",total_advertising);
+   parameters.add("Total Oil Purchase Cost",total_purchase_cost);
+   parameters.add("Total Production Cost",total_production_cost);
+   parameters.add("Total Revenue",total_revenue);
+   parameters.add("Total Profit",total_revenue - total_advertising - total_purchase_cost - total_production_cost);
+}
