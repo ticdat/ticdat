@@ -246,6 +246,7 @@ def create_opl_mod_output_text(tdf):
     return _create_opl_mod_text(tdf, True)
 
 def _create_opl_mod_text(tdf, output):
+    verify(not _find_case_space_duplicates(tdf), "There are case space duplicate field names in the schema.")
     verify(not tdf.generator_tables, "Input schema error - doesn't work with generator tables.")
     verify(not tdf.generic_tables, "Input schema error - doesn't work with generic tables. (not yet - will \
             add ASAP as needed) ")
