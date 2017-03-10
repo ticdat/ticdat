@@ -24,14 +24,15 @@ tuple oilType {
   float lead;
 }
 
-/* PJC-JOSH next 2 lines are probably wrong - please review */
 gasType Gas[Gasolines] = [n: <d,s,o,l> |  <n,d,s,o,l> in inp_gas];
 oilType Oil[Oils] = [n: <s,p,o,l> | <n,s,p,o,l> in inp_oil];
-/* PJC-JOSH - really flailing next 2 lines - just trying to get parameter value or zero if missing
-float MaxProduction = sum(v for <k,v> in inp_parameters if k == "Maximum Production");
-float ProdCost = sum(v for <k,v> in inp_parameters if k == "Production Cost");
 
-/* begin block of code that's exactly the same as https://goo.gl/kqXmQE */
+{string} inputParameterNames = {k | <k,v> in inp_parameters};
+float parameters[inputParameterNames] = [k:v | <k,v> in inp_parameters];
+float MaxProduction = parameters["Maximum Production"];
+float ProdCost =  parameters[""Production Cost"];
+
+/* ------ begin block of code that's exactly the same as https://goo.gl/kqXmQE ------ */
 dvar float+ a[Gasolines];
 dvar float+ Blend[Oils][Gasolines];
 
@@ -89,4 +90,8 @@ execute {
    parameters.add("Total Production Cost",total_production_cost);
    parameters.add("Total Revenue",total_revenue);
    parameters.add("Total Profit",total_revenue - total_advertising - total_purchase_cost - total_production_cost);
+   var ofile = new IloOplOutputFile("results.dat");
+   ofile.writeln("parameters = ",sln_parameters);
+   ofile.writeln("advertising = ", sln_advertising);
+   ofile.writeln("blending =  ", sln_blending);
 }
