@@ -132,4 +132,4 @@ class JsonTicFactory(freezable_factory(object, "_isFrozen")) :
             raise TicDatError("Not a valid TicDat object for this schema : " + " : ".join(msg))
         jdict = make_json_dict(self.tic_dat_factory, tic_dat, verbose)
         with open(json_file_path, "w") as fp:
-            json.dump(jdict, fp)
+            json.dump(jdict, fp, sort_keys=True, indent=2)
