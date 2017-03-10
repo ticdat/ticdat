@@ -222,9 +222,14 @@ class TestOpl(unittest.TestCase):
         new_input_schema = _fix_fields_with_opl_keywords(input_schema)
         self.assertDictEqual(input_schema.data_types, new_input_schema.data_types)
         self.assertDictEqual(input_schema.default_values, new_input_schema.default_values)
-        test2 = TicDatFactory(table=[['Key', 'PK 2'], ['DF 1', 'DF 2']])
-        new = _fix_fields_with_opl_keywords(test2)
-        self.assertTrue('_Key' in new.primary_key_fields['table'])
+        old_tdf = TicDatFactory(table=[['Key', 'PK 2'], ['cplex', 'DF 2']])
+        old_schema = old_tdf.schema()
+        new_tdf = _fix_fields_with_opl_keywords(old_tdf)
+        new_schema = new_tdf.schema()
+        self.assertTrue('_Key' in new_schema['table'][0])
+        new_old_tdf = _unfix_fields_with_opl_keywords(new_tdf)
+        new_old_schema = new_old_tdf.schema()
+        self.assertDictEqual(old_schema,new_old_schema)
 
 if __name__ == "__main__":
     unittest.main()
