@@ -15,9 +15,9 @@ minimize
   
 subject to {
 
-  forall (<category,min_nutrition,max_nutrition> in categories){
-    sum(<f,category,qty> in nutritionQuantities) qty * purchase[f] >= min_nutrition;
-    sum(<f,category,qty> in nutritionQuantities) qty * purchase[f] <= max_nutrition;
+  forall (<category,minNutrition,maxNutrition> in categories){
+    sum(<f,category,qty> in nutritionQuantities) qty * purchase[f] >= minNutrition;
+    sum(<f,category,qty> in nutritionQuantities) qty * purchase[f] <= maxNutrition;
   }
 
 }
