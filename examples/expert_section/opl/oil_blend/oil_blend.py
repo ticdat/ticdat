@@ -62,8 +62,8 @@ input_schema.opl_prepend = "inp_" # avoid table name collisions
 # ------------------------ define the output schema -------------------------------
 solution_schema = TicDatFactory(
     parameters = [["Key"],["Value"]],
-    advertising = [["gas"],["Dollars Spent"]],
-    blending = [["oil","gas"],["Quantity"]])
+    advertising = [["Gas"],["Dollars Spent"]],
+    blending = [["Oil","Gas"],["Quantity"]])
 
 solution_schema.opl_prepend = "sln_" # avoid table name collisions
 # ---------------------------------------------------------------------------------
