@@ -24,36 +24,36 @@ from ticdat import TicDatFactory, standard_main, opl_run
 # ------------------------ define the input schema --------------------------------
 # using all lower case field names with underscores until #1658 resolved
 input_schema = TicDatFactory (
-     parameters = [["key"],["value"]],
-     gas = [["name"],["demand","sales_price","min_octane_rating", "max_lead_contents"]],
-     oil = [["name"],["supply","purchase_price","octane_rating", "lead_contents"]])
+     parameters = [["Key"],["Value"]],
+     gas = [["Name"],["Demand","Sales Price","Min Octane Rating", "Max Lead Contents"]],
+     oil = [["Name"],["Supply","Purchase Price","Octane Rating", "Lead Contents"]])
 
 # no foreign keys
 
-input_schema.set_data_type("parameters", "key", number_allowed = False,
+input_schema.set_data_type("parameters", "Key", number_allowed = False,
                            strings_allowed= ["Maximum Production", "Production Cost"])
-input_schema.set_data_type("parameters", "value", min=0, max=float("inf"),
+input_schema.set_data_type("parameters", "Value", min=0, max=float("inf"),
                            inclusive_min=True, inclusive_max=True)
-input_schema.set_data_type("gas", "demand", min=0, max=float("inf"),
+input_schema.set_data_type("gas", "Demand", min=0, max=float("inf"),
                            inclusive_min=True, inclusive_max=False)
-input_schema.set_data_type("gas", "sales_price", min=0, max=float("inf"),
+input_schema.set_data_type("gas", "Sales Price", min=0, max=float("inf"),
                            inclusive_min=True, inclusive_max=False)
-input_schema.set_data_type("gas", "min_octane_rating", min=0, max=float("inf"),
+input_schema.set_data_type("gas", "Min Octane Rating", min=0, max=float("inf"),
                            inclusive_min=True, inclusive_max=False)
-input_schema.set_data_type("gas", "max_lead_contents", min=0, max=float("inf"),
+input_schema.set_data_type("gas", "Max Lead Contents", min=0, max=float("inf"),
                            inclusive_min=True, inclusive_max=True)
-input_schema.set_data_type("oil", "supply", min=0, max=float("inf"),
+input_schema.set_data_type("oil", "Supply", min=0, max=float("inf"),
                            inclusive_min=True, inclusive_max=True)
-input_schema.set_data_type("oil", "purchase_price", min=0, max=float("inf"),
+input_schema.set_data_type("oil", "Purchase Price", min=0, max=float("inf"),
                            inclusive_min=True, inclusive_max=False)
-input_schema.set_data_type("oil", "octane_rating", min=0, max=float("inf"),
+input_schema.set_data_type("oil", "Octane Rating", min=0, max=float("inf"),
                            inclusive_min=True, inclusive_max=False)
-input_schema.set_data_type("oil", "lead_contents", min=0, max=float("inf"),
+input_schema.set_data_type("oil", "Lead Contents", min=0, max=float("inf"),
                            inclusive_min=True, inclusive_max=False)
 # We tolerate float("inf") as the Maximum Production but not the Production Cost
 input_schema.add_data_row_predicate("parameters",
-                                    lambda row : not (row["key"] == "Production Cost" and
-                                                      row["value"] == float("inf")))
+                                    lambda row : not (row["Key"] == "Production Cost" and
+                                                      row["Value"] == float("inf")))
 
 input_schema.opl_prepend = "inp_" # avoid table name collisions
 # ---------------------------------------------------------------------------------
@@ -61,9 +61,9 @@ input_schema.opl_prepend = "inp_" # avoid table name collisions
 
 # ------------------------ define the output schema -------------------------------
 solution_schema = TicDatFactory(
-    parameters = [["key"],["value"]],
-    advertising = [["gas"],["dollars_spent"]],
-    blending = [["oil","gas"],["quantity"]])
+    parameters = [["Key"],["Value"]],
+    advertising = [["Gas"],["Dollars Spent"]],
+    blending = [["Oil","Gas"],["Quantity"]])
 
 solution_schema.opl_prepend = "sln_" # avoid table name collisions
 # ---------------------------------------------------------------------------------

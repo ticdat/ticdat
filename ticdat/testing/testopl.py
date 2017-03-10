@@ -1,6 +1,7 @@
 import os
 from ticdat.opl import create_opl_text, read_opl_text, opl_run,create_opl_mod_text
 from ticdat.opl import _can_run_oplrun_tests, pattern_finder, _find_case_space_duplicates
+from ticdat.opl import _fix_fields_with_opl_keywords, _unfix_fields_with_opl_keywords
 import sys
 from ticdat.ticdatfactory import TicDatFactory
 import ticdat.utils as utils
@@ -79,9 +80,12 @@ class TestOpl(unittest.TestCase):
                                   ('ice cream', 'protein', 8),
                                   ('ice cream', 'fat', 10),
                                   ('ice cream', 'sodium', 180) ] )
-        # opl_run should not complete before adding the data types, because opl can't read the generated mod file
-        opl_soln = opl_run(get_testing_file_path("sample_diet.mod"), in_tdf, makeDat(), soln_tdf)
-        self.assertIsNone(opl_soln)
+        # opl_run should raise an exception before assigning data types, because opl can't read the generated mod file
+        try:
+            opl_soln = opl_run(get_testing_file_path("sample_diet.mod"), in_tdf, makeDat(), soln_tdf)
+            self.assertTrue(False)
+        except:
+            self.assertTrue(True)
         # opl_run should return a solution after adding the data types
         in_tdf = TicDatFactory(**diet_schema)
         for table, fields in in_tdf.data_fields.items():
@@ -94,11 +98,14 @@ class TestOpl(unittest.TestCase):
         opl_soln = opl_run(get_testing_file_path("sample_diet.mod"), in_tdf, makeDat(), soln_tdf)
         self.assertTrue(nearlySame(opl_soln.parameters["Total Cost"]["Parameter Value"], 11.829, epsilon=0.0001))
         self.assertTrue(nearlySame(opl_soln.consume_nutrition["protein"]["Qty"], 91, epsilon=0.0001))
-        # opl_run should return None when there is an infeasible solution
+        # opl_run should not complete when there is an infeasible solution
         dat = makeDat()
         dat.categories["calories"]["Min Nutrition"] = dat.categories["calories"]["Max Nutrition"]+1
-        opl_soln = opl_run(get_testing_file_path("sample_diet.mod"), in_tdf, dat, soln_tdf)
-        self.assertIsNone(opl_soln)
+        try:
+            opl_soln = opl_run(get_testing_file_path("sample_diet.mod"), in_tdf, dat, soln_tdf)
+            self.assertTrue(False)
+        except:
+            self.assertTrue(True)
     def testNetflow_oplrunRequired(self):
         self.assertTrue(_can_run_oplrun_tests)
         in_tdf = TicDatFactory(**netflowSchema())
@@ -107,8 +114,11 @@ class TestOpl(unittest.TestCase):
                                  parameters=[["paramKey"], ["value"]])
         dat = in_tdf.TicDat(**{t: getattr(netflowData(), t) for t in in_tdf.primary_key_fields})
         # opl_run should not complete before adding the data types, because opl can't read the generated mod file
-        opl_soln = opl_run("sample_netflow.mod", in_tdf, dat, soln_tdf)
-        self.assertIsNone(opl_soln)
+        try:
+            opl_soln = opl_run("sample_netflow.mod", in_tdf, dat, soln_tdf)
+            self.assertTrue(False)
+        except:
+            self.assertTrue(True)
         # opl_run should return a solution after adding the data types
         in_tdf = TicDatFactory(**netflowSchema())
         in_tdf.enable_foreign_key_links()
@@ -131,9 +141,10 @@ class TestOpl(unittest.TestCase):
         changedDat = read_opl_text(tdf, changedDatStr)
         self.assertTrue(tdf._same_data(oldDat,changedDat))
         tdf.opl_prepend = "pre_"
-        changedDatStr = create_opl_text(tdf, oldDat)
+        origStr, changedDatStr = changedDatStr, create_opl_text(tdf, oldDat)
         changedDat = read_opl_text(tdf, changedDatStr)
         self.assertTrue(tdf._same_data(oldDat,changedDat))
+        self.assertFalse(origStr == changedDatStr)
 
     def testNetflow(self):
         tdf = TicDatFactory(**netflowSchema())
@@ -201,5 +212,34 @@ class TestOpl(unittest.TestCase):
         self.assertFalse(_find_case_space_duplicates(test6))
         test7 = TicDatFactory(table1=[['dup 1', 'Dup_1'],[]], table2=[['Dup 2', 'Dup_2'],[]])
         self.assertEqual(len(_find_case_space_duplicates(test7).keys()),2)
+    def testChangeFieldsWithOplKeywords(self):
+        input_schema = TicDatFactory(
+            categories=[["Name"], ["Min Nutrition", "Max Nutrition"]],
+            foods=[["Name"], ["Cost"]],
+            nutrition_quantities=[["Food", "Category"], ["Quantity"]])
+        input_schema.set_data_type("categories", "Min Nutrition", min=0, max=float("inf"),
+                                   inclusive_min=True, inclusive_max=False)
+        input_schema.set_data_type("categories", "Max Nutrition", min=0, max=float("inf"),
+                                   inclusive_min=True, inclusive_max=True)
+        input_schema.set_data_type("foods", "Cost", min=0, max=float("inf"),
+                                   inclusive_min=True, inclusive_max=False)
+        input_schema.set_data_type("nutrition_quantities", "Quantity", min=0, max=float("inf"),
+                                   inclusive_min=True, inclusive_max=False)
+        input_schema.add_data_row_predicate(
+            "categories", predicate_name="Min Max Check",
+            predicate=lambda row: row["Max Nutrition"] >= row["Min Nutrition"])
+        input_schema.set_default_value("categories", "Max Nutrition", float("inf"))
+        new_input_schema = _fix_fields_with_opl_keywords(input_schema)
+        self.assertDictEqual(input_schema.data_types, new_input_schema.data_types)
+        self.assertDictEqual(input_schema.default_values, new_input_schema.default_values)
+        old_tdf = TicDatFactory(table=[['Key', 'PK 2'], ['cplex', 'DF 2']])
+        old_schema = old_tdf.schema()
+        new_tdf = _fix_fields_with_opl_keywords(old_tdf)
+        new_schema = new_tdf.schema()
+        self.assertTrue('_Key' in new_schema['table'][0])
+        new_old_tdf = _unfix_fields_with_opl_keywords(new_tdf)
+        new_old_schema = new_old_tdf.schema()
+        self.assertDictEqual(old_schema,new_old_schema)
+
 if __name__ == "__main__":
     unittest.main()
