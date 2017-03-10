@@ -256,26 +256,28 @@ def _create_opl_mod_text(tdf, output):
     verify(set(dict_tables) == set(tdf.all_tables), "not yet handling non-PK tables of any sort")
 
     prepend = getattr(tdf, "opl_prepend", "")
-    def get_type(data_types, table, field):
+    def _get_type(data_types, table, field, is_pk):
         try:
             return "float" if data_types[table][field].number_allowed else "string"
         except KeyError:
-            return "string"
+            if is_pk:
+                return "string"
+            return "float"
 
     def get_table_as_mod_text(tdf, tbn, output):
         rtn = ''
         sig = '{}' if output else '...'
         if len(tdf.primary_key_fields[tbn]) is 1 and len(tdf.data_fields[tbn]) is 0:
-            rtn = "{" + get_type(tdf.data_types, tbn, tdf.primary_key_fields[tbn][0]) + "} " + \
+            rtn = "{" + _get_type(tdf.data_types, tbn, tdf.primary_key_fields[tbn][0], True) + "} " + \
                   prepend + tbn + " = " + sig + ";\n\n"
         else:
             rtn += "tuple " + prepend + tbn + "_type\n{"
             for pk in tdf.primary_key_fields[tbn]:
                 pk_m = pk.replace(' ', '_').lower()
-                rtn += "\n\tkey " + get_type(tdf.data_types, tbn, pk) + " " + pk_m + ";"
+                rtn += "\n\tkey " + _get_type(tdf.data_types, tbn, pk, True) + " " + pk_m + ";"
             for df in tdf.data_fields[tbn]:
                 df_m = df.replace(' ', '_').lower()
-                rtn += "\n\t" + get_type(tdf.data_types, tbn, df) + " " + df_m + ";"
+                rtn += "\n\t" + _get_type(tdf.data_types, tbn, df, False) + " " + df_m + ";"
             rtn += "\n};\n\n{" + prepend + tbn + "_type} " + prepend + tbn + "=" + sig + ";\n\n"
         return rtn
 

@@ -80,21 +80,6 @@ class TestOpl(unittest.TestCase):
                                   ('ice cream', 'protein', 8),
                                   ('ice cream', 'fat', 10),
                                   ('ice cream', 'sodium', 180) ] )
-        # opl_run should raise an exception before assigning data types, because opl can't read the generated mod file
-        try:
-            opl_soln = opl_run(get_testing_file_path("sample_diet.mod"), in_tdf, makeDat(), soln_tdf)
-            self.assertTrue(False)
-        except:
-            self.assertTrue(True)
-        # opl_run should return a solution after adding the data types
-        in_tdf = TicDatFactory(**diet_schema)
-        for table, fields in in_tdf.data_fields.items():
-            for field in fields:
-                in_tdf.set_data_type(table, field)
-        in_tdf.set_data_type("categories", "Max Nutrition", max=float("inf"), inclusive_max=True)
-        for table, fields in soln_tdf.data_fields.items():
-            for field in fields:
-                soln_tdf.set_data_type(table, field)
         opl_soln = opl_run(get_testing_file_path("sample_diet.mod"), in_tdf, makeDat(), soln_tdf)
         self.assertTrue(nearlySame(opl_soln.parameters["Total Cost"]["Parameter Value"], 11.829, epsilon=0.0001))
         self.assertTrue(nearlySame(opl_soln.consume_nutrition["protein"]["Qty"], 91, epsilon=0.0001))
@@ -112,19 +97,6 @@ class TestOpl(unittest.TestCase):
         in_tdf.enable_foreign_key_links()
         soln_tdf = TicDatFactory(flow=[["source", "destination", "commodity"], ["quantity"]],
                                  parameters=[["paramKey"], ["value"]])
-        dat = in_tdf.TicDat(**{t: getattr(netflowData(), t) for t in in_tdf.primary_key_fields})
-        # opl_run should not complete before adding the data types, because opl can't read the generated mod file
-        try:
-            opl_soln = opl_run("sample_netflow.mod", in_tdf, dat, soln_tdf)
-            self.assertTrue(False)
-        except:
-            self.assertTrue(True)
-        # opl_run should return a solution after adding the data types
-        in_tdf = TicDatFactory(**netflowSchema())
-        in_tdf.enable_foreign_key_links()
-        addNetflowDataTypes(in_tdf)
-        soln_tdf.set_data_type("flow","quantity")
-        soln_tdf.set_data_type("parameters","value")
         dat = in_tdf.TicDat(**{t: getattr(netflowData(), t) for t in in_tdf.primary_key_fields})
         opl_soln = opl_run("sample_netflow.mod", in_tdf, dat, soln_tdf)
         self.assertTrue(nearlySame(opl_soln.parameters["Total Cost"]["value"],5500))
