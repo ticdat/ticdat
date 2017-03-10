@@ -76,7 +76,7 @@ def _change_fields_with_opl_keywords(tdf, undo=False):
                     verify(not fields_list[findex].startswith('_'),
                            ("Field names cannot start with '_', in table %s : " +
                             "field is %s") % (table, fields_list[findex]))
-                    if fields_list[findex] in opl_keywords:
+                    if fields_list[findex].lower() in opl_keywords:
                         fields_list[findex] = '_' + fields_list[findex]
                 else:
                     if fields_list[findex].startswith('_'):
