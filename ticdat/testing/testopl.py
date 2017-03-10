@@ -80,9 +80,12 @@ class TestOpl(unittest.TestCase):
                                   ('ice cream', 'protein', 8),
                                   ('ice cream', 'fat', 10),
                                   ('ice cream', 'sodium', 180) ] )
-        # opl_run should not complete before adding the data types, because opl can't read the generated mod file
-        opl_soln = opl_run(get_testing_file_path("sample_diet.mod"), in_tdf, makeDat(), soln_tdf)
-        self.assertIsNone(opl_soln)
+        # opl_run should raise an exception before assigning data types, because opl can't read the generated mod file
+        try:
+            opl_soln = opl_run(get_testing_file_path("sample_diet.mod"), in_tdf, makeDat(), soln_tdf)
+            self.assertTrue(False)
+        except:
+            self.assertTrue(True)
         # opl_run should return a solution after adding the data types
         in_tdf = TicDatFactory(**diet_schema)
         for table, fields in in_tdf.data_fields.items():
@@ -95,11 +98,14 @@ class TestOpl(unittest.TestCase):
         opl_soln = opl_run(get_testing_file_path("sample_diet.mod"), in_tdf, makeDat(), soln_tdf)
         self.assertTrue(nearlySame(opl_soln.parameters["Total Cost"]["Parameter Value"], 11.829, epsilon=0.0001))
         self.assertTrue(nearlySame(opl_soln.consume_nutrition["protein"]["Qty"], 91, epsilon=0.0001))
-        # opl_run should return None when there is an infeasible solution
+        # opl_run should not complete when there is an infeasible solution
         dat = makeDat()
         dat.categories["calories"]["Min Nutrition"] = dat.categories["calories"]["Max Nutrition"]+1
-        opl_soln = opl_run(get_testing_file_path("sample_diet.mod"), in_tdf, dat, soln_tdf)
-        self.assertIsNone(opl_soln)
+        try:
+            opl_soln = opl_run(get_testing_file_path("sample_diet.mod"), in_tdf, dat, soln_tdf)
+            self.assertTrue(False)
+        except:
+            self.assertTrue(True)
     def testNetflow_oplrunRequired(self):
         self.assertTrue(_can_run_oplrun_tests)
         in_tdf = TicDatFactory(**netflowSchema())
@@ -108,8 +114,11 @@ class TestOpl(unittest.TestCase):
                                  parameters=[["paramKey"], ["value"]])
         dat = in_tdf.TicDat(**{t: getattr(netflowData(), t) for t in in_tdf.primary_key_fields})
         # opl_run should not complete before adding the data types, because opl can't read the generated mod file
-        opl_soln = opl_run("sample_netflow.mod", in_tdf, dat, soln_tdf)
-        self.assertIsNone(opl_soln)
+        try:
+            opl_soln = opl_run("sample_netflow.mod", in_tdf, dat, soln_tdf)
+            self.assertTrue(False)
+        except:
+            self.assertTrue(True)
         # opl_run should return a solution after adding the data types
         in_tdf = TicDatFactory(**netflowSchema())
         in_tdf.enable_foreign_key_links()
