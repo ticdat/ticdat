@@ -30,7 +30,7 @@ oilType Oil[Oils] = [n: <s,p,o,l> | <n,s,p,o,l> in inp_oil];
 {string} inputParameterNames = {k | <k,v> in inp_parameters};
 float parameters[inputParameterNames] = [k:v | <k,v> in inp_parameters];
 float MaxProduction = parameters["Maximum Production"];
-float ProdCost =  parameters[""Production Cost"];
+float ProdCost =  parameters["Production Cost"];
 
 /* ------ begin block of code that's exactly the same as https://goo.gl/kqXmQE ------ */
 dvar float+ a[Gasolines];
