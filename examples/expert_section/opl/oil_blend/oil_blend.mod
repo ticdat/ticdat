@@ -3,7 +3,7 @@
  * See https://goo.gl/kqXmQE for reference problem and sample data.
  *********************************************/
 
-/* creates inp_oil, inp_gas, inp_parameters
+/* creates inp_oil, inp_gas, inp_parameters */
 include "ticdat_oil_blend.mod";
 
 /* use the inp_ data to populate the original data structures */
@@ -73,17 +73,17 @@ execute DISPLAY_REDUCED_COSTS{
 /* write out solution */
 include "ticdat_oil_blend_output.mod";
 float total_advertising = sum(g in Gasolines) a[g];
-float total_purchase_cost = sum( g in Gasolines , o in Oils ) Oil[o].price * Blend[o][g]
-float total_production_cost = sum( g in Gasolines , o in Oils ) ProdCost * Blend[o][g]
-float total_revenue = sum( g in Gasolines , o in Oils ) Gas[g].price * Blend[o][g]
+float total_purchase_cost = sum( g in Gasolines , o in Oils ) Oil[o].price * Blend[o][g];
+float total_production_cost = sum( g in Gasolines , o in Oils ) ProdCost * Blend[o][g];
+float total_revenue = sum( g in Gasolines , o in Oils ) Gas[g].price * Blend[o][g];
 execute {
    for (var o in Oils){
         for (var g in Gasolines){
-            sln_blending.add(o,g,Blend[o][g])
+            sln_blending.add(o,g,Blend[o][g]);
         }
    }
    for (var g in Gasolines){
-        sln_advertising.add(g,a[g])
+        sln_advertising.add(g,a[g]);
    }
    parameters.add("Total Advertising Spend",total_advertising);
    parameters.add("Total Oil Purchase Cost",total_purchase_cost);
