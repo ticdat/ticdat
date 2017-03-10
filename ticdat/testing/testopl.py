@@ -132,9 +132,10 @@ class TestOpl(unittest.TestCase):
         changedDat = read_opl_text(tdf, changedDatStr)
         self.assertTrue(tdf._same_data(oldDat,changedDat))
         tdf.opl_prepend = "pre_"
-        changedDatStr = create_opl_text(tdf, oldDat)
+        origStr, changedDatStr = changedDatStr, create_opl_text(tdf, oldDat)
         changedDat = read_opl_text(tdf, changedDatStr)
         self.assertTrue(tdf._same_data(oldDat,changedDat))
+        self.assertFalse(origStr == changedDatStr)
 
     def testNetflow(self):
         tdf = TicDatFactory(**netflowSchema())
