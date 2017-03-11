@@ -1,6 +1,6 @@
 An expected use of the ticdat.opl_run functionality would be to add Python connectivity to
 pre-existing OPL projects. In order to streamline this process, its important to simplify the
-extent to which the current .mod file needs to edited in order to communicate with ticdat.
+extent to which the current .mod file needs to be edited in order to communicate with ticdat.
 The TicDatFactory.opl_prepend attribute anticipates this concern by giving you the ability
 to prepend a short string onto the names of the data structures created by the auto-generated
 .mod files. This allows you to define the input and solution schemas with whatever table names
