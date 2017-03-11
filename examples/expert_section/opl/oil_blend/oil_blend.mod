@@ -102,4 +102,4 @@ execute {
    ofile.writeln("advertising = ", sln_advertising);
    ofile.writeln("blending =  ", sln_blending);
 }
-/* ------------------------ begin ticdat output section ---------------------------- */
+/* ------------------------ end ticdat output section ------------------------------ */
