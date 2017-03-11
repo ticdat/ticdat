@@ -127,7 +127,11 @@ def opl_run(mod_file, input_tdf, input_dat, soln_tdf, infinity=INFINITY, oplrun_
     input_dat = input_tdf.TicDat(**make_json_dict(orig_input_tdf, input_dat))
     assert input_tdf.good_tic_dat_object(input_dat)
     mod_file_name = os.path.basename(mod_file)[:-4]
-
+    with open(mod_file, "r") as f:
+        mod = f.read()
+        assert 'IloOplOutputFile("results.dat")' in mod
+        assert ("ticdat_" + mod_file_name + ".mod") in mod
+        assert ("ticdat_" + mod_file_name + "_output.mod") in mod
     working_dir = os.path.abspath(os.path.dirname(mod_file))
     if tu.development_deployed_environment:
         working_dir = os.path.join(working_dir, "oplticdat_%s"%uuid.uuid4())
