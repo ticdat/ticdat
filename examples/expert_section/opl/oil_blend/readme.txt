@@ -18,21 +18,22 @@ that defines a sample data set. We used this oil.dat as the starting point for t
 compatible oil_blend.mod file presented here. Specifically, oil_blend.mod contains three sections.
 
  * A data initialization section. This was created via a simple editing process of the first 22
-   lines of oil.mod. In oil_blend.mod, Gasolines, Oils, Gas, Oil, MaxProduction and ProdCost are all
-   populated from the the relevant data provided by inp_gas, inp_oil, and inp_parameters. When
+   lines of oil.mod. In oil_blend.mod, Gasolines, Oils, Gas, Oil, MaxProduction and ProdCost are
+   all populated from the the relevant data provided by inp_gas, inp_oil, and inp_parameters. When
    comparing to oil.mod, you can see that just the six lines that use ...; were altered, and the
-   inputParameterNames, parameters data structures were added. The rest of the code in this section
-   is exactly the same as in oil.mod.
+   inputParameterNames, parameters data structures were added. The rest of the code in this
+   section is exactly the same as in oil.mod.
 
  * A core mathematical section. This section of oil_blend.mod performs the actual optimization. It
    is copied over unaltered from oil.mod.
 
- * A ticdat output section. This section of the code was added to populate the sln_ data structures
-   created for the solution schema. It computes a series of KPIs to be stored in the solution parameters
-   table, and then populates all three solution tables in an execute block.
+ * A ticdat output section. This section of the code was added to populate the sln_ data
+   structures created for the solution schema. It computes a series of KPIs to be stored in the
+   solution parameters table, and then populates all three solution tables in an execute block.
 
 As you can see, even though the input schema contains tables named gas and oil, the resulting
-auto-generated code populates data structures named inp_gas and inp_oil. This avoids naming collisions
-with the gas and oil variables defined in oil.mod, and avoids the need to rename these variables in
-oil_blend.mod. Similarly, the parameters tables for the input and solution schema correspond to
-inp_parameters and sln_parameters, and thus it is easy to distinguish between them in oil_blend.mod.
+auto-generated code populates data structures named inp_gas and inp_oil. This avoids naming
+collisions with the gas and oil variables defined in oil.mod, and avoids the need to rename these
+variables in oil_blend.mod. Similarly, the parameters tables for the input and solution schema
+correspond to inp_parameters and sln_parameters, and thus it is easy to distinguish between them
+in oil_blend.mod.
