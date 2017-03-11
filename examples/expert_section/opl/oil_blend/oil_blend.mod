@@ -85,11 +85,11 @@ execute {
    for (var g in Gasolines){
         sln_advertising.add(g,a[g]);
    }
-   parameters.add("Total Advertising Spend",total_advertising);
-   parameters.add("Total Oil Purchase Cost",total_purchase_cost);
-   parameters.add("Total Production Cost",total_production_cost);
-   parameters.add("Total Revenue",total_revenue);
-   parameters.add("Total Profit",total_revenue - total_advertising - total_purchase_cost - total_production_cost);
+   sln_parameters.add("Total Advertising Spend",total_advertising);
+   sln_parameters.add("Total Oil Purchase Cost",total_purchase_cost);
+   sln_parameters.add("Total Production Cost",total_production_cost);
+   sln_parameters.add("Total Revenue",total_revenue);
+   sln_parameters.add("Total Profit",total_revenue - total_advertising - total_purchase_cost - total_production_cost);
    var ofile = new IloOplOutputFile("results.dat");
    ofile.writeln("parameters = ",sln_parameters);
    ofile.writeln("advertising = ", sln_advertising);
