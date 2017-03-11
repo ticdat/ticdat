@@ -17,12 +17,11 @@
 # will read from a model stored in the file input_data.xlsx and write the solution
 # to solution_data.xlsx.
 
-# Note that file requires oil_blend.mod to be in the same directory
+# Note that this file requires oil_blend.mod to be in the same directory
 
 from ticdat import TicDatFactory, standard_main, opl_run
 
 # ------------------------ define the input schema --------------------------------
-# using all lower case field names with underscores until #1658 resolved
 input_schema = TicDatFactory (
      parameters = [["Key"],["Value"]],
      gas = [["Name"],["Demand","Sales Price","Min Octane Rating", "Max Lead Contents"]],

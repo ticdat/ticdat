@@ -1,8 +1,9 @@
 /*********************************************
- * OPL oil_blend problem organized into tabular, ticdat compliant format
+ * OPL oil blending problem organized into tabular, ticdat compliant format
  * See https://goo.gl/kqXmQE for reference problem and sample data.
  *********************************************/
 
+/* ------------------------ begin data initialization section ---------------------- */
 /* creates inp_oil, inp_gas, inp_parameters */
 include "ticdat_oil_blend.mod";
 
@@ -31,8 +32,12 @@ oilType Oil[Oils] = [n: <s,p,o,l> | <n,s,p,o,l> in inp_oil];
 float parameters[inputParameterNames] = [k:v | <k,v> in inp_parameters];
 float MaxProduction = parameters["Maximum Production"];
 float ProdCost =  parameters["Production Cost"];
+/* ------------------------ end data initialization section ------------------------ */
 
-/* ------ begin block of code that's exactly the same as https://goo.gl/kqXmQE ------ */
+
+/* ------------------------ begin core mathematics section ------------------------- */
+/* This section is copied unaltered from oil.mod file at https://goo.gl/kqXmQE       */
+
 dvar float+ a[Gasolines];
 dvar float+ Blend[Oils][Gasolines];
 
@@ -68,8 +73,10 @@ execute DISPLAY_REDUCED_COSTS{
     writeln("a[",g,"].reducedCost = ",a[g].reducedCost);
   }
 }
-/* end block of code that's exactly the same as https://goo.gl/kqXmQE */
+/* ------------------------ end core mathematics section --------------------------- */
 
+
+/* ------------------------ begin ticdat output section ---------------------------- */
 /* write out solution */
 include "ticdat_oil_blend_output.mod";
 float total_advertising = sum(g in Gasolines) a[g];
@@ -95,3 +102,4 @@ execute {
    ofile.writeln("advertising = ", sln_advertising);
    ofile.writeln("blending =  ", sln_blending);
 }
+/* ------------------------ begin ticdat output section ---------------------------- */
