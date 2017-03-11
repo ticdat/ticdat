@@ -33,7 +33,7 @@ compatible oil_blend.mod file presented here. Specifically, oil_blend.mod contai
 
 As you can see, even though the input schema contains tables named gas and oil, the resulting
 auto-generated code populates data structures named inp_gas and inp_oil. This avoids naming
-collisions with the gas and oil variables defined in oil.mod, and avoids the need to rename these
+collisions with the gas and oil variables defined in oil.mod, and precludes any need to rename these
 variables in oil_blend.mod. Similarly, the parameters tables for the input and solution schema
 correspond to inp_parameters and sln_parameters, and thus it is easy to distinguish between them
 in oil_blend.mod.
