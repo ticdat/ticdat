@@ -260,7 +260,7 @@ def _create_opl_mod_text(tdf, output):
     verify(set(dict_tables) == set(tdf.all_tables), "not yet handling non-PK tables of any sort")
 
     prepend = getattr(tdf, "opl_prepend", "")
-    def _get_type(data_types, table, field, is_pk):
+    def _get_type(data_types, table, field, is_pk=False):
         try:
             return "float" if data_types[table][field].number_allowed else "string"
         except KeyError:
@@ -281,7 +281,7 @@ def _create_opl_mod_text(tdf, output):
                 rtn += "\n\tkey " + _get_type(tdf.data_types, tbn, pk, True) + " " + pk_m + ";"
             for df in tdf.data_fields[tbn]:
                 df_m = df.replace(' ', '_').lower()
-                rtn += "\n\t" + _get_type(tdf.data_types, tbn, df, False) + " " + df_m + ";"
+                rtn += "\n\t" + _get_type(tdf.data_types, tbn, df) + " " + df_m + ";"
             rtn += "\n};\n\n{" + prepend + tbn + "_type} " + prepend + tbn + "=" + sig + ";\n\n"
         return rtn
 
