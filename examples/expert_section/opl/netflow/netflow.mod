@@ -44,7 +44,5 @@ execute {
    }
 
    parameters.add("Total Cost",total_cost);
-   var ofile = new IloOplOutputFile("results.dat");
-   ofile.writeln("parameters = ",parameters);
-   ofile.writeln("flow = ", flow);
+   writeOutputToFile();
 }  

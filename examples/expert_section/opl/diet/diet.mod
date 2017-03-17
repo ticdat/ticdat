@@ -35,8 +35,5 @@ execute {
    }
 
    parameters.add("Total Cost",total_cost);
-   var ofile = new IloOplOutputFile("results.dat");
-   ofile.writeln("parameters = ",parameters);
-   ofile.writeln("buy_food = ", buy_food);
-   ofile.writeln("consume_nutrition = ",consume_nutrition);
+   writeOutputToFile();
 }

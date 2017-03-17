@@ -129,7 +129,7 @@ def opl_run(mod_file, input_tdf, input_dat, soln_tdf, infinity=INFINITY, oplrun_
     mod_file_name = os.path.basename(mod_file)[:-4]
     with open(mod_file, "r") as f:
         mod = f.read()
-        assert 'IloOplOutputFile("results.dat")' in mod
+        assert 'writeOutputToFile()' in mod
         assert ("ticdat_" + mod_file_name + ".mod") in mod
         assert ("ticdat_" + mod_file_name + "_output.mod") in mod
     working_dir = os.path.abspath(os.path.dirname(mod_file))
@@ -287,6 +287,14 @@ def _create_opl_mod_text(tdf, output):
 
     for t in dict_tables:
         rtn += get_table_as_mod_text(tdf, t, output)
+
+    if output:
+        # Add a function writeOutputToFile() to the mod file
+        rtn += '\nexecute {\n\tfunction writeOutputToFile() {'
+        rtn += '\n\t\tvar ofile = new IloOplOutputFile("results.dat");'
+        for t in dict_tables:
+            rtn += '\n\tofile.writeln("' + t + ' = ", ' + t + ');'
+        rtn+='\n\t}\t\n}'
     return rtn
 
 def read_opl_text(tdf,text, commaseperator = True):
