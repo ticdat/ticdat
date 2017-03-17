@@ -2,7 +2,7 @@
  * OPL oil blending problem organized into tabular, ticdat compliant format
  * See https://goo.gl/kqXmQE for reference problem and sample data.
  *********************************************/
- 
+
 /* ------------------------ begin data initialization section ---------------------- */
 /* creates inp_oil, inp_gas, inp_parameters */
 include "ticdat_oil_blend.mod";
