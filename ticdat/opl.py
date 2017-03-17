@@ -293,7 +293,7 @@ def _create_opl_mod_text(tdf, output):
         rtn += '\nexecute {\n\tfunction writeOutputToFile() {'
         rtn += '\n\t\tvar ofile = new IloOplOutputFile("results.dat");'
         for t in dict_tables:
-            rtn += '\n\tofile.writeln("' + t + ' = ", ' + t + ');'
+            rtn += '\n\tofile.writeln("' + prepend + t + ' = ", ' + prepend + t + ');'
         rtn+='\n\t}\t\n}'
     return rtn
 
