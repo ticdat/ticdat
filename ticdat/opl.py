@@ -159,7 +159,7 @@ def opl_run(mod_file, input_tdf, input_dat, soln_tdf, infinity=INFINITY, oplrun_
         verify(os.path.isfile(os.path.join(_code_dir(),"oplrun_path.txt")),
                "need to either pass oplrun_path argument or run oplrun_setup.py")
         with open(os.path.join(_code_dir(),"oplrun_path.txt"),"r") as f:
-            oplrun_path = f.read()
+            oplrun_path = f.read().strip()
     verify(os.path.isfile(oplrun_path), "%s not a valid path to oplrun"%oplrun_path)
     if tu.development_deployed_environment:
         if "LD_LIBRARY_PATH" not in os.environ.keys():
