@@ -1,14 +1,13 @@
 import os
 from ticdat.opl import create_opl_text, read_opl_text, opl_run,create_opl_mod_text
 from ticdat.opl import _can_run_oplrun_tests, pattern_finder, _find_case_space_duplicates
+from ticdat.opl import _fix_fields_with_opl_keywords, _unfix_fields_with_opl_keywords
 import sys
-from ticdat.ticdatfactory import TicDatFactory, DataFrame
+from ticdat.ticdatfactory import TicDatFactory
 import ticdat.utils as utils
-from ticdat.testing.ticdattestutils import dietData, dietSchema, addDietDataTypes
-from ticdat.testing.ticdattestutils import netflowData, addNetflowDataTypes, nearlySame
-from ticdat.testing.ticdattestutils import  netflowSchema, firesException, spacesData, spacesSchema
-from ticdat.testing.ticdattestutils import sillyMeData, sillyMeSchema, fail_to_debugger, flagged_as_run_alone
-from ticdat.testing.ticdattestutils import  makeCleanDir, addNetflowForeignKeys, clean_denormalization_errors
+from ticdat.testing.ticdattestutils import dietData, dietSchema, netflowData, addNetflowDataTypes, nearlySame
+from ticdat.testing.ticdattestutils import  netflowSchema,sillyMeData, sillyMeSchema
+from ticdat.testing.ticdattestutils import fail_to_debugger, flagged_as_run_alone, get_testing_file_path
 import unittest
 
 #@fail_to_debugger
@@ -22,46 +21,82 @@ class TestOpl(unittest.TestCase):
         utils.development_deployed_environment = cls._original_value
     def testDiet_oplrunRequired(self):
         self.assertTrue(_can_run_oplrun_tests)
-        in_tdf = TicDatFactory(**dietSchema())
-        in_tdf.enable_foreign_key_links()
+        diet_schema = {"categories" : (("Name",),["Min Nutrition", "Max Nutrition"]),
+                       "foods" :[["Name"],("Cost",)],
+                       "nutritionQuantities" : (["Food", "Category"], ["Qty"])
+                      }
+        in_tdf = TicDatFactory(**diet_schema)
         soln_tdf = TicDatFactory(
-            parameters=[["parameter_name"], ["parameter_value"]],
-            buy_food=[["food"], ["qty"]],consume_nutrition=[["category"], ["qty"]])
-        dat = in_tdf.TicDat(**{t:getattr(dietData(), t) for t in in_tdf.primary_key_fields})
-        # opl_run should not complete before adding the data types, because opl can't read the generated mod file
-        opl_soln = opl_run("sample_diet.mod", in_tdf, dat, soln_tdf)
-        self.assertIsNone(opl_soln)
-        # opl_run should return a solution after adding the data types
-        in_tdf = TicDatFactory(**dietSchema())
-        in_tdf.enable_foreign_key_links()
-        addDietDataTypes(in_tdf)
-        for table, fields in soln_tdf.data_fields.items():
-            for field in fields:
-                soln_tdf.set_data_type(table, field)
-        dat = in_tdf.TicDat(**{t: getattr(dietData(), t) for t in in_tdf.primary_key_fields})
-        opl_soln = opl_run("sample_diet.mod", in_tdf, dat, soln_tdf)
-        self.assertTrue(nearlySame(opl_soln.parameters["Total Cost"]["parameter_value"], 11.829, epsilon=0.0001))
-        self.assertTrue(nearlySame(opl_soln.consume_nutrition["protein"]["qty"], 91, epsilon=0.0001))
-        # opl_run should return None when there is an infeasible solution
-        dat.categories["calories"]["minNutrition"] = dat.categories["calories"]["maxNutrition"]+1
-        opl_soln = opl_run("sample_diet.mod", in_tdf, dat, soln_tdf)
-        self.assertIsNone(opl_soln)
+            parameters=[["Parameter Name"], ["Parameter Value"]],
+            buy_food=[["Food"], ["Qty"]],consume_nutrition=[["Category"], ["Qty"]])
+        makeDat = lambda : in_tdf.TicDat(
+            categories = {'calories': [1800, 2200],
+                          'protein':  [91,   float("inf")],
+                          'fat':      [0, 65],
+                          'sodium':   [0, 1779]},
+
+            foods = {'hamburger': 2.49,
+                      'chicken':   2.89,
+                      'hot dog':   1.50,
+                      'fries':     1.89,
+                      'macaroni':  2.09,
+                      'pizza':     1.99,
+                      'salad':     2.49,
+                      'milk':      0.89,
+                      'ice cream': 1.59},
+            nutritionQuantities= [('hamburger', 'calories', 410),
+                                  ('hamburger', 'protein', 24),
+                                  ('hamburger', 'fat', 26),
+                                  ('hamburger', 'sodium', 730),
+                                  ('chicken',   'calories', 420),
+                                  ('chicken',   'protein', 32),
+                                  ('chicken',   'fat', 10),
+                                  ('chicken',   'sodium', 1190),
+                                  ('hot dog',   'calories', 560),
+                                  ('hot dog',   'protein', 20),
+                                  ('hot dog',   'fat', 32),
+                                  ('hot dog',   'sodium', 1800),
+                                  ('fries',     'calories', 380),
+                                  ('fries',     'protein', 4),
+                                  ('fries',     'fat', 19),
+                                  ('fries',     'sodium', 270),
+                                  ('macaroni',  'calories', 320),
+                                  ('macaroni',  'protein', 12),
+                                  ('macaroni',  'fat', 10),
+                                  ('macaroni',  'sodium', 930),
+                                  ('pizza',     'calories', 320),
+                                  ('pizza',     'protein', 15),
+                                  ('pizza',     'fat', 12),
+                                  ('pizza',     'sodium', 820),
+                                  ('salad',     'calories', 320),
+                                  ('salad',     'protein', 31),
+                                  ('salad',     'fat', 12),
+                                  ('salad',     'sodium', 1230),
+                                  ('milk',      'calories', 100),
+                                  ('milk',      'protein', 8),
+                                  ('milk',      'fat', 2.5),
+                                  ('milk',      'sodium', 125),
+                                  ('ice cream', 'calories', 330),
+                                  ('ice cream', 'protein', 8),
+                                  ('ice cream', 'fat', 10),
+                                  ('ice cream', 'sodium', 180) ] )
+        opl_soln = opl_run(get_testing_file_path("sample_diet.mod"), in_tdf, makeDat(), soln_tdf)
+        self.assertTrue(nearlySame(opl_soln.parameters["Total Cost"]["Parameter Value"], 11.829, epsilon=0.0001))
+        self.assertTrue(nearlySame(opl_soln.consume_nutrition["protein"]["Qty"], 91, epsilon=0.0001))
+        # opl_run should not complete when there is an infeasible solution
+        dat = makeDat()
+        dat.categories["calories"]["Min Nutrition"] = dat.categories["calories"]["Max Nutrition"]+1
+        try:
+            opl_soln = opl_run(get_testing_file_path("sample_diet.mod"), in_tdf, dat, soln_tdf)
+            self.assertTrue(False)
+        except:
+            self.assertTrue(True)
     def testNetflow_oplrunRequired(self):
         self.assertTrue(_can_run_oplrun_tests)
         in_tdf = TicDatFactory(**netflowSchema())
         in_tdf.enable_foreign_key_links()
         soln_tdf = TicDatFactory(flow=[["source", "destination", "commodity"], ["quantity"]],
                                  parameters=[["paramKey"], ["value"]])
-        dat = in_tdf.TicDat(**{t: getattr(netflowData(), t) for t in in_tdf.primary_key_fields})
-        # opl_run should not complete before adding the data types, because opl can't read the generated mod file
-        opl_soln = opl_run("sample_netflow.mod", in_tdf, dat, soln_tdf)
-        self.assertIsNone(opl_soln)
-        # opl_run should return a solution after adding the data types
-        in_tdf = TicDatFactory(**netflowSchema())
-        in_tdf.enable_foreign_key_links()
-        addNetflowDataTypes(in_tdf)
-        soln_tdf.set_data_type("flow","quantity")
-        soln_tdf.set_data_type("parameters","value")
         dat = in_tdf.TicDat(**{t: getattr(netflowData(), t) for t in in_tdf.primary_key_fields})
         opl_soln = opl_run("sample_netflow.mod", in_tdf, dat, soln_tdf)
         self.assertTrue(nearlySame(opl_soln.parameters["Total Cost"]["value"],5500))
@@ -78,9 +113,10 @@ class TestOpl(unittest.TestCase):
         changedDat = read_opl_text(tdf, changedDatStr)
         self.assertTrue(tdf._same_data(oldDat,changedDat))
         tdf.opl_prepend = "pre_"
-        changedDatStr = create_opl_text(tdf, oldDat)
+        origStr, changedDatStr = changedDatStr, create_opl_text(tdf, oldDat)
         changedDat = read_opl_text(tdf, changedDatStr)
         self.assertTrue(tdf._same_data(oldDat,changedDat))
+        self.assertFalse(origStr == changedDatStr)
 
     def testNetflow(self):
         tdf = TicDatFactory(**netflowSchema())
@@ -148,5 +184,34 @@ class TestOpl(unittest.TestCase):
         self.assertFalse(_find_case_space_duplicates(test6))
         test7 = TicDatFactory(table1=[['dup 1', 'Dup_1'],[]], table2=[['Dup 2', 'Dup_2'],[]])
         self.assertEqual(len(_find_case_space_duplicates(test7).keys()),2)
+    def testChangeFieldsWithOplKeywords(self):
+        input_schema = TicDatFactory(
+            categories=[["Name"], ["Min Nutrition", "Max Nutrition"]],
+            foods=[["Name"], ["Cost"]],
+            nutrition_quantities=[["Food", "Category"], ["Quantity"]])
+        input_schema.set_data_type("categories", "Min Nutrition", min=0, max=float("inf"),
+                                   inclusive_min=True, inclusive_max=False)
+        input_schema.set_data_type("categories", "Max Nutrition", min=0, max=float("inf"),
+                                   inclusive_min=True, inclusive_max=True)
+        input_schema.set_data_type("foods", "Cost", min=0, max=float("inf"),
+                                   inclusive_min=True, inclusive_max=False)
+        input_schema.set_data_type("nutrition_quantities", "Quantity", min=0, max=float("inf"),
+                                   inclusive_min=True, inclusive_max=False)
+        input_schema.add_data_row_predicate(
+            "categories", predicate_name="Min Max Check",
+            predicate=lambda row: row["Max Nutrition"] >= row["Min Nutrition"])
+        input_schema.set_default_value("categories", "Max Nutrition", float("inf"))
+        new_input_schema = _fix_fields_with_opl_keywords(input_schema)
+        self.assertDictEqual(input_schema.data_types, new_input_schema.data_types)
+        self.assertDictEqual(input_schema.default_values, new_input_schema.default_values)
+        old_tdf = TicDatFactory(table=[['Key', 'PK 2'], ['cplex', 'DF 2']])
+        old_schema = old_tdf.schema()
+        new_tdf = _fix_fields_with_opl_keywords(old_tdf)
+        new_schema = new_tdf.schema()
+        self.assertTrue('_Key' in new_schema['table'][0])
+        new_old_tdf = _unfix_fields_with_opl_keywords(new_tdf)
+        new_old_schema = new_old_tdf.schema()
+        self.assertDictEqual(old_schema,new_old_schema)
+
 if __name__ == "__main__":
     unittest.main()
