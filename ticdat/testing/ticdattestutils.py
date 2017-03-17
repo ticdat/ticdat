@@ -18,11 +18,6 @@ def _codeFile() :
 def _codeDir():
     return os.path.dirname(_codeFile())
 
-def get_testing_file_path(base_name):
-    rtn = os.path.join(_codeDir(), base_name)
-    assert os.path.exists(rtn)
-    return rtn
-
 def configure_blank_accdb():
     verify(os.path.isfile("blank.accdb"),
            "You need a blank.accdb file in your current directory.")
