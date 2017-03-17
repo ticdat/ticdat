@@ -12,7 +12,7 @@ dvar float+ purchase[foodItems];
 
 minimize
   sum(f in foodItems) foodCost[f] * purchase[f];
-  
+
 subject to {
 
   forall (<category,min_nutrition,max_nutrition> in categories){
@@ -27,16 +27,13 @@ float nutrition_consumed[c in categories] = sum(nq in nutritionQuantities: nq.ca
 float total_cost = sum(f in foodItems) foodCost[f] * purchase[f];
 execute {
    for (var f in foodItems){
-      buy_food.add(f,purchase[f]);   
+      buy_food.add(f,purchase[f]);
    }
-   
+
    for (var c in categories){
-      consume_nutrition.add(c.name,nutrition_consumed[c]);     
+      consume_nutrition.add(c.name,nutrition_consumed[c]);
    }
 
    parameters.add("Total Cost",total_cost);
-   var ofile = new IloOplOutputFile("results.dat");
-   ofile.writeln("parameters = ",parameters);
-   ofile.writeln("buy_food = ", buy_food);
-   ofile.writeln("consume_nutrition = ",consume_nutrition);
-}  
+   writeOutputToFile();
+}
