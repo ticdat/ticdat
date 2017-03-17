@@ -1,58 +1,58 @@
 {
-  "gasoline": [
-    [
-      "Super", 
-      3000, 
-      70, 
-      10, 
-      1
-    ], 
-    [
-      "Regular", 
-      2000, 
-      60, 
-      8, 
-      2
-    ], 
-    [
-      "Diesel", 
-      1000, 
-      50, 
-      6, 
-      1
-    ]
+  "gas": [
+    {
+      "Demand": 3000, 
+      "Max Lead Contents": 1, 
+      "Min Octane Rating": 10, 
+      "Name": "Super", 
+      "Sales Price": 70
+    }, 
+    {
+      "Demand": 2000, 
+      "Max Lead Contents": 2, 
+      "Min Octane Rating": 8, 
+      "Name": "Regular", 
+      "Sales Price": 60
+    }, 
+    {
+      "Demand": 1000, 
+      "Max Lead Contents": 1, 
+      "Min Octane Rating": 6, 
+      "Name": "Diesel", 
+      "Sales Price": 50
+    }
   ], 
   "oil": [
-    [
-      "Crude1", 
-      5000, 
-      45, 
-      12, 
-      0.5
-    ], 
-    [
-      "Crude3", 
-      5000, 
-      25, 
-      8, 
-      3
-    ], 
-    [
-      "Crude2", 
-      5000, 
-      35, 
-      6, 
-      2
-    ]
+    {
+      "Lead Contents": 0.5, 
+      "Name": "Crude1", 
+      "Octane Rating": 12, 
+      "Purchase Price": 45, 
+      "Supply": 5000
+    }, 
+    {
+      "Lead Contents": 3, 
+      "Name": "Crude3", 
+      "Octane Rating": 8, 
+      "Purchase Price": 25, 
+      "Supply": 5000
+    }, 
+    {
+      "Lead Contents": 2, 
+      "Name": "Crude2", 
+      "Octane Rating": 6, 
+      "Purchase Price": 35, 
+      "Supply": 5000
+    }
   ], 
   "parameters": [
-    [
-      "Maximum Production", 
-      14000
-    ], 
-    [
-      "Production Cost", 
-      4
-    ]
+    {
+      "Key": "Maximum Production", 
+      "Value": 14000
+    }, 
+    {
+      "Key": "Production Cost", 
+      "Value": 4
+    }
   ]
 }
