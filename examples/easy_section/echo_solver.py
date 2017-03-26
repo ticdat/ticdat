@@ -12,44 +12,50 @@
 # Provides command line interface via ticdat.standard_main
 # For example, typing
 #   python echo_solver.py -i input_data.xlsx -o input_copy_dir
-# will read from a model stored in the file input_data.xlsx and write the solution
+# will read from a model stored in the file input_data.xlsx and write the same data back
 # to .csv files in created directory input_copy_dir
 
-from ticdat import TicDatFactory, standard_main, Model
+from ticdat import TicDatFactory, standard_main
 
 # ------------------------ define the input schema --------------------------------
 # NOTE - defining the diet schema here.
 # ***You should rewrite this section to define your own schema.***
-# Please try to implement all the data integrity rules. Primary key fields vs
-# data fields, data types for data fields, and foreign key relationships.
+# Please try to implement as much schema information as possible.
 
+# There are three input tables, with 4 primary key fields and 4 data fields.
 input_schema = TicDatFactory (
-     categories = [["name"],["min_nutrition", "max_nutrition"]],
-     foods  = [["name"],["cost"]],
-     nutrition_quantities = [["food", "category"], ["qty"]])
+    categories = [["Name"],["Min Nutrition", "Max Nutrition"]],
+    foods  = [["Name"],["Cost"]],
+    nutrition_quantities = [["Food", "Category"], ["Quantity"]])
 
-# the foreign key relationships are pretty much what you'd expect
-input_schema.add_foreign_key("nutrition_quantities", "foods", ["food", "name"])
+# Define the foreign key relationships
+input_schema.add_foreign_key("nutrition_quantities", "foods", ["Food", "Name"])
 input_schema.add_foreign_key("nutrition_quantities", "categories",
-                            ["category", "name"])
+                            ["Category", "Name"])
 
-# We set the most common data type - a non-negative, non-infinite number
-# that has no integrality restrictions.
-for table, fields in input_schema.data_fields.items():
-    for field in fields:
-        input_schema.set_data_type(table, field)
-# We override the default data type for max_nutrition which can accept infinity
-input_schema.set_data_type("categories", "max_nutrition", max=float("inf"),
-                          inclusive_max=True)
+# Define the data types
+input_schema.set_data_type("categories", "Min Nutrition", min=0, max=float("inf"),
+                           inclusive_min=True, inclusive_max=False)
+input_schema.set_data_type("categories", "Max Nutrition", min=0, max=float("inf"),
+                           inclusive_min=True, inclusive_max=True)
+input_schema.set_data_type("foods", "Cost", min=0, max=float("inf"),
+                           inclusive_min=True, inclusive_max=False)
+input_schema.set_data_type("nutrition_quantities", "Quantity", min=0, max=float("inf"),
+                           inclusive_min=True, inclusive_max=False)
+
+# We also want to insure that Max Nutrition doesn't fall below Min Nutrition
+input_schema.add_data_row_predicate(
+    "categories", predicate_name="Min Max Check",
+    predicate=lambda row : row["Max Nutrition"] >= row["Min Nutrition"])
+
+# The default-default of zero makes sense everywhere except for Max Nutrition
+input_schema.set_default_value("categories", "Max Nutrition", float("inf"))
 # ---------------------------------------------------------------------------------
 
 
 # ------------------------ define the output schema -------------------------------
 # Since this solver does nothing other than echo the input data back out as a
-# solution, the solution schema is the same as the input schema. For real solvers
-# you'd define a proper solution schema. This task would be similar to, and
-# usually much easier than, defining the input schema. (For example, there is generally no
-# need to define data types and foreign key rules for the solution schema).
+# solution, the solution schema is the same as the input schema.
 solution_schema = input_schema
 # ---------------------------------------------------------------------------------
 
@@ -57,19 +63,12 @@ solution_schema = input_schema
 # ------------------------ create a solve function --------------------------------
 
 def solve(dat):
-    """
-    core solving routine
-    :param dat: a good ticdat for the input_schema
-    :return: a good ticdat for the solution_schema, or None
-    This is a dummy solver. We just return a copy of the input data as the solution.
-    No need to edit this.
-    """
     assert input_schema.good_tic_dat_object(dat)
     assert not input_schema.find_foreign_key_failures(dat)
     assert not input_schema.find_data_type_failures(dat)
+    assert not input_schema.find_data_row_failures(dat)
 
-    return solution_schema.TicDat(**{t: getattr(dat, t)
-                                     for t in input_schema.all_tables})
+    return dat  # i.e. echo
 # ---------------------------------------------------------------------------------
 
 # ------------------------ provide stand-alone functionality ----------------------
