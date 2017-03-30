@@ -34,7 +34,7 @@ input_schema = TicDatFactory(parameters = [["Key"],["Value"]],
 input_schema.set_data_type("parameters", "Key", number_allowed=False, strings_allowed=("Maximum Total Investment",))
 input_schema.set_data_type("parameters", "Value", min=0, max=float("inf"), inclusive_max=True)
 input_schema.set_data_type("forecast_sales", "Cost Per Unit", min=0, max=float("inf"))
-input_schema.set_data_type("max_promotions", "Product Family", number_allowed=False, strings_allowed= ("Lager", "Ale"))
+input_schema.set_data_type("max_promotions", "Product Family", number_allowed=False, strings_allowed= ("Dark", "Clear"))
 input_schema.set_data_type("max_promotions", "Max Promotions", min=0, max=float("inf"), inclusive_max=False,
                            must_be_int=True)
 
