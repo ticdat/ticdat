@@ -1,7 +1,7 @@
 {
   "data": [
     [
-      "Schwarzbier", 
+      "Crisp Clear", 
       1.3425, 
       "No", 
       "Yes", 
@@ -16,7 +16,7 @@
       38.775
     ], 
     [
-      "Amber Ale", 
+      "Popsi Kola", 
       1.7125, 
       "No", 
       "Yes", 
@@ -31,7 +31,7 @@
       27.55
     ], 
     [
-      "Pilsner", 
+      "Alpine Stream", 
       1.9975, 
       "No", 
       "Yes", 
@@ -46,7 +46,7 @@
       5.3
     ], 
     [
-      "Bitter Ale", 
+      "Koala Kola", 
       2.565, 
       "No", 
       "Yes", 
@@ -61,7 +61,7 @@
       442.225
     ], 
     [
-      "Oktoberfest", 
+      "Bright", 
       1.29, 
       "No", 
       "Yes", 
@@ -76,7 +76,7 @@
       830.466666666667
     ], 
     [
-      "American Lager", 
+      "11 Down", 
       1.5375, 
       "No", 
       "Yes", 
@@ -91,7 +91,7 @@
       22.25
     ], 
     [
-      "Bitter Ale", 
+      "Koala Kola", 
       2.535, 
       "No", 
       "Yes", 
@@ -106,7 +106,7 @@
       442.225
     ], 
     [
-      "Pilsner", 
+      "Alpine Stream", 
       2.15, 
       "No", 
       "Yes", 
@@ -121,7 +121,7 @@
       5.3
     ], 
     [
-      "IPA", 
+      "DC Kola", 
       1.9325, 
       "No", 
       "Yes", 
@@ -136,7 +136,7 @@
       151.675
     ], 
     [
-      "Oktoberfest", 
+      "Bright", 
       1.2825, 
       "No", 
       "Yes", 
@@ -151,7 +151,7 @@
       830.466666666667
     ], 
     [
-      "Porter", 
+      "AB Root Beer", 
       3.73, 
       "No", 
       "Yes", 
@@ -166,7 +166,7 @@
       144.7
     ], 
     [
-      "American Lager", 
+      "11 Down", 
       1.5125, 
       "No", 
       "Yes", 
@@ -181,7 +181,7 @@
       22.25
     ], 
     [
-      "Pilsner", 
+      "Alpine Stream", 
       2.1375, 
       "No", 
       "Yes", 
@@ -196,7 +196,7 @@
       5.3
     ], 
     [
-      "Stout", 
+      "Mr. Popper", 
       2.8475, 
       "No", 
       "Yes", 
@@ -211,7 +211,7 @@
       8.3
     ], 
     [
-      "Amber Ale", 
+      "Popsi Kola", 
       1.75, 
       "No", 
       "Yes", 
@@ -226,7 +226,7 @@
       27.55
     ], 
     [
-      "Schwarzbier", 
+      "Crisp Clear", 
       1.4275, 
       "No", 
       "Yes", 
@@ -241,7 +241,7 @@
       38.775
     ], 
     [
-      "Amber Ale", 
+      "Popsi Kola", 
       1.7275, 
       "No", 
       "Yes", 
@@ -256,7 +256,7 @@
       27.55
     ], 
     [
-      "Stout", 
+      "Mr. Popper", 
       2.985, 
       "No", 
       "Yes", 
@@ -271,7 +271,7 @@
       8.3
     ], 
     [
-      "Bitter Ale", 
+      "Koala Kola", 
       2.4825, 
       "No", 
       "Yes", 
@@ -286,7 +286,7 @@
       442.225
     ], 
     [
-      "Oktoberfest", 
+      "Bright", 
       1.2725, 
       "No", 
       "Yes", 
@@ -301,7 +301,7 @@
       830.466666666667
     ], 
     [
-      "Stout", 
+      "Mr. Popper", 
       2.9, 
       "No", 
       "Yes", 
@@ -316,7 +316,7 @@
       8.3
     ], 
     [
-      "Bitter Ale", 
+      "Koala Kola", 
       2.56, 
       "No", 
       "Yes", 
@@ -331,7 +331,7 @@
       442.225
     ], 
     [
-      "Porter", 
+      "AB Root Beer", 
       3.77, 
       "No", 
       "Yes", 
@@ -346,7 +346,7 @@
       144.7
     ], 
     [
-      "Schwarzbier", 
+      "Crisp Clear", 
       1.3125, 
       "No", 
       "Yes", 
@@ -361,7 +361,7 @@
       38.775
     ], 
     [
-      "IPA", 
+      "DC Kola", 
       1.925, 
       "No", 
       "Yes", 
@@ -376,7 +376,7 @@
       151.675
     ], 
     [
-      "Schwarzbier", 
+      "Crisp Clear", 
       1.47, 
       "No", 
       "Yes", 
@@ -391,7 +391,7 @@
       38.775
     ], 
     [
-      "American Lager", 
+      "11 Down", 
       1.56, 
       "No", 
       "Yes", 
@@ -406,7 +406,7 @@
       22.25
     ], 
     [
-      "Stout", 
+      "Mr. Popper", 
       2.895, 
       "No", 
       "Yes", 
@@ -421,7 +421,7 @@
       8.3
     ], 
     [
-      "Amber Ale", 
+      "Popsi Kola", 
       1.6725, 
       "No", 
       "Yes", 
@@ -436,7 +436,7 @@
       27.55
     ], 
     [
-      "IPA", 
+      "DC Kola", 
       1.89, 
       "No", 
       "Yes", 
@@ -451,7 +451,7 @@
       151.675
     ], 
     [
-      "Porter", 
+      "AB Root Beer", 
       3.8425, 
       "No", 
       "Yes", 
@@ -466,7 +466,7 @@
       144.7
     ], 
     [
-      "American Lager", 
+      "11 Down", 
       1.455, 
       "No", 
       "Yes", 
@@ -481,7 +481,7 @@
       22.25
     ], 
     [
-      "IPA", 
+      "DC Kola", 
       1.915, 
       "No", 
       "Yes", 
@@ -496,7 +496,7 @@
       151.675
     ], 
     [
-      "Pilsner", 
+      "Alpine Stream", 
       2.2275, 
       "No", 
       "Yes", 
@@ -511,7 +511,7 @@
       5.3
     ], 
     [
-      "Stout", 
+      "Mr. Popper", 
       2.8925, 
       "No", 
       "Yes", 
@@ -526,7 +526,7 @@
       8.3
     ], 
     [
-      "Porter", 
+      "AB Root Beer", 
       3.8125, 
       "No", 
       "Yes", 
