@@ -6,21 +6,19 @@
 # positions (to include a maximum-flex-players constraint).
 #
 # Pre-computes the expected draft position of each player, so as to prevent
-# creating a draft plan based on unrealistic expectations of player availability
+# creating an draft plan based on unrealistic expectations of player availability
 # at each round.
 #
 # The current draft standing can be filled in as you go in the drafted table.
 # A user can thus re-optimize for each of his draft picks.
 #
-# Uses the ticdat package to simplify file IO and provide command line functionality.
-# Can read from .csv, Access, Excel or SQLite files. Self validates the input data
-# before solving to prevent strange errors or garbage-in, garbage-out problems.
+# Provides command line interface via ticdat.standard_main
+# For example, typing
+#   python fantop.py -i input_data.xlsx -o solution_data.xlsx
+# will read from a model stored in the file input_data.xlsx and write the solution
+# to solution_data.xlsx.
 
-from ticdat import TicDatFactory, standard_main
-
-
-# this version of the file uses Gurobi
-import gurobipy as gu
+from ticdat import TicDatFactory, standard_main, Model
 
 # ------------------------ define the input schema --------------------------------
 input_schema = TicDatFactory (
@@ -67,7 +65,9 @@ solution_schema = TicDatFactory(
                                   'Starter Or Reserve']])
 # ---------------------------------------------------------------------------------
 
+
 # ------------------------ create a solve function --------------------------------
+_model_type = "gurobi" # could also be 'cplex' or 'xpress'
 def solve(dat):
     assert input_schema.good_tic_dat_object(dat)
     assert not input_schema.find_foreign_key_failures(dat)
@@ -89,66 +89,64 @@ def solve(dat):
     can_be_drafted_by_me = {player_name for player_name,row in dat.players.items() if
                             row["Draft Status"] != "Drafted By Someone Else"}
 
-    m = gu.Model('fantop')
-    my_starters = {player_name:m.addVar(vtype=gu.GRB.BINARY, name="starter_%s"%player_name)
+    m = Model(_model_type, 'fantop')
+    my_starters = {player_name:m.add_var(type="binary",name="starter_%s"%player_name)
                   for player_name in can_be_drafted_by_me}
-    my_reserves = {player_name:m.addVar(vtype=gu.GRB.BINARY, name="reserve_%s"%player_name)
+    my_reserves = {player_name:m.add_var(type="binary",name="reserve_%s"%player_name)
                   for player_name in can_be_drafted_by_me}
 
 
     for player_name in can_be_drafted_by_me:
         if player_name in already_drafted_by_me:
-            m.addConstr(my_starters[player_name] + my_reserves[player_name] == 1,
-                        name="already_drafted_%s"%player_name)
+            m.add_constraint(my_starters[player_name] + my_reserves[player_name] == 1,
+                             name="already_drafted_%s"%player_name)
         else:
-            m.addConstr(my_starters[player_name] + my_reserves[player_name] <= 1,
-                        name="cant_draft_twice_%s"%player_name)
+            m.add_constraint(my_starters[player_name] + my_reserves[player_name] <= 1,
+                             name="cant_draft_twice_%s"%player_name)
 
     for i,draft_position in enumerate(sorted(dat.my_draft_positions)):
-        m.addConstr(gu.quicksum(my_starters[player_name] + my_reserves[player_name]
+        m.add_constraint(m.sum(my_starters[player_name] + my_reserves[player_name]
                                 for player_name in can_be_drafted_by_me
                                 if expected_draft_position[player_name] < draft_position) <= i,
-                    name = "at_most_%s_can_be_ahead_of_%s"%(i,draft_position))
+                         name = "at_most_%s_can_be_ahead_of_%s"%(i,draft_position))
 
-    my_draft_size = gu.quicksum(my_starters[player_name] + my_reserves[player_name]
-                                for player_name in can_be_drafted_by_me)
-    m.addConstr(my_draft_size >= len(already_drafted_by_me) + 1,
-                name = "need_to_extend_by_at_least_one")
-    m.addConstr(my_draft_size <= len(dat.my_draft_positions), name = "cant_exceed_draft_total")
+    my_draft_size = m.sum(my_starters[player_name] + my_reserves[player_name]
+                          for player_name in can_be_drafted_by_me)
+    m.add_constraint(my_draft_size >= len(already_drafted_by_me) + 1,
+                     name = "need_to_extend_by_at_least_one")
+    m.add_constraint(my_draft_size <= len(dat.my_draft_positions), name = "cant_exceed_draft_total")
 
     for position, row in dat.roster_requirements.items():
         players = {player_name for player_name in can_be_drafted_by_me
                    if dat.players[player_name]["Position"] == position}
-        starters = gu.quicksum(my_starters[player_name] for player_name in players)
-        reserves = gu.quicksum(my_reserves[player_name] for player_name in players)
-        m.addConstr(starters >= row["Min Num Starters"], name = "min_starters_%s"%position)
-        m.addConstr(starters <= row["Max Num Starters"], name = "max_starters_%s"%position)
-        m.addConstr(reserves >= row["Min Num Reserve"], name = "min_reserve_%s"%position)
-        m.addConstr(reserves <= row["Max Num Reserve"], name = "max_reserve_%s"%position)
+        starters = m.sum(my_starters[player_name] for player_name in players)
+        reserves = m.sum(my_reserves[player_name] for player_name in players)
+        m.add_constraint(starters >= row["Min Num Starters"], name = "min_starters_%s"%position)
+        m.add_constraint(starters <= row["Max Num Starters"], name = "max_starters_%s"%position)
+        m.add_constraint(reserves >= row["Min Num Reserve"], name = "min_reserve_%s"%position)
+        m.add_constraint(reserves <= row["Max Num Reserve"], name = "max_reserve_%s"%position)
 
     if "Maximum Number of Flex Starters" in dat.parameters:
         players = {player_name for player_name in can_be_drafted_by_me if
                    dat.roster_requirements[dat.players[player_name]["Position"]]["Flex Status"] == "Flex Eligible"}
-        m.addConstr(gu.quicksum(my_starters[player_name] for player_name in players)
-                    <= dat.parameters["Maximum Number of Flex Starters"]["Value"],
-                    name = "max_flex")
+        m.add_constraint(m.sum(my_starters[player_name] for player_name in players)
+                         <= dat.parameters["Maximum Number of Flex Starters"]["Value"],
+                         name = "max_flex")
 
     starter_weight = dat.parameters["Starter Weight"]["Value"] if "Starter Weight" in dat.parameters else 1
     reserve_weight = dat.parameters["Reserve Weight"]["Value"] if "Reserve Weight" in dat.parameters else 1
-    m.setObjective(gu.quicksum(dat.players[player_name]["Expected Points"] *
+    m.set_objective(m.sum(dat.players[player_name]["Expected Points"] *
                                (my_starters[player_name] * starter_weight + my_reserves[player_name] * reserve_weight)
                                for player_name in can_be_drafted_by_me),
-                   sense=gu.GRB.MAXIMIZE)
+                   sense="maximize")
 
-    m.optimize()
-
-    if m.status != gu.GRB.OPTIMAL:
+    if not m.optimize():
         print("No draft at all is possible!")
         return
 
     sln = solution_schema.TicDat()
     def almostone(x):
-        return abs(x.x-1) < 0.0001
+        return abs(m.get_solution_value(x)-1) < 0.0001
     picked = sorted([player_name for player_name in can_be_drafted_by_me
                      if almostone(my_starters[player_name]) or almostone(my_reserves[player_name])],
                     key=lambda _p: expected_draft_position[_p])
@@ -173,7 +171,7 @@ def solve(dat):
 # ---------------------------------------------------------------------------------
 
 # ------------------------ provide stand-alone functionality ----------------------
-# when run from the command line, will read/write xls/csv/db/mdb files
+# when run from the command line, will read/write xls/csv/db/sql/mdb files
 if __name__ == "__main__":
     standard_main(input_schema, solution_schema, solve)
 # ---------------------------------------------------------------------------------

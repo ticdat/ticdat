@@ -1,9 +1,6 @@
-#!/usr/bin/python
-
-# Copyright 2015, Opalytics, Inc.
 #
-# edited with permission from Gurobi Optimization, Inc.
-
+# Solve the standard diet problem while achieving MIP engine neutrality.
+#
 # Implement core functionality needed to achieve modularity.
 # 1. Define the input data schema
 # 2. Define the output data schema
@@ -12,14 +9,11 @@
 #
 # Provides command line interface via ticdat.standard_main
 # For example, typing
-#   python dietmodel.py -i input_data.xlsx -o solution_data.xlsx
+#   python diet.py -i input_data.xlsx -o solution_data.xlsx
 # will read from a model stored in the file input_data.xlsx and write the solution
 # to solution_data.xlsx.
 
-# this version of the file uses Gurobi
-
-import gurobipy as gu
-from ticdat import TicDatFactory,  standard_main
+from ticdat import TicDatFactory, standard_main, Model
 
 # ------------------------ define the input schema --------------------------------
 # There are three input tables, with 4 primary key fields and 4 data fields.
@@ -63,6 +57,7 @@ solution_schema = TicDatFactory(
 
 
 # ------------------------ create a solve function --------------------------------
+_model_type = "gurobi" # could also be 'cplex' or 'xpress'
 def solve(dat):
     """
     core solving routine
@@ -74,31 +69,30 @@ def solve(dat):
     assert not input_schema.find_data_type_failures(dat)
     assert not input_schema.find_data_row_failures(dat)
 
-    mdl = gu.Model("diet")
+    mdl = Model(_model_type, "diet")
 
-    nutrition = {c:mdl.addVar(lb=n["Min Nutrition"], ub=n["Max Nutrition"], name=c)
+    nutrition = {c:mdl.add_var(lb=n["Min Nutrition"], ub=n["Max Nutrition"], name=c)
                 for c,n in dat.categories.items()}
 
     # Create decision variables for the foods to buy
-    buy = {f:mdl.addVar(name=f) for f in dat.foods}
+    buy = {f:mdl.add_var(name=f) for f in dat.foods}
 
      # Nutrition constraints
     for c in dat.categories:
-        mdl.addConstr(gu.quicksum(dat.nutrition_quantities[f,c]["Quantity"] * buy[f]
-                      for f in dat.foods) == nutrition[c],
-                      name = c)
+        mdl.add_constraint(mdl.sum(dat.nutrition_quantities[f,c]["Quantity"] * buy[f]
+                             for f in dat.foods)
+                           == nutrition[c],
+                           name = c)
 
-    mdl.setObjective(gu.quicksum(buy[f] * c["Cost"] for f,c in dat.foods.items()),
-                     sense=gu.GRB.MINIMIZE)
-    mdl.optimize()
+    mdl.set_objective(mdl.sum(buy[f] * c["Cost"] for f,c in dat.foods.items()))
 
-    if mdl.status == gu.GRB.OPTIMAL:
+    if mdl.optimize():
         sln = solution_schema.TicDat()
         for f,x in buy.items():
-            if x.x > 0:
-                sln.buy_food[f] = x.x
+            if mdl.get_solution_value(x) > 0:
+                sln.buy_food[f] = mdl.get_solution_value(x)
         for c,x in nutrition.items():
-            sln.consume_nutrition[c] = x.x
+            sln.consume_nutrition[c] = mdl.get_solution_value(x)
         sln.parameters['Total Cost'] = sum(dat.foods[f]["Cost"] * r["Quantity"]
                                            for f,r in sln.buy_food.items())
         return sln
