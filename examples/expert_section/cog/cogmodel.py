@@ -1,13 +1,3 @@
-#!/usr/bin/python
-#
-# Copyright 2015, Opalytics, Inc
-#
-# Be advised - although this is the first ticdat example alphabetically, it is not the
-# first example intellectually. I strongly recommend beginning with the diet example,
-# and follow that with either netflow/simplest_version or fantop. These three examples
-# demonstrate the ability of ticdat to easily provide a command line interface
-# (complete with sanity checking of the input data) that can accommodate a variety
-# of file formats.
 #
 # This example demonstrates a script that is capable of fully exploiting all the bells and
 # whistles of the Opalytics Cloud Platform. It pre-diagnoses infeasibility conditions and
@@ -25,9 +15,9 @@
 #
 # Provides command line interface via ticdat.standard_main
 # For example, typing
-#   python cogmodel.py -i csv_data -o solution_csv_data
-# will read from a model stored in .csv files in the csv_data directory and
-# write the solution to the solution_csv_data directory.
+#   python cogmodel.py -i cog_sample_data.sql -o cog_solution.sql
+# will read from a model stored in cog_sample_data.sql and
+# write the solution to the cog_solution.sql directory.
 
 # this version of the file uses Gurobi
 
@@ -39,27 +29,27 @@ from ticdat import TicDatFactory, Progress, LogFile, Slicer, standard_main
 
 # ------------------------ define the input schema --------------------------------
 # There are three input tables, with 4 primary key fields  and 4 data fields.
-dataFactory = TicDatFactory (
+input_schema = TicDatFactory (
      sites      = [['name'],['demand', 'center_status']],
      distance   = [['source', 'destination'],['distance']],
      parameters = [["key"], ["value"]])
 
 # add foreign key constraints
-dataFactory.add_foreign_key("distance", "sites", ['source', 'name'])
-dataFactory.add_foreign_key("distance", "sites", ['destination', 'name'])
+input_schema.add_foreign_key("distance", "sites", ['source', 'name'])
+input_schema.add_foreign_key("distance", "sites", ['destination', 'name'])
 
 # center_status is a flag field which can take one of two string values.
-dataFactory.set_data_type("sites", "center_status", number_allowed=False,
+input_schema.set_data_type("sites", "center_status", number_allowed=False,
                           strings_allowed=["Can Be Center", "Pure Demand Point"])
 # The default type of non infinite, non negative works for distance
-dataFactory.set_data_type("distance", "distance")
+input_schema.set_data_type("distance", "distance")
 # ---------------------------------------------------------------------------------
 
 
 # ------------------------ define the output schema -------------------------------
 # There are three solution tables, with 2 primary key fields and 3
 # data fields amongst them.
-solutionFactory = TicDatFactory(
+solution_schema = TicDatFactory(
     openings    = [['site'],[]],
     assignments = [['site', 'assigned_to'],[]],
     parameters  = [["key"], ["value"]])
@@ -69,9 +59,9 @@ solutionFactory = TicDatFactory(
 def solve(dat, out, err, progress):
     assert isinstance(progress, Progress)
     assert isinstance(out, LogFile) and isinstance(err, LogFile)
-    assert dataFactory.good_tic_dat_object(dat)
-    assert not dataFactory.find_foreign_key_failures(dat)
-    assert not dataFactory.find_data_type_failures(dat)
+    assert input_schema.good_tic_dat_object(dat)
+    assert not input_schema.find_foreign_key_failures(dat)
+    assert not input_schema.find_data_type_failures(dat)
     out.write("COG output log\n%s\n\n"%time_stamp())
     err.write("COG error log\n%s\n\n"%time_stamp())
 
@@ -190,7 +180,7 @@ def solve(dat, out, err, progress):
         err.write("unexpected status %s\n"%m.status)
         return
 
-    sln = solutionFactory.TicDat()
+    sln = solution_schema.TicDat()
     sln.parameters["Lower Bound"] = getattr(m, "objBound", m.objVal)
     sln.parameters["Upper Bound"] = m.objVal
     out.write('Upper Bound: %g\n' % sln.parameters["Upper Bound"]["value"])
@@ -249,7 +239,7 @@ if __name__ == "__main__":
                 else :
                     print('\nNo solution')
 
-    standard_main(dataFactory, solutionFactory, _solve)
+    standard_main(input_schema, solution_schema, _solve)
 # ---------------------------------------------------------------------------------
 
 
