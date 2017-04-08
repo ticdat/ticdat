@@ -1,8 +1,6 @@
-#!/usr/bin/python
-
-# Copyright 2015, 2016 Opalytics, Inc.
 #
-
+# Solve the standard diet problem while achieving MIP engine neutrality.
+#
 # Implement core functionality needed to achieve modularity.
 # 1. Define the input data schema
 # 2. Define the output data schema
