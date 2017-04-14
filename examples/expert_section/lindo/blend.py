@@ -7,7 +7,7 @@ assert os.path.isfile(os.environ['LINGO_PATH']), "runlingo not found"
 output =''
 
 try:
-    output = subprocess.check_output(os.environ['LINGO_PATH', 'blend.lng'])
+    output = subprocess.check_output([os.environ['LINGO_PATH'], 'blend.lng'])
 except subprocess.CalledProcessError as err:
     with open("err.txt", "w") as f:
         f.write(err)
