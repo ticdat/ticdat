@@ -1,0 +1,102 @@
+MODEL:
+ TITLE   BLEND;
+ SETS:
+   !Each raw material has an availability
+     and cost/unit;
+   RAWMAT/ BUTANE, CATREF, NAPHTHA/: AVAIL, COST;
+
+   !Each finished good has a min required, 
+     max sellable, selling price,
+     and batch size to be determined;
+   FINGOOD/ REGULAR, PREMIUM/: 
+    MINREQ, MAXSELL, PRICE, BATCH;
+
+   !Here is the set of quality measures;
+   QUALMES/ OCTANE, VAPOR, VOLATILITY/;
+
+   !For each combo of raw material and
+     quality measure there is a quality
+     level;
+   RXQ( RAWMAT, QUALMES): QLEVEL;
+
+   !For each combination of quality 
+     measure and finished good there are
+     upper and lower limits on quality,
+     and a slack on upper quality to be
+     determined;
+   QXF( QUALMES, FINGOOD): 
+    QUP, QLOW, QSLACK;
+
+   !For each combination of raw material
+     and finished good there is an amount
+     of raw material used to be solved for;
+   RXF( RAWMAT, FINGOOD): USED;
+ ENDSETS
+
+ DATA:
+ !Raw material availability;
+  AVAIL = 1000, 4000, 5000;
+
+ !Raw material costs;
+  COST = 7.3, 18.2, 12.5;
+
+ !Quality parameters of raw
+  materials;
+  QLEVEL = 120,   60, 105,
+           100,  2.6,   3,
+            74,  4.1,  12;
+
+ !Limits on finished goods;
+  MINREQ  = 4000, 2000;
+  MAXSELL = 8000, 6000;
+
+ !Finished goods prices;
+  PRICE = 18.4,  22;
+
+ !Upper and lower limits on
+  quality for each finished good;
+  QUP = 110, 110,
+         11,  11,
+         25,  25;
+  QLOW = 90,  95,
+          8,   8,
+         17,  17;
+ ENDDATA
+
+ !Subject to raw material availability;
+  @FOR( RAWMAT( R):
+   [RMLIM] @SUM( FINGOOD( F): USED( R, F))
+    <= AVAIL( R);
+  );
+
+  @FOR( FINGOOD( F):
+
+   !Batch size computation;
+   [BATCOMP] BATCH( F) = 
+    @SUM( RAWMAT( R): USED( R, F));
+
+   !Batch size limits;
+   @BND( MINREQ, BATCH, MAXSELL); 
+  
+   !Quality restrictions for each 
+    quality measure;
+   @FOR( QUALMES( Q):
+
+    [QRESUP] @SUM( RAWMAT( R): 
+      QLEVEL( R, Q) * USED( R, F))
+       + QSLACK( Q, F) = QUP( Q, F) * 
+        BATCH( F);
+
+    [QRESDN] QSLACK( Q, F) <= 
+     ( QUP( Q, F) - QLOW( Q, F)) * 
+      BATCH( F);
+
+   );
+  );
+ 
+  ! We want to maximize the profit contribution;
+  [OBJECTIVE] MAX = 
+   @SUM( FINGOOD: PRICE * BATCH) -
+    @SUM( RAWMAT( R): COST( R) * 
+     @SUM( FINGOOD( F): USED( R, F)));
+END
