@@ -13,7 +13,9 @@ except subprocess.CalledProcessError as err:
         f.write(err)
         raise Exception("Error during runlingo, check err.txt for details")
 
-assert os.path.isfile("SOLU.txt"), "SOLU.TXT was not generated"
+assert os.path.isfile("SOLU.TXT"), "SOLU.TXT was not generated"
+with open("SOLU.TXT") as f:
+    assert f.read()[81:89] == '2050.000'
 
 try:
     output = subprocess.check_output([os.environ['TICDAT_LINGO_PATH'], 'tran.ltf'])
