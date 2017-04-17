@@ -1,0 +1,41 @@
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! This Lingo script can be run from the command line
+! with: runlingo tran.ltf
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+set default
+set echoin 1
+ MODEL:
+! A 3 Warehouse, 4 Customer
+   Transportation Problem;
+SETS:
+   WAREHOUSE / WH1, WH2, WH3/   : CAPACITY;
+   CUSTOMER   / C1, C2, C3, C4/ : DEMAND;
+   ROUTES( WAREHOUSE, CUSTOMER) : COST, VOLUME;
+ENDSETS
+
+! The objective;
+ [OBJ] min = @SUM( ROUTES: COST * VOLUME);
+
+! The demand constraints;
+ @FOR( CUSTOMER( J): [DEM]
+  @SUM( WAREHOUSE( I): VOLUME( I, J)) >=
+   DEMAND( J));
+
+! The supply constraints;
+ @FOR( WAREHOUSE( I): [SUP]
+  @SUM( CUSTOMER( J): VOLUME( I, J)) <=
+   CAPACITY( I));
+
+! Here are the parameters;
+DATA:
+   CAPACITY =   30, 25, 21 ;
+   DEMAND =   15, 17, 22, 12;
+   COST =      6,  2,  6,  7,
+               4,  9,  5,  3,
+               8,  8,  1,  5;
+ENDDATA
+END
+set terseo 1
+go
+nonz volume
+quit

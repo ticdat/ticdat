@@ -1,0 +1,19 @@
+! Input a small model
+MODEL:
+MAX = 20 * X + 30 * Y;
+X <= 50;
+Y  <= 60;
+X + 2 * Y <= 120;
+END
+! Terse output mode
+SET TERSEO 1
+! Solve the model
+GO
+! Open a file
+DIVERT SOLU.TXT
+! Send solution to the file
+SOLUTION
+! Close solution file
+RVRT
+! Quit LINGO
+QUIT
