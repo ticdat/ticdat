@@ -1,0 +1,10 @@
+!Warehouse capacities;
+30 25 21 ~
+
+!Vendor requirements;
+15 17 22 12 ~
+
+!Unit shipping costs;
+6 2 6 7
+4 9 5 3
+8 8 1 5

@@ -27,5 +27,5 @@ except subprocess.CalledProcessError as err:
 with open("output.txt", "w") as f:
     f.write(output)
 
-assert output[2025:2030] == '161.0', 'Unexpected output from running tran.ltf, check output.txt'
+assert output[2236:2241] == '161.0', 'Unexpected output from running tran.ltf, check output.txt'
 print "Output completed successfully, check output.txt or see results above"

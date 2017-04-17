@@ -28,11 +28,10 @@ ENDSETS
 
 ! Here are the parameters;
 DATA:
-   CAPACITY =   30, 25, 21 ;
-   DEMAND =   15, 17, 22, 12;
-   COST =      6,  2,  6,  7,
-               4,  9,  5,  3,
-               8,  8,  1,  5;
+   CAPACITY = @FILE(tran.ldt);
+   DEMAND = @FILE(tran.ldt);
+   COST = @FILE(tran.ldt);
+
 ENDDATA
 END
 set terseo 1
