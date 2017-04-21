@@ -1,18 +1,17 @@
-set NUTR;
-set FOOD;
+set categories;
+set foods;
+set nutrition_quantities within (foods cross categories);
 
-param cost {FOOD} > 0;
-param f_min {FOOD} >= 0;
-param f_max {j in FOOD} >= f_min[j];
+param cost {foods} > 0;
 
-param n_min {NUTR} >= 0;
-param n_max {i in NUTR} >= n_min[i];
+param min_nutrition {categories} >= 0;
+param max_nutrition {i in categories} >= min_nutrition[i];
 
-param amt {NUTR,FOOD} >= 0;
+param quantity {nutrition_quantities} >= 0;
 
-var Buy {j in FOOD} >= f_min[j], <= f_max[j];
+var Buy {j in foods} >= 0;
 
-minimize Total_Cost:  sum {j in FOOD} cost[j] * Buy[j];
+minimize Total_Cost:  sum {j in foods} cost[j] * Buy[j];
 
-subject to Diet {i in NUTR}:
-   n_min[i] <= sum {j in FOOD} amt[i,j] * Buy[j] <= n_max[i];
+subject to Diet {i in categories}:
+   min_nutrition[i] <= sum {j in foods} quantity[j,i] * Buy[j] <= max_nutrition[i];
