@@ -922,27 +922,6 @@ FUNCTIONS
         :param infinity: A number used to represent infinity in OPL
         :return: a TicDat object consistent with soln_tdf, or None if no solution found
 
-    find_denormalized_sub_table_failures(table, pk_fields, data_fields)
-        checks to see if the table argument contains a denormalized sub-table
-        indexed by pk_fields with data fields data_fields
-        :param table: The table to study. Can either be a pandas DataFrame or a
-                      or a container of consistent {field_name:value} dictionaries.
-        :param pk_fields: The pk_fields of the sub-table. Needs to be fields
-                          (but not necc primary key fields) of the table.
-        :param data_fileds: The data fields of the sub-table. Needs to be fields
-                            (but not necc data fields) of the table.
-        :return: A dictionary indexed by the pk_fields values in the table
-                 that are associated with improperly denormalized table rows. The
-                 values of the return dictionary are themselves dictionaries indexed
-                 by data fields. The values of the inner dictionary are
-                 tuples of the different distinct values found for the data field
-                 at the different rows with common primary key field values.
-                 The inner dictionaries are pruned so that only tuples of length >1
-                 are included, and the return dictionary is pruned so that only
-                 entries with at least one non-pruned inner dictionary is included.
-                 Thus, a table that has a properly denormalized (pk_fields, data_fields)
-                 sub-table will return an empty dictionary.
-
     standard_main(input_schema, solution_schema, solve)
          provides standardized command line functionality for a ticdat solve engine
         :param input_schema: a TicDatFactory defining the input schema
@@ -965,5 +944,4 @@ FUNCTIONS
             model will be stored in a directory containing a series of .csv files)
         Defaults are input.xlsx, output.xlsx
 DATA
-    __all__ = ['TicDatFactory', 'freeze_me', 'LogFile', 'Sloc', 'Slicer', 'Progress'
-               'find_denormalized_sub_table_failures']
+    __all__ = ['TicDatFactory', 'freeze_me', 'LogFile', 'Sloc', 'Slicer', 'Progress']

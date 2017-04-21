@@ -237,6 +237,52 @@ def find_duplicates_from_dict_ticdat(tdf, dict_ticdat):
                  del(rtn[t])
          return rtn
 
+def find_case_space_duplicates(tdf):
+    """
+    Finds fields that are case space duplicates
+    :param tdf: A TicDatFactory defining the schema
+    :return: A dictionary with the keys being tables that have case space duplicates
+    """
+    schema = tdf.schema()
+    tables_with_case_insensitive_dups = {}
+    for table in schema:
+        fields = set(schema[table][0]).union(schema[table][1])
+        case_insensitive_fields = set(map(lambda k: k.lower().replace(" ", "_"), fields))
+        if len(fields) != len(case_insensitive_fields):
+            tables_with_case_insensitive_dups[table] = fields
+    return tables_with_case_insensitive_dups
+
+def change_fields_with_reserved_keywords(tdf, reserved_keywords, undo=False):
+    tdf_schema = tdf.schema()
+    mapping = {}
+    for table, fields in tdf_schema.items():
+        for fields_list in [fields[0], fields[1]]:
+            for findex in range(len(fields_list)):
+                original_field = fields_list[findex]
+                if not undo:
+                    verify(not fields_list[findex].startswith('_'),
+                           ("Field names cannot start with '_', in table %s : " +
+                            "field is %s") % (table, fields_list[findex]))
+                    if fields_list[findex].lower() in reserved_keywords:
+                        fields_list[findex] = '_' + fields_list[findex]
+                else:
+                    if fields_list[findex].startswith('_'):
+                        fields_list[findex] = fields_list[findex][1:]
+                mapping[table,original_field] = fields_list[findex]
+    rtn = ticdat.TicDatFactory(**tdf_schema)
+    for (table, original_field),new_field in mapping.items():
+        if original_field in tdf.default_values.get(table, ()):
+            rtn.set_default_value(table, new_field,
+                                  tdf.default_values[table][original_field])
+        if original_field in tdf.data_types.get(table, ()):
+            rtn.set_data_type(table, new_field,
+                              *(tdf.data_types[table][original_field]))
+    if tdf.opl_prepend:
+        rtn.opl_prepend = tdf.opl_prepend
+    if tdf.tbn_prepend:
+        rtn.tbn_prepend = tdf.tbn_prepend
+    return rtn
+
 def create_generic_free(td, tdf):
     assert tdf.good_tic_dat_object(td)
     if not tdf.generic_tables:
