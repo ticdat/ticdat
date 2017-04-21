@@ -1,4 +1,5 @@
 from ticdat.utils import verify, containerish, stringish, find_duplicates_from_dict_ticdat
+from ticdat.utils import find_case_space_duplicates, change_fields_with_reserved_keywords
 import ticdat.utils as tu
 from ticdat.ticdatfactory import TicDatFactory
 import os, subprocess, inspect, time, uuid, shutil
@@ -20,85 +21,11 @@ opl_keywords = ["initial", "template", "struct", "all", "and", "assert", "boolea
 def _code_dir():
     return os.path.dirname(os.path.abspath(inspect.getsourcefile(_code_dir)))
 
-def pattern_finder(string, pattern, rsearch=False):
-    """
-    Searches a string for the pattern ignoring whitespace
-    :param string: A text string
-    :param pattern: A string containing the pattern to search for
-    :param rsearch: Optional parameter indicating if the search should be performed backwards
-    """
-    verify(len(pattern) <= len(string), "Pattern is larger than string, cannot be found. Pattern is '%s'" % pattern)
-    poss_string = []
-    nospaces = lambda k: list(filter(lambda j: not j.isspace(), k))
-    if rsearch:
-        pattern = pattern[::-1]
-        string = string[::-1]
-    for i, j in enumerate(string):
-        if len(nospaces(poss_string)) < len(pattern):
-            poss_string.append(str(j))
-        else:
-            while (poss_string[0].isspace()):
-                poss_string.pop(0)
-            poss_string.pop(0)
-            poss_string.append(str(j))
-            pass
-        if ''.join(nospaces(poss_string)) == pattern:
-            while (poss_string[0].isspace()):
-                poss_string.pop(0)
-            if rsearch:
-                return len(string) - i + len(poss_string) - 2
-            return i + 1 - len(poss_string)
-    return False
-
-def _find_case_space_duplicates(tdf):
-    """
-    Finds fields that are case space duplicates
-    :param tdf: A TicDatFactory defining the schema
-    :return: A dictionary with the keys being tables that have case space duplicates
-    """
-    schema = tdf.schema()
-    tables_with_case_insensitive_dups = {}
-    for table in schema:
-        fields = set(schema[table][0]).union(schema[table][1])
-        case_insensitive_fields = set(map(lambda k: k.lower().replace(" ", "_"),fields))
-        if len(fields) != len(case_insensitive_fields):
-            tables_with_case_insensitive_dups[table] = fields
-    return tables_with_case_insensitive_dups
-
-def _change_fields_with_opl_keywords(tdf, undo=False):
-    tdf_schema = tdf.schema()
-    mapping = {}
-    for table, fields in tdf_schema.items():
-        for fields_list in [fields[0], fields[1]]:
-            for findex in range(len(fields_list)):
-                original_field = fields_list[findex]
-                if not undo:
-                    verify(not fields_list[findex].startswith('_'),
-                           ("Field names cannot start with '_', in table %s : " +
-                            "field is %s") % (table, fields_list[findex]))
-                    if fields_list[findex].lower() in opl_keywords:
-                        fields_list[findex] = '_' + fields_list[findex]
-                else:
-                    if fields_list[findex].startswith('_'):
-                        fields_list[findex] = fields_list[findex][1:]
-                mapping[table,original_field] = fields_list[findex]
-
-    rtn = TicDatFactory(**tdf_schema)
-    for (table, original_field),new_field in mapping.items():
-        if original_field in tdf.default_values.get(table, ()):
-            rtn.set_default_value(table, new_field,
-                                  tdf.default_values[table][original_field])
-        if original_field in tdf.data_types.get(table, ()):
-            rtn.set_data_type(table, new_field,
-                              *(tdf.data_types[table][original_field]))
-    rtn.opl_prepend = tdf.opl_prepend
-    return rtn
-
 def _fix_fields_with_opl_keywords(tdf):
-    return _change_fields_with_opl_keywords(tdf)
+    return change_fields_with_reserved_keywords(tdf, opl_keywords)
 
 def _unfix_fields_with_opl_keywords(tdf):
-    return _change_fields_with_opl_keywords(tdf, True)
+    return change_fields_with_reserved_keywords(tdf, opl_keywords, True)
 
 def opl_run(mod_file, input_tdf, input_dat, soln_tdf, infinity=INFINITY, oplrun_path=None, post_solve=None):
     """
@@ -111,8 +38,8 @@ def opl_run(mod_file, input_tdf, input_dat, soln_tdf, infinity=INFINITY, oplrun_
     :return: a TicDat object consistent with soln_tdf, or None if no solution found
     """
     verify(os.path.isfile(mod_file), "mod_file %s is not a valid file."%mod_file)
-    verify(not _find_case_space_duplicates(input_tdf), "There are case space duplicate field names in the input schema.")
-    verify(not _find_case_space_duplicates(soln_tdf), "There are case space duplicate field names in the solution schema.")
+    verify(not find_case_space_duplicates(input_tdf), "There are case space duplicate field names in the input schema.")
+    verify(not find_case_space_duplicates(soln_tdf), "There are case space duplicate field names in the solution schema.")
     verify(len({input_tdf.opl_prepend + t for t in input_tdf.all_tables}.union(
                {soln_tdf.opl_prepend + t for t in soln_tdf.all_tables})) ==
            len(input_tdf.all_tables) + len(soln_tdf.all_tables),
@@ -250,7 +177,7 @@ def create_opl_mod_output_text(tdf):
     return _create_opl_mod_text(tdf, True)
 
 def _create_opl_mod_text(tdf, output):
-    verify(not _find_case_space_duplicates(tdf), "There are case space duplicate field names in the schema.")
+    verify(not find_case_space_duplicates(tdf), "There are case space duplicate field names in the schema.")
     verify(not tdf.generator_tables, "Input schema error - doesn't work with generator tables.")
     verify(not tdf.generic_tables, "Input schema error - doesn't work with generic tables. (not yet - will \
             add ASAP as needed) ")
