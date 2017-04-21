@@ -29,6 +29,6 @@ except subprocess.CalledProcessError as err:
 
 assert os.path.isfile("output.txt"), "blah was not generated"
 with open("output.txt") as f:
-    assert f.read()[53:60] == '46.6667'
+    assert f.read()[-9:-2] == '11.8289'
 
 print "Output completed successfully, check output.txt or see results above"
