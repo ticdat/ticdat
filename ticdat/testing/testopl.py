@@ -1,7 +1,6 @@
 import os
 from ticdat.opl import create_opl_text, read_opl_text, opl_run,create_opl_mod_text
-from ticdat.opl import _can_run_oplrun_tests, pattern_finder, _find_case_space_duplicates
-from ticdat.opl import _fix_fields_with_opl_keywords, _unfix_fields_with_opl_keywords
+from ticdat.opl import _can_run_oplrun_tests
 import sys
 from ticdat.ticdatfactory import TicDatFactory
 import ticdat.utils as utils

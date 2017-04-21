@@ -110,15 +110,15 @@ class TestUtils(unittest.TestCase):
             predicate=lambda row: row["Max Nutrition"] >= row["Min Nutrition"])
         input_schema.set_default_value("categories", "Max Nutrition", float("inf"))
         reserved_keywords = ["Words", "CPLEX", "key"]
-        new_input_schema = utils.fix_fields_with_reserved_keywords(input_schema, reserved_keywords)
+        new_input_schema = utils.change_fields_with_reserved_keywords(input_schema, reserved_keywords)
         self.assertDictEqual(input_schema.data_types, new_input_schema.data_types)
         self.assertDictEqual(input_schema.default_values, new_input_schema.default_values)
         old_tdf = TicDatFactory(table=[['Key', 'PK 2'], ['cplex', 'DF 2']])
         old_schema = old_tdf.schema()
-        new_tdf = utils.fix_fields_with_opl_keywords(old_tdf, reserved_keywords)
+        new_tdf = utils.change_fields_with_reserved_keywords(old_tdf, reserved_keywords)
         new_schema = new_tdf.schema()
         self.assertTrue('_Key' in new_schema['table'][0])
-        new_old_tdf = utils.unfix_fields_with_opl_keywords(new_tdf, reserved_keywords)
+        new_old_tdf = utils.change_fields_with_reserved_keywords(new_tdf, reserved_keywords,True)
         new_old_schema = new_old_tdf.schema()
         self.assertDictEqual(old_schema, new_old_schema)
 
