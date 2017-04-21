@@ -17,7 +17,7 @@ set nutrition_quantities := (hamburger,protein)(hamburger,calories)(hamburger,fa
 param:   cost  :=
   hamburger   2.49
   salad       2.49
-  hot_dog     1.50
+  "hot dog"   1.50
   fries       1.89
   macaroni    2.09
   chicken     2.89
@@ -40,10 +40,10 @@ param:                 quantity :=
    salad calories        320
    salad fat             12
    salad sodium          1230
-   "hot dog" protein       20
-   "hot dog" calories      560
-   "hot dog" fat           32
-   "hot dog" sodium        1800
+   "hot dog" protein     20
+   "hot dog" calories    560
+   "hot dog" fat         32
+   "hot dog" sodium      1800
    fries protein         4
    fries calories        380
    fries fat             19
