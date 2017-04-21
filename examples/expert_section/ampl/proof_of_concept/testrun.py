@@ -20,7 +20,7 @@ with open("myscript.run", "w") as f:
     f.write("close output.txt;")
 
 try:
-    output = subprocess.check_output([os.environ['TICDAT_AMPL_PATH'], 'myscript.run'])
+    output = subprocess.check_output([os.environ['TICDAT_AMPL_PATH'], 'myscript.run'], stderr=subprocess.STDOUT)
 except subprocess.CalledProcessError as err:
     with open("err.txt", "w") as f:
         print err
