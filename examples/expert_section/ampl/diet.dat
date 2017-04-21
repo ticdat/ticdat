@@ -1,31 +1,33 @@
 data;
 
-set NUTR := A B1 B2 C ;
-set FOOD := BEEF CHK FISH HAM MCH MTL SPG TUR ;
+set NUTR := protein calories fat sodium ;
+set FOOD := hamburger salad hot_dog fries macaroni chicken milk ice_cream pizza;
 
 param:   cost  f_min  f_max :=
-  BEEF   3.19    0     100
-  CHK    2.59    0     100
-  FISH   2.29    0     100
-  HAM    2.89    0     100
-  MCH    1.89    0     100
-  MTL    1.99    0     100
-  SPG    1.99    0     100
-  TUR    2.49    0     100 ;
+  hamburger   2.49    0     999999999
+  salad    2.49    0     999999999
+  hot_dog 1.50 0 999999999
+  fries 1.89 0 999999999
+  macaroni 2.09 0 999999999
+  chicken 2.89 0 999999999
+  milk 0.89 0 999999999
+  ice_cream 1.59 0 999999999
+  pizza 1.99 0 999999999;
 
 param:   n_min  n_max :=
-   A      700   10000
-   C      700   10000
-   B1     700   10000
-   B2     700   10000 ;
+   protein     91.00  999999.00
+   calories    1800.00   2200.00
+   fat 0 65
+   sodium 0 1779;
 
 param amt (tr):
-           A    C   B1   B2 :=
-   BEEF   60   20   10   15
-   CHK     8    0   20   20
-   FISH    8   10   15   10
-   HAM    40   40   35   10
-   MCH    15   35   15   15
-   MTL    70   30   15   15
-   SPG    25   50   25   15
-   TUR    60   20   15   10 ;
+                protein calories fat sodium :=
+   hamburger 24 410 26 730
+   salad 31 320 12 1230
+   hot_dog 20 560 32 1800
+   fries 4 380 19 270
+   macaroni 12 320 10 930
+   chicken 32 420 10 1190
+   milk 8 100 2.5 125
+   ice_cream 8 330 10 180
+   pizza 15 320 12 820;
