@@ -1,6 +1,6 @@
 import os
 from ticdat.ampl import create_ampl_text, read_ampl_text, ampl_run,create_ampl_mod_text
-from ticdat.ampl import _can_run_ampl_run_tests, pattern_finder, _find_case_space_duplicates
+from ticdat.ampl import _can_run_ampl_run_tests
 from ticdat.ampl import _fix_fields_with_ampl_keywords, _unfix_fields_with_ampl_keywords
 import sys
 from ticdat.ticdatfactory import TicDatFactory

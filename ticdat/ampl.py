@@ -131,7 +131,30 @@ def create_ampl_text(tdf, tic_dat, infinity=INFINITY):
     verify(not tdf.generic_tables, "doesn't work with generic tables. (not yet - will add ASAP as needed) ")
     dict_with_lists = defaultdict(list)
     dict_tables = {t for t,pk in tdf.primary_key_fields.items() if pk}
-    rtn = ""
+    for t in dict_tables:
+        for k,r in getattr(tic_dat, t).items():
+            row = list(k) if containerish(k) else [k]
+            for f in tdf.data_fields.get(t, []):
+                row.append(r[f])
+            dict_with_lists[t].append(row)
+    for t in set(tdf.all_tables).difference(dict_tables):
+        for r in getattr(tic_dat, t):
+            row = [r[f] for f in tdf.data_fields[t]]
+            dict_with_lists[t].append(row)
+
+    rtn = "data;\n"
+    for i, (t,l) in enumerate(dict_with_lists.items()):
+        rtn += "param: %s: "%(tdf.opl_prepend + t) # I don't like using opl_prepend here, should be ampl_pre or tbn_pre
+        for field in tdf.data_fields[t]:
+            rtn += "\"" + field + "\" "
+        rtn += ":=\n"
+        for row in l:
+            rtn += " "
+            for field in row:
+                rtn += ("\"%s\""%field if stringish(field) else (str(infinity) if float('inf') == field else str(field))) + " "
+            rtn += "\n"
+        rtn += ";\n"
+
     return rtn
 
 def create_ampl_mod_text(tdf):
@@ -189,6 +212,8 @@ def read_ampl_text(tdf,text, commaseperator = True):
     verify(stringish(text), "text needs to be a string")
     # probably want to verify something about the ticdat factory, look at the wiki
     dict_with_lists = defaultdict(list)
+    NONE, TBN_DEF, INQUOTES, ROW
+    MODE = NONE
 
     for i,c in enumerate(text):
         # Do things
@@ -198,3 +223,5 @@ def read_ampl_text(tdf,text, commaseperator = True):
             "duplicates were found - if asserts are disabled, duplicate rows will overwrite"
 
     return tdf.TicDat(**{k.replace(tdf.ampl_prepend,"",1):v for k,v in dict_with_lists.items()})
+
+# Look for = signs
