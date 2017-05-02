@@ -14,10 +14,10 @@ def _code_dir():
     return os.path.dirname(os.path.abspath(inspect.getsourcefile(_code_dir)))
 
 def _fix_fields_with_ampl_keywords(tdf):
-    return _change_fields_with_reserved_keywords(tdf, ampl_keywords)
+    return change_fields_with_reserved_keywords(tdf, ampl_keywords)
 
 def _unfix_fields_with_ampl_keywords(tdf):
-    return _change_fields_with_reserved_keywords(tdf, ampl_keywords, True)
+    return change_fields_with_reserved_keywords(tdf, ampl_keywords, True)
 
 def ampl_run(mod_file, input_tdf, input_dat, soln_tdf, infinity=INFINITY, amplrun_path=None, post_solve=None):
     """
@@ -146,7 +146,7 @@ def create_ampl_text(tdf, tic_dat, infinity=INFINITY):
     for i, (t,l) in enumerate(dict_with_lists.items()):
         rtn += "param: %s: "%(tdf.opl_prepend + t) # I don't like using opl_prepend here, should be ampl_pre or tbn_pre
         for field in tdf.data_fields[t]:
-            rtn += "\"" + field + "\" "
+            rtn += "\"" + t + "_" + field + "\" "
         rtn += ":=\n"
         for row in l:
             rtn += " "
@@ -163,18 +163,7 @@ def create_ampl_mod_text(tdf):
     :param tdf: A TicDatFactory defining the input schema
     :return: A string consistent with the AMPL .mod input format
     """
-    return _create_ampl_mod_text(tdf, False)
-
-def create_ampl_mod_output_text(tdf):
-    """
-    Generate a AMPL .mod string from a TicDat object for diagnostic purposes
-    :param tdf: A TicDatFactory defining the input schema
-    :return: A string consistent with the AMPL .mod output format
-    """
-    return _create_ampl_mod_text(tdf, True)
-
-def _create_ampl_mod_text(tdf, output):
-    verify(not _find_case_space_duplicates(tdf), "There are case space duplicate field names in the schema.")
+    verify(not find_case_space_duplicates(tdf), "There are case space duplicate field names in the schema.")
     verify(not tdf.generator_tables, "Input schema error - doesn't work with generator tables.")
     verify(not tdf.generic_tables, "Input schema error - doesn't work with generic tables. (not yet - will \
             add ASAP as needed) ")
@@ -184,20 +173,24 @@ def _create_ampl_mod_text(tdf, output):
     verify(set(dict_tables) == set(tdf.all_tables), "not yet handling non-PK tables of any sort")
 
     prepend = getattr(tdf, "ampl_prepend", "")
-    def _get_type(data_types, table, field, is_pk=False):
-        try:
-            return "float" if data_types[table][field].number_allowed else "string"
-        except KeyError:
-            if is_pk:
-                return "string"
-            return "float"
 
-    def get_table_as_mod_text(tdf, tbn, output):
-        rtn = ''
+    def get_table_as_mod_text(tdf, tbn):
+        p_tbn = prepend + tbn
+        rtn = 'set ' + p_tbn
+        if len(tdf.primary_key_fields[tbn]) > 1:
+            rtn += ' dimen ' + str(len(tdf.primary_key_fields[tbn]))
+        rtn += ';\n'
+        for df in tdf.data_fields[tbn]:
+            df_m = df.replace(' ', '_').lower()
+            rtn += 'param ' + p_tbn + '_' + df_m + ' {' + p_tbn + '};\n'
+
+        # Is this case a thing in ampl?
+        # if len(tdf.primary_key_fields[tbn]) is 1 and len(tdf.data_fields[tbn]) is 0:
+
         return rtn
 
     for t in dict_tables:
-        rtn += get_table_as_mod_text(tdf, t, output)
+        rtn += get_table_as_mod_text(tdf, t)
 
     return rtn
 
@@ -212,7 +205,7 @@ def read_ampl_text(tdf,text, commaseperator = True):
     verify(stringish(text), "text needs to be a string")
     # probably want to verify something about the ticdat factory, look at the wiki
     dict_with_lists = defaultdict(list)
-    NONE, TBN_DEF, INQUOTES, ROW
+    NONE, TBN_DEF, INQUOTES, ROW = 1,2,3,4
     MODE = NONE
 
     for i,c in enumerate(text):

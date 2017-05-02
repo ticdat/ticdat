@@ -11,8 +11,9 @@ assert os.path.isfile(os.environ['TICDAT_CPLEX_AMPL_PATH']), "cplexamp not found
 output =''
 
 with open("myscript.run", "w") as f:
+    f.write("model tic_diet.mod;\n")
     f.write("model diet.mod;\n")
-    f.write("data diet.dat;\n")
+    f.write("data tic_diet.dat;\n")
     f.write("option solver \""+os.environ['TICDAT_CPLEX_AMPL_PATH']+'\";\n')
     f.write("solve;\n")
     f.write("display Buy > output.txt;\n")
