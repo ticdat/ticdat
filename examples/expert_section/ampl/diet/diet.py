@@ -53,6 +53,10 @@ solution_schema = TicDatFactory(
     buy_food = [["Food"],["Quantity"]],
     consume_nutrition = [["Category"],["Quantity"]])
 
+solution_variables = TicDatFactory(
+    total_cost=[["Value"]],
+    Buy = [["Food"],["Quantity"]])
+
 # ---------------------------------------------------------------------------------
 
 
@@ -68,7 +72,7 @@ def solve(dat):
     assert not input_schema.find_data_type_failures(dat)
     assert not input_schema.find_data_row_failures(dat)
 
-    return ampl_run("diet.mod", input_schema, dat, solution_schema)
+    return ampl_run("diet.mod", input_schema, dat, solution_variables)
 # ---------------------------------------------------------------------------------
 
 # ------------------------ provide stand-alone functionality ----------------------
