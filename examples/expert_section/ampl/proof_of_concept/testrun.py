@@ -11,7 +11,6 @@ assert os.path.isfile(os.environ['TICDAT_CPLEX_AMPL_PATH']), "cplexamp not found
 output =''
 
 with open("myscript.run", "w") as f:
-    f.write("model tic_diet.mod;\n")
     f.write("model diet.mod;\n")
     f.write("data tic_diet.dat;\n")
     f.write("option solver \""+os.environ['TICDAT_CPLEX_AMPL_PATH']+'\";\n')
@@ -21,11 +20,11 @@ with open("myscript.run", "w") as f:
     f.write("close output.txt;")
 
 try:
-    output = subprocess.check_output([os.environ['TICDAT_AMPL_PATH'], 'myscript.run'], stderr=subprocess.STDOUT)
+    output = subprocess.check_output([os.environ['TICDAT_AMPL_PATH'], 'myscript.run'])
 except subprocess.CalledProcessError as err:
     with open("err.txt", "w") as f:
         print err
-        f.write(err)
+        f.write(str(err))
         raise Exception("Error occured while running ampl, check err.txt for details")
 
 assert os.path.isfile("output.txt"), "blah was not generated"

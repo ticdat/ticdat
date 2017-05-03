@@ -1,3 +1,5 @@
+include tic_diet.mod;
+
 var Buy {j in foods} >= 0;
 
 minimize Total_Cost:  sum {j in foods} foods_cost[j] * Buy[j];

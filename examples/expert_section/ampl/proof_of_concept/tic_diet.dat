@@ -48,7 +48,7 @@ param: foods: "foods_cost" :=
  "ice cream" 1.59 
  "pizza" 1.99 
 ;
-param: categories: "categories_minNutrition" "categories_maxNutrition" :=
+param: categories: "categories_min_nutrition" "categories_max_nutrition" :=
  "protein" 91 999999 
  "calories" 1800 2200 
  "fat" 0 65 
