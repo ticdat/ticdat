@@ -55,7 +55,7 @@ solution_schema = TicDatFactory(
 
 solution_variables = TicDatFactory(
     total_cost=[["Value"],[]],
-    Buy=[["Food"],["Quantity"]])
+    buy=[["Food"],["Quantity"]])
 
 # ---------------------------------------------------------------------------------
 
