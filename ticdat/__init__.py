@@ -18,7 +18,8 @@ from ticdat.ticdatfactory import TicDatFactory, freeze_me
 from ticdat.utils import Sloc, LogFile, Progress, Slicer, \
                          find_denormalized_sub_table_failures, standard_main
 from ticdat.opl import opl_run, create_opl_mod_text, create_opl_mod_output_text
+from ticdat.ampl import ampl_run, create_ampl_mod_text
 from ticdat.model import Model
 __all__ = ["TicDatFactory", "freeze_me", "LogFile", "Sloc", "Slicer", "Progress", "standard_main", "Model", "opl_run",
-           "create_opl_mod_text", "create_opl_mod_output_text"]
+           "create_opl_mod_text", "create_opl_mod_output_text", "ampl_run"]
 
