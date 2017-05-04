@@ -20,6 +20,9 @@ def _unfix_fields_with_ampl_keywords(tdf):
     return change_fields_with_reserved_keywords(tdf, ampl_keywords, True)
 
 def ampl_run(mod_file, input_tdf, input_dat, soln_tdf, infinity=INFINITY, amplrun_path=None, post_solve=None):
+    # Here only for debugging purposes
+    # os.environ["TICDAT_AMPL_SOLVER_PATH"] = "/opt/ibm/ILOG/CPLEX_Studio127/cplex/bin/x86-64_linux/cplexamp"
+    # os.environ["TICDAT_AMPL_PATH"] = "/opt/opalytics/lenticular/sams-stuff/ampl/install/ampl"
     """
     solve an optimization problem using an AMPL .mod file
     :param mod_file: An AMPL .mod file.
@@ -88,7 +91,7 @@ def ampl_run(mod_file, input_tdf, input_dat, soln_tdf, infinity=INFINITY, amplru
         f.write("option display_1col INFINITY;\n") # Ugg formatting
         f.write("option display_width INFINITY;\n")
         f.write("option display_precision 0;\n")
-        # f.write("option eexit 1;\n")
+        # f.write("option eexit -1;\n")
         for tbn in {t for t, pk in soln_tdf.primary_key_fields.items() if pk}:
             f.write("display "+tbn+" > results.dat;\n")
         f.write("close results.dat;")
@@ -101,12 +104,11 @@ def ampl_run(mod_file, input_tdf, input_dat, soln_tdf, infinity=INFINITY, amplru
             with open(os.path.join(_code_dir(),"amplrun_path.txt"),"r") as f:
                 amplrun_path = f.read().strip()
     verify(os.path.isfile(amplrun_path), "%s not a valid path to amplrun"%amplrun_path)
-    output = ''
     try:
-        output = subprocess.check_output([amplrun_path, commandsfile])
+        output = subprocess.check_output([amplrun_path, commandsfile], stderr=subprocess.STDOUT)
     except subprocess.CalledProcessError as err:
         if tu.development_deployed_environment:
-            raise Exception("amplrun failed to complete: " + err.output)
+            raise Exception("amplrun failed to complete: " + str(err.output))
     with open(output_txt, "w") as f:
         f.write(output)
     if not os.path.isfile(results_dat):
