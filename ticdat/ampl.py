@@ -32,10 +32,10 @@ def ampl_run(mod_file, input_tdf, input_dat, soln_tdf, infinity=INFINITY, amplru
     verify(os.path.isfile(mod_file), "mod_file %s is not a valid file."%mod_file)
     verify(not find_case_space_duplicates(input_tdf), "There are case space duplicate field names in the input schema.")
     verify(not find_case_space_duplicates(soln_tdf), "There are case space duplicate field names in the solution schema.")
-    verify(len({input_tdf.ampl_prepend + t for t in input_tdf.all_tables}.union(
-               {soln_tdf.ampl_prepend + t for t in soln_tdf.all_tables})) ==
+    verify(len({input_tdf.tbn_prepend + t for t in input_tdf.all_tables}.union(
+               {soln_tdf.tbn_prepend + t for t in soln_tdf.all_tables})) ==
            len(input_tdf.all_tables) + len(soln_tdf.all_tables),
-           "There are colliding input and solution table names.\nSet ampl_prepend so " +
+           "There are colliding input and solution table names.\nSet tbn_prepend so " +
            "as to insure the input and solution table names are effectively distinct.")
     msg = []
     verify(input_tdf.good_tic_dat_object(input_dat, msg.append),
@@ -150,7 +150,7 @@ def create_ampl_text(tdf, tic_dat, infinity=INFINITY):
 
     rtn = "data;\n"
     for i, (t,l) in enumerate(dict_with_lists.items()):
-        rtn += "param: %s: "%(tdf.opl_prepend + t) # I don't like using opl_prepend here, should be ampl_pre or tbn_pre
+        rtn += "param: %s: "%(tdf.tbn_prepend + t)
         for field in tdf.data_fields[t]:
             rtn += "\"" + t + "_" + field + "\" "
         rtn += ":=\n"
@@ -178,7 +178,7 @@ def create_ampl_mod_text(tdf):
     dict_tables = {t for t, pk in tdf.primary_key_fields.items() if pk}
     verify(set(dict_tables) == set(tdf.all_tables), "not yet handling non-PK tables of any sort")
 
-    prepend = getattr(tdf, "ampl_prepend", "")
+    prepend = getattr(tdf, "tbn_prepend", "")
 
     def get_table_as_mod_text(tdf, tbn):
         p_tbn = prepend + tbn
@@ -270,4 +270,4 @@ def read_ampl_text(tdf,text):
     assert not find_duplicates_from_dict_ticdat(tdf, dict_with_lists), \
             "duplicates were found - if asserts are disabled, duplicate rows will overwrite"
 
-    return tdf.TicDat(**{k.replace(tdf.ampl_prepend,"",1):v for k,v in dict_with_lists.items()})
+    return tdf.TicDat(**{k.replace(tdf.tbn_prepend,"",1):v for k,v in dict_with_lists.items()})

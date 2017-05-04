@@ -1,4 +1,4 @@
-include tic_diet.mod;
+include ticdat_diet.mod;
 
 var Buy {j in foods} >= 0;
 
