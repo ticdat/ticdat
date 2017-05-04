@@ -107,7 +107,6 @@ def ampl_run(mod_file, input_tdf, input_dat, soln_tdf, infinity=INFINITY, amplru
     except subprocess.CalledProcessError as err:
         if tu.development_deployed_environment:
             raise Exception("amplrun failed to complete: " + err.output)
-    print output + " what the fuck"
     with open(output_txt, "w") as f:
         f.write(output)
     if not os.path.isfile(results_dat):
@@ -118,7 +117,7 @@ def ampl_run(mod_file, input_tdf, input_dat, soln_tdf, infinity=INFINITY, amplru
     if post_solve:
         post_solve()
     soln_tdf = _unfix_fields_with_ampl_keywords(soln_tdf)
-    return read_ampl_text(soln_tdf, output, False)
+    return read_ampl_text(soln_tdf, output)
 
 _can_run_ampl_run_tests = os.path.isfile(os.path.join(_code_dir(),"ampl_run_path.txt"))
 
@@ -211,7 +210,7 @@ def read_ampl_text(tdf,text):
 
     verify(stringish(text), "text needs to be a string")
 
-    def _get_type(val):
+    def _get_as_type(val):
         try:
             return float(val)
         except ValueError:
@@ -255,7 +254,7 @@ def read_ampl_text(tdf,text):
                         s = line.find(" ")
                         val = line if s == -1 else line[:s]
                         line = '' if s == -1 else line[s + 1:]
-                        row.append(_get_type(val))
+                        row.append(_get_as_type(val))
                 rows.append(row)
             dict_with_lists[name] = rows
         else:
@@ -265,7 +264,7 @@ def read_ampl_text(tdf,text):
             val = tmp[1].strip()
             if val[0] == '\'' and val[-1] == '\'':
                 val = val[1:-1]
-            dict_with_lists[name] = _get_type(val)
+            dict_with_lists[name] = [_get_as_type(val)]
 
     assert not find_duplicates_from_dict_ticdat(tdf, dict_with_lists), \
             "duplicates were found - if asserts are disabled, duplicate rows will overwrite"
