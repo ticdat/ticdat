@@ -43,12 +43,7 @@ def ampl_run(mod_file, input_tdf, input_dat, soln_tdf, infinity=INFINITY, amplru
     msg = []
     verify(input_tdf.good_tic_dat_object(input_dat, msg.append),
            "tic_dat not a good object for the input_tdf factory : %s"%"\n".join(msg))
-    # This is a sticky point?
-    verify('TICDAT_AMPL_SOLVER_PATH' in os.environ.keys(), "TICDAT_AMPL_SOLVER_PATH environment variable is not set. Set it to"
-                                                    " the path of the solver you want to use.")
-    verify(os.path.isfile(os.environ["TICDAT_AMPL_SOLVER_PATH"]), "%s is not a valid file. Set it to the path of the "
-                                                    "solver you want to use."%os.environ["TICDAT_AMPL_SOLVER_PATH"])
-    selected_solver = os.environ["TICDAT_AMPL_SOLVER_PATH"]
+    selected_solver = os.environ.get("TICDAT_AMPL_SOLVER_PATH", "FAILED_TO_RESOLVE")
     orig_input_tdf, orig_soln_tdf = input_tdf, soln_tdf
     input_tdf = _fix_fields_with_ampl_keywords(input_tdf)
     soln_tdf = _fix_fields_with_ampl_keywords(soln_tdf)
@@ -95,6 +90,12 @@ def ampl_run(mod_file, input_tdf, input_dat, soln_tdf, infinity=INFINITY, amplru
         for tbn in {t for t, pk in soln_tdf.primary_key_fields.items() if pk}:
             f.write("display "+tbn+" > results.dat;\n")
         f.write("close results.dat;")
+
+    # This is a sticky point?
+    verify('TICDAT_AMPL_SOLVER_PATH' in os.environ.keys(), "TICDAT_AMPL_SOLVER_PATH environment variable is not set. Set it to"
+                                                    " the path of the solver you want to use.")
+    verify(os.path.isfile(os.environ["TICDAT_AMPL_SOLVER_PATH"]), "%s is not a valid file. Set it to the path of the "
+                                                    "solver you want to use."%os.environ["TICDAT_AMPL_SOLVER_PATH"])
     if not amplrun_path:
         if 'TICDAT_AMPL_PATH' in os.environ.keys():
             amplrun_path = os.environ['TICDAT_AMPL_PATH']
