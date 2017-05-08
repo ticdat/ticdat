@@ -18,8 +18,7 @@
 # Note that file requires diet.mod to be in the same directory
 
 from ticdat import TicDatFactory, standard_main, ampl_run
-import defaultdict
-from ticdat.utils import containerish
+from collections import defaultdict
 
 # ------------------------ define the input schema --------------------------------
 # There are three input tables, with 4 primary key fields and 4 data fields.
@@ -78,25 +77,27 @@ def solve(dat):
     solution_vars = ampl_run("diet.mod", input_schema, dat, solution_variables)
     if not solution_vars:
         return None
-    
-    dict_with_lists = {}
-    dict_with_lists["parameters"] = ['Total Cost',solution_vars.total_cost[0]]
-    dict_with_lists["buy_food"] = solution_vars.buy
+
+    dict_with_lists = defaultdict(list)
+    dict_with_lists["parameters"] = [['Total Cost',solution_vars.total_cost.keys()[0]]]
+    dict_with_lists["buy_food"] = []
+    for food in solution_vars.buy.keys():
+        dict_with_lists["buy_food"].append([food, solution_vars.buy[food]["Quantity"]])
     consume_nutrition = {}
     for i in dat.categories:
         consume_nutrition[i] = 0
     for food in solution_vars.buy.keys():
         q = solution_vars.buy[food]["Quantity"]
         for n in consume_nutrition.keys():
-            consume_nutrition[n] += q * dat.nutrition_quantities[food,n]
+            consume_nutrition[n] += q * float(dat.nutrition_quantities[food,n]["Quantity"])
     dict_with_lists["consume_nutrition"] = [[k, consume_nutrition[k]] for k in consume_nutrition.keys()]
-    return solution_schema.TicDat(**{k:v for k,v in dict_with_lists.items()})
 
+    return solution_schema.TicDat(**{k:v for k,v in dict_with_lists.items()})
 
 # ---------------------------------------------------------------------------------
 
 # ------------------------ provide stand-alone functionality ----------------------
 # when run from the command line, will read/write xls/csv/db/sql/mdb files
 if __name__ == "__main__":
-    standard_main(input_schema, solution_variables, solve)
+    standard_main(input_schema, solution_schema, solve)
 # ---------------------------------------------------------------------------------
