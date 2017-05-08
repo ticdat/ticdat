@@ -71,7 +71,7 @@ class _TypeDictionary(namedtuple("TypeDictionary",
             return bool(self.nullable)
         return False
 
-class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend","tbn_prepend"})) :
+class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend","ampl_prepend"})) :
     """
     Primary class for ticdat library. This class is constructed with a schema,
     and can be used to generate TicDat objects, or to write TicDat objects to
@@ -1338,18 +1338,18 @@ foreign keys, the code throwing this exception will be removed.
         return self._prepends.get("opl", "")
 
     @property
-    def tbn_prepend(self):
-        return self._prepends.get("tbn","")
+    def ampl_prepend(self):
+        return self._prepends.get("ampl","")
 
     @opl_prepend.setter
     def opl_prepend(self, value):
         verify(utils.stringish(value), "opl_prepend should be a string")
         self._prepends["opl"] = value
 
-    @tbn_prepend.setter
-    def tbn_prepend(self,value):
-        verify(utils.stringish(value), "tbn_prepend should be a string")
-        self._prepends["tbn"] = value
+    @ampl_prepend.setter
+    def ampl_prepend(self,value):
+        verify(utils.stringish(value), "ampl_prepend should be a string")
+        self._prepends["ampl"] = value
 
 def freeze_me(x) :
     """
