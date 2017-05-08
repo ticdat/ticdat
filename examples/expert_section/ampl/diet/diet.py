@@ -79,18 +79,13 @@ def solve(dat):
         return None
 
     dict_with_lists = defaultdict(list)
-    dict_with_lists["parameters"] = [['Total Cost',solution_vars.total_cost.keys()[0]]]
-    dict_with_lists["buy_food"] = []
-    for food in solution_vars.buy.keys():
-        dict_with_lists["buy_food"].append([food, solution_vars.buy[food]["Quantity"]])
-    consume_nutrition = {}
-    for i in dat.categories:
-        consume_nutrition[i] = 0
-    for food in solution_vars.buy.keys():
-        q = solution_vars.buy[food]["Quantity"]
-        for n in consume_nutrition.keys():
-            consume_nutrition[n] += q * float(dat.nutrition_quantities[food,n]["Quantity"])
-    dict_with_lists["consume_nutrition"] = [[k, consume_nutrition[k]] for k in consume_nutrition.keys()]
+    dict_with_lists["parameters"] = [['Total Cost', solution_vars.total_cost.keys()[0]]]
+    dict_with_lists["buy_food"] = [[f, q["Quantity"]] for f, q in solution_vars.buy.items()]
+    for cat in dat.categories:
+        qty = 0
+        for food in solution_vars.buy:
+            qty += solution_vars.buy[food]["Quantity"]*dat.nutrition_quantities[food,cat]["Quantity"]
+        dict_with_lists["consume_nutrition"].append([cat, qty])
 
     return solution_schema.TicDat(**{k:v for k,v in dict_with_lists.items()})
 
