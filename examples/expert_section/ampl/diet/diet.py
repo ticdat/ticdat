@@ -18,6 +18,8 @@
 # Note that file requires diet.mod to be in the same directory
 
 from ticdat import TicDatFactory, standard_main, ampl_run
+import defaultdict
+from ticdat.utils import containerish
 
 # ------------------------ define the input schema --------------------------------
 # There are three input tables, with 4 primary key fields and 4 data fields.
@@ -52,13 +54,14 @@ solution_schema = TicDatFactory(
     parameters = [["Key"],["Value"]],
     buy_food = [["Food"],["Quantity"]],
     consume_nutrition = [["Category"],["Quantity"]])
+# ---------------------------------------------------------------------------------
 
+# ------------------------ define the output variables -------------------------------
+# There are the variables populated by the diet.mod file.
 solution_variables = TicDatFactory(
     total_cost=[["Value"],[]],
     buy=[["Food"],["Quantity"]])
-
 # ---------------------------------------------------------------------------------
-
 
 # ------------------------ create a solve function --------------------------------
 def solve(dat):
@@ -72,7 +75,24 @@ def solve(dat):
     assert not input_schema.find_data_type_failures(dat)
     assert not input_schema.find_data_row_failures(dat)
 
-    return ampl_run("diet.mod", input_schema, dat, solution_variables)
+    solution_vars = ampl_run("diet.mod", input_schema, dat, solution_variables)
+    if not solution_vars:
+        return None
+    
+    dict_with_lists = {}
+    dict_with_lists["parameters"] = ['Total Cost',solution_vars.total_cost[0]]
+    dict_with_lists["buy_food"] = solution_vars.buy
+    consume_nutrition = {}
+    for i in dat.categories:
+        consume_nutrition[i] = 0
+    for food in solution_vars.buy.keys():
+        q = solution_vars.buy[food]["Quantity"]
+        for n in consume_nutrition.keys():
+            consume_nutrition[n] += q * dat.nutrition_quantities[food,n]
+    dict_with_lists["consume_nutrition"] = [[k, consume_nutrition[k]] for k in consume_nutrition.keys()]
+    return solution_schema.TicDat(**{k:v for k,v in dict_with_lists.items()})
+
+
 # ---------------------------------------------------------------------------------
 
 # ------------------------ provide stand-alone functionality ----------------------
