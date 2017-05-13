@@ -74,20 +74,21 @@ def solve(dat):
     assert not input_schema.find_data_type_failures(dat)
     assert not input_schema.find_data_row_failures(dat)
 
-    solution_vars = lingo_run("diet.lng", input_schema, dat, solution_variables)
-    if not solution_vars:
-        return None
+    def post_solve(solution_vars):
+        if not solution_vars:
+            return None
+        dict_with_lists = defaultdict(list)
+        dict_with_lists["parameters"] = [['Total Cost', solution_vars.total_cost.keys()[0]]]
+        dict_with_lists["buy_food"] = [[f, q["Quantity"]] for f, q in solution_vars.buy.items()]
+        for cat in dat.categories:
+            qty = 0
+            for food in solution_vars.buy:
+                qty += solution_vars.buy[food]["Quantity"]*dat.nutrition_quantities[food.lower(),cat]["Quantity"]
+            dict_with_lists["consume_nutrition"].append([cat, qty])
+        return solution_schema.TicDat(**{k: v for k, v in dict_with_lists.items()})
 
-    dict_with_lists = defaultdict(list)
-    dict_with_lists["parameters"] = [['Total Cost', solution_vars.total_cost.keys()[0]]]
-    dict_with_lists["buy_food"] = [[f, q["Quantity"]] for f, q in solution_vars.buy.items()]
-    for cat in dat.categories:
-        qty = 0
-        for food in solution_vars.buy:
-            qty += solution_vars.buy[food]["Quantity"]*dat.nutrition_quantities[food.lower(),cat]["Quantity"]
-        dict_with_lists["consume_nutrition"].append([cat, qty])
+    return lingo_run("diet.lng", input_schema, dat, solution_variables, post_solve=post_solve)
 
-    return solution_schema.TicDat(**{k:v for k,v in dict_with_lists.items()})
 
 # ---------------------------------------------------------------------------------
 
