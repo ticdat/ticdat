@@ -84,7 +84,7 @@ def solve(dat):
         mdl.addConstr(
             gu.quicksum(flow[h_,i_,j_] for h_,i_,j_ in flowslice.slice(h,'*',j)) +
             dat.inflow.get((h,j), {"Quantity":0})["Quantity"] ==
-            gu.quicksum(flow[h_,i_,j_] for h_,i_,j_ in flowslice.slice(h, j, '*')),
+            gu.quicksum(flow[h_,j_,i_] for h_,j_,i_ in flowslice.slice(h, j, '*')),
             name='node_%s_%s' % (h, j))
 
     mdl.setObjective(gu.quicksum(flow * dat.cost[h, i, j]["Cost"]
