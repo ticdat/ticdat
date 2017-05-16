@@ -27,6 +27,10 @@ input_schema = TicDatFactory (
     foods  = [["Name"],["Cost"]],
     nutrition_quantities = [["Food", "Category"], ["Quantity"]])
 
+# add foreign key constraints
+input_schema.add_foreign_key("nutrition_quantities", "foods", ['Food', 'Name'])
+input_schema.add_foreign_key("nutrition_quantities", "categories", ['Category', 'Name'])
+
 # Define the data types
 input_schema.set_data_type("categories", "Min Nutrition", min=0, max=float("inf"),
                            inclusive_min=True, inclusive_max=False)

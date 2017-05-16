@@ -8,15 +8,17 @@ from ticdat.jsontd import make_json_dict
 
 INFINITY = 999999 # Does lingo have a way to mark infinity?
 
-lingo_keywords = ["I imagine this will come up eventually"]
+lingo_keywords = ["Might not have to worry about lingo keywords"]
 
 def _code_dir():
     return os.path.dirname(os.path.abspath(inspect.getsourcefile(_code_dir)))
 
 def _fix_fields_with_lingo_keywords(tdf):
+    return tdf
     return change_fields_with_reserved_keywords(tdf, lingo_keywords)
 
 def _unfix_fields_with_lingo_keywords(tdf):
+    return tdf
     return change_fields_with_reserved_keywords(tdf, lingo_keywords, True)
 
 def _data_has_underscores(tdf, tic_dat):
@@ -231,7 +233,13 @@ def create_lingo_mod_text(tdf):
         p_tbn = prepend + tbn
         rtn = p_tbn
         if len(tdf.primary_key_fields[tbn]) > 1:
-            rtn += '(foods, categories) ' # I'm cheating for now
+            # Need a verify here that there are foreign keys for all pk's
+            fkr = []
+            for i in range(len(tdf.primary_key_fields[tbn])):
+                pk = tdf.primary_key_fields[tbn][i]
+                fk = filter(lambda k: k.native_table == tbn and k.mapping.native_field == pk, tdf.foreign_keys)[0]
+                fkr.append(fk.foreign_table)
+            rtn += '(' + ','.join(fkr) + ')'
         rtn += ':'
         fields = []
         for df in tdf.data_fields[tbn]:
