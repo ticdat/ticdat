@@ -55,13 +55,6 @@ solution_schema = TicDatFactory(
     consume_nutrition = [["Category"],["Quantity"]])
 # ---------------------------------------------------------------------------------
 
-# ------------------------ define the output variables -------------------------------
-# There are the variables populated by the diet.mod file.
-solution_variables = TicDatFactory(
-    total_cost=[["Value"],[]],
-    buy=[["Food"],["Quantity"]])
-# ---------------------------------------------------------------------------------
-
 # ------------------------ create a solve function --------------------------------
 def solve(dat):
     """
@@ -73,6 +66,9 @@ def solve(dat):
     assert not input_schema.find_foreign_key_failures(dat)
     assert not input_schema.find_data_type_failures(dat)
     assert not input_schema.find_data_row_failures(dat)
+
+    # There are the variables populated by the diet.lng file.
+    solution_variables = TicDatFactory(buy=[["Food"],["Quantity"]])
 
     def post_solve(solution_vars):
         if not solution_vars:

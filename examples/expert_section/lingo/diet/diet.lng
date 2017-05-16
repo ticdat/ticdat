@@ -1,6 +1,6 @@
 model:
 
-@FILE("ticdat_diet.mod")
+@FILE("ticdat_diet.lng")
 @FILE("ticdat_diet.dat")
 
 sets:
