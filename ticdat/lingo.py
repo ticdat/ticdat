@@ -20,9 +20,6 @@ def _unfix_fields_with_lingo_keywords(tdf):
     return change_fields_with_reserved_keywords(tdf, lingo_keywords, True)
 
 def lingo_run(lng_file, input_tdf, input_dat, soln_tdf, infinity=INFINITY, lingorun_path=None):
-    # Here only for debugging purposes - NO- put debugging code elsewhere please!!!
-    # os.environ["TICDAT_LINGO_PATH"] = "/opt/opalytics/lenticular/sams-stuff/lingo/install/runlingo"
-    # tu.development_deployed_environment = True
     """
     solve an optimization problem using an Lingo .lng file
     :param lng_file: An Lingo .lng file.
