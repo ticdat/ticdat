@@ -1,25 +1,15 @@
 from ticdat.utils import verify, containerish, stringish, find_duplicates_from_dict_ticdat
-from ticdat.utils import find_case_space_duplicates, change_fields_with_reserved_keywords
+from ticdat.utils import find_case_space_duplicates
 import ticdat.utils as tu
 from ticdat.ticdatfactory import TicDatFactory
 import os, subprocess, inspect, time, uuid, shutil
 from collections import defaultdict
 from ticdat.jsontd import make_json_dict
 
-INFINITY = 999999 # Does lingo have a way to mark infinity?
-
-lingo_keywords = ["Might not have to worry about lingo keywords"]
+INFINITY = 999999
 
 def _code_dir():
     return os.path.dirname(os.path.abspath(inspect.getsourcefile(_code_dir)))
-
-def _fix_fields_with_lingo_keywords(tdf):
-    return tdf
-    return change_fields_with_reserved_keywords(tdf, lingo_keywords)
-
-def _unfix_fields_with_lingo_keywords(tdf):
-    return tdf
-    return change_fields_with_reserved_keywords(tdf, lingo_keywords, True)
 
 def _data_has_underscores(tdf, tic_dat):
     has_underscores = False
@@ -75,8 +65,6 @@ def lingo_run(lng_file, input_tdf, input_dat, soln_tdf, infinity=INFINITY, lingo
     verify(input_tdf.good_tic_dat_object(input_dat, msg.append),
            "tic_dat not a good object for the input_tdf factory : %s"%"\n".join(msg))
     orig_input_tdf, orig_soln_tdf = input_tdf, soln_tdf
-    input_tdf = _fix_fields_with_lingo_keywords(input_tdf)
-    soln_tdf = _fix_fields_with_lingo_keywords(soln_tdf)
     input_dat = input_tdf.TicDat(**make_json_dict(orig_input_tdf, input_dat))
     assert input_tdf.good_tic_dat_object(input_dat)
     lng_file_name = os.path.basename(lng_file)[:-4]
@@ -147,7 +135,6 @@ def lingo_run(lng_file, input_tdf, input_dat, soln_tdf, infinity=INFINITY, lingo
             return None
         with open(i[1], "r") as f:
             output_data[i[0]] = f.read()
-    soln_tdf = _unfix_fields_with_lingo_keywords(soln_tdf)
     return read_lingo_text(soln_tdf, output_data, has_underscores)
 
 _can_run_lingo_run_tests = os.path.isfile(os.path.join(_code_dir(),"runlingo_path.txt"))
@@ -222,7 +209,6 @@ def create_lingo_mod_text(tdf):
     verify(not tdf.generator_tables, "Input schema error - doesn't work with generator tables.")
     verify(not tdf.generic_tables, "Input schema error - doesn't work with generic tables. (not yet - will \
             add ASAP as needed) ")
-    tdf = _fix_fields_with_lingo_keywords(tdf)
     rtn = 'sets:\n'
     dict_tables = {t for t, pk in tdf.primary_key_fields.items() if pk}
     verify(set(dict_tables) == set(tdf.all_tables), "not yet handling non-PK tables of any sort")
