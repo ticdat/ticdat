@@ -67,25 +67,22 @@ def solve(dat):
     assert not input_schema.find_data_type_failures(dat)
     assert not input_schema.find_data_row_failures(dat)
 
-    # There are the variables populated by the diet.lng file.
+    # These are the variables populated by the diet.lng file.
     solution_variables = TicDatFactory(buy=[["Food"],["Quantity"]])
 
-    def post_solve(solution_vars):
-        if not solution_vars:
-            return None
+    sln = lingo_run("diet.lng", input_schema, dat, solution_variables)
+    if sln:
         dict_with_lists = defaultdict(list)
-        dict_with_lists["parameters"] = [['Total Cost', solution_vars.total_cost.keys()[0]]]
-        dict_with_lists["buy_food"] = [[f, q["Quantity"]] for f, q in solution_vars.buy.items()]
+        total_cost = sum(dat.foods[f.lower()]["Cost"] * r["Quantity"] for f, r in sln.buy.items())
+        dict_with_lists["parameters"] = [['Total Cost', total_cost]]
+        dict_with_lists["buy_food"] = [[f, q["Quantity"]] for f, q in sln.buy.items()]
         for cat in dat.categories:
             qty = 0
-            for food in solution_vars.buy:
-                qty += solution_vars.buy[food]["Quantity"]*dat.nutrition_quantities[food.lower(),cat]["Quantity"]
+            for food in sln.buy:
+                qty += sln.buy[food]["Quantity"]*dat.nutrition_quantities[food.lower(), cat]["Quantity"]
             dict_with_lists["consume_nutrition"].append([cat, qty])
+
         return solution_schema.TicDat(**{k: v for k, v in dict_with_lists.items()})
-
-    return lingo_run("diet.lng", input_schema, dat, solution_variables, post_solve=post_solve)
-
-
 # ---------------------------------------------------------------------------------
 
 # ------------------------ provide stand-alone functionality ----------------------

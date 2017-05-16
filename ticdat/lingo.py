@@ -19,7 +19,39 @@ def _fix_fields_with_lingo_keywords(tdf):
 def _unfix_fields_with_lingo_keywords(tdf):
     return change_fields_with_reserved_keywords(tdf, lingo_keywords, True)
 
+def _data_has_underscores(tdf, tic_dat):
+    has_underscores = False
+    has_spaces = False
+    dict_with_lists = defaultdict(list)
+    dict_tables = {t for t,pk in tdf.primary_key_fields.items() if pk}
+    for t in dict_tables:
+        for k,r in getattr(tic_dat, t).items():
+            row = list(k) if containerish(k) else [k]
+            for f in tdf.data_fields.get(t, []):
+                row.append(r[f])
+            dict_with_lists[t].append(row)
+    for t in set(tdf.all_tables).difference(dict_tables):
+        for r in getattr(tic_dat, t):
+            row = [r[f] for f in tdf.data_fields[t]]
+            dict_with_lists[t].append(row)
+    for i, (t, l) in enumerate(dict_with_lists.items()):
+        for row in l:
+            for field in row:
+                if stringish(field):
+                    if " " in field:
+                        has_spaces = True
+                    if "_" in field:
+                        has_underscores = True
+                    verify(not (stringish(field) and has_spaces and has_underscores),
+                           "Lingo doesn't support spaces in strings,"
+                           " so data can't contain spaces and strings. In table %s,"
+                           " field %s" % (t, field))
+    return has_underscores
+
+
 def lingo_run(lng_file, input_tdf, input_dat, soln_tdf, infinity=INFINITY, lingorun_path=None):
+    os.environ["TICDAT_LINGO_PATH"] = "/opt/opalytics/lenticular/sams-stuff/lingo/install/runlingo"
+    tu.development_deployed_environment = True
     """
     solve an optimization problem using an Lingo .lng file
     :param lng_file: An Lingo .lng file.
@@ -70,6 +102,7 @@ def lingo_run(lng_file, input_tdf, input_dat, soln_tdf, infinity=INFINITY, lingo
         if os.path.isfile(fn):
             os.remove(fn)
         results.append(fn)
+    has_underscores = _data_has_underscores(input_tdf, input_dat)
     with open(datfile, "w") as f:
         f.write(create_lingo_text(input_tdf, input_dat, infinity))
     verify(os.path.isfile(datfile), "Could not create ticdat_" + lng_file_name+".dat")
@@ -113,7 +146,7 @@ def lingo_run(lng_file, input_tdf, input_dat, soln_tdf, infinity=INFINITY, lingo
         with open(i[1], "r") as f:
             output_data[i[0]] = f.read()
     soln_tdf = _unfix_fields_with_lingo_keywords(soln_tdf)
-    return read_lingo_text(soln_tdf, output_data)
+    return read_lingo_text(soln_tdf, output_data, has_underscores)
 
 _can_run_lingo_run_tests = os.path.isfile(os.path.join(_code_dir(),"runlingo_path.txt"))
 
@@ -158,7 +191,6 @@ def create_lingo_text(tdf, tic_dat, infinity=INFINITY):
         for r in getattr(tic_dat, t):
             row = [r[f] for f in tdf.data_fields[t]]
             dict_with_lists[t].append(row)
-
     rtn = "data:\n"
     for i, (t,l) in enumerate(sorted(dict_with_lists.items(), key=lambda k: len(tdf.primary_key_fields[k[0]]))):
         rtn += "%s"%(tdf.lingo_prepend + t)
@@ -168,9 +200,11 @@ def create_lingo_text(tdf, tic_dat, infinity=INFINITY):
         for row in l:
             rtn += "\t"
             for field in row:
-                verify(not (stringish(field) and " " in field), "Lingo doesn't support spaces in strings. In table %s,"
-                                                                " field %s"%(t,field) )
-                rtn += (str(infinity) if float('inf') == field else str(field)) + " "
+                if stringish(field):
+                    rtn += field.replace(" ", "_") + " "
+                else:
+                    # Is this if condition right?
+                    rtn += str(infinity) if float('inf') == field else str(field) + " "
             rtn += "\n"
         rtn += ";\n"
     rtn+="enddata"
@@ -214,11 +248,12 @@ def create_lingo_mod_text(tdf):
     return rtn
 
 # This might make more sense as read_lingo_solution
-def read_lingo_text(tdf,results_text):
+def read_lingo_text(tdf,results_text, has_underscores):
     """
     Read an lingo .dat string
     :param tdf: A TicDatFactory defining the schema
     :param results_text: A list of strings defining lingo tables
+    :param has_underscores:
     :return: A TicDat object consistent with tdf
     """
 
@@ -229,7 +264,7 @@ def read_lingo_text(tdf,results_text):
         try:
             return float(val)
         except ValueError:
-            return val
+            return val.replace("_", " ") if not has_underscores else val
 
     dict_with_lists = defaultdict(list)
 
