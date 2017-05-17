@@ -19,7 +19,7 @@ def lingo_run(lng_file, input_tdf, input_dat, soln_tdf, infinity=INFINITY, runli
     :param input_dat: A TicDat object consistent with input_tdf
     :param soln_tdf: A TicDatFactory defining the solution variables
     :param infinity: A number used to represent infinity in Lingo
-    :param runlingo_path: A path to the Lingo executable
+    :param runlingo_path: A path to the runlingo executable
     :return: a TicDat object consistent with soln_tdf, or None if no solution found
     """
     verify(os.path.isfile(lng_file), "lng_file %s is not a valid file."%lng_file)

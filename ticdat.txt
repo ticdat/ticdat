@@ -912,14 +912,24 @@ FUNCTIONS
         :param x: ticdat object
         :return: x, after it has been frozen
 
-    opl_run(mod_file, input_tdf, input_dat, soln_tdf, infinity=999999, oplrun_path=None,
-            post_solve=None)
+    opl_run(mod_file, input_tdf, input_dat, soln_tdf, infinity=999999, oplrun_path=None)
         solve an optimization problem using an OPL .mod file
         :param mod_file: An OPL .mod file.
         :param input_tdf: A TicDatFactory defining the input schema
         :param input_dat: A TicDat object consistent with input_tdf
         :param soln_tdf: A TicDatFactory defining the solution schema
         :param infinity: A number used to represent infinity in OPL
+        :param oplrun_path: A path to the oplrun executable
+        :return: a TicDat object consistent with soln_tdf, or None if no solution found
+
+    lingo_run(lng_file, input_tdf, input_dat, soln_tdf, infinity=INFINITY, runlingo_path=None)
+        solve an optimization problem using an Lingo .lng file
+        :param lng_file: An Lingo .lng file.
+        :param input_tdf: A TicDatFactory defining the input schema
+        :param input_dat: A TicDat object consistent with input_tdf
+        :param soln_tdf: A TicDatFactory defining the solution variables
+        :param infinity: A number used to represent infinity in Lingo
+        :param runlingo_path: A path to the runlingo executable
         :return: a TicDat object consistent with soln_tdf, or None if no solution found
 
     standard_main(input_schema, solution_schema, solve)
