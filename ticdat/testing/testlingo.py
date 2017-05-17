@@ -9,7 +9,7 @@ from ticdat.testing.ticdattestutils import  netflowSchema,sillyMeData, sillyMeSc
 from ticdat.testing.ticdattestutils import fail_to_debugger, flagged_as_run_alone, get_testing_file_path
 import unittest
 
-@fail_to_debugger
+#@fail_to_debugger
 class TestLingo(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
