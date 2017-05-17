@@ -11,7 +11,7 @@ INFINITY = 999999
 def _code_dir():
     return os.path.dirname(os.path.abspath(inspect.getsourcefile(_code_dir)))
 
-def lingo_run(lng_file, input_tdf, input_dat, soln_tdf, infinity=INFINITY, lingorun_path=None):
+def lingo_run(lng_file, input_tdf, input_dat, soln_tdf, infinity=INFINITY, runlingo_path=None):
     """
     solve an optimization problem using an Lingo .lng file
     :param lng_file: An Lingo .lng file.
@@ -19,6 +19,7 @@ def lingo_run(lng_file, input_tdf, input_dat, soln_tdf, infinity=INFINITY, lingo
     :param input_dat: A TicDat object consistent with input_tdf
     :param soln_tdf: A TicDatFactory defining the solution variables
     :param infinity: A number used to represent infinity in Lingo
+    :param runlingo_path: A path to the Lingo executable
     :return: a TicDat object consistent with soln_tdf, or None if no solution found
     """
     verify(os.path.isfile(lng_file), "lng_file %s is not a valid file."%lng_file)
@@ -83,18 +84,18 @@ def lingo_run(lng_file, input_tdf, input_dat, soln_tdf, infinity=INFINITY, lingo
     ]
     with open(commandsfile, "w") as f:
         f.write("\n".join(commands))
-    if not lingorun_path:
+    if not runlingo_path:
         if 'TICDAT_LINGO_PATH' in os.environ:
-            lingorun_path = os.environ['TICDAT_LINGO_PATH']
+            runlingo_path = os.environ['TICDAT_LINGO_PATH']
         else:
             verify(os.path.isfile(os.path.join(_code_dir(),"lingo_run_path.txt")),
-               "need to either pass lingorun_path argument or run lingo_run_setup.py")
-            with open(os.path.join(_code_dir(),"lingorun_path.txt"),"r") as f:
-                lingorun_path = f.read().strip()
-    verify(os.path.isfile(lingorun_path), "%s not a valid path to lingorun"%lingorun_path)
+               "need to either pass runlingo_path argument or run lingo_run_setup.py")
+            with open(os.path.join(_code_dir(),"runlingo_path.txt"),"r") as f:
+                runlingo_path = f.read().strip()
+    verify(os.path.isfile(runlingo_path), "%s not a valid path to runlingo"%runlingo_path)
     output = ''
     try:
-        output = subprocess.check_output([lingorun_path, commandsfile], stderr=subprocess.STDOUT, cwd=working_dir)
+        output = subprocess.check_output([runlingo_path, commandsfile], stderr=subprocess.STDOUT, cwd=working_dir)
     except subprocess.CalledProcessError as err:
         if tu.development_deployed_environment:
             raise Exception("runlingo failed to complete: " + str(err.output))
