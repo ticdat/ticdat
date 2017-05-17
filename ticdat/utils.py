@@ -18,7 +18,7 @@ except:
 import inspect
 
 # likely replace this with some sort of sys.platform call that makes a good guess
-development_deployed_environment = False
+development_deployed_environment = True
 
 def standard_main(input_schema, solution_schema, solve):
     """
@@ -279,8 +279,8 @@ def change_fields_with_reserved_keywords(tdf, reserved_keywords, undo=False):
                               *(tdf.data_types[table][original_field]))
     if hasattr(tdf,'opl_prepend'):
         rtn.opl_prepend = tdf.opl_prepend
-    if hasattr(tdf,'tbn_prepend'):
-        rtn.tbn_prepend = tdf.tbn_prepend
+    if hasattr(tdf,'lingo_prepend'):
+        rtn.lingo_prepend = tdf.lingo_prepend
     return rtn
 
 def create_generic_free(td, tdf):

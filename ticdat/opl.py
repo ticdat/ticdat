@@ -27,7 +27,7 @@ def _fix_fields_with_opl_keywords(tdf):
 def _unfix_fields_with_opl_keywords(tdf):
     return change_fields_with_reserved_keywords(tdf, opl_keywords, True)
 
-def opl_run(mod_file, input_tdf, input_dat, soln_tdf, infinity=INFINITY, oplrun_path=None, post_solve=None):
+def opl_run(mod_file, input_tdf, input_dat, soln_tdf, infinity=INFINITY, oplrun_path=None):
     """
     solve an optimization problem using an OPL .mod file
     :param mod_file: An OPL .mod file.
@@ -107,8 +107,6 @@ def opl_run(mod_file, input_tdf, input_dat, soln_tdf, infinity=INFINITY, oplrun_
         return None
     with open(results_dat, "r") as f:
         output = f.read()
-    if post_solve:
-        post_solve()
     soln_tdf = _unfix_fields_with_opl_keywords(soln_tdf)
     return read_opl_text(soln_tdf, output, False)
 
