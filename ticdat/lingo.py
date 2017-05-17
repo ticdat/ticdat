@@ -259,7 +259,7 @@ def _try_create_space_case_mapping(tdf, ticdat):
             for ks in getattr(ticdat, t):
                 for k in (ks if containerish(ks) else [ks]):
                     if stringish(k):
-                        newk = k.replace(" ", "_").upper()
+                        newk = ''.join(map(lambda c: c.upper() if c.isalnum() else '_', k))
                         rtn[newk].add(k)
     failures = {k:tuple(sorted(v)) for k,v in rtn.items() if len(v) > 1}
     if failures:
