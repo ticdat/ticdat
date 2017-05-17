@@ -83,7 +83,7 @@ def solve(dat):
         for cat in dat.categories:
             qty = 0
             for food in sln.buy:
-                qty += sln.buy[food]["Quantity"]*dat.nutrition_quantities[food.lower(), cat]["Quantity"]
+                qty += sln.buy[food]["Quantity"]*dat.nutrition_quantities[food, cat]["Quantity"]
             dict_with_lists["consume_nutrition"].append([cat, qty])
 
         return solution_schema.TicDat(**{k: v for k, v in dict_with_lists.items()})

@@ -17,6 +17,6 @@ MIN=@SUM(cost(k, i, j): flow_quantity(k,i,j)*cost_cost(k,i,j));
   @SUM( commodities(k): flow_quantity(k,i,j)) <= arcs_capacity(i,j);
  );
 
-@FILE("ticdat_netflow_output.dat")
+@FILE("ticdat_netflow_output.ldt")
 
 end

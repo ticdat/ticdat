@@ -121,7 +121,7 @@ def create_lingo_output_text(tdf):
     dict_tables = {t for t, pk in tdf.primary_key_fields.items() if pk}
     rtn = 'data:\n'
     for tbn in dict_tables:
-        rtn += '\t@TEXT(\"' + tbn + ".dat\") = " + tbn
+        rtn += '\t@TEXT(\"' + tbn + ".ldt\") = " + tbn
         for fk in tdf.data_fields[tbn]:
             rtn += ", " + tbn + "_" + fk.lower().replace(" ","")
         rtn += ";\n"
