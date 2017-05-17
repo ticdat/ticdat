@@ -154,16 +154,16 @@ def create_lingo_text(tdf, tic_dat, infinity=INFINITY):
             row = [r[f] for f in tdf.data_fields[t]]
             dict_with_lists[t].append(row)
     rtn = "data:\n"
-    for i, (t,l) in enumerate(sorted(dict_with_lists.items(), key=lambda k: len(tdf.primary_key_fields[k[0]]))):
+    for t in _sorted_tables(tdf):
         rtn += "%s"%(tdf.lingo_prepend + t)
         for field in tdf.data_fields[t]:
             rtn += ',' +t + "_" + field.replace(" ", "_").lower()
         rtn += "=\n"
-        for row in l:
+        for row in dict_with_lists[t]:
             rtn += "\t"
             for field in row:
                 if stringish(field):
-                    rtn += field.replace(" ", "_") + " " # This might be a problem
+                    rtn += field + " "
                 else:
                     rtn += str(infinity) if float('inf') == field else str(field) + " "
             rtn += "\n"
@@ -208,8 +208,7 @@ def create_lingo_mod_text(tdf):
         rtn += ';\n'
         return rtn
 
-    # This is dangerous if multi PK tables depend on one another
-    for t in sorted(dict_tables, key=lambda k: len(tdf.primary_key_fields[k])):
+    for t in _sorted_tables(tdf):
         rtn += get_table_as_mod_text(tdf, t)
     rtn+='endsets'
     return rtn
@@ -288,3 +287,27 @@ def _apply_space_case_mapping(tdf, ticdat, mapping):
                 del getattr(rtn, t)[k]
                 getattr(rtn, t)[apply_mapping(k)] = v
     return rtn
+
+
+def _sorted_tables(tdf):
+    """
+    :param tdf: a TicDatFactory
+    :return: A list of tables that is sorted so primary keys are defined before other tables where they are used
+    """
+    ordered_tables = []
+    dict_tables = {t for t, pk in tdf.primary_key_fields.items() if pk}
+    def next_table(tbn):
+        fks = filter(lambda k: k.native_table == tbn, tdf.foreign_keys)
+        if len(fks) == 0:
+            return [tbn]
+        tables = []
+        for fk in fks:
+            if fk.foreign_table not in tables + ordered_tables:
+                tables += next_table(fk.foreign_table)
+        return tables + [tbn]
+
+    for tbn in dict_tables:
+        for table in next_table(tbn):
+            if table not in ordered_tables:
+                ordered_tables.append(table)
+    return ordered_tables
