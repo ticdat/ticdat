@@ -11,20 +11,6 @@ INFINITY = 999999
 def _code_dir():
     return os.path.dirname(os.path.abspath(inspect.getsourcefile(_code_dir)))
 
-def _data_has_underscores(tdf, tic_dat):
-    has_underscores, has_spaces = False
-    for tbn in {t for t,pk in tdf.primary_key_fields.items() if pk}:
-        for row in getattr(tic_dat,tbn):
-            for field in row.values():
-                if stringish(field):
-                    if " " in field:
-                        has_spaces = True
-                    if "_" in field:
-                        has_underscores = True
-                    verify(not has_spaces and has_underscores, "Lingo doesn't support spaces in strings, "
-                           "so data can't contain spaces and strings. In table %s, field %s" % (tbn, field))
-    return has_underscores
-
 def lingo_run(lng_file, input_tdf, input_dat, soln_tdf, infinity=INFINITY, lingorun_path=None):
     """
     solve an optimization problem using an Lingo .lng file
@@ -80,7 +66,6 @@ def lingo_run(lng_file, input_tdf, input_dat, soln_tdf, infinity=INFINITY, lingo
         if os.path.isfile(fn):
             os.remove(fn)
         results.append(fn)
-    has_underscores = _data_has_underscores(input_tdf, input_dat)
     with open(ldtfile, "w") as f:
         f.write(create_lingo_text(input_tdf, input_dat, infinity))
     verify(os.path.isfile(ldtfile), "Could not create ticdat_" + lng_file_name+".ldt")
@@ -122,7 +107,7 @@ def lingo_run(lng_file, input_tdf, input_dat, soln_tdf, infinity=INFINITY, lingo
             return None
         with open(i[1], "r") as f:
             output_data[i[0]] = f.read()
-    rtn =  read_lingo_text(soln_tdf, output_data, has_underscores)
+    rtn =  read_lingo_text(soln_tdf, output_data)
     return _apply_space_case_mapping(soln_tdf, rtn, mapping["mapping"])
 
 _can_run_lingo_run_tests = os.path.isfile(os.path.join(_code_dir(),"runlingo_path.txt"))
@@ -178,7 +163,7 @@ def create_lingo_text(tdf, tic_dat, infinity=INFINITY):
             rtn += "\t"
             for field in row:
                 if stringish(field):
-                    rtn += field.replace(" ", "_") + " "
+                    rtn += field.replace(" ", "_") + " " # This might be a problem
                 else:
                     rtn += str(infinity) if float('inf') == field else str(field) + " "
             rtn += "\n"
@@ -206,13 +191,13 @@ def create_lingo_mod_text(tdf):
         p_tbn = prepend + tbn
         rtn = p_tbn
         if len(tdf.primary_key_fields[tbn]) > 1:
-            # Need a verify here that there are foreign keys for all pk's
             fkr = []
             for i in range(len(tdf.primary_key_fields[tbn])):
                 pk = tdf.primary_key_fields[tbn][i]
                 fk = filter(lambda k: k.native_table == tbn and k.mapping.native_field == pk, tdf.foreign_keys)
-                verify(len(fk) == 1, "")
-                fkr.append(fk.foreign_table)
+                verify(len(fk) == 1, "Table '%s' needs to fully link it's primary key fields to parent tables via"
+                                     " foreign keys."%tbn)
+                fkr.append(fk[0].foreign_table)
             rtn += '(' + ','.join(fkr) + ')'
         rtn += ':'
         fields = []
@@ -229,12 +214,11 @@ def create_lingo_mod_text(tdf):
     rtn+='endsets'
     return rtn
 
-# This might make more sense as read_lingo_solution
 def read_lingo_text(tdf,results_text):
     """
-    Read an lingo .dat string
+    Read Lingo .ldt strings
     :param tdf: A TicDatFactory defining the schema
-    :param results_text: A list of strings defining lingo tables
+    :param results_text: A list of strings defining Lingo tables
     :return: A TicDat object consistent with tdf
     """
 
