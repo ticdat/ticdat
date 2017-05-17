@@ -1,7 +1,7 @@
 model:
 
 @FILE("ticdat_netflow.lng")
-@FILE("ticdat_netflow.dat")
+@FILE("ticdat_netflow.ldt")
 
 sets:
     flow(commodities, nodes, nodes): flow_quantity;

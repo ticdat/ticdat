@@ -1,7 +1,7 @@
 model:
 
 @FILE("ticdat_diet.lng")
-@FILE("ticdat_diet.dat")
+@FILE("ticdat_diet.ldt")
 
 sets:
     buy(foods): buy_quantity;
