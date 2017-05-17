@@ -36,8 +36,10 @@ def lingo_run(lng_file, input_tdf, input_dat, soln_tdf, infinity=INFINITY, lingo
     :return: a TicDat object consistent with soln_tdf, or None if no solution found
     """
     verify(os.path.isfile(lng_file), "lng_file %s is not a valid file."%lng_file)
-    verify(not find_case_space_duplicates(input_tdf), "There are case space duplicate field names in the input schema.")
-    verify(not find_case_space_duplicates(soln_tdf), "There are case space duplicate field names in the solution schema.")
+    verify(not find_case_space_duplicates(input_tdf),
+           "There are case space duplicate field names in the input schema.")
+    verify(not find_case_space_duplicates(soln_tdf),
+           "There are case space duplicate field names in the solution schema.")
     verify(len({input_tdf.lingo_prepend + t for t in input_tdf.all_tables}.union(
                {soln_tdf.lingo_prepend + t for t in soln_tdf.all_tables})) ==
            len(input_tdf.all_tables) + len(soln_tdf.all_tables),
@@ -46,6 +48,10 @@ def lingo_run(lng_file, input_tdf, input_dat, soln_tdf, infinity=INFINITY, lingo
     msg = []
     verify(input_tdf.good_tic_dat_object(input_dat, msg.append),
            "tic_dat not a good object for the input_tdf factory : %s"%"\n".join(msg))
+    mapping = _try_create_space_case_mapping(input_tdf, input_dat)
+    verify("failures" not in mapping, "The following case-space mapping data collisions were found.\n%s"%
+                                       mapping.get("failures"))
+    input_dat = _apply_space_case_mapping(input_tdf, input_dat, {v:k for k,v in mapping["mapping"].items()})
     orig_input_tdf, orig_soln_tdf = input_tdf, soln_tdf
     input_dat = input_tdf.TicDat(**make_json_dict(orig_input_tdf, input_dat))
     assert input_tdf.good_tic_dat_object(input_dat)
@@ -116,7 +122,8 @@ def lingo_run(lng_file, input_tdf, input_dat, soln_tdf, infinity=INFINITY, lingo
             return None
         with open(i[1], "r") as f:
             output_data[i[0]] = f.read()
-    return read_lingo_text(soln_tdf, output_data, has_underscores)
+    rtn =  read_lingo_text(soln_tdf, output_data, has_underscores)
+    return _apply_space_case_mapping(soln_tdf, rtn, mapping["mapping"])
 
 _can_run_lingo_run_tests = os.path.isfile(os.path.join(_code_dir(),"runlingo_path.txt"))
 
@@ -223,12 +230,11 @@ def create_lingo_mod_text(tdf):
     return rtn
 
 # This might make more sense as read_lingo_solution
-def read_lingo_text(tdf,results_text, has_underscores):
+def read_lingo_text(tdf,results_text):
     """
     Read an lingo .dat string
     :param tdf: A TicDatFactory defining the schema
     :param results_text: A list of strings defining lingo tables
-    :param has_underscores:
     :return: A TicDat object consistent with tdf
     """
 
@@ -239,7 +245,7 @@ def read_lingo_text(tdf,results_text, has_underscores):
         try:
             return float(val)
         except ValueError:
-            return val.replace("_", " ") if not has_underscores else val
+            return val
 
     dict_with_lists = defaultdict(list)
 
@@ -255,3 +261,46 @@ def read_lingo_text(tdf,results_text, has_underscores):
             "duplicates were found - if asserts are disabled, duplicate rows will overwrite"
 
     return tdf.TicDat(**{k.replace(tdf.lingo_prepend,"",1):v for k,v in dict_with_lists.items()})
+
+def _try_create_space_case_mapping(tdf, ticdat):
+    '''
+    :param tdf: a TicDatFactory
+    :param ticdat: a ticdat for the tdf
+    :return: {"mapping:mapping} if a good mapping can be made, else {"failures":failures}
+    '''
+    assert tdf.good_tic_dat_object(ticdat), "ticdat not a good object for the tdf"
+    rtn = defaultdict(set)
+    for t in tdf.all_tables:
+        if tdf.primary_key_fields.get(t):
+            for ks in getattr(ticdat, t):
+                for k in (ks if containerish(ks) else [ks]):
+                    if stringish(k):
+                        newk = k.replace(" ", "_").upper()
+                        rtn[newk].add(k)
+    failures = {k:tuple(sorted(v)) for k,v in rtn.items() if len(v) > 1}
+    if failures:
+        return {"failures":failures}
+    return {"mapping": {k:next(iter(v)) for k,v in rtn.items()}}
+
+def _apply_space_case_mapping(tdf, ticdat, mapping):
+    """
+    :param tdf: a TicDatFactory
+    :param ticdat: a ticdat for the tdf
+    :param mapping: the mapping returned by an earlier call to _try_create_space_case_mapping.
+                    **Should be the value in the {"mapping":mapping} dict, if such a dict was
+                      returned, and not the {"mapping":mapping} dict itself.
+    :return:
+    """
+    assert tdf.good_tic_dat_object(ticdat), "ticdat not a good object for the tdf"
+    assert tu.dictish(mapping)
+    def apply_mapping(k):
+        if containerish(k):
+            return tuple(map(apply_mapping, k))
+        return mapping.get(k, k)
+    rtn = tdf.copy_tic_dat(ticdat)
+    for t in tdf.all_tables:
+        if tdf.primary_key_fields.get(t):
+            for k,v in getattr(ticdat, t).items():
+                del getattr(rtn, t)[k]
+                getattr(rtn, t)[apply_mapping(k)] = v
+    return rtn
