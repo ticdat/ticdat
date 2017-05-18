@@ -18,7 +18,6 @@
 # Note that file requires diet.lng to be in the same directory
 
 from ticdat import TicDatFactory, standard_main, lingo_run
-from collections import defaultdict
 
 # ------------------------ define the input schema --------------------------------
 # There are three input tables, with 4 primary key fields and 4 data fields.
@@ -76,17 +75,13 @@ def solve(dat):
 
     sln = lingo_run("diet.lng", input_schema, dat, solution_variables)
     if sln:
-        dict_with_lists = defaultdict(list)
-        total_cost = sum(dat.foods[f.lower()]["Cost"] * r["Quantity"] for f, r in sln.buy.items())
-        dict_with_lists["parameters"] = [['Total Cost', total_cost]]
-        dict_with_lists["buy_food"] = [[f, q["Quantity"]] for f, q in sln.buy.items()]
-        for cat in dat.categories:
-            qty = 0
-            for food in sln.buy:
-                qty += sln.buy[food]["Quantity"]*dat.nutrition_quantities[food, cat]["Quantity"]
-            dict_with_lists["consume_nutrition"].append([cat, qty])
-
-        return solution_schema.TicDat(**{k: v for k, v in dict_with_lists.items()})
+        rtn = solution_schema.TicDat(buy_food=sln.buy)
+        for f, r in rtn.buy_food.items():
+            for c in dat.categories:
+                if (f, c) in dat.nutrition_quantities:
+                    rtn.consume_nutrition[c]["Quantity"] += r["Quantity"] * dat.nutrition_quantities[f, c]["Quantity"]
+        rtn.parameters['Total Cost'] = sum(dat.foods[f]["Cost"] * r["Quantity"]
+                                           for f,r in rtn.buy_food.items())
 # ---------------------------------------------------------------------------------
 
 # ------------------------ provide stand-alone functionality ----------------------
