@@ -76,12 +76,12 @@ def solve(dat):
     sln = lingo_run("diet.lng", input_schema, dat, solution_variables)
     if sln:
         rtn = solution_schema.TicDat(buy_food=sln.buy)
-        for f, r in rtn.buy_food.items():
-            for c in dat.categories:
-                if (f, c) in dat.nutrition_quantities:
-                    rtn.consume_nutrition[c]["Quantity"] += r["Quantity"] * dat.nutrition_quantities[f, c]["Quantity"]
+        for (f, c), r in dat.nutrition_quantities.items():
+            if f in rtn.buy_food:
+                rtn.consume_nutrition[c]["Quantity"] += r["Quantity"] * rtn.buy_food[f]["Quantity"]
         rtn.parameters['Total Cost'] = sum(dat.foods[f]["Cost"] * r["Quantity"]
                                            for f,r in rtn.buy_food.items())
+        return rtn
 # ---------------------------------------------------------------------------------
 
 # ------------------------ provide stand-alone functionality ----------------------
