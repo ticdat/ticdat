@@ -55,13 +55,6 @@ solution_schema = TicDatFactory(
     consume_nutrition = [["Category"],["Quantity"]])
 # ---------------------------------------------------------------------------------
 
-# ------------------------ define the output variables -------------------------------
-# There are the variables populated by the diet.mod file.
-solution_variables = TicDatFactory(
-    total_cost=[["Value"],[]],
-    buy=[["Food"],["Quantity"]])
-# ---------------------------------------------------------------------------------
-
 # ------------------------ create a solve function --------------------------------
 def solve(dat):
     """
@@ -74,21 +67,18 @@ def solve(dat):
     assert not input_schema.find_data_type_failures(dat)
     assert not input_schema.find_data_row_failures(dat)
 
-    solution_vars = ampl_run("diet.mod", input_schema, dat, solution_variables)
-    if not solution_vars:
-        return None
+    # These are the variables populated by the diet.lng file.
+    solution_variables = TicDatFactory(buy=[["Food"],["Quantity"]])
 
-    dict_with_lists = defaultdict(list)
-    dict_with_lists["parameters"] = [['Total Cost', solution_vars.total_cost.keys()[0]]]
-    dict_with_lists["buy_food"] = [[f, q["Quantity"]] for f, q in solution_vars.buy.items()]
-    for cat in dat.categories:
-        qty = 0
-        for food in solution_vars.buy:
-            qty += solution_vars.buy[food]["Quantity"]*dat.nutrition_quantities[food,cat]["Quantity"]
-        dict_with_lists["consume_nutrition"].append([cat, qty])
-
-    return solution_schema.TicDat(**{k:v for k,v in dict_with_lists.items()})
-
+    sln = ampl_run("diet.mod", input_schema, dat, solution_variables)
+    if sln:
+        rtn = solution_schema.TicDat(buy_food=sln.buy)
+        for (f, c), r in dat.nutrition_quantities.items():
+            if f in rtn.buy_food:
+                rtn.consume_nutrition[c]["Quantity"] += r["Quantity"] * rtn.buy_food[f]["Quantity"]
+        rtn.parameters['Total Cost'] = sum(dat.foods[f]["Cost"] * r["Quantity"]
+                                           for f,r in rtn.buy_food.items())
+        return rtn
 # ---------------------------------------------------------------------------------
 
 # ------------------------ provide stand-alone functionality ----------------------
