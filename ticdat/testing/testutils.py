@@ -78,6 +78,50 @@ class TestUtils(unittest.TestCase):
         self.assertTrue(c(chk) == {('a', 'b'): {'c Data 3': {'c', 12}, 'c Data 4': {24, 'd'}},
             (1,2):{'c Data 3':{3,1}, 'c Data 4':{4,5,6}}})
 
+    def testFindCaseSpaceDuplicates(self):
+        test2 = TicDatFactory(table=[['PK 1','PK 2'],['DF 1','DF 2']])
+        self.assertFalse(utils.find_case_space_duplicates(test2))
+        test3 = TicDatFactory(table=[['PK 1', 'PK_1'], []])
+        self.assertEqual(len(utils.find_case_space_duplicates(test3).keys()),1)
+        test4 = TicDatFactory(table=[[], ['DF 1', 'df_1']])
+        self.assertEqual(len(utils.find_case_space_duplicates(test4).keys()),1)
+        test5 = TicDatFactory(table=[['is Dup'], ['is_Dup']])
+        self.assertEqual(len(utils.find_case_space_duplicates(test5).keys()),1)
+        test6 = TicDatFactory(table1=[['test'],[]], table2=[['test'],[]])
+        self.assertFalse(utils.find_case_space_duplicates(test6))
+        test7 = TicDatFactory(table1=[['dup 1', 'Dup_1'],[]], table2=[['Dup 2', 'Dup_2'],[]])
+        self.assertEqual(len(utils.find_case_space_duplicates(test7).keys()),2)
+
+    def testChangeFieldsWithReservedKeywords(self):
+        input_schema = TicDatFactory(
+            categories=[["Name"], ["Min Nutrition", "Max Nutrition"]],
+            foods=[["Name"], ["Cost"]],
+            nutrition_quantities=[["Food", "Category"], ["Quantity"]])
+        input_schema.set_data_type("categories", "Min Nutrition", min=0, max=float("inf"),
+                                   inclusive_min=True, inclusive_max=False)
+        input_schema.set_data_type("categories", "Max Nutrition", min=0, max=float("inf"),
+                                   inclusive_min=True, inclusive_max=True)
+        input_schema.set_data_type("foods", "Cost", min=0, max=float("inf"),
+                                   inclusive_min=True, inclusive_max=False)
+        input_schema.set_data_type("nutrition_quantities", "Quantity", min=0, max=float("inf"),
+                                   inclusive_min=True, inclusive_max=False)
+        input_schema.add_data_row_predicate(
+            "categories", predicate_name="Min Max Check",
+            predicate=lambda row: row["Max Nutrition"] >= row["Min Nutrition"])
+        input_schema.set_default_value("categories", "Max Nutrition", float("inf"))
+        reserved_keywords = ["Words", "CPLEX", "key"]
+        new_input_schema = utils.change_fields_with_reserved_keywords(input_schema, reserved_keywords)
+        self.assertDictEqual(input_schema.data_types, new_input_schema.data_types)
+        self.assertDictEqual(input_schema.default_values, new_input_schema.default_values)
+        old_tdf = TicDatFactory(table=[['Key', 'PK 2'], ['cplex', 'DF 2']])
+        old_schema = old_tdf.schema()
+        new_tdf = utils.change_fields_with_reserved_keywords(old_tdf, reserved_keywords)
+        new_schema = new_tdf.schema()
+        self.assertTrue('_Key' in new_schema['table'][0])
+        new_old_tdf = utils.change_fields_with_reserved_keywords(new_tdf, reserved_keywords,True)
+        new_old_schema = new_old_tdf.schema()
+        self.assertDictEqual(old_schema, new_old_schema)
+
     def testOne(self):
         def _cleanIt(x) :
             x.foods['macaroni'] = {"cost": 2.09}
@@ -291,7 +335,7 @@ class TestUtils(unittest.TestCase):
                             appendageBadChild = [["bk1", "bk2"], []])
         tdf.add_foreign_key("goodChild", "parentTable", fkm("gd1" , "pk"))
         tdf.add_foreign_key("badChild", "parentTable", ["bk2" , "pk"])
-        self.assertTrue("many-to-many" in self.firesException(lambda :
+        self.assertTrue("X-to-many" in self.firesException(lambda :
                 tdf.add_foreign_key("badChild", "parentTable", ["bd", "pd2"])))
         tdf.add_foreign_key("appendageChild", "parentTable", ["ak", "pk"])
         tdf.add_foreign_key("appendageBadChild", "badChild", (("bk2", "bk2"), ("bk1","bk1")))
@@ -754,6 +798,7 @@ class TestUtils(unittest.TestCase):
             failures = tdf.find_data_row_failures(dat)
             self.assertTrue(failures["c_table", "two_nums"] == (1,))
             self.assertTrue(failures["c_table", "all_strings"] == (0,2))
+
 
 
 

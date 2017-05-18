@@ -84,7 +84,7 @@ def solve(dat):
         mdl.add_constraint(
             mdl.sum(flow[h_,i_,j_] for h_,i_,j_ in flowslice.slice(h,'*',j)) +
             dat.inflow.get((h,j), {"Quantity":0})["Quantity"] ==
-            mdl.sum(flow[h_,i_,j_] for h_,i_,j_ in flowslice.slice(h, j, '*')),
+            mdl.sum(flow[h_,j_,i_] for h_,j_,i_ in flowslice.slice(h, j, '*')),
             name='node_%s_%s' % (h, j))
 
     mdl.set_objective(mdl.sum(flow * dat.cost[h, i, j]["Cost"]

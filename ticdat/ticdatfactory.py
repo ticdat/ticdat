@@ -71,7 +71,7 @@ class _TypeDictionary(namedtuple("TypeDictionary",
             return bool(self.nullable)
         return False
 
-class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend"})) :
+class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "lingo_prepend"})) :
     """
     Primary class for ticdat library. This class is constructed with a schema,
     and can be used to generate TicDat objects, or to write TicDat objects to
@@ -377,9 +377,9 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend"})) :
                    "%s does not refer to one of %s 's fields"%(k, foreign_table))
         verify(set(self.primary_key_fields.get(foreign_table, ())) == set(_mappings.values()),
             """%s is not the primary key for %s.
-This exception is being thrown because ticDat doesn't currently support many-to-many
-foreign key relationships. The ticDat API is forward compatible with re: to many-to-many
-relationships. When a future version of ticDat is released that supports many-to-many
+This exception is being thrown because ticDat doesn't currently support X-to-many
+foreign key relationships. The ticDat API is forward compatible with re: to X-to-many
+relationships. When a future version of ticDat is released that supports X-to-many
 foreign keys, the code throwing this exception will be removed.
             """%(",".join(_mappings.values()), foreign_table))
         reverseMapping = {v:k for k,v in _mappings.items()}
@@ -1337,10 +1337,19 @@ foreign keys, the code throwing this exception will be removed.
     def opl_prepend(self):
         return self._prepends.get("opl", "")
 
+    @property
+    def lingo_prepend(self):
+        return self._prepends.get("lingo", "")
+
     @opl_prepend.setter
     def opl_prepend(self, value):
         verify(utils.stringish(value), "opl_prepend should be a string")
         self._prepends["opl"] = value
+
+    @lingo_prepend.setter
+    def lingo_prepend(self,value):
+        verify(utils.stringish(value), "lingo_prepend should be a string")
+        self._prepends["lingo"] = value
 
 def freeze_me(x) :
     """

@@ -1,7 +1,6 @@
 import os
 from ticdat.opl import create_opl_text, read_opl_text, opl_run,create_opl_mod_text
-from ticdat.opl import _can_run_oplrun_tests, pattern_finder, _find_case_space_duplicates
-from ticdat.opl import _fix_fields_with_opl_keywords, _unfix_fields_with_opl_keywords
+from ticdat.opl import _can_run_oplrun_tests
 import sys
 from ticdat.ticdatfactory import TicDatFactory
 import ticdat.utils as utils
@@ -141,77 +140,6 @@ class TestOpl(unittest.TestCase):
         oldDatStr = create_opl_text(tdf, oldDat)
         newDat = read_opl_text(tdf, oldDatStr)
         self.assertTrue(tdf._same_data(oldDat, newDat))
-
-    def testPatternFinder(self):
-        testpattern = 'parameters={'
-        test1 = 'be sk={ipped}=\tme.\nLP86\n parameters={<"test" 0001>}\n\n<<< post process\n\n\n<<< done\n\n'
-        self.assertTrue(25 == pattern_finder(test1, testpattern))
-        test2 = 'e sk={ipped}=\tme.\nLP86\n parameters=  {<"test" 0001>}\n\n<<< post process\n\n\n<<< done\n\n'
-        self.assertTrue(24 == pattern_finder(test2, testpattern))
-        test3 = 'parameters={'
-        self.assertTrue(0 == pattern_finder(test3, testpattern))
-        test4 = 'be sk={ipped}=\tme.\nLP  pa r      par              amete\nrs=  {      <"test" 0001>}\n\n<ss\done\n\n'
-        self.assertTrue(33 == pattern_finder(test4, testpattern))
-
-        testpattern = 'notfound'
-        test5 = 'this text should just be sk={ipped}=\tme.\nLP86\npanot foudndrs=  {<"test" 0001>}\n\n<<< post proc'
-        self.assertTrue(False == pattern_finder(test5, testpattern))
-        test6 = 'found not'
-        self.assertTrue(False == pattern_finder(test6, testpattern))
-        test7 = 'dnuofton'
-        self.assertTrue(False == pattern_finder(test7, testpattern))
-
-        testpattern = '>}'
-        test8 = 'be sk={ipped}=\tme.\nLP86\n parameters=  {<"test" 0001\n>      }\n\n<<< posprocess\n\n\n<<< done\n\n'
-        self.assertTrue(59 == pattern_finder(test8, testpattern, True))
-        test9 = '01>\n\t}\n\n<<< post process\n\n\n<<< done\n\n'
-        self.assertTrue(5 == pattern_finder(test9, testpattern, True))
-        test10 = '>}>}>}>}>}>}>}>}>}>}>}>}>}>}>}>}>}>}>         } >tadah!'
-        self.assertTrue(46 == pattern_finder(test10, testpattern, True))
-        test11 = '>}'
-        self.assertTrue(1 == pattern_finder(test11, testpattern, True))
-        # Run the tests.
-    def testFindCaseSpaceDuplicates(self):
-        test2 = TicDatFactory(table=[['PK 1','PK 2'],['DF 1','DF 2']])
-        self.assertFalse(_find_case_space_duplicates(test2))
-        test3 = TicDatFactory(table=[['PK 1', 'PK_1'], []])
-        self.assertEqual(len(_find_case_space_duplicates(test3).keys()),1)
-        test4 = TicDatFactory(table=[[], ['DF 1', 'df_1']])
-        self.assertEqual(len(_find_case_space_duplicates(test4).keys()),1)
-        test5 = TicDatFactory(table=[['is Dup'], ['is_Dup']])
-        self.assertEqual(len(_find_case_space_duplicates(test5).keys()),1)
-        test6 = TicDatFactory(table1=[['test'],[]], table2=[['test'],[]])
-        self.assertFalse(_find_case_space_duplicates(test6))
-        test7 = TicDatFactory(table1=[['dup 1', 'Dup_1'],[]], table2=[['Dup 2', 'Dup_2'],[]])
-        self.assertEqual(len(_find_case_space_duplicates(test7).keys()),2)
-    def testChangeFieldsWithOplKeywords(self):
-        input_schema = TicDatFactory(
-            categories=[["Name"], ["Min Nutrition", "Max Nutrition"]],
-            foods=[["Name"], ["Cost"]],
-            nutrition_quantities=[["Food", "Category"], ["Quantity"]])
-        input_schema.set_data_type("categories", "Min Nutrition", min=0, max=float("inf"),
-                                   inclusive_min=True, inclusive_max=False)
-        input_schema.set_data_type("categories", "Max Nutrition", min=0, max=float("inf"),
-                                   inclusive_min=True, inclusive_max=True)
-        input_schema.set_data_type("foods", "Cost", min=0, max=float("inf"),
-                                   inclusive_min=True, inclusive_max=False)
-        input_schema.set_data_type("nutrition_quantities", "Quantity", min=0, max=float("inf"),
-                                   inclusive_min=True, inclusive_max=False)
-        input_schema.add_data_row_predicate(
-            "categories", predicate_name="Min Max Check",
-            predicate=lambda row: row["Max Nutrition"] >= row["Min Nutrition"])
-        input_schema.set_default_value("categories", "Max Nutrition", float("inf"))
-        new_input_schema = _fix_fields_with_opl_keywords(input_schema)
-        self.assertDictEqual(input_schema.data_types, new_input_schema.data_types)
-        self.assertDictEqual(input_schema.default_values, new_input_schema.default_values)
-        old_tdf = TicDatFactory(table=[['Key', 'PK 2'], ['cplex', 'DF 2']])
-        old_schema = old_tdf.schema()
-        new_tdf = _fix_fields_with_opl_keywords(old_tdf)
-        new_schema = new_tdf.schema()
-        self.assertTrue('_Key' in new_schema['table'][0])
-        new_old_tdf = _unfix_fields_with_opl_keywords(new_tdf)
-        new_old_schema = new_old_tdf.schema()
-        self.assertDictEqual(old_schema,new_old_schema)
 
 if __name__ == "__main__":
     unittest.main()
