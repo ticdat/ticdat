@@ -1,10 +1,11 @@
 Reposity for Gurobi webinar on ML and Optimization.
 
  * create_xlsx_files.py Run this file to generate the .xlsx files used by soda_promotion.ipynb
-   * My religion forbidds me from storing non-human-readable files on GitHub unless giving special dispensation by the BDFL.
+   * My religion forbidds me from storing non-human-readable files on GitHub unless giving special
+     dispensation by the BDFL.
  * optimizer_input.sql Input data for soda_promotion_optimizer.py
  * soda_promotion.ipynb The notebook that generates the webinar slides.
- * soda_promotion_optimizer.py A standalone modular optimization engine that executes the prescriptive portion of the 
-                               predict-and-prescribe demo.
+ * soda_promotion_optimizer.py A standalone modular optimization engine that executes the 
+                               prescriptive portion of the predict-and-prescribe demo.
  * soda_sales_historical_data.json The historical data in human-readable .json format.
  * super_bowl_promotion_data.json The Super Bowl (i.e. current) data in .json format.
