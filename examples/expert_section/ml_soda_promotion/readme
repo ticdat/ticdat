@@ -1,8 +1,6 @@
 Repository for Gurobi webinar on ML and Optimization.
 
  * create_xlsx_files.py Run this file to generate the .xlsx files used by soda_promotion.ipynb
-   * My religion forbids me from storing non-human-readable files on GitHub unless giving special
-     dispensation by the BDFL.
  * optimizer_input.sql Input data for soda_promotion_optimizer.py
  * soda_promotion.ipynb The notebook that generates the webinar slides.
  * soda_promotion_optimizer.py A standalone modular optimization engine that executes the 
