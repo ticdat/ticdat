@@ -19,3 +19,8 @@ tdfSuperBowl = TicDatFactory(data = [[],
 
 superBowlDat = tdfSuperBowl.json.create_tic_dat("super_bowl_promotion_data.json")
 tdfSuperBowl.xls.write_file(superBowlDat, "super_bowl_promotion_data.xlsx")
+
+import soda_promotion_optimizer as spo
+spo_dat = spo.input_schema.sql.create_tic_dat_from_sql("optimizer_only_test_input.sql")
+spo.input_schema.xls.write_file(spo_dat, "optimizer_only_test_input.xlsx")
+
