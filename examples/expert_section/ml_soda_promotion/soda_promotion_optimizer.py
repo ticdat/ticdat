@@ -17,7 +17,7 @@
 #
 # Provides command line interface via ticdat.standard_main
 # For example, typing
-#   python oil_blend.py -i input_data.xlsx -o solution_data.xlsx
+#   python soda_promotion_optimizer.py -i input_data.xlsx -o solution_data.xlsx
 # will read from a model stored in the file input_data.xlsx and write the solution
 # to solution_data.xlsx.
 
@@ -28,8 +28,7 @@ input_schema = TicDatFactory(parameters = [["Key"],["Value"]],
                              products = [["Name"],["Family"]],
                              forecast_sales = [["Product", "Cost Per Unit"],
                                                ["Sales"]],
-                             max_promotions = [["Product Family"],["Max Promotions"]]
-                             )
+                             max_promotions = [["Product Family"],["Max Promotions"]])
 
 input_schema.set_data_type("parameters", "Key", number_allowed=False, strings_allowed=("Maximum Total Investment",))
 input_schema.set_data_type("parameters", "Value", min=0, max=float("inf"), inclusive_max=True)
@@ -59,7 +58,7 @@ def solve(dat):
     def investment(pdct, price):
         return max(0, dat.forecast_sales[pdct, price]["Sales"] * normal_price[pdct] -
                       revenue(pdct, normal_price[pdct]))
-    mdl = gu.Model("beer promotion")
+    mdl = gu.Model("soda promotion")
 
     pdct_price = mdl.addVars(dat.forecast_sales, vtype=gu.GRB.BINARY,name='pdct_price')
 
