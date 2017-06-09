@@ -81,7 +81,7 @@ execute {
 
   for (var j in Jobs){
      for (var t in Tasks){
-        sln_act.add(j,t,act[j][t]['start']['end']);
+        sln_act.add(j,t,act[j][t]['start'], act[j][t]['end']);
      }
   }
 
