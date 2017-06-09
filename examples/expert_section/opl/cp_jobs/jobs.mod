@@ -6,7 +6,7 @@
 /* ------------------------ begin data initialization section ---------------------- */
 include "ticdat_jobs.mod";
 
-Jobs = {j | <j,m1,d1,m2,d2> in inp_jobs};
+{string} Jobs = {j | <j,m1,d1,m2,d2> in inp_jobs};
 {string} Tasks  = {"loadA","unload1","process1","load1","unload2","process2","load2","unloadS"};
 
 {string} Machines = inp_machines;
