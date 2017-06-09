@@ -30,7 +30,16 @@ input_schema = TicDatFactory (
     jobs = [["Name"],["Machine1","Durations1","Machine2","Durations2"]]
     )
 
+input_schema.set_data_type("parameters", "Key", number_allowed=False, strings_allowed=("Load Duration",))
+input_schema.set_data_type("parameters", "Value", min=0, max=float("inf"), inclusive_max=False)
 
+input_schema.add_foreign_key("jobs", "machines", ["Machine1", "Name"])
+input_schema.add_foreign_key("jobs", "machines", ["Machine2", "Name"])
+
+input_schema.set_data_type("jobs", "Durations1",  min=0, max=float("inf"), inclusive_max=False, must_be_int=True)
+input_schema.set_data_type("jobs", "Durations2",  min=0, max=float("inf"), inclusive_max=False, must_be_int=True)
+
+input_schema.opl_prepend = "inp_" # avoid table name collisions
 # ---------------------------------------------------------------------------------
 
 
