@@ -37,6 +37,8 @@ input_schema.add_foreign_key("jobs", "machines", ["Machine2", "Name"])
 
 input_schema.set_data_type("jobs", "Durations1",  min=0, max=float("inf"), inclusive_max=False, must_be_int=True)
 input_schema.set_data_type("jobs", "Durations2",  min=0, max=float("inf"), inclusive_max=False, must_be_int=True)
+input_schema.set_data_type("jobs", "Machine1", number_allowed=False, strings_allowed='*')
+input_schema.set_data_type("jobs", "Machine2", number_allowed=False, strings_allowed='*')
 
 input_schema.opl_prepend = "inp_" # avoid table name collisions
 # ---------------------------------------------------------------------------------
