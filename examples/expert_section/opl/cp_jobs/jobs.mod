@@ -23,7 +23,7 @@ tuple jobRecord {
 }
 jobRecord job[Jobs] = [j: <m1,d1,m2,d2> | <j,m1,d1,m2,d2> in inp_jobs];
 
-/* this might need to be an int
+/* this might need to be an int */
 {string} inputParameterNames = {k | <k,v> in inp_parameters};
 float parameters[inputParameterNames] = [k:v | <k,v> in inp_parameters];
 int loadDuration = parameters["Load Duration"];
