@@ -1,6 +1,6 @@
 /*********************************************
  * OPL job scheduling problem organized into tabular, ticdat compliant format
- * See https://ibm.co/2rGVyetE for reference problem and sample data.
+ * See https://ibm.co/2rGVyet for reference problem and sample data.
  *********************************************/
 
 /* ------------------------ begin data initialization section ---------------------- */
