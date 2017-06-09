@@ -26,7 +26,7 @@ import soda_promotion_optimizer as spo
 spo_dat = spo.input_schema.sql.create_tic_dat_from_sql("optimizer_only_test_input.sql")
 spo.input_schema.xls.write_file(spo_dat, "optimizer_only_test_input.xlsx", allow_overwrite=True)
 
-sch1, sch2 = [_.schema() for _ in tdfSuperBowl, spo.input_schema]
+sch1, sch2 = [_.schema() for _ in (tdfSuperBowl, spo.input_schema)]
 
 tdfSuperBowl = TicDatFactory(forecast_sales = sch1["data"], **{k:v for k,v in sch2.items() if k != "forecast_sales"})
 superBowlDat = tdfSuperBowl.TicDat(forecast_sales = superBowlDat.data,
