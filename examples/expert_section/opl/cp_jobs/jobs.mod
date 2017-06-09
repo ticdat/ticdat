@@ -4,7 +4,7 @@
  *********************************************/
 
 /* ------------------------ begin data initialization section ---------------------- */
- using CP;
+using CP;
 include "ticdat_jobs.mod";
 
 {string} Jobs = {j | <j,m1,d1,m2,d2> in inp_jobs};
@@ -21,12 +21,12 @@ tuple jobRecord {
     string machine2;
     int    durations2;
 }
-jobRecord job[Jobs] = [j: <j,m1,d1,m2,d2> | <j,m1,d1,m2,d2> in inp_jobs];
+jobRecord job[Jobs] = [j: <m1,d1,m2,d2> | <j,m1,d1,m2,d2> in inp_jobs];
 
 /* this might need to be an int
 {string} inputParameterNames = {k | <k,v> in inp_parameters};
 float parameters[inputParameterNames] = [k:v | <k,v> in inp_parameters];
-float loadDuration = parameters["Load Duration"];
+int loadDuration = parameters["Load Duration"];
 /* ------------------------ end data initialization section ------------------------ */
 
 /* ------------------------ begin core mathematics section ------------------------- */
