@@ -24,7 +24,6 @@ from ticdat import TicDatFactory, standard_main, opl_run
 # There are three input tables, with 4 primary key fields and 4 data fields.
 input_schema = TicDatFactory (
     parameters = [["Key"],["Value"]],
-    tasks = [["Name"],[]],
     machines = [["Name"],[]],
     areas = [["Name"],[]],
     jobs = [["Name"],["Machine1","Durations1","Machine2","Durations2"]]
@@ -46,8 +45,9 @@ input_schema.opl_prepend = "inp_" # avoid table name collisions
 # ------------------------ define the output schema -------------------------------
 # There are three solution tables, with 2 primary key fields and 3 data fields.
 solution_schema = TicDatFactory(
-    act = [["Job", "Task"],["Interval"]])
+    act = [["Job", "Task"],["Start", "End"]])
 
+solution_schema.opl_prepend = "sln_"
 # ---------------------------------------------------------------------------------
 
 

@@ -1,11 +1,3 @@
-INSERT INTO [tasks] ([Name]) VALUES ('loadA');
-INSERT INTO [tasks] ([Name]) VALUES ('process2');
-INSERT INTO [tasks] ([Name]) VALUES ('process1');
-INSERT INTO [tasks] ([Name]) VALUES ('unload1');
-INSERT INTO [tasks] ([Name]) VALUES ('unload2');
-INSERT INTO [tasks] ([Name]) VALUES ('unloadS');
-INSERT INTO [tasks] ([Name]) VALUES ('load1');
-INSERT INTO [tasks] ([Name]) VALUES ('load2');
 INSERT INTO [jobs] ([Name],[Machine1],[Durations1],[Machine2],[Durations2]) VALUES ('j4','m1',160,'m3',100);
 INSERT INTO [jobs] ([Name],[Machine1],[Durations1],[Machine2],[Durations2]) VALUES ('j5','m3',180,'m2',80);
 INSERT INTO [jobs] ([Name],[Machine1],[Durations1],[Machine2],[Durations2]) VALUES ('j6','m2',140,'m3',60);

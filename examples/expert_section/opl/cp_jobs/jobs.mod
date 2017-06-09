@@ -7,7 +7,7 @@
 include "ticdat_jobs.mod";
 
 Jobs = {j | <j,m1,d1,m2,d2> in inp_jobs};
-{string} Tasks  = inp_tasks;
+{string} Tasks  = {"loadA","unload1","process1","load1","unload2","process2","load2","unloadS"};
 
 {string} Machines = inp_machines;
 {string} States = Machines union inp_areas;
@@ -35,41 +35,41 @@ stateFunction trolleyPosition;
 
 minimize max(j in Jobs) endOf(act[j]["unloadS"]);
 subject to {
-45:   // durations
-46:   forall(j in Jobs) {
-47:     lengthOf(act[j]["loadA"])    == loadDuration;
-48:     lengthOf(act[j]["unload1"])  == loadDuration;
-49:     lengthOf(act[j]["process1"]) == job[j].durations1;
-50:     lengthOf(act[j]["load1"])    == loadDuration;
-51:     lengthOf(act[j]["unload2"])  == loadDuration;
-52:     lengthOf(act[j]["process2"]) == job[j].durations2;
-53:     lengthOf(act[j]["load2"])    == loadDuration;
-54:     lengthOf(act[j]["unloadS"])  == loadDuration;
-55:   };
-56:
-57:   // precedence
-58:   forall(j in Jobs)
-59:     forall(ordered t1, t2 in Tasks)
-60:       endBeforeStart(act[j][t1], act[j][t2]);
-61:
-62:   // no-overlap on machines
-63:   forall (m in Machines) {
-64:     noOverlap( append(
-65:               all(j in Jobs: job[j].machine1==m) act[j]["process1"],
-66:               all(j in Jobs: job[j].machine2==m) act[j]["process2"])
-67:            );
-68:   }
-69:
-70:    // state constraints
-71:    forall(j in Jobs) {
-72:      alwaysEqual(trolleyPosition, act[j]["loadA"],   Index["areaA"]);
-73:      alwaysEqual(trolleyPosition, act[j]["unload1"], Index[job[j].machine1]);
-74:      alwaysEqual(trolleyPosition, act[j]["load1"],   Index[job[j].machine1]);
-75:      alwaysEqual(trolleyPosition, act[j]["unload2"], Index[job[j].machine2]);
-76:      alwaysEqual(trolleyPosition, act[j]["load2"],   Index[job[j].machine2]);
-77:      alwaysEqual(trolleyPosition, act[j]["unloadS"], Index["areaS"]);
-78:    };
-79: };
+   // durations
+   forall(j in Jobs) {
+     lengthOf(act[j]["loadA"])    == loadDuration;
+     lengthOf(act[j]["unload1"])  == loadDuration;
+     lengthOf(act[j]["process1"]) == job[j].durations1;
+     lengthOf(act[j]["load1"])    == loadDuration;
+     lengthOf(act[j]["unload2"])  == loadDuration;
+     lengthOf(act[j]["process2"]) == job[j].durations2;
+     lengthOf(act[j]["load2"])    == loadDuration;
+     lengthOf(act[j]["unloadS"])  == loadDuration;
+   };
+
+   // precedence
+   forall(j in Jobs)
+        forall(ordered t1, t2 in Tasks)
+          endBeforeStart(act[j][t1], act[j][t2]);
+
+   // no-overlap on machines
+   forall (m in Machines) {
+     noOverlap( append(
+               all(j in Jobs: job[j].machine1==m) act[j]["process1"],
+               all(j in Jobs: job[j].machine2==m) act[j]["process2"])
+            );
+   }
+
+    // state constraints
+    forall(j in Jobs) {
+        alwaysEqual(trolleyPosition, act[j]["loadA"],   Index["areaA"]);
+        alwaysEqual(trolleyPosition, act[j]["unload1"], Index[job[j].machine1]);
+        alwaysEqual(trolleyPosition, act[j]["load1"],   Index[job[j].machine1]);
+        alwaysEqual(trolleyPosition, act[j]["unload2"], Index[job[j].machine2]);
+        alwaysEqual(trolleyPosition, act[j]["load2"],   Index[job[j].machine2]);
+        alwaysEqual(trolleyPosition, act[j]["unloadS"], Index["areaS"]);
+    };
+ };
 
 /* ------------------------ end core mathematics section --------------------------- */
 
@@ -79,6 +79,12 @@ include "ticdat_jobs_output.mod";
 
 execute {
 
-   writeOutputToFile();
+  for (var j in Jobs){
+     for (var t in Tasks){
+        sln_act.add(j,t,act[j][t]['start']['end']);
+     }
+  }
+
+  writeOutputToFile();
 }
 /* ------------------------ end ticdat output section ------------------------------ */
