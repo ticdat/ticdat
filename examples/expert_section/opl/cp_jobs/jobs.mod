@@ -21,12 +21,12 @@ tuple jobRecord {
     string machine2;
     int    durations2;
 }
-jobRecord job[Jobs] = [j: <m1,d1,m2,d2> | <j,m1,d1,m2,d2> in inp_jobs];
+jobRecord job[Jobs] = [j: <m1,ftoi(d1),m2,ftoi(d2)> | <j,m1,d1,m2,d2> in inp_jobs];
 
 /* this might need to be an int */
 {string} inputParameterNames = {k | <k,v> in inp_parameters};
-int parameters[inputParameterNames] = [k:v | <k,v> in inp_parameters];
-int loadDuration = parameters["Load Duration"];
+float parameters[inputParameterNames] = [k:v | <k,v> in inp_parameters];
+int loadDuration = ftoi(parameters["Load Duration"]);
 /* ------------------------ end data initialization section ------------------------ */
 
 /* ------------------------ begin core mathematics section ------------------------- */

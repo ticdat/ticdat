@@ -1,3 +1,10 @@
+# ! had to hack to get working !
+# hack 1
+# strings_allowed={"m1", "m3", "m2"} instead of strings_allowed='*' in two places in this file
+# this was to force the ticdat_jobs.mod to express the string type
+
+
+
 #!/usr/bin/python
 
 # Copyright 2015, 2016 Opalytics, Inc.
@@ -37,8 +44,9 @@ input_schema.add_foreign_key("jobs", "machines", ["Machine2", "Name"])
 
 input_schema.set_data_type("jobs", "Durations1",  min=0, max=float("inf"), inclusive_max=False, must_be_int=True)
 input_schema.set_data_type("jobs", "Durations2",  min=0, max=float("inf"), inclusive_max=False, must_be_int=True)
-input_schema.set_data_type("jobs", "Machine1", number_allowed=False, strings_allowed='*')
-input_schema.set_data_type("jobs", "Machine2", number_allowed=False, strings_allowed='*')
+
+input_schema.set_data_type("jobs", "Machine1", number_allowed=False, strings_allowed={"m1", "m3", "m2"})
+input_schema.set_data_type("jobs", "Machine2", number_allowed=False, strings_allowed={"m1", "m3", "m2"})
 
 input_schema.opl_prepend = "inp_" # avoid table name collisions
 # ---------------------------------------------------------------------------------
