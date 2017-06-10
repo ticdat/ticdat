@@ -1,5 +1,5 @@
 # ! had to hack to get working !
-# hack 1
+# See issue # 1944
 # strings_allowed={"m1", "m3", "m2"} instead of strings_allowed='*' in two places in this file
 # this was to force the ticdat_jobs.mod to express the string type
 
