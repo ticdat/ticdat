@@ -8,5 +8,3 @@ INSERT INTO [parameters] ([Key],[Value]) VALUES ('Load Duration',20);
 INSERT INTO [machines] ([Name]) VALUES ('m1');
 INSERT INTO [machines] ([Name]) VALUES ('m3');
 INSERT INTO [machines] ([Name]) VALUES ('m2');
-INSERT INTO [areas] ([Name]) VALUES ('areaA');
-INSERT INTO [areas] ([Name]) VALUES ('areaS');

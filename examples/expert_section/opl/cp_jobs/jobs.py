@@ -32,7 +32,6 @@ from ticdat import TicDatFactory, standard_main, opl_run
 input_schema = TicDatFactory (
     parameters = [["Key"],["Value"]],
     machines = [["Name"],[]],
-    areas = [["Name"],[]],
     jobs = [["Name"],["Machine1","Durations1","Machine2","Durations2"]]
     )
 

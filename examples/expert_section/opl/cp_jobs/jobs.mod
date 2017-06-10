@@ -7,11 +7,15 @@
 using CP;
 include "ticdat_jobs.mod";
 
+/* Tasks and 'areaA', 'areaS' are hard coded into the mathematics section,
+ * so we hard code them here as well
+ */
+
 {string} Jobs = {j | <j,m1,d1,m2,d2> in inp_jobs};
 {string} Tasks  = {"loadA","unload1","process1","load1","unload2","process2","load2","unloadS"};
 
 {string} Machines = inp_machines;
-{string} States = Machines union inp_areas;
+{string} States = Machines union {"areaA","areaS"};
 
 int Index[s in States] = ord(States, s);
 
@@ -23,7 +27,6 @@ tuple jobRecord {
 }
 jobRecord job[Jobs] = [j: <m1,ftoi(d1),m2,ftoi(d2)> | <j,m1,d1,m2,d2> in inp_jobs];
 
-/* this might need to be an int */
 {string} inputParameterNames = {k | <k,v> in inp_parameters};
 float parameters[inputParameterNames] = [k:v | <k,v> in inp_parameters];
 int loadDuration = ftoi(parameters["Load Duration"]);
