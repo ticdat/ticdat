@@ -52,7 +52,6 @@ input_schema.opl_prepend = "inp_" # avoid table name collisions
 
 
 # ------------------------ define the output schema -------------------------------
-# There are three solution tables, with 2 primary key fields and 3 data fields.
 solution_schema = TicDatFactory(
     act = [["Job", "Task"],["Start", "End"]])
 
