@@ -1,7 +1,10 @@
 # ! had to hack to get working !
 # See issue # 1944
 # strings_allowed={"m1", "m3", "m2"} instead of strings_allowed='*' in two places in this file
-# this was to force the ticdat_jobs.mod to express the string type
+# using strings_allowed gets the opl.py code to set the correct OPL code type, this isn't
+# a hack but a reasonable use of our code. Hard-coding the machine values instead of 
+# letting the foreign key check them and using strings_allowed='*' is the hack that can be
+# removed when #1944 is fixed.
 
 
 
