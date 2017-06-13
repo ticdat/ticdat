@@ -141,5 +141,51 @@ class TestOpl(unittest.TestCase):
         newDat = read_opl_text(tdf, oldDatStr)
         self.assertTrue(tdf._same_data(oldDat, newDat))
 
+    def testOther(self):
+        tdf = TicDatFactory(
+            table1=[["String_Field"], []],
+            table2=[["String_Field", "Num_PK"], ["Num_Field_1","Num_Field_2"]])
+        data = {
+            "table1": {
+                "test1": [],
+                "test2": [],
+            },
+            "table2": {
+                ("test1",1): [2,3],
+                ("test2",2): [3,4]
+            }
+        }
+        oldDat = tdf.freeze_me(tdf.TicDat(**data))
+        oldDatStr = create_opl_text(tdf, oldDat)
+        newDat = read_opl_text(tdf, oldDatStr)
+        self.assertTrue(tdf._same_data(oldDat, newDat))
+        tdf.opl_prepend = "_"
+        oldDatStr = create_opl_text(tdf, oldDat)
+        newDat = read_opl_text(tdf, oldDatStr)
+        self.assertTrue(tdf._same_data(oldDat, newDat))
+
+    def testCreateModText(self):
+        tdf = TicDatFactory(
+            table1=[["string_pk", "num_pk"], ["num_field1","string_field2"]])
+        tdf.set_data_type("table1", "num_pk", min=0, max=float("inf"), inclusive_min=True, inclusive_max=False)
+        tdf.set_data_type("table1", "string_field2", number_allowed=False, strings_allowed='*')
+        modStr = create_opl_mod_text(tdf)
+        self.assertTrue("key string string_pk;" in modStr)
+        self.assertTrue("key float num_pk;" in modStr)
+        self.assertTrue("float num_field1;" in modStr)
+        self.assertTrue("string string_field2;" in modStr)
+
+    def testReadModText(self):
+        tdf = TicDatFactory(
+            test_1 = [["sf1"],["sf2","nf1","nf2"]]
+        )
+        tdf.set_data_type("test_1", "sf2", number_allowed=False, strings_allowed='*')
+        test_str = 'test_1 =  {<"s1" "s2" 1 2> <"s3" "s4" 0 0>}'
+        test_dat = read_opl_text(tdf,test_str,False)
+        self.assertTrue(test_dat.test_1["s1"]["sf2"] == "s2")
+        self.assertTrue(test_dat.test_1["s1"]["nf2"] == 2)
+        self.assertTrue(test_dat.test_1["s2"]["nf1"] == 0)
+
+
 if __name__ == "__main__":
     unittest.main()
