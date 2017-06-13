@@ -1,16 +1,6 @@
-# ! had to hack to get working !
-# See issue # 1944
-# strings_allowed={"m1", "m3", "m2"} instead of strings_allowed='*' in two places in this file
-# using strings_allowed gets the opl.py code to set the correct OPL code type, this isn't
-# a hack but a reasonable use of our code. Hard-coding the machine values instead of 
-# letting the foreign key check them and using strings_allowed='*' is the hack that can be
-# removed when #1944 is fixed.
-
-
-
 #!/usr/bin/python
 
-# Copyright 2015, 2016 Opalytics, Inc.
+# Copyright 2015, 2016, 2017 Opalytics, Inc.
 #
 # Constraint programming example based on https://ibm.co/2rGVyet
 
@@ -47,8 +37,8 @@ input_schema.add_foreign_key("jobs", "machines", ["Machine2", "Name"])
 input_schema.set_data_type("jobs", "Durations1",  min=0, max=float("inf"), inclusive_max=False, must_be_int=True)
 input_schema.set_data_type("jobs", "Durations2",  min=0, max=float("inf"), inclusive_max=False, must_be_int=True)
 
-input_schema.set_data_type("jobs", "Machine1", number_allowed=False, strings_allowed={"m1", "m3", "m2"})
-input_schema.set_data_type("jobs", "Machine2", number_allowed=False, strings_allowed={"m1", "m3", "m2"})
+input_schema.set_data_type("jobs", "Machine1", number_allowed=False, strings_allowed='*')
+input_schema.set_data_type("jobs", "Machine2", number_allowed=False, strings_allowed='*')
 
 input_schema.opl_prepend = "inp_" # avoid table name collisions
 # ---------------------------------------------------------------------------------
