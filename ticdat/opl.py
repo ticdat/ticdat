@@ -247,7 +247,7 @@ def read_opl_text(tdf,text, commaseperator = True):
 
     for i,c in enumerate(text):
         if mode not in [STRING, ROWSTRING] and (c.isspace() or c == '{' or c == ';'):
-            if mode in [ROWNUM,FIELD] and not commaseperator:
+            if mode in [NUMBER, ROWNUM, FIELD] and not commaseperator:
                 c = ','
             else:
                 continue
