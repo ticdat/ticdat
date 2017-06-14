@@ -9,7 +9,7 @@ from ticdat.testing.ticdattestutils import  netflowSchema,sillyMeData, sillyMeSc
 from ticdat.testing.ticdattestutils import fail_to_debugger, flagged_as_run_alone, get_testing_file_path
 import unittest
 
-@fail_to_debugger
+#@fail_to_debugger
 class TestOpl(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -189,7 +189,7 @@ class TestOpl(unittest.TestCase):
         tdf2 = TicDatFactory( test_2 = [["sf1"],[]] )
         test_str = 'test_2 =  {<"s3">}'
         test_dat = read_opl_text(tdf2,test_str,False)
-        self.assertTrue(test_dat.test_2.keys()[0] == "s3")
+        self.assertTrue(list(test_dat.test_2.keys())[0] == "s3")
 
         tdf3 = TicDatFactory( test_3 = [["nf1"],[]] )
         tdf3.set_data_type("test_3", "nf1", min=0, max=float("inf"), inclusive_min=True, inclusive_max=False)
