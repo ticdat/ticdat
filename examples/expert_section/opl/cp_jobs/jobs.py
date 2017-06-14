@@ -69,6 +69,7 @@ def solve(dat):
 
     rtn = opl_run("jobs.mod", input_schema, dat, solution_schema)
     if rtn:
+        # for simplicities sake, I'm just going to treat OPL time as 'minutes from now'
         now = time.time()
         format_iso = lambda x : datetime.datetime.utcfromtimestamp(now + x*60).isoformat() + "Z"
         for k,r in rtn.act.items():
