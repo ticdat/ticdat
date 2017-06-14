@@ -19,6 +19,8 @@
 # Note that file requires jobs.mod to be in the same directory
 
 from ticdat import TicDatFactory, standard_main, opl_run
+import time
+import datetime
 
 # ------------------------ define the input schema --------------------------------
 # There are three input tables, with 4 primary key fields and 4 data fields.
@@ -46,7 +48,8 @@ input_schema.opl_prepend = "inp_" # avoid table name collisions
 
 # ------------------------ define the output schema -------------------------------
 solution_schema = TicDatFactory(
-    act = [["Job", "Task"],["Start", "End"]])
+    act = [["Job", "Task"],["Start", "End"]],
+    act_as_dates = [["Job", "Task"],["Start Date", "End Date"]])
 
 solution_schema.opl_prepend = "sln_"
 # ---------------------------------------------------------------------------------
@@ -64,7 +67,13 @@ def solve(dat):
     assert not input_schema.find_data_type_failures(dat)
     assert not input_schema.find_data_row_failures(dat)
 
-    return opl_run("jobs.mod", input_schema, dat, solution_schema)
+    rtn = opl_run("jobs.mod", input_schema, dat, solution_schema)
+    if rtn:
+        now = time.time()
+        format_iso = lambda x : datetime.datetime.utcfromtimestamp(now + x*60).isoformat() + "Z"
+        for k,r in rtn.act.items():
+            rtn.act_as_dates[k] = [format_iso(r["Start"]), format_iso(r["End"])]
+        return rtn
 # ---------------------------------------------------------------------------------
 
 # ------------------------ provide stand-alone functionality ----------------------
