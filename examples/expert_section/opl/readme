@@ -2,6 +2,8 @@ Please refer to video https://www.youtube.com/watch?v=RCtglvt8exI&t=9s.
 
 Once Python is installed, install the latest version of ticdat using the command 
    'pip install ticdat'
+If you already have ticdat, but want to upgrade to the most recent version
+   'pip install ticdat —upgrade'
 
 After that, use the command line to navigate to the directory containing the oplrun executable. 
 
