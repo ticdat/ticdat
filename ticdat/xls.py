@@ -23,6 +23,7 @@ except:
 
 _can_unit_test = xlrd and xlwt and xlsx
 
+# https://github.com/jmcnamara/XlsxWriter/issues/150 ...
 _xlsx_hack_inf = 1e+100 # the xlsxwriter doesn't handle infinity as seamlessly as xls
 _longest_sheet = 30
 
