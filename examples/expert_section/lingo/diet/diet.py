@@ -75,7 +75,7 @@ def solve(dat):
 
     sln = lingo_run("diet.lng", input_schema, dat, solution_variables)
     if sln:
-        rtn = solution_schema.TicDat(buy_food=sln.buy)
+        rtn = solution_schema.TicDat(buy_food={k:r for k,r in sln.buy.items() if r["Quantity"] > 0})
         for (f, c), r in dat.nutrition_quantities.items():
             if f in rtn.buy_food:
                 rtn.consume_nutrition[c]["Quantity"] += r["Quantity"] * rtn.buy_food[f]["Quantity"]

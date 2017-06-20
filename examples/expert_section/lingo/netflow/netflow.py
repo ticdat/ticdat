@@ -64,7 +64,7 @@ def solve(dat):
 
     sln = lingo_run("netflow.lng", input_schema, dat, solution_variables)
     if sln:
-        rtn = solution_schema.TicDat(flow = sln.flow)
+        rtn = solution_schema.TicDat(flow = {k:r for k,r in sln.flow.items() if r["Quantity"] > 0})
         rtn.parameters["Total Cost"] = sum(dat.cost[h, i, j]["Cost"] * r["Quantity"]
                                            for (h, i, j), r in rtn.flow.items())
         return rtn
