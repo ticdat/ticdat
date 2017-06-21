@@ -108,7 +108,7 @@ def lingo_run(lng_file, input_tdf, input_dat, soln_tdf, infinity=INFINITY, runli
             return None
         with open(i[1], "r") as f:
             output_data[i[0]] = f.read()
-    rtn =  read_lingo_text(soln_tdf, output_data)
+    rtn = read_lingo_text(soln_tdf, output_data)
     return _apply_space_case_mapping(soln_tdf, rtn, mapping["mapping"])
 
 _can_run_lingo_run_tests = os.path.isfile(os.path.join(_code_dir(),"runlingo_path.txt")) or "TICDAT_LINGO_PATH" in os.environ
