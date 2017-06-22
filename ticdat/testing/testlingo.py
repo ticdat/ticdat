@@ -106,7 +106,7 @@ class TestLingo(unittest.TestCase):
         in_tdf.add_foreign_key("inflow", "nodes", ['node', 'name'])
         solution_variables = TicDatFactory(flow=[["Commodity", "Source", "Destination"], ["quantity"]])
         dat = in_tdf.TicDat(**{t: getattr(netflowData(), t) for t in in_tdf.primary_key_fields})
-        lingo_soln = tlingo.lingo_run("sample_netflow.lng", in_tdf, dat, solution_variables)
+        lingo_soln = tlingo.lingo_run(get_testing_file_path("sample_netflow.lng"), in_tdf, dat, solution_variables)
         self.assertTrue(nearlySame(lingo_soln.flow["Pens", "Detroit", "New York"]["quantity"], 30))
 
     def testSortedTables(self):
