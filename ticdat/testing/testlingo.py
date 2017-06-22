@@ -25,14 +25,16 @@ class TestLingo(unittest.TestCase):
                        "foods": [["Name"], ("Cost",)],
                        "nutrition_quantities": (["Food", "Category"], ["Quantity"])
                        }
+        # Using foods as the table name to test the lingo_prepend functionality
         in_tdf = TicDatFactory(**diet_schema)
-        solution_variables = TicDatFactory(buy=[["Food"], ["Quantity"]])
+        in_tdf.lingo_prepend = "inp_"
+        solution_variables = TicDatFactory(foods=[["Food"], ["Quantity"]], total_cost=[["Value"],[]])
+        solution_variables.lingo_prepend = "out_"  # avoid table name collisions
         makeDat = lambda: in_tdf.TicDat(
             categories={'calories': [1800, 2200],
                         'protein': [91, float("inf")],
                         'fat': [0, 65],
                         'sodium': [0, 1779]},
-
             foods={'hamburger': 2.49,
                    'chicken': 2.89,
                    'hot dog': 1.50,
@@ -81,7 +83,8 @@ class TestLingo(unittest.TestCase):
         in_tdf.add_foreign_key("nutrition_quantities", "foods", ['Food', 'Name'])
         in_tdf.add_foreign_key("nutrition_quantities", "categories", ['Category', 'Name'])
         lingo_soln = tlingo.lingo_run(get_testing_file_path("sample_diet.lng"), in_tdf, makeDat(), solution_variables)
-        self.assertTrue(nearlySame(lingo_soln.buy["hamburger"]["Quantity"], 0.6045, epsilon=0.0001))
+        self.assertTrue(nearlySame(lingo_soln.foods["hamburger"]["Quantity"], 0.6045, epsilon=0.0001))
+        self.assertIsNotNone(lingo_soln.total_cost["11.82886"])
         # lingo_run should not complete when there is an infeasible solution
         dat = makeDat()
         dat.categories["calories"]["Min Nutrition"] = dat.categories["calories"]["Max Nutrition"] + 1

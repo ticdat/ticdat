@@ -4,15 +4,15 @@ model:
 @FILE("ticdat_sample_diet.ldt")
 
 sets:
-    buy(foods): buy_quantity;
+    out_foods(inp_foods): out_foods_quantity;
 endsets
 
-[total_cost] MIN = N;
- N = @sum( foods( i): foods_cost(i)*buy_quantity(i));
+[out_total_cost] MIN = N;
+ N = @sum( inp_foods( i): inp_foods_cost(i)*out_foods_quantity(i));
 
- @for( categories( j):
-   [nutrilo] @sum( nutrition_quantities( i, j): nutrition_quantities_quantity(i,j)*buy_quantity(i)) >= categories_min_nutrition( j);
-   [nutrihi] @sum( nutrition_quantities( i, j): nutrition_quantities_quantity(i,j)*buy_quantity(i)) <= categories_max_nutrition( j);
+ @for( inp_categories( j):
+   [nutrilo] @sum( inp_nutrition_quantities( i, j): inp_nutrition_quantities_quantity(i,j)*out_foods_quantity(i)) >= inp_categories_min_nutrition( j);
+   [nutrihi] @sum( inp_nutrition_quantities( i, j): inp_nutrition_quantities_quantity(i,j)*out_foods_quantity(i)) <= inp_categories_max_nutrition( j);
      );
 
 @FILE("ticdat_sample_diet_output.ldt")
