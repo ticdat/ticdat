@@ -23,6 +23,8 @@ def get_testing_file_path(base_name):
     assert os.path.exists(rtn)
     return rtn
 
+am_on_windows = sys.platform in ['win32']
+
 def configure_blank_accdb():
     verify(os.path.isfile("blank.accdb"),
            "You need a blank.accdb file in your current directory.")
@@ -33,7 +35,7 @@ def configure_blank_accdb():
     copy("blank.accdb", mdb_dir)
 
 def configure_oplrun_path():
-    if sys.platform in ['win32']:
+    if am_on_windows:
         oplrun_name = os.path.abspath('oplrun.exe')
     else:
         oplrun_name = os.path.abspath('oplrun')
@@ -47,7 +49,7 @@ def configure_oplrun_path():
         f.write(oplrun_path)
 
 def configure_runlingo_path():
-    if sys.platform in ['win32']:
+    if am_on_windows:
         runlingo_name = os.path.abspath('runlingo.exe')
     else:
         runlingo_name = os.path.abspath('runlingo')
