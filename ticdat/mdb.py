@@ -135,7 +135,8 @@ class MdbTicFactory(freezable_factory(object, "_isFrozen")) :
         TDE = TicDatError
         verify(os.path.exists(mdb_file_path), "%s isn't a valid file path"%mdb_file_path)
         try :
-            _connect(_connection_str(mdb_file_path))
+            with _connect(_connection_str(mdb_file_path)) as _:
+                pass
         except Exception as e:
             raise TDE("Unable to open %s as MS Access file : %s"%(mdb_file_path, e.message))
         table_names = self._get_table_names(mdb_file_path, tables)

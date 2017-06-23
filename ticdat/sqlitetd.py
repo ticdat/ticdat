@@ -158,7 +158,8 @@ class SQLiteTicFactory(freezable_factory(object, "_isFrozen")) :
         TDE = TicDatError
         verify(os.path.exists(db_file_path), "%s isn't a valid file path"%db_file_path)
         try :
-            sql.connect(db_file_path)
+            with sql.connect(db_file_path) as _:
+                pass
         except Exception as e:
             raise TDE("Unable to open %s as SQLite file : %s"%(db_file_path, e.message))
         table_names = self._get_table_names(db_file_path, tables)
