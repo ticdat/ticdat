@@ -550,7 +550,7 @@ def _nearlySame(x1, x2, epsilon) :
     return perError(x1, x2) < epsilon
 
 def nearlySame(*args, **kwargs) :
-    assert not kwargs or kwargs.keys() == ["epsilon"]
+    assert not kwargs or list(kwargs.keys()) == ["epsilon"]
     epsilon = kwargs.get("epsilon", EPSILON)
     if len(args) < 2 :
         return True

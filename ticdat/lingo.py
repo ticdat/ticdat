@@ -100,7 +100,7 @@ def lingo_run(lng_file, input_tdf, input_dat, soln_tdf, infinity=INFINITY, runli
         if tu.development_deployed_environment:
             raise Exception("runlingo failed to complete: " + str(err.output))
     with open(output_txt, "w") as f:
-        f.write(output)
+        f.write(str(output))
     output_data = {}
     for i in zip(soln_tables,results):
         if not os.path.isfile(i[1]):
@@ -198,7 +198,7 @@ def create_lingo_mod_text(tdf):
             fkr = []
             for i in range(len(tdf.primary_key_fields[tbn])):
                 pk = tdf.primary_key_fields[tbn][i]
-                fk = filter(lambda k: k.native_table == tbn and k.mapping.native_field == pk, tdf.foreign_keys)
+                fk = list(filter(lambda k: k.native_table == tbn and k.mapping.native_field == pk, tdf.foreign_keys))
                 verify(len(fk) == 1, "Table '%s' needs to fully link it's primary key fields to parent tables via"
                                      " foreign keys."%tbn)
                 fkr.append(prepend + fk[0].foreign_table)
@@ -240,7 +240,7 @@ def read_lingo_text(tdf,results_text):
         rows = []
         text = results_text[tbn].strip().split("\n")
         for line in text:
-            rows.append(map(lambda k: _get_as_type(k),line.strip().split()))
+            rows.append(list(map(lambda k: _get_as_type(k),line.strip().split())))
         dict_with_lists[tbn] = rows
 
 
@@ -262,7 +262,7 @@ def _try_create_space_case_mapping(tdf, ticdat):
             for ks in getattr(ticdat, t):
                 for k in (ks if containerish(ks) else [ks]):
                     if stringish(k):
-                        newk = ''.join(map(lambda c: c.upper() if c.isalnum() else '_', k))
+                        newk = ''.join(list(map(lambda c: c.upper() if c.isalnum() else '_', k)))
                         rtn[newk].add(k)
     failures = {k:tuple(sorted(v)) for k,v in rtn.items() if len(v) > 1}
     if failures:
@@ -282,7 +282,7 @@ def _apply_space_case_mapping(tdf, ticdat, mapping):
     assert tu.dictish(mapping)
     def apply_mapping(k):
         if containerish(k):
-            return tuple(map(apply_mapping, k))
+            return tuple(list(map(apply_mapping, k)))
         return mapping.get(k, k)
     rtn = tdf.copy_tic_dat(ticdat)
     for t in tdf.all_tables:
@@ -301,7 +301,7 @@ def _sorted_tables(tdf):
     ordered_tables = []
     dict_tables = {t for t, pk in tdf.primary_key_fields.items() if pk}
     def next_table(tbn):
-        fks = filter(lambda k: k.native_table == tbn, tdf.foreign_keys)
+        fks = list(filter(lambda k: k.native_table == tbn, tdf.foreign_keys))
         if len(fks) == 0:
             return [tbn]
         tables = []

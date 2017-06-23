@@ -278,7 +278,7 @@ class MdbTicFactory(freezable_factory(object, "_isFrozen")) :
                 if dictish(_t) :
                     primary_keys = tuple(self.tic_dat_factory.primary_key_fields[t])
                     for pk_row, sql_data_row in _t.items() :
-                        _items = sql_data_row.items()
+                        _items = tuple(sql_data_row.items())
                         fields = _brackets(primary_keys + tuple(x[0] for x in _items))
                         data_row = ((pk_row,) if len(primary_keys)==1 else pk_row) + \
                                   tuple(_write_data(x[1]) for x in _items)

@@ -101,7 +101,7 @@ def opl_run(mod_file, input_tdf, input_dat, soln_tdf, infinity=INFINITY, oplrun_
             raise Exception("oplrun failed to complete: " + err.output)
         output = err.output
     with open(output_txt, "w") as f:
-        f.write(output)
+        f.write(str(output))
     if not os.path.isfile(results_dat):
         print("%s is not a valid file. A solution was likely not generated. Check 'output.txt' for details."%results_dat)
         return None
