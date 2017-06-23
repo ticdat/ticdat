@@ -173,7 +173,7 @@ class TestMdb(unittest.TestCase):
 
         ticDat.a["theboger"] = (1, None, "twelve")
         if am_on_windows:
-            filePath = filePath.replace("silly.db", "silly_2.db")  # working around issue opalytics/opalytics-ticdat#153
+            filePath = filePath.replace("silly.mdb", "silly_2.mdb")  # working around issue opalytics/opalytics-ticdat#153
         tdf.mdb.write_file(ticDat, makeCleanSchema())
         ticDatNone = tdf.mdb.create_tic_dat(filePath, freeze_it=True)
         self.assertTrue(tdf._same_data(ticDat, ticDatNone))
