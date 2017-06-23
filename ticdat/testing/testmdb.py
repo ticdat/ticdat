@@ -19,6 +19,8 @@ class TestMdb(unittest.TestCase):
     def setUpClass(cls):
         # uncomment the following line to run on old test machines
         #tdmdb._dbq = "*.mdb"
+        if am_on_windows and os.path.exists(_scratchDir): #working around issue opalytics/opalytics-ticdat#153
+            shutil.rmtree(_scratchDir)
         makeCleanDir(_scratchDir)
     @classmethod
     def tearDownClass(cls):
