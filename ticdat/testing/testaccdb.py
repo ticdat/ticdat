@@ -16,8 +16,6 @@ from ticdat.mdb import _connection_str, _can_accdb_unit_test, py
 class TestAccdb(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        if am_on_windows and os.path.exists(_scratchDir): #working around issue opalytics/opalytics-ticdat#153
-            shutil.rmtree(_scratchDir)
         makeCleanDir(_scratchDir)
     @classmethod
     def tearDownClass(cls):

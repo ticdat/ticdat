@@ -16,8 +16,6 @@ class TestSql(unittest.TestCase):
     can_run = False
     @classmethod
     def setUpClass(cls):
-        if am_on_windows and os.path.exists(_scratchDir): #working around issue opalytics/opalytics-ticdat#153
-            shutil.rmtree(_scratchDir)
         makeCleanDir(_scratchDir)
     @classmethod
     def tearDownClass(cls):
