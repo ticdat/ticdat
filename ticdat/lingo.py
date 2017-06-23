@@ -108,7 +108,7 @@ def lingo_run(lng_file, input_tdf, input_dat, soln_tdf, infinity=INFINITY, runli
             return None
         with open(i[1], "r") as f:
             output_data[i[0]] = f.read()
-    rtn =  read_lingo_text(soln_tdf, output_data)
+    rtn = read_lingo_text(soln_tdf, output_data)
     return _apply_space_case_mapping(soln_tdf, rtn, mapping["mapping"])
 
 _can_run_lingo_run_tests = os.path.isfile(os.path.join(_code_dir(),"runlingo_path.txt")) or "TICDAT_LINGO_PATH" in os.environ
@@ -119,12 +119,14 @@ def create_lingo_output_text(tdf):
     :param tdf: A TicDatFactory defining the output schema
     :return: A string consistent with the Lingo .ldt format
     """
+    prepend = getattr(tdf, "lingo_prepend", "")
     dict_tables = {t for t, pk in tdf.primary_key_fields.items() if pk}
     rtn = 'data:\n'
     for tbn in dict_tables:
-        rtn += '\t@TEXT(\"' + tbn + ".ldt\") = " + tbn
+        p_tbn = prepend + tbn
+        rtn += '\t@TEXT(\"' + tbn + ".ldt\") = " + p_tbn
         for fk in tdf.data_fields[tbn]:
-            rtn += ", " + tbn + "_" + fk.lower().replace(" ","")
+            rtn += ", " + p_tbn + "_" + fk.lower().replace(" ","")
         rtn += ";\n"
     rtn += 'enddata'
     return rtn
@@ -144,6 +146,7 @@ def create_lingo_text(tdf, tic_dat, infinity=INFINITY):
     verify(not tdf.generic_tables, "doesn't work with generic tables. (not yet - will add ASAP as needed) ")
     dict_with_lists = defaultdict(list)
     dict_tables = {t for t,pk in tdf.primary_key_fields.items() if pk}
+    prepend = getattr(tdf, "lingo_prepend", "")
     for t in dict_tables:
         for k,r in getattr(tic_dat, t).items():
             row = list(k) if containerish(k) else [k]
@@ -156,9 +159,9 @@ def create_lingo_text(tdf, tic_dat, infinity=INFINITY):
             dict_with_lists[t].append(row)
     rtn = "data:\n"
     for t in _sorted_tables(tdf):
-        rtn += "%s"%(tdf.lingo_prepend + t)
+        rtn += "%s"%(prepend + t)
         for field in tdf.data_fields[t]:
-            rtn += ',' +t + "_" + field.replace(" ", "_").lower()
+            rtn += ',' + prepend + t + "_" + field.replace(" ", "_").lower()
         rtn += "=\n"
         for row in dict_with_lists[t]:
             rtn += "\t"
@@ -198,7 +201,7 @@ def create_lingo_mod_text(tdf):
                 fk = filter(lambda k: k.native_table == tbn and k.mapping.native_field == pk, tdf.foreign_keys)
                 verify(len(fk) == 1, "Table '%s' needs to fully link it's primary key fields to parent tables via"
                                      " foreign keys."%tbn)
-                fkr.append(fk[0].foreign_table)
+                fkr.append(prepend + fk[0].foreign_table)
             rtn += '(' + ','.join(fkr) + ')'
         rtn += ':'
         fields = []

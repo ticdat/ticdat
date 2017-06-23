@@ -19,7 +19,6 @@ class TestOpl(unittest.TestCase):
     def tearDownClass(cls):
         utils.development_deployed_environment = cls._original_value
     def testDiet_oplrunRequired(self):
-        return
         self.assertTrue(_can_run_oplrun_tests)
         diet_schema = {"categories" : (("Name",),["Min Nutrition", "Max Nutrition"]),
                        "foods" :[["Name"],("Cost",)],
@@ -92,14 +91,13 @@ class TestOpl(unittest.TestCase):
         except:
             self.assertTrue(True)
     def testNetflow_oplrunRequired(self):
-        return
         self.assertTrue(_can_run_oplrun_tests)
         in_tdf = TicDatFactory(**netflowSchema())
         in_tdf.enable_foreign_key_links()
         soln_tdf = TicDatFactory(flow=[["source", "destination", "commodity"], ["quantity"]],
                                  parameters=[["paramKey"], ["value"]])
         dat = in_tdf.TicDat(**{t: getattr(netflowData(), t) for t in in_tdf.primary_key_fields})
-        opl_soln = opl_run("sample_netflow.mod", in_tdf, dat, soln_tdf)
+        opl_soln = opl_run(get_testing_file_path("sample_netflow.mod"), in_tdf, dat, soln_tdf)
         self.assertTrue(nearlySame(opl_soln.parameters["Total Cost"]["value"],5500))
         self.assertTrue(nearlySame(opl_soln.flow["Pens", "Detroit", "New York"]["quantity"], 30))
     def testDiet(self):

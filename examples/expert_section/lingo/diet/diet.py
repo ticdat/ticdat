@@ -71,11 +71,11 @@ def solve(dat):
     assert not input_schema.find_data_row_failures(dat)
 
     # These are the variables populated by the diet.lng file.
-    solution_variables = TicDatFactory(buy=[["Food"],["Quantity"]])
+    solution_variables = TicDatFactory(buy_food=[["Food"],["Quantity"]])
 
     sln = lingo_run("diet.lng", input_schema, dat, solution_variables)
     if sln:
-        rtn = solution_schema.TicDat(buy_food={k:r for k,r in sln.buy.items() if r["Quantity"] > 0})
+        rtn = solution_schema.TicDat(buy_food={k:r for k,r in sln.buy_food.items() if r["Quantity"] > 0})
         for (f, c), r in dat.nutrition_quantities.items():
             if f in rtn.buy_food:
                 rtn.consume_nutrition[c]["Quantity"] += r["Quantity"] * rtn.buy_food[f]["Quantity"]
