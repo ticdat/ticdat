@@ -135,7 +135,8 @@ class MdbTicFactory(freezable_factory(object, "_isFrozen")) :
         TDE = TicDatError
         verify(os.path.exists(mdb_file_path), "%s isn't a valid file path"%mdb_file_path)
         try :
-            _connect(_connection_str(mdb_file_path))
+            with _connect(_connection_str(mdb_file_path)) as _:
+                pass
         except Exception as e:
             raise TDE("Unable to open %s as MS Access file : %s"%(mdb_file_path, e.message))
         table_names = self._get_table_names(mdb_file_path, tables)
@@ -278,7 +279,7 @@ class MdbTicFactory(freezable_factory(object, "_isFrozen")) :
                 if dictish(_t) :
                     primary_keys = tuple(self.tic_dat_factory.primary_key_fields[t])
                     for pk_row, sql_data_row in _t.items() :
-                        _items = sql_data_row.items()
+                        _items = tuple(sql_data_row.items())
                         fields = _brackets(primary_keys + tuple(x[0] for x in _items))
                         data_row = ((pk_row,) if len(primary_keys)==1 else pk_row) + \
                                   tuple(_write_data(x[1]) for x in _items)
