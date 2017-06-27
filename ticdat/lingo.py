@@ -88,8 +88,10 @@ def lingo_run(lng_file, input_tdf, input_dat, soln_tdf, infinity=INFINITY, runli
         if 'TICDAT_LINGO_PATH' in os.environ:
             runlingo_path = os.environ['TICDAT_LINGO_PATH']
         else:
-            verify(os.path.isfile(os.path.join(_code_dir(),"runlingo_path.txt")),
-               "need to either pass runlingo_path argument or run lingo_run_setup.py")
+            verify_str = "need to either pass runlingo_path argument or run lingo_run_setup.py"
+            if tu.development_deployed_environment:
+                verify_str = "Could not find runlingo. Make sure the Application Type is set correctly"
+            verify(os.path.isfile(os.path.join(_code_dir(),"runlingo_path.txt")), verify_str)
             with open(os.path.join(_code_dir(),"runlingo_path.txt"),"r") as f:
                 runlingo_path = f.read().strip()
     verify(os.path.isfile(runlingo_path), "%s not a valid path to runlingo"%runlingo_path)
