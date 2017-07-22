@@ -831,28 +831,30 @@ CLASSES
      |      :return:
      |
      |  create_tic_dat(self, xls_file_path, row_offsets={}, headers_present=True, freeze_it=False)
-     |      Create a TicDat object from an Excel file
+     |   Create a TicDat object from an Excel file
      |      :param xls_file_path: An Excel file containing sheets whose names match
      |                            the table names in the schema.
      |      :param row_offsets: (optional) A mapping from table names to initial
      |                          number of rows to skip
      |      :param headers_present: Boolean. Does the first row of data contain the
      |                              column headers?
+     |      :param treat_inf_as_infinity: Boolean. Treat the "inf" string (case insensitive) as
+     |                                             as infinity. Similar for "-inf"
      |      :param freeze_it: boolean. should the returned object be frozen?
      |      :return: a TicDat object populated by the matching sheets.
-     |       caveats: Missing sheets resolve to an empty table, but missing fields
-     |                on matching sheets throw an Exception.
-     |                Sheet names are considered case insensitive, and white space is replaced
-     |                with underscore for table name matching.
-     |                Field names are considered case insensitive, but white space is respected.
-     |                (ticdat supports whitespace in field names but not table names).
-     |                The following two caveats apply only if data_types are used.
-     |                 --> Any field for which an empty string is invalid data and None is
-     |                     valid data will replace the empty string with None.
-     |                 --> Any field for which must_be_int is true will replace numeric
-     |                     data that satisfies int(x)==x with int(x). In other words,
-     |                     the ticdat equivalent of pandas.read_excel convert_float
-     |                     is to set must_be_int to true in data_types.
+     |      caveats: Missing sheets resolve to an empty table, but missing fields
+     |               on matching sheets throw an Exception.
+     |               Sheet names are considered case insensitive, and white space is replaced
+     |               with underscore for table name matching.
+     |               Field names are considered case insensitive, but white space is respected.
+     |               (ticdat supports whitespace in field names but not table names).
+     |               The following two caveats apply only if data_types are used.
+     |               --> Any field for which an empty string is invalid data and None is
+     |                   valid data will replace the empty string with None.
+     |               --> Any field for which must_be_int is true will replace numeric
+     |                   data that satisfies int(x)==x with int(x). In other words,
+     |                   the ticdat equivalent of pandas.read_excel convert_float
+     |                   is to set must_be_int to true in data_types.
      |
      |  find_duplicates(self, xls_file_path, row_offsets={}, headers_present=True)
      |      Find the row counts for duplicated rows.

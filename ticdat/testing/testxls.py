@@ -66,8 +66,8 @@ class TestXls(unittest.TestCase):
         xlsTicDat = tdf.xls.create_tic_dat(filePath)
         self.assertTrue(tdf._same_data(ticDat, xlsTicDat))
         tdf.xls.write_file(ticDat, filePath+"x")
-        self.assertFalse(tdf._same_data(ticDat, tdf.xls.create_tic_dat(filePath+"x")))
-        self.assertTrue(tdf._same_data(ticDat, tdf.xls.create_tic_dat(filePath+"x", treat_large_as_inf=True)))
+        self.assertTrue(tdf._same_data(ticDat, tdf.xls.create_tic_dat(filePath+"x")))
+        self.assertFalse(tdf._same_data(ticDat, tdf.xls.create_tic_dat(filePath+"x", treat_inf_as_infinity=False)))
         xlsTicDat.categories["calories"]["minNutrition"]=12
         self.assertFalse(tdf._same_data(ticDat, xlsTicDat))
 
@@ -121,8 +121,8 @@ class TestXls(unittest.TestCase):
         xlsTicDat = tdf.xls.create_tic_dat(filePath, freeze_it=True)
         self.assertTrue(tdf._same_data(ticDat, xlsTicDat))
         tdf.xls.write_file(ticDat, filePath+"x", allow_overwrite=True)
-        self.assertFalse(tdf._same_data(ticDat, tdf.xls.create_tic_dat(filePath+"x")))
-        self.assertTrue(tdf._same_data(ticDat, tdf.xls.create_tic_dat(filePath+"x", treat_large_as_inf=True)))
+        self.assertTrue(tdf._same_data(ticDat, tdf.xls.create_tic_dat(filePath+"x")))
+        self.assertFalse(tdf._same_data(ticDat, tdf.xls.create_tic_dat(filePath+"x", treat_inf_as_infinity=False)))
 
     def testSilly(self):
         if not self.can_run:
@@ -164,7 +164,7 @@ class TestXls(unittest.TestCase):
                 else :
                     self.assertTrue(t == "a")
 
-        ticDat5 = tdf5.xls.create_tic_dat(filePath)
+        ticDat5 = tdf5.xls.create_tic_dat(filePath, treat_inf_as_infinity=False)
         self.assertTrue(tdf5._same_data(tdf._keyless(ticDat), ticDat5))
         self.assertTrue(callable(ticDat5.a) and callable(ticDat5.c) and not callable(ticDat5.b))
 
