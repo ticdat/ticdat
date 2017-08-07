@@ -24,7 +24,7 @@ except:
 _can_unit_test = xlrd and xlwt and xlsx
 
 # https://github.com/jmcnamara/XlsxWriter/issues/150 ...
-_xlsx_hack_inf = 1e+100 # the xlsxwriter doesn't handle infinity as seamlessly as xls
+# the xlsxwriter doesn't handle infinity as seamlessly as xls
 _longest_sheet = 30
 
 class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
@@ -45,7 +45,7 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
         self.tic_dat_factory = tic_dat_factory
         self._isFrozen = True
     def create_tic_dat(self, xls_file_path, row_offsets={}, headers_present = True,
-                       treat_large_as_inf = False,
+                       treat_inf_as_infinity = True,
                        freeze_it = False):
         """
         Create a TicDat object from an Excel file
@@ -55,9 +55,8 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
                             number of rows to skip
         :param headers_present: Boolean. Does the first row of data contain the
                                 column headers?
-        :param treat_large_as_inf: Boolean. Treat numbers >= 1e100 as infinity
-                                   Generally only needed for .xlsx files that were
-                                   themselves created by ticdat (see write_file docs)
+        :param treat_inf_as_infinity: Boolean. Treat the "inf" string (case insensitive) as
+                                               as infinity. Similar for "-inf"
         :param freeze_it: boolean. should the returned object be frozen?
         :return: a TicDat object populated by the matching sheets.
         caveats: Missing sheets resolve to an empty table, but missing fields
@@ -77,8 +76,8 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
         self._verify_differentiable_sheet_names()
         verify(xlrd, "xlrd needs to be installed to use this subroutine")
         tdf = self.tic_dat_factory
-        verify(not(treat_large_as_inf and tdf.generator_tables),
-               "treat_large_as_inf not implemented for generator tables")
+        verify(not(treat_inf_as_infinity and tdf.generator_tables),
+               "treat_inf_as_infinity not implemented for generator tables")
         verify(headers_present or not tdf.generic_tables,
                "headers need to be present to read generic tables")
         verify(utils.DataFrame or not tdf.generic_tables,
@@ -95,10 +94,10 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
                 for f,v in r.items():
                     if f in replaceable[t] and v == '':
                         r[f] = None
-                    elif treat_large_as_inf:
-                        if v >= _xlsx_hack_inf:
+                    elif treat_inf_as_infinity and utils.stringish(v):
+                        if v.lower() == "inf":
                             r[f] = float("inf")
-                        if v <= -_xlsx_hack_inf:
+                        if v.lower() == "-inf":
                             r[f] = -float("inf")
         if freeze_it:
             return self.tic_dat_factory.freeze_me(rtn)
@@ -281,7 +280,7 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
                           The latter is capable of writing out larger tables,
                           but the former handles infinity seamlessly.
                           If ".xlsx", then be advised that +/- float("inf") will be replaced
-                          with +/- 1e+100
+                          with "inf"/"-inf"
         :param allow_overwrite: boolean - are we allowed to overwrite an
                                 existing file?
         :return:
@@ -334,9 +333,9 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
         book = xlsx.Workbook(file_path)
         def clean_inf(x):
             if x == float("inf"):
-                return _xlsx_hack_inf
+                return "inf"
             if x == -float("inf"):
-                return -_xlsx_hack_inf
+                return "-inf"
             return x
         for t in sorted(sorted(tdf.all_tables),
                          key=lambda x: len(tdf.primary_key_fields.get(x, ()))) :
