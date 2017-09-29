@@ -3,9 +3,6 @@ Help on package ticdat:
 NAME
     ticdat - ticDat module for reading and writing data modules in ticDat format.
 
-FILE
-    /Users/petercacioppi/src/opalytics-ticdat/ticdat/__init__.py
-
 DESCRIPTION
     ticDat is a simple, easy-to-read format for tabular data. It is partly inspired by csv.DictReader
     and csv.DictWriter.  When primary keys are specified, each table is a dictionary of dictionaries.
