@@ -529,6 +529,9 @@ def sillyMeData() :
         "c" : ((1, 2, 3, 4), ("a", "b", "c", "d"), ("a", "b", 12, 24) )
     }
 
+def sillyMeDataTwoTables():
+    return {k:v for k,v in sillyMeData().items() if k != "b"}
+
 EPSILON = 1e-05
 
 def perError(x1, x2) :

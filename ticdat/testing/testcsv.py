@@ -5,7 +5,7 @@ import shutil
 from ticdat.ticdatfactory import TicDatFactory
 from ticdat.testing.ticdattestutils import dietData, dietSchema, netflowData, dietSchemaWeirdCase
 from ticdat.testing.ticdattestutils import  netflowSchema, firesException, copyDataDietWeirdCase
-from ticdat.testing.ticdattestutils import sillyMeData, sillyMeSchema, fail_to_debugger
+from ticdat.testing.ticdattestutils import sillyMeData, sillyMeSchema, sillyMeDataTwoTables, fail_to_debugger
 from ticdat.testing.ticdattestutils import makeCleanDir, dietSchemaWeirdCase2, copyDataDietWeirdCase2
 import unittest
 from ticdat.csvtd import _can_unit_test
@@ -57,6 +57,7 @@ class TestCsv(unittest.TestCase):
             for k,v in getattr(generic_free_dat, t).items():
                 getattr(check_dat, t)[k] = v
         self.assertTrue(clean_tdf._same_data(check_dat, clean_tdf.copy_tic_dat(ticDat)))
+
     def testDiet(self):
         if not self.can_run:
             return
@@ -105,6 +106,16 @@ class TestCsv(unittest.TestCase):
                     os.path.join(dirPath, "nutrition_quantities.csv"))
         self.assertTrue(self.firesException(lambda : tdf3.csv.create_tic_dat(dirPath)))
 
+    def testSillyTwoTables(self):
+        if not self.can_run:
+            return
+        tdf = TicDatFactory(**sillyMeSchema())
+        ticDat = tdf.TicDat(**sillyMeDataTwoTables())
+        dirPath = os.path.join(_scratchDir, "sillyTwoTables")
+        tdf.csv.write_directory(ticDat,dirPath)
+        self.assertFalse(tdf.csv.find_duplicates(dirPath))
+        csvTicDat = tdf.csv.create_tic_dat(dirPath)
+        self.assertTrue(tdf._same_data(ticDat, csvTicDat))
 
     def testNetflow(self):
         if not self.can_run:
