@@ -4,7 +4,7 @@ from ticdat.ticdatfactory import TicDatFactory
 from ticdat.testing.ticdattestutils import dietData, dietSchema, netflowData, netflowSchema, firesException
 from ticdat.testing.ticdattestutils import sillyMeData, sillyMeSchema, makeCleanDir, fail_to_debugger
 from ticdat.testing.ticdattestutils import spacesData, spacesSchema, memo, flagged_as_run_alone
-from ticdat.testing.ticdattestutils import makeCleanPath
+from ticdat.testing.ticdattestutils import makeCleanPath, sillyMeDataTwoTables
 from ticdat.xls import _can_unit_test
 import shutil
 import unittest
@@ -123,6 +123,16 @@ class TestXls(unittest.TestCase):
         tdf.xls.write_file(ticDat, filePath+"x", allow_overwrite=True)
         self.assertTrue(tdf._same_data(ticDat, tdf.xls.create_tic_dat(filePath+"x")))
         self.assertFalse(tdf._same_data(ticDat, tdf.xls.create_tic_dat(filePath+"x", treat_inf_as_infinity=False)))
+
+    def testSillyTwoTables(self):
+        if not self.can_run:
+            return
+        tdf = TicDatFactory(**sillyMeSchema())
+        ticDat = tdf.TicDat(**sillyMeDataTwoTables())
+        filePath = os.path.join(_scratchDir, "sillyMeTwoTables.xls")
+        tdf.xls.write_file(ticDat, filePath)
+        xlsTicDat = tdf.xls.create_tic_dat(filePath)
+        self.assertTrue(tdf._same_data(ticDat, xlsTicDat))
 
     def testSilly(self):
         if not self.can_run:

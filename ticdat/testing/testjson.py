@@ -3,7 +3,7 @@ import shutil
 from ticdat.ticdatfactory import TicDatFactory
 from ticdat.testing.ticdattestutils import dietData, dietSchema, netflowData, dietSchemaWeirdCase
 from ticdat.testing.ticdattestutils import  netflowSchema, firesException, copyDataDietWeirdCase
-from ticdat.testing.ticdattestutils import sillyMeData, sillyMeSchema, fail_to_debugger
+from ticdat.testing.ticdattestutils import sillyMeData, sillyMeSchema, sillyMeDataTwoTables, fail_to_debugger
 from ticdat.testing.ticdattestutils import makeCleanDir, dietSchemaWeirdCase2, copyDataDietWeirdCase2
 import unittest
 from ticdat.jsontd import _can_unit_test, json
@@ -69,6 +69,20 @@ class TestJson(unittest.TestCase):
         with open(writePath, "w") as f:
             json.dump(jdict, f)
         self.assertTrue(self.firesException(lambda : tdf3.json.create_tic_dat(writePath)))
+
+    def testSillyTwoTables(self):
+        if not self.can_run:
+            return
+
+        for verbose in [True, False]:
+
+            tdf = TicDatFactory(**sillyMeSchema())
+            ticDat = tdf.TicDat(**sillyMeDataTwoTables())
+            writePath = os.path.join(makeCleanDir(os.path.join(_scratchDir, "sillyTwoTables")), "file.json")
+            tdf.json.write_file(ticDat, writePath, verbose=verbose)
+            self.assertFalse(tdf.json.find_duplicates(writePath))
+            jsonTicDat = tdf.json.create_tic_dat(writePath)
+            self.assertTrue(tdf._same_data(ticDat, jsonTicDat))
 
     def testNetflow(self):
         if not self.can_run:

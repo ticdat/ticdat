@@ -109,9 +109,9 @@ class JsonTicFactory(freezable_factory(object, "_isFrozen")) :
             for t2 in jdict:
                 if stringish(t2) and t.lower() == t2.replace(" ", "_").lower():
                     table_keys[t].append(t2)
-            verify(len(table_keys[t]) >= 1, "Unable to find a matching key for table %s"%t)
-            verify(len(table_keys[t]) < 2, "Found duplicate matching keys for table %s"%t)
-            rtn[t] = jdict[table_keys[t][0]]
+            if len(table_keys[t]) >= 1:
+                verify(len(table_keys[t]) < 2, "Found duplicate matching keys for table %s"%t)
+                rtn[t] = jdict[table_keys[t][0]]
         return rtn
     def write_file(self, tic_dat, json_file_path, allow_overwrite = False, verbose = False):
         """
