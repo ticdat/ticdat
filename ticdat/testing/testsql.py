@@ -326,6 +326,27 @@ class TestSql(unittest.TestCase):
         dat3 = tdf.sql.create_tic_dat(filePath, freeze_it=True)
         self.assertTrue(tdf._same_data(dat, dat3))
 
+    def testDefaults(self):
+        tdf = TicDatFactory(one=[["a"],["b", "c"]], two=[["a", "b"],["c"]], three=[["a", "b", "c"],[]])
+        dat = tdf.TicDat(one=[[1, 2, 3],[4, 5, 6]], two=[[1, 2, 3],[4 ,5, 6]], three=[[1, 2, 3], [4, 5, 6]])
+        filePath = makeCleanPath(os.path.join(_scratchDir, "defaults.sql"))
+        tdf.sql.write_sql_file(dat, filePath)
+
+        tdf2 = TicDatFactory(one=[["a"],["b", "c"]], two=[["a", "b"],["c"]], three=[["a", "b", "c"],["d"]])
+        dat2 = tdf2.TicDat(one=dat.one, two=dat.two, three={k:{} for k in dat.three})
+        dat22 = tdf2.sql.create_tic_dat_from_sql(filePath)
+        self.assertTrue(tdf2._same_data(dat2, dat22))
+
+
+
+        tdf2 = TicDatFactory(one=[["a"],["b", "c"]], two=[["a", "b"],["c"]], three=[["a", "b", "c"],["d"]])
+        tdf2.set_default_value("three", "d", float("inf"))
+        dat2_b = tdf2.TicDat(one=dat.one, two=dat.two, three={k:{} for k in dat.three})
+        dat22_b = tdf2.sql.create_tic_dat_from_sql(filePath)
+        self.assertTrue(tdf2._same_data(dat2_b, dat22_b))
+
+        self.assertFalse(tdf2._same_data(dat2, dat2_b))
+
 
 _scratchDir = TestSql.__name__ + "_scratch"
 
