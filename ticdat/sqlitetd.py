@@ -234,8 +234,7 @@ class SQLiteTicFactory(freezable_factory(object, "_isFrozen")) :
                 if safe_apply(int)(def_) == def_:
                     return "INT"
                 return "FLOAT"
-            if stringish(def_):
-                return "TEXT"
+            # the TEXT data type doesn't seem to have much value for my purposes.
             return ""
         for t in [_ for _ in self._ordered_tables() if _ in tables]:
             str = "Create TABLE [%s] (\n"%t
