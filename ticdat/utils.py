@@ -252,6 +252,17 @@ def find_case_space_duplicates(tdf):
             tables_with_case_insensitive_dups[table] = fields
     return tables_with_case_insensitive_dups
 
+def case_space_to_pretty(str_):
+    if not str_:
+        return str_
+    str_ = list(str_[0].upper() + str_[1:])
+    for i in range(len(str_)):
+        if str_[i] == "_":
+            str_[i] = " "
+            if i + 1 < len(str_):
+                str_[i + 1] = str_[i + 1].upper()
+    return "".join(str_)
+
 def change_fields_with_reserved_keywords(tdf, reserved_keywords, undo=False):
     tdf_schema = tdf.schema()
     mapping = {}

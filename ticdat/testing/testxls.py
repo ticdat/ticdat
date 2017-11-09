@@ -288,6 +288,26 @@ class TestXls(unittest.TestCase):
         ticDat3 = tdf.xls.create_tic_dat(filePath)
         self.assertTrue(tdf._same_data(ticDat, ticDat3))
 
+    def testSpacey2(self):
+        if not self.can_run:
+            return
+        tdf = TicDatFactory(**spacesSchema())
+        ticDat = tdf.TicDat(**spacesData())
+        for ext in [".xls", ".xlsx"]:
+            filePath = os.path.join(_scratchDir, "spaces_2%s" % ext)
+            tdf.xls.write_file(ticDat, filePath, case_space_sheet_names=True)
+            ticDat2 = tdf.xls.create_tic_dat(filePath)
+            self.assertTrue(tdf._same_data(ticDat, ticDat2))
+
+        tdf = TicDatFactory(**netflowSchema())
+        ticDat = tdf.freeze_me(tdf.TicDat(**{t:getattr(netflowData(),t) for t in tdf.primary_key_fields}))
+        for ext in [".xls", ".xlsx"]:
+            filePath = os.path.join(_scratchDir, "spaces_2_2%s" % ext)
+            tdf.xls.write_file(ticDat, filePath, case_space_sheet_names=True)
+            ticDat2 = tdf.xls.create_tic_dat(filePath)
+            self.assertTrue(tdf._same_data(ticDat, ticDat2))
+
+
     def testRowOffsets(self):
         if not self.can_run:
             return

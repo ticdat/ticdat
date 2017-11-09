@@ -3,7 +3,7 @@ Read/write ticDat objects from xls files. Requires the xlrd/xlrt module.
 PEP8
 """
 import ticdat.utils as utils
-from ticdat.utils import freezable_factory, TicDatError, verify, containerish, do_it, FrozenDict
+from ticdat.utils import freezable_factory, TicDatError, verify, containerish, case_space_to_pretty, FrozenDict
 import os
 from collections import defaultdict
 from itertools import product
@@ -271,7 +271,7 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
                 [field for field, inds in temp_rtn.items() if len(inds) > 1])
 
 
-    def write_file(self, tic_dat, file_path, allow_overwrite = False):
+    def write_file(self, tic_dat, file_path, allow_overwrite = False, case_space_sheet_names = False):
         """
         write the ticDat data to an excel file
         :param tic_dat: the data object to write (typically a TicDat)
@@ -283,6 +283,8 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
                           with "inf"/"-inf"
         :param allow_overwrite: boolean - are we allowed to overwrite an
                                 existing file?
+              case_space_sheet_names: boolean - make best guesses how to add spaces and upper case
+                                      characters to sheet names
         :return:
         caveats: None may be written out as an empty string. This reflects the behavior of xlwt.
         """
@@ -298,18 +300,23 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
                "The %s path exists and overwrite is not allowed"%file_path)
         if self.tic_dat_factory.generic_tables:
             dat, tdf = utils.create_generic_free(tic_dat, self.tic_dat_factory)
-            return tdf.xls.write_file(dat, file_path, allow_overwrite)
+            return tdf.xls.write_file(dat, file_path, allow_overwrite, case_space_sheet_names)
+        case_space_sheet_names = case_space_sheet_names and \
+                                 len(set(self.tic_dat_factory.all_tables)) == \
+                                 len(set(map(case_space_to_pretty, self.tic_dat_factory.all_tables)))
+        tbl_name_mapping = {t:case_space_to_pretty(t) if case_space_sheet_names else t
+                            for t in self.tic_dat_factory.all_tables}
         if file_path.endswith(".xls"):
-            self._xls_write(tic_dat, file_path)
+            self._xls_write(tic_dat, file_path, tbl_name_mapping)
         else:
-            self._xlsx_write(tic_dat, file_path)
-    def _xls_write(self, tic_dat, file_path):
+            self._xlsx_write(tic_dat, file_path, tbl_name_mapping)
+    def _xls_write(self, tic_dat, file_path, tbl_name_mapping):
         verify(xlwt, "Can't write .xls files because xlwt package isn't installed.")
         tdf = self.tic_dat_factory
         book = xlwt.Workbook()
         for t in  sorted(sorted(tdf.all_tables),
                          key=lambda x: len(tdf.primary_key_fields.get(x, ()))) :
-            sheet = book.add_sheet(t[:_longest_sheet])
+            sheet = book.add_sheet(tbl_name_mapping[t][:_longest_sheet])
             for i,f in enumerate(tdf.primary_key_fields.get(t,()) + tdf.data_fields.get(t, ())) :
                 sheet.write(0, i, f)
             _t = getattr(tic_dat, t)
@@ -325,7 +332,7 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
         if os.path.exists(file_path):
             os.remove(file_path)
         book.save(file_path)
-    def _xlsx_write(self, tic_dat, file_path):
+    def _xlsx_write(self, tic_dat, file_path, tbl_name_mapping):
         verify(xlsx, "Can't write .xlsx files because xlsxwriter package isn't installed.")
         tdf = self.tic_dat_factory
         if os.path.exists(file_path):
@@ -339,7 +346,7 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
             return x
         for t in sorted(sorted(tdf.all_tables),
                          key=lambda x: len(tdf.primary_key_fields.get(x, ()))) :
-            sheet = book.add_worksheet(t)
+            sheet = book.add_worksheet(tbl_name_mapping[t])
             for i,f in enumerate(tdf.primary_key_fields.get(t,()) + tdf.data_fields.get(t, ())) :
                 sheet.write(0, i, f)
             _t = getattr(tic_dat, t)
