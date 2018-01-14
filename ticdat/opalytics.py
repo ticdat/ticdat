@@ -43,11 +43,18 @@ class OpalyticsTicFactory(freezable_factory(object, "_isFrozen")) :
             return {}
         return find_duplicates(self._duplicate_focused_tdf.opalytics.create_tic_dat(inputset),
                                self._duplicate_focused_tdf)
-    def _good_table_check(self, t, df):
+    def _table_as_lists(self, t, df):
         verify(isinstance(df, DataFrame), "table %s isn't a DataFrame"%t)
-        for f in list(self.tic_dat_factory.primary_key_fields[t]) + \
-                 list(self.tic_dat_factory.data_fields[t]):
+        all_fields = set(self.tic_dat_factory.primary_key_fields[t]).\
+                     union(self.tic_dat_factory.data_fields[t])
+        for f in all_fields:
             verify(f in df.columns, "field %s can't be found in the DataFrame for %s"%(f,t))
+        d = df.T.to_dict()
+        rtn = []
+        for k in sorted(d):
+            rtn.append({f:d[k][f] for f in all_fields})
+        return rtn
+
     def create_tic_dat(self, inputset, freeze_it = False):
         """
         Create a TicDat object from an SQLite sql text file
@@ -58,9 +65,8 @@ class OpalyticsTicFactory(freezable_factory(object, "_isFrozen")) :
         verify(self._good_inputset(inputset), "inputset is inconsistent with this TicDatFactory")
         verify(DataFrame, "pandas needs to be installed to use the opalytics functionality")
 
-        tables = {t:inputset.getTable(t) for t in self.tic_dat_factory.all_tables}
-        map(lambda x : self._good_table_check(*x), tables.items())
-        rtn = self.tic_dat_factory.TicDat(**tables)
+        rtn = self.tic_dat_factory.TicDat(**{t:self._table_as_lists(t, inputset.getTable(t))
+                                             for t in self.tic_dat_factory.all_tables})
         if freeze_it:
             return self.tic_dat_factory.freeze_me(rtn)
         return rtn
