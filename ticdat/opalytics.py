@@ -16,7 +16,7 @@ class OpalyticsTicFactory(freezable_factory(object, "_isFrozen")) :
     def __init__(self, tic_dat_factory):
         """
         Don't call this function explicitly. A OpalyticsTicFactory will
-        automatically be associated with the sql attribute of the parent
+        automatically be associated with the opalytics attribute of the parent
         TicDatFactory.
         :param tic_dat_factory:
         :return:
@@ -57,7 +57,7 @@ class OpalyticsTicFactory(freezable_factory(object, "_isFrozen")) :
 
     def create_tic_dat(self, inputset, freeze_it = False):
         """
-        Create a TicDat object from an SQLite sql text file
+        Create a TicDat object from an opalytics inputset
         :param inputset: An opalytics inputset consistent with this TicDatFactory
         :param freeze_it: boolean. should the returned object be frozen?
         :return: a TicDat object populated by the tables as they are rendered by inputset
