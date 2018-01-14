@@ -30,6 +30,7 @@ class TestOpalytics(unittest.TestCase):
             return str(e)
 
     # need to do some basic copying tests
+    # DON'T FORGET TO ALSO TEST ERRORS AND DUPLICATES
 
 # Run the tests.
 if __name__ == "__main__":
