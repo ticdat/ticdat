@@ -5,8 +5,9 @@ PEP8
 
 # Note that we're really just leveraging ticdat's ability handle DataFrame's here
 from ticdat.utils import freezable_factory, verify, find_duplicates, create_duplicate_focused_tdf
-from ticdat.utils import dictish, DataFrame
-
+from ticdat.utils import dictish, DataFrame, stringish
+from itertools import product
+from collections import defaultdict
 
 class OpalyticsTicFactory(freezable_factory(object, "_isFrozen")) :
     """
@@ -24,10 +25,27 @@ class OpalyticsTicFactory(freezable_factory(object, "_isFrozen")) :
         self.tic_dat_factory = tic_dat_factory
         self._duplicate_focused_tdf = create_duplicate_focused_tdf(tic_dat_factory)
         self._isFrozen = True
-    def _good_inputset(self, inputset):
-        return hasattr(inputset, "schema") and dictish(inputset.schema) and \
-               hasattr(inputset, "getTable") and callable(inputset.getTable) and \
-               set(self.tic_dat_factory.all_tables).issubset(inputset.schema)
+
+    def _find_table_matchings(self, inputset):
+        rtn = defaultdict(list)
+        for t,x in product(self.tic_dat_factory.all_tables, inputset.schema):
+            if stringish(x) and t.lower() == x.lower().replace(" ", "_"):
+                rtn[t].append(x)
+        return rtn
+    def _good_inputset(self, inputset, message_writer = lambda x : x):
+        if not hasattr(inputset, "schema") and dictish(inputset.schema):
+            message_writer("Failed to find dictish schema attribute")
+            return False
+        if not hasattr(inputset, "getTable") and callable(inputset.getTable):
+            message_writer("Failed to find calleable getTable attribute")
+            return False
+        table_matchings = self._find_table_matchings(inputset)
+        badly_matched = {t for t,v in table_matchings.items() if len(v) != 1}
+        if badly_matched:
+            message_writer("Following tables could not be uniquely resolved in inputset.schema\n%s"%
+                           badly_matched)
+            return False
+        return True
     def find_duplicates(self, inputset):
         """
         Find the row counts for duplicated rows.
@@ -38,7 +56,9 @@ class OpalyticsTicFactory(freezable_factory(object, "_isFrozen")) :
                  and the value is the count of records in the table with this primary key.
                  Row counts smaller than 2 are pruned off, as they aren't duplicates.
         """
-        verify(self._good_inputset(inputset), "inputset is inconsistent with this TicDatFactory")
+        message = []
+        verify(self._good_inputset(inputset, message.append),
+               "inputset is inconsistent with this TicDatFactory : %s"%(message or [None])[0])
         if not self._duplicate_focused_tdf:
             return {}
         return find_duplicates(self._duplicate_focused_tdf.opalytics.create_tic_dat(inputset),
@@ -62,10 +82,14 @@ class OpalyticsTicFactory(freezable_factory(object, "_isFrozen")) :
         :param freeze_it: boolean. should the returned object be frozen?
         :return: a TicDat object populated by the tables as they are rendered by inputset
         """
-        verify(self._good_inputset(inputset), "inputset is inconsistent with this TicDatFactory")
+        message = []
+        verify(self._good_inputset(inputset, message.append),
+               "inputset is inconsistent with this TicDatFactory : %s"%(message or [None])[0])
         verify(DataFrame, "pandas needs to be installed to use the opalytics functionality")
 
-        rtn = self.tic_dat_factory.TicDat(**{t:self._table_as_lists(t, inputset.getTable(t))
+        table_matchings = self._find_table_matchings(inputset)
+        to_lists = lambda t: self._table_as_lists(t, inputset.getTable(table_matchings[t][0]))
+        rtn = self.tic_dat_factory.TicDat(**{t:to_lists(t)
                                              for t in self.tic_dat_factory.all_tables})
         if freeze_it:
             return self.tic_dat_factory.freeze_me(rtn)
