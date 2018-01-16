@@ -7,8 +7,7 @@ from ticdat.testing.ticdattestutils import dietData, dietSchema, netflowData, ne
 from ticdat.testing.ticdattestutils import sillyMeData, sillyMeSchema, sillyMeDataTwoTables, fail_to_debugger
 from ticdat.testing.ticdattestutils import spacesSchema, spacesData, flagged_as_run_alone
 import os
-import itertools
-import shutil
+from itertools import product
 
 def hack_name(s):
     rtn = list(s)
@@ -30,8 +29,10 @@ def create_inputset_mock(tdf, dat, hack_table_names=False):
     class RtnObject(object):
         schema = {replaced_name[t]:"not needed for mock object" for t in tdf.all_tables}
         def getTable(self, t, includeActive=False):
-            assert not includeActive, "not implemented yet"
-            return getattr(temp_dat, original_name[t]).reset_index(drop=True)
+            rtn = getattr(temp_dat, original_name[t]).reset_index(drop=True)
+            if includeActive:
+                rtn["_active"] = True
+            return rtn
     return RtnObject()
 
 #uncomment decorator to drop into debugger for assertTrue, assertFalse failures
@@ -47,12 +48,12 @@ class TestOpalytics(unittest.TestCase):
     def testDiet(self):
         if not self.can_run:
             return
-        for hack in [True, False]:
+        for hack, raw_data in list(product(*(([True, False],)*2))):
             tdf = TicDatFactory(**dietSchema())
             ticDat = tdf.freeze_me(tdf.copy_tic_dat(dietData()))
             inputset = create_inputset_mock(tdf, ticDat, hack)
-            self.assertFalse(tdf.opalytics.find_duplicates(inputset, raw_data=True))
-            ticDat2 = tdf.opalytics.create_tic_dat(inputset, raw_data=True)
+            self.assertFalse(tdf.opalytics.find_duplicates(inputset, raw_data=raw_data))
+            ticDat2 = tdf.opalytics.create_tic_dat(inputset, raw_data=raw_data)
             self.assertTrue(tdf._same_data(ticDat, ticDat2))
 
             def change() :
@@ -60,7 +61,7 @@ class TestOpalytics(unittest.TestCase):
             self.assertFalse(firesException(change))
             self.assertFalse(tdf._same_data(ticDat, ticDat2))
 
-            ticDat2 = tdf.opalytics.create_tic_dat(inputset, freeze_it=True, raw_data=True)
+            ticDat2 = tdf.opalytics.create_tic_dat(inputset, freeze_it=True, raw_data=raw_data)
             self.assertTrue(tdf._same_data(ticDat, ticDat2))
             self.assertTrue(firesException(change))
             self.assertTrue(tdf._same_data(ticDat, ticDat2))
@@ -69,58 +70,58 @@ class TestOpalytics(unittest.TestCase):
             _dat = tdf2.copy_tic_dat(ticDat)
             self.assertTrue(tdf._same_data(ticDat,
                                            tdf.opalytics.create_tic_dat(create_inputset_mock(tdf2, _dat, hack),
-                                                                        raw_data=True)))
+                                                                        raw_data=raw_data)))
 
-            ex = self.firesException(lambda: tdf2.opalytics.create_tic_dat(inputset, raw_data=True))
+            ex = self.firesException(lambda: tdf2.opalytics.create_tic_dat(inputset, raw_data=raw_data))
             self.assertTrue("field dmy can't be found" in ex)
 
 
     def testSillyTwoTables(self):
         if not self.can_run:
             return
-        for hack in [True, False]:
+        for hack, raw_data in list(product(*(([True, False],)*2))):
             tdf = TicDatFactory(**sillyMeSchema())
             ticDat = tdf.TicDat(**sillyMeData())
             self.assertTrue(tdf._same_data(ticDat, tdf.opalytics.create_tic_dat(
-                create_inputset_mock(tdf, ticDat, hack), raw_data=True)))
+                create_inputset_mock(tdf, ticDat, hack), raw_data=raw_data)))
 
             ticDat = tdf.TicDat(**sillyMeDataTwoTables())
             self.assertTrue(tdf._same_data(ticDat, tdf.opalytics.create_tic_dat(
-                create_inputset_mock(tdf, ticDat, hack), raw_data=True)))
+                create_inputset_mock(tdf, ticDat, hack), raw_data=raw_data)))
 
     def testNetflow(self):
         if not self.can_run:
             return
-        for hack in [True, False]:
+        for hack, raw_data in list(product(*(([True, False],)*2))):
             tdf = TicDatFactory(**netflowSchema())
             ticDat = tdf.copy_tic_dat(netflowData())
             self.assertTrue(tdf._same_data(ticDat, tdf.opalytics.create_tic_dat(
-                create_inputset_mock(tdf, ticDat, hack), raw_data=True)))
+                create_inputset_mock(tdf, ticDat, hack), raw_data=raw_data)))
 
             ticDat.nodes[12] = {}
             self.assertTrue(tdf._same_data(ticDat, tdf.opalytics.create_tic_dat(
-                create_inputset_mock(tdf, ticDat, hack), raw_data=True)))
+                create_inputset_mock(tdf, ticDat, hack), raw_data=raw_data)))
 
     def testSpaces(self):
         if not self.can_run:
             return
-        for hack in [True, False]:
+        for hack, raw_data in list(product(*(([True, False],)*2))):
             tdf = TicDatFactory(**spacesSchema())
             ticDat = tdf.TicDat(**spacesData())
             self.assertTrue(tdf._same_data(ticDat, tdf.opalytics.create_tic_dat(
-                create_inputset_mock(tdf, ticDat, hack), raw_data=True)))
+                create_inputset_mock(tdf, ticDat, hack), raw_data=raw_data)))
 
     def testDups(self):
         if not self.can_run:
             return
-        for hack in [True, False]:
+        for hack, raw_data in list(product(*(([True, False],)*2))):
             tdf = TicDatFactory(one = [["a"],["b", "c"]],
                                 two = [["a", "b"],["c"]],
                                 three = [["a", "b", "c"],[]])
             tdf2 = TicDatFactory(**{t:[[],["a", "b", "c"]] for t in tdf.all_tables})
             td = tdf2.TicDat(**{t:[[1, 2, 1], [1, 2, 2], [2, 1, 3], [2, 2, 3], [1, 2, 2], ["new", 1, 2]]
                                 for t in tdf.all_tables})
-            dups = tdf.opalytics.find_duplicates(create_inputset_mock(tdf2, td, hack), raw_data=True)
+            dups = tdf.opalytics.find_duplicates(create_inputset_mock(tdf2, td, hack), raw_data=raw_data)
             self.assertTrue(dups == {'three': {(1, 2, 2): 2}, 'two': {(1, 2): 3}, 'one': {1: 3, 2: 2}})
 
 

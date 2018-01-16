@@ -98,10 +98,9 @@ class OpalyticsTicFactory(freezable_factory(object, "_isFrozen")) :
         verify(not self.tic_dat_factory.generator_tables or self.tic_dat_factory.generic_tables,
                "The opalytics data reader is not yet working for generic tables nor generator tables")
 
-        tms = self._find_table_matchings(inputset)
-        to_lists = lambda t: self._table_as_lists(t, inputset.getTable(tms[t][0], includeActive=not raw_data))
-        rtn = self.tic_dat_factory.TicDat(**{t:to_lists(t)
-                                             for t in self.tic_dat_factory.all_tables})
+        tms = {k:v[0] for k,v in self._find_table_matchings(inputset).items()}
+        tl = lambda t: self._table_as_lists(t, inputset.getTable(tms[t], includeActive=not raw_data))
+        rtn = self.tic_dat_factory.TicDat(**{t:tl(t) for t in self.tic_dat_factory.all_tables})
         if not raw_data:
             def removing():
                 dtfs = self.tic_dat_factory.find_data_type_failures(rtn)
