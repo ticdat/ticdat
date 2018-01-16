@@ -76,7 +76,7 @@ class OpalyticsTicFactory(freezable_factory(object, "_isFrozen")) :
         d = df.T.to_dict()
         rtn = []
         for k in sorted(d):
-            if d.get("_active", True):
+            if d[k].get("_active", True):
                 rtn.append({f: d[k][f] for f in all_fields})
         return rtn
 
