@@ -46,10 +46,11 @@ class OpalyticsTicFactory(freezable_factory(object, "_isFrozen")) :
                            badly_matched)
             return False
         return True
-    def find_duplicates(self, inputset):
+    def find_duplicates(self, inputset, raw_data=False):
         """
         Find the row counts for duplicated rows.
         :param inputset: An opalytics inputset consistent with this TicDatFactory
+        :param raw_data: boolean. should data cleaning be skipped? See create_tic_dat.
         :return: A dictionary whose keys are table names for the primary-ed key tables.
                  Each value of the return dictionary is itself a dictionary.
                  The inner dictionary is keyed by the primary key values encountered in the table,
@@ -61,24 +62,32 @@ class OpalyticsTicFactory(freezable_factory(object, "_isFrozen")) :
                "inputset is inconsistent with this TicDatFactory : %s"%(message or [None])[0])
         if not self._duplicate_focused_tdf:
             return {}
-        return find_duplicates(self._duplicate_focused_tdf.opalytics.create_tic_dat(inputset),
-                               self._duplicate_focused_tdf)
+        tdf = self._duplicate_focused_tdf
+        return find_duplicates(tdf.opalytics.create_tic_dat(inputset, raw_data=raw_data), tdf)
     def _table_as_lists(self, t, df):
         verify(isinstance(df, DataFrame), "table %s isn't a DataFrame"%t)
         all_fields = set(self.tic_dat_factory.primary_key_fields[t]).\
                      union(self.tic_dat_factory.data_fields[t])
+        verify("_active" not in all_fields, "Table %s has a field named '_active'.\n" +
+               "This conflicts with internal data processing.\n" +
+               " Don't use '_active' for in your TicDatFactory definition if you want to use this reader.")
         for f in all_fields:
             verify(f in df.columns, "field %s can't be found in the DataFrame for %s"%(f,t))
         d = df.T.to_dict()
         rtn = []
         for k in sorted(d):
-            rtn.append({f:d[k][f] for f in all_fields})
+            if d[k].get("_active", True):
+                rtn.append({f: d[k][f] for f in all_fields})
         return rtn
 
-    def create_tic_dat(self, inputset, freeze_it = False):
+    def create_tic_dat(self, inputset, raw_data=False, freeze_it=False):
         """
         Create a TicDat object from an opalytics inputset
         :param inputset: An opalytics inputset consistent with this TicDatFactory
+        :param raw_data: boolean. should data cleaning be skipped? On the Opalytics Cloud Platform
+                         cleaned data will be passed to instant apps. Data cleaning involves
+                         removing data type failures, data row predicate failures, foreign key
+                         failures and deactivated records.
         :param freeze_it: boolean. should the returned object be frozen?
         :return: a TicDat object populated by the tables as they are rendered by inputset
         """
@@ -86,11 +95,43 @@ class OpalyticsTicFactory(freezable_factory(object, "_isFrozen")) :
         verify(self._good_inputset(inputset, message.append),
                "inputset is inconsistent with this TicDatFactory : %s"%(message or [None])[0])
         verify(DataFrame, "pandas needs to be installed to use the opalytics functionality")
+        verify(not self.tic_dat_factory.generator_tables or self.tic_dat_factory.generic_tables,
+               "The opalytics data reader is not yet working for generic tables nor generator tables")
 
-        table_matchings = self._find_table_matchings(inputset)
-        to_lists = lambda t: self._table_as_lists(t, inputset.getTable(table_matchings[t][0]))
-        rtn = self.tic_dat_factory.TicDat(**{t:to_lists(t)
-                                             for t in self.tic_dat_factory.all_tables})
+        tms = {k:v[0] for k,v in self._find_table_matchings(inputset).items()}
+        tl = lambda t: self._table_as_lists(t, inputset.getTable(tms[t], includeActive=not raw_data))
+        rtn = self.tic_dat_factory.TicDat(**{t:tl(t) for t in self.tic_dat_factory.all_tables})
+        if not raw_data:
+            def removing():
+                dtfs = self.tic_dat_factory.find_data_type_failures(rtn)
+                for (t,f),(bvs, pks) in dtfs.items():
+                    if pks is None: # i.e. no primary keys
+                        for dr in getattr(rtn, t):
+                            if dr[f] in bvs:
+                                getattr(rtn, t).remove(dr)
+                    else:
+                        for k in pks:
+                            getattr(rtn, t).pop(k, None) # could be popped for two fields
+                drfs = self.tic_dat_factory.find_data_row_failures(rtn)
+                cant_remove_again = set()
+                for (t, pn),row_posns in drfs.items():
+                    if self.tic_dat_factory.primary_key_fields[t]:
+                        for k in row_posns:
+                            getattr(rtn, t).pop(k, None) # could be popped for two predicates
+                    elif t not in cant_remove_again:
+                        bad_drs = [dr for i,dr in enumerate(getattr(rtn, t)) if i in row_posns]
+                        for dr in bad_drs:
+                            getattr(rtn, t).remove(dr)
+                        # once we start removing data rows by row index, the remaining row indicies
+                        # become invalid, so will need to ignoring any more such indicies for this table
+                        cant_remove_again.add(t)
+
+                fkfs = self.tic_dat_factory.find_foreign_key_failures(rtn)
+                if fkfs:
+                    self.tic_dat_factory.remove_foreign_keys_failures(rtn)
+                return dtfs or drfs or fkfs
+            while removing():
+                pass
         if freeze_it:
             return self.tic_dat_factory.freeze_me(rtn)
         return rtn
