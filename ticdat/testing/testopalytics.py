@@ -5,7 +5,7 @@ from ticdat import LogFile, Progress
 from ticdat.ticdatfactory import TicDatFactory
 from ticdat.testing.ticdattestutils import dietData, dietSchema, netflowData, netflowSchema, firesException
 from ticdat.testing.ticdattestutils import sillyMeData, sillyMeSchema, sillyMeDataTwoTables, fail_to_debugger
-from ticdat.testing.ticdattestutils import spacesSchema, spacesData, flagged_as_run_alone
+from ticdat.testing.ticdattestutils import spacesSchema, spacesData, flagged_as_run_alone, addDietForeignKeys
 import os
 from itertools import product
 
@@ -102,15 +102,98 @@ class TestOpalytics(unittest.TestCase):
         ticDat1 = tdf1.copy_tic_dat(dietData())
 
         input_set = create_inputset_mock_with_active_hack(tdf2, ticDat2)
-        # self.assertTrue(tdf1._same_data(tdf1.opalytics.create_tic_dat(input_set, raw_data=True), ticDat1))
+        self.assertTrue(tdf1._same_data(tdf1.opalytics.create_tic_dat(input_set, raw_data=True), ticDat1))
 
-        ticDatPurged = tdf1.opalytics.create_tic_dat(input_set, raw_data=False)
+        ticDatPurged = tdf1.opalytics.create_tic_dat(input_set)
         self.assertFalse(tdf1._same_data(ticDatPurged, ticDat1))
 
         ticDat1.categories.pop("fat")
         tdf1.remove_foreign_keys_failures(ticDat1)
 
         self.assertTrue(tdf1._same_data(ticDatPurged, ticDat1))
+
+    def testDietCleaningTwo(self):
+        tdf = TicDatFactory(**dietSchema())
+        tdf.set_data_type("categories", "maxNutrition", min=66, inclusive_max=True)
+        addDietForeignKeys(tdf)
+        ticDat = tdf.copy_tic_dat(dietData())
+
+        input_set = create_inputset_mock(tdf, ticDat)
+
+        self.assertTrue(tdf._same_data(tdf.opalytics.create_tic_dat(input_set, raw_data=True), ticDat))
+
+        ticDatPurged = tdf.opalytics.create_tic_dat(input_set, raw_data=False)
+        self.assertFalse(tdf._same_data(ticDatPurged, ticDat))
+
+        ticDat.categories.pop("fat")
+        self.assertFalse(tdf._same_data(ticDatPurged, ticDat))
+        tdf.remove_foreign_keys_failures(ticDat)
+        self.assertTrue(tdf._same_data(ticDatPurged, ticDat))
+
+    def testDietCleaningThree(self):
+        tdf = TicDatFactory(**dietSchema())
+        tdf.add_data_row_predicate("categories", lambda row : row["maxNutrition"] >= 66)
+        addDietForeignKeys(tdf)
+        ticDat = tdf.copy_tic_dat(dietData())
+
+        input_set = create_inputset_mock(tdf, ticDat)
+
+        self.assertTrue(tdf._same_data(tdf.opalytics.create_tic_dat(input_set, raw_data=True), ticDat))
+
+        ticDatPurged = tdf.opalytics.create_tic_dat(input_set, raw_data=False)
+        self.assertFalse(tdf._same_data(ticDatPurged, ticDat))
+
+        ticDat.categories.pop("fat")
+        self.assertFalse(tdf._same_data(ticDatPurged, ticDat))
+        tdf.remove_foreign_keys_failures(ticDat)
+        self.assertTrue(tdf._same_data(ticDatPurged, ticDat))
+
+
+    def testDietCleaningFour(self):
+        tdf = TicDatFactory(**dietSchema())
+        addDietForeignKeys(tdf)
+        ticDat = tdf.copy_tic_dat(dietData())
+        ticDat.categories.pop("fat")
+        input_set = create_inputset_mock(tdf, ticDat)
+
+        self.assertTrue(tdf._same_data(tdf.opalytics.create_tic_dat(input_set, raw_data=True), ticDat))
+
+        ticDatPurged = tdf.opalytics.create_tic_dat(input_set, raw_data=False)
+        self.assertFalse(tdf._same_data(ticDatPurged, ticDat))
+        tdf.remove_foreign_keys_failures(ticDat)
+        self.assertTrue(tdf._same_data(ticDatPurged, ticDat))
+
+    def testSillyCleaningOne(self):
+        tdf = TicDatFactory(**sillyMeSchema())
+        tdf.set_data_type("c", "cData4", number_allowed=False, strings_allowed=['d'])
+        ticDat = tdf.TicDat(**sillyMeData())
+
+        input_set = create_inputset_mock(tdf, ticDat)
+
+        self.assertTrue(tdf._same_data(tdf.opalytics.create_tic_dat(input_set, raw_data=True), ticDat))
+
+        ticDatPurged = tdf.opalytics.create_tic_dat(input_set, raw_data=False)
+        self.assertFalse(tdf._same_data(ticDatPurged, ticDat))
+
+        ticDat.c.pop()
+        ticDat.c.pop(0)
+        self.assertTrue(tdf._same_data(ticDatPurged, ticDat))
+
+    def testSillyCleaningTwo(self):
+        tdf = TicDatFactory(**sillyMeSchema())
+        tdf.add_data_row_predicate("c", lambda row : row["cData4"] == 'd')
+        ticDat = tdf.TicDat(**sillyMeData())
+
+        input_set = create_inputset_mock(tdf, ticDat)
+
+        self.assertTrue(tdf._same_data(tdf.opalytics.create_tic_dat(input_set, raw_data=True), ticDat))
+
+        ticDatPurged = tdf.opalytics.create_tic_dat(input_set)
+        self.assertFalse(tdf._same_data(ticDatPurged, ticDat))
+
+        ticDat.c.pop()
+        ticDat.c.pop(0)
+        self.assertTrue(tdf._same_data(ticDatPurged, ticDat))
 
     def testSillyTwoTables(self):
         if not self.can_run:
