@@ -20,6 +20,6 @@ from ticdat.utils import Sloc, LogFile, Progress, Slicer, \
 from ticdat.opl import opl_run, create_opl_mod_text, create_opl_mod_output_text
 from ticdat.lingo import lingo_run
 from ticdat.model import Model
-__version__ = '0.2.11'
+__version__ = '0.2.12'
 __all__ = ["TicDatFactory", "freeze_me", "LogFile", "Sloc", "Slicer", "Progress", "standard_main", "Model", "opl_run",
            "create_opl_mod_text", "create_opl_mod_output_text", "lingo_run"]
