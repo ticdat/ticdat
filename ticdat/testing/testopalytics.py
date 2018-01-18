@@ -149,6 +149,28 @@ class TestOpalytics(unittest.TestCase):
         self.assertTrue(tdf._same_data(ticDatPurged, ticDat))
 
 
+    def testDietCleaningFive(self):
+        tdf = TicDatFactory(**dietSchema())
+        tdf.add_data_row_predicate("categories", lambda row : row["maxNutrition"] >= 66)
+        tdf.set_data_type("categories", "minNutrition", max=0, inclusive_max=True)
+        addDietForeignKeys(tdf)
+        ticDat = tdf.copy_tic_dat(dietData())
+
+        input_set = create_inputset_mock(tdf, ticDat)
+
+        self.assertTrue(tdf._same_data(tdf.opalytics.create_tic_dat(input_set, raw_data=True), ticDat))
+
+        ticDatPurged = tdf.opalytics.create_tic_dat(input_set, raw_data=False)
+        self.assertFalse(tdf._same_data(ticDatPurged, ticDat))
+
+        ticDat.categories.pop("fat")
+        ticDat.categories.pop("calories")
+        ticDat.categories.pop("protein")
+
+        self.assertFalse(tdf._same_data(ticDatPurged, ticDat))
+        tdf.remove_foreign_keys_failures(ticDat)
+        self.assertTrue(tdf._same_data(ticDatPurged, ticDat))
+
     def testDietCleaningFour(self):
         tdf = TicDatFactory(**dietSchema())
         addDietForeignKeys(tdf)
@@ -182,6 +204,23 @@ class TestOpalytics(unittest.TestCase):
     def testSillyCleaningTwo(self):
         tdf = TicDatFactory(**sillyMeSchema())
         tdf.add_data_row_predicate("c", lambda row : row["cData4"] == 'd')
+        ticDat = tdf.TicDat(**sillyMeData())
+
+        input_set = create_inputset_mock(tdf, ticDat)
+
+        self.assertTrue(tdf._same_data(tdf.opalytics.create_tic_dat(input_set, raw_data=True), ticDat))
+
+        ticDatPurged = tdf.opalytics.create_tic_dat(input_set)
+        self.assertFalse(tdf._same_data(ticDatPurged, ticDat))
+
+        ticDat.c.pop()
+        ticDat.c.pop(0)
+        self.assertTrue(tdf._same_data(ticDatPurged, ticDat))
+
+    def testSillyCleaningThree(self):
+        tdf = TicDatFactory(**sillyMeSchema())
+        tdf.add_data_row_predicate("c", lambda row : row["cData4"] != 4)
+        tdf.add_data_row_predicate("c", lambda row : row["cData4"] != 24)
         ticDat = tdf.TicDat(**sillyMeData())
 
         input_set = create_inputset_mock(tdf, ticDat)

@@ -43,6 +43,22 @@ input_schema.set_data_type("sites", "center_status", number_allowed=False,
                           strings_allowed=["Can Be Center", "Pure Demand Point"])
 # The default type of non infinite, non negative works for distance
 input_schema.set_data_type("distance", "distance")
+
+# There are three types of parameters
+input_schema.set_data_type("parameters", "key", number_allowed=False,
+                           strings_allowed=["Number of Centroids", "MIP Gap", "Formulation"])
+input_schema.set_data_type("parameters", "value", number_allowed=True,
+                           strings_allowed=["Weak", "Strong"])
+
+def _good_parameter_key_value(key, value):
+    if key == "Number of Centroids":
+        return 0 < value < float("inf")
+    if key == "MIP Gap":
+        return 0 <= value < float("inf")
+    if key == "Formulation":
+        return value in ["Weak", "Strong"]
+input_schema.add_data_row_predicate("parameters", predicate_name="Good Parameter Value for Key",
+    predicate=lambda row : _good_parameter_key_value(row["Key"], row["Value"]))
 # ---------------------------------------------------------------------------------
 
 
@@ -127,8 +143,8 @@ def solve(dat, out, err, progress):
                         == 1,
                         name = "must_assign_%s"%n)
 
-    crippledfordemo = "formulation" in dat.parameters and \
-                      dat.parameters["formulation"]["value"] == "weak"
+    crippledfordemo = "Formulation" in dat.parameters and \
+                      dat.parameters["Formulation"]["value"] == "Weak"
     for assigned_to, r in dat.sites.items():
         if r["center_status"] == "Can Be Center":
             _assign_vars = [assign_vars[n, assigned_to]
@@ -151,8 +167,8 @@ def solve(dat, out, err, progress):
     m.addConstr(gu.quicksum(v for v in open_vars.values()) == number_of_centroids,
                 name= "numCentroids")
 
-    if "mipGap" in dat.parameters:
-        m.Params.MIPGap = dat.parameters["mipGap"]["value"]
+    if "MIP Gap" in dat.parameters:
+        m.Params.MIPGap = dat.parameters["MIP Gap"]["value"]
     m.update()
 
     progress.numerical_progress("Core Model Creation", 100)
