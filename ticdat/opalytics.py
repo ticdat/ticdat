@@ -8,6 +8,7 @@ from ticdat.utils import freezable_factory, verify, find_duplicates, create_dupl
 from ticdat.utils import dictish, DataFrame, stringish
 from itertools import product
 from collections import defaultdict
+import inspect
 
 class OpalyticsTicFactory(freezable_factory(object, "_isFrozen")) :
     """
@@ -99,7 +100,10 @@ class OpalyticsTicFactory(freezable_factory(object, "_isFrozen")) :
                "The opalytics data reader is not yet working for generic tables nor generator tables")
 
         tms = {k:v[0] for k,v in self._find_table_matchings(inputset).items()}
-        tl = lambda t: self._table_as_lists(t, inputset.getTable(tms[t], includeActive=not raw_data))
+        ia = {}
+        if "includeActive" in inspect.getargspec(inputset.getTable)[0]:
+            ia = {"includeActive": not raw_data}
+        tl = lambda t: self._table_as_lists(t, inputset.getTable(tms[t], **ia))
         rtn = self.tic_dat_factory.TicDat(**{t:tl(t) for t in self.tic_dat_factory.all_tables})
         if not raw_data:
             def removing():

@@ -21,18 +21,25 @@ def hack_name(s):
                 rtn[i] = s[i].lower()
     return "".join(rtn)
 
-def create_inputset_mock(tdf, dat, hack_table_names=False):
+def create_inputset_mock(tdf, dat, hack_table_names=False, includeActiveEnabled = True):
     tdf.good_tic_dat_object(dat)
     temp_dat = tdf.copy_to_pandas(dat, drop_pk_columns=False)
     replaced_name = {t:hack_name(t) if hack_table_names else t for t in tdf.all_tables}
     original_name = {v:k for k,v in replaced_name.items()}
-    class RtnObject(object):
-        schema = {replaced_name[t]:"not needed for mock object" for t in tdf.all_tables}
-        def getTable(self, t, includeActive=False):
-            rtn = getattr(temp_dat, original_name[t]).reset_index(drop=True)
-            if includeActive:
-                rtn["_active"] = True
-            return rtn
+    if includeActiveEnabled:
+        class RtnObject(object):
+            schema = {replaced_name[t]:"not needed for mock object" for t in tdf.all_tables}
+            def getTable(self, t, includeActive=False):
+                rtn = getattr(temp_dat, original_name[t]).reset_index(drop=True)
+                if includeActive:
+                    rtn["_active"] = True
+                return rtn
+    else:
+        class RtnObject(object):
+            schema = {replaced_name[t]:"not needed for mock object" for t in tdf.all_tables}
+            def getTable(self, t):
+                rtn = getattr(temp_dat, original_name[t]).reset_index(drop=True)
+                return rtn
     return RtnObject()
 
 def create_inputset_mock_with_active_hack(tdf, dat, hack_table_names=False):
@@ -62,10 +69,10 @@ class TestOpalytics(unittest.TestCase):
     def testDiet(self):
         if not self.can_run:
             return
-        for hack, raw_data in list(product(*(([True, False],)*2))):
+        for hack, raw_data, activeEnabled in list(product(*(([True, False],)*3))):
             tdf = TicDatFactory(**dietSchema())
             ticDat = tdf.freeze_me(tdf.copy_tic_dat(dietData()))
-            inputset = create_inputset_mock(tdf, ticDat, hack)
+            inputset = create_inputset_mock(tdf, ticDat, hack, activeEnabled)
             self.assertFalse(tdf.opalytics.find_duplicates(inputset, raw_data=raw_data))
             ticDat2 = tdf.opalytics.create_tic_dat(inputset, raw_data=raw_data)
             self.assertTrue(tdf._same_data(ticDat, ticDat2))
