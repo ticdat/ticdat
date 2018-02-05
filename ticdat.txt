@@ -389,15 +389,20 @@ CLASSES
      |      :param tic_dat_factory:
      |      :return:
      |
-     |  create_tic_dat(self, inputset, freeze_it=False)
+     |  create_tic_dat(self, inputset, raw_data=False, freeze_it=False)
      |      Create a TicDat object from an opalytics inputset
      |      :param inputset: An opalytics inputset consistent with this TicDatFactory
+     |      :param raw_data: boolean. should data cleaning be skipped? On the Opalytics Cloud Platform
+     |                       cleaned data will be passed to instant apps. Data cleaning involves
+     |                       removing data type failures, data row predicate failures, foreign key
+     |                       failures and deactivated records.
      |      :param freeze_it: boolean. should the returned object be frozen?
      |      :return: a TicDat object populated by the tables as they are rendered by inputset
      |
-     |  find_duplicates(self, inputset)
+     |  find_duplicates(self, inputset, raw_data=False)
      |      Find the row counts for duplicated rows.
      |      :param inputset: An opalytics inputset consistent with this TicDatFactory
+     |      :param raw_data: boolean. should data cleaning be skipped? See create_tic_dat.
      |      :return: A dictionary whose keys are table names for the primary-ed key tables.
      |               Each value of the return dictionary is itself a dictionary.
      |               The inner dictionary is keyed by the primary key values encountered in the table,
