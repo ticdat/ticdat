@@ -1,5 +1,5 @@
 import ticdat.utils as utils
-from ticdat.utils import verify
+from ticdat.utils import verify, gurobi_env
 
 try:
     import docplex.mp.model as cplex
@@ -33,8 +33,9 @@ class Model(object):
         verify(not utils.stringish(engines[model_type]),
                "You need to have the %s package installed to build this model type."%
                engines[model_type])
+        env = {"env":gurobi_env()} if model_type == "gurobi" else {}
         self._core_model = getattr(engines[model_type],
-                            {"gurobi":"Model", "cplex":"Model","xpress":"problem"}[model_type])(model_name)
+                            {"gurobi":"Model", "cplex":"Model","xpress":"problem"}[model_type])(model_name, **env)
         self._model_type = model_type
         self._sum = ({"gurobi":lambda : gurobi.quicksum, "cplex": lambda : self.core_model.sum,
                      "xpress":lambda : xpress.Sum}[model_type])()

@@ -15,6 +15,12 @@ try:
     from pandas import DataFrame
 except:
     pd = DataFrame =  None
+
+try:
+    import ocp_ticdat_drm as drm
+except:
+    drm = None
+
 import inspect
 
 # likely replace this with some sort of sys.platform call that makes a good guess
@@ -127,6 +133,16 @@ try:
                == {(1, 2), (3, 2)}, "")
 except:
     gu = None
+
+def gurobi_env():
+    '''
+
+    :return:
+    '''
+    verify(gu, "gurobipy is not installed")
+    if drm:
+        return drm.gurobi_env()
+    return gu.Env()
 
 try:
     import docplex.mp.progress as cplexprogress
