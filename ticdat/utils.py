@@ -134,15 +134,16 @@ try:
 except:
     gu = None
 
-def gurobi_env():
+def gurobi_env(*args, **kwargs):
     '''
-
-    :return:
+    Return a gurobipy.Env object for use in constructing gurobipy.Model() objects.
+    On an ordinary Python installation, this is a pass through to gurobipy.Env()
+    :return: A gurobipy.Env object.
     '''
     verify(gu, "gurobipy is not installed")
     if drm:
         return drm.gurobi_env()
-    return gu.Env()
+    return gu.Env(*args, **kwargs)
 
 try:
     import docplex.mp.progress as cplexprogress
