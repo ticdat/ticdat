@@ -21,7 +21,7 @@
 # will read from a model stored in the file input_data.xlsx and write the solution
 # to solution_data.xlsx.
 
-from ticdat import TicDatFactory, standard_main, Slicer
+from ticdat import TicDatFactory, standard_main, Slicer, gurobi_env
 import gurobipy as gu
 
 input_schema = TicDatFactory(parameters = [["Key"],["Value"]],
@@ -58,7 +58,7 @@ def solve(dat):
     def investment(pdct, price):
         return max(0, dat.forecast_sales[pdct, price]["Sales"] * normal_price[pdct] -
                       revenue(pdct, normal_price[pdct]))
-    mdl = gu.Model("soda promotion")
+    mdl = gu.Model("soda promotion", env=gurobi_env())
 
     pdct_price = mdl.addVars(dat.forecast_sales, vtype=gu.GRB.BINARY,name='pdct_price')
 

@@ -16,7 +16,7 @@
 # this version of the file uses Gurobi
 
 import gurobipy as gu
-from ticdat import TicDatFactory,  standard_main
+from ticdat import TicDatFactory,  standard_main, gurobi_env
 
 # ------------------------ define the input schema --------------------------------
 # There are three input tables, with 4 primary key fields and 4 data fields.
@@ -71,7 +71,7 @@ def solve(dat):
     assert not input_schema.find_data_type_failures(dat)
     assert not input_schema.find_data_row_failures(dat)
 
-    mdl = gu.Model("diet")
+    mdl = gu.Model("diet", env=gurobi_env())
 
     nutrition = {c:mdl.addVar(lb=n["Min Nutrition"], ub=n["Max Nutrition"], name=c)
                 for c,n in dat.categories.items()}
