@@ -1033,6 +1033,11 @@ FUNCTIONS
         :param x: ticdat object
         :return: x, after it has been frozen
 
+    gurobi_env(*args, **kwargs)
+        Return a gurobipy.Env object for use in constructing gurobipy.Model() objects.
+        On an ordinary Python installation, this is a pass through to gurobipy.Env()
+        :return: A gurobipy.Env object.
+
     opl_run(mod_file, input_tdf, input_dat, soln_tdf, infinity=999999, oplrun_path=None)
         solve an optimization problem using an OPL .mod file
         :param mod_file: An OPL .mod file.

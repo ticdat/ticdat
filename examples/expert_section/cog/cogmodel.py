@@ -25,7 +25,7 @@ import time
 import datetime
 import os
 import gurobipy as gu
-from ticdat import TicDatFactory, Progress, LogFile, Slicer, standard_main
+from ticdat import TicDatFactory, Progress, LogFile, Slicer, standard_main, gurobi_env
 
 # ------------------------ define the input schema --------------------------------
 # There are three input tables, with 4 primary key fields  and 4 data fields.
@@ -114,7 +114,7 @@ def solve(dat, out, err, progress):
 
     progress.numerical_progress("Feasibility Analysis" , 100)
 
-    m = gu.Model("cog")
+    m = gu.Model("cog", env=gurobi_env())
 
     assign_vars = {(n, assigned_to) : m.addVar(vtype = gu.GRB.BINARY,
                                         name = "%s_%s"%(n,assigned_to),
