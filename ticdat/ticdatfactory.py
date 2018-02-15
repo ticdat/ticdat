@@ -608,10 +608,11 @@ foreign keys, the code throwing this exception will be removed.
                                  return r
                              return [r.get(k, 0) for k in superself.primary_key_fields[t] +
                                       superself.data_fields.get(t,[])]
+                         drf = datarowfactory(t) # lots of verification inside the datarowfactory
                          setattr(self, t, ticdattablefactory(self._all_data_dicts, t)(
                              {r if not utils.containerish(r) else
-                              (r[0] if pklen == 1 else tuple(r[:pklen])) :
-                              datarowfactory(t)([] if not utils.containerish(r) else r[pklen:])
+                              (r[0] if pklen == 1 else tuple(r[:pklen])):
+                              drf([] if not utils.containerish(r) else r[pklen:])
                               for _r in v for r in [handle_row_dict(_r)]}
                          ))
                     elif superself.primary_key_fields.get(t) :
