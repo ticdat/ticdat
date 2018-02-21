@@ -74,11 +74,14 @@ class OpalyticsTicFactory(freezable_factory(object, "_isFrozen")) :
                " Don't use '_active' for in your TicDatFactory definition if you want to use this reader.")
         for f in all_fields:
             verify(f in df.columns, "field %s can't be found in the DataFrame for %s"%(f,t))
-        d = df.T.to_dict()
+        all_fields = {f:list(df.columns).index(f) for f in all_fields}
+        has_active = "_active" in df.columns
+        active_index = list(df.columns).index("_active") if has_active else None
         rtn = []
-        for k in sorted(d):
-            if d[k].get("_active", True):
-                rtn.append({f: d[k][f] for f in all_fields})
+        for row in df.itertuples(index=False, name=None):
+            if not has_active or row[active_index]:
+                rtn.append(tuple(row[all_fields[f]] for f in self.tic_dat_factory.primary_key_fields[t] +
+                                 self.tic_dat_factory.data_fields[t]))
         return rtn
 
     def create_tic_dat(self, inputset, raw_data=False, freeze_it=False):
