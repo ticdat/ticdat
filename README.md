@@ -4,9 +4,9 @@ Go [here](https://github.com/opalytics/opalytics-ticdat/wiki/ticdat-status) for 
 
 `ticdat` is an easy-to-use, lightweight, relational, data library. It provides a simple interface for defining a data schema, and a factory class for creating `TicDat` data objects that confirm to this schema.
 
-It is primarily intended to simplify the process of developing proof-of-concept mathematical engines that read from one schema and write to another. It provides easy routines for reading and/or writing an entire data set for a range of stand-alone file types (Excel, .csv, Access or SQLite). For Access or SQLite, it can be used as a very condensed representation of the database schema.
+It is primarily intended to simplify the process of developing modular mathematical engines that read from one schema and write to another. It provides easy routines for reading and/or writing an entire data set for a range of stand-alone file types (Excel, .csv, Access or SQLite). For Access or SQLite, it can be used as a very condensed representation of the database schema.
 
-For archiving test suites, `ticdat` is a useful way to convert data instances into .sql text files that can be archived in source code control systems.
+For archiving test suites, `ticdat` is a useful way to convert data instances into .sql or .json text files that can be archived in source code control systems.
 
 When primary keys are specified, each table is a dictionary of dictionaries.
 Otherwise, each table is an enumerable of dictionaries. The inner dictionaries are data rows indexed by field names (as in `csv.DictReader/csv.DictWriter`). 
@@ -24,10 +24,10 @@ Alternately, `TicDat` data objects can be frozen. This facilitates good software
 
 Finally, the “dict-of-dicts” representation of a table can be eschewed entirely in favor of `pandas.DataFrame`. In this case,`ticdat` can be used as a shim library that facilitates schema level definitions and query abstraction for `pandas` developers. 
 
-Although `ticdat` was specifically designed with Mixed Integer Programming data sets in mind, it can be used for
+Although `ticdat` was specifically designed with Mixed Integer Programming problems in mind, it can be used for
 rapidly developing a wide variety of mathematical engines. It facilitates creating one definition of your
 input data schema and one solve module, and reusing this same code, unchanged, on data from different
-sources. This "separation of model from data" enables a user to move easily from small, testing data sets to larger, more realistic examples. In addition, [Opalytics Inc](http://www.opalytics.com/) (the developer of  `ticdat`) can support cloud deployments of solve engines that use `ticdat` data objects. Go  [here](https://github.com/opalytics/example-diet) or [here](https://github.com/opalytics/example-netflow) for examples of `ticdat` being used to create "deployment ready" Python packages.
+sources. This "separation of model from data" enables a user to move easily from small, testing data sets to larger, more realistic examples. In addition, [Opalytics Inc](http://www.opalytics.com/) (the developer of  `ticdat`) can support cloud deployments of solve engines that use `ticdat` data objects. The `ticdat` optimization examples presented here can all be deployed as "instant-apps" on the Opalytics Cloud Platform.
 
 The `ticdat` library is distributed under the BSD2 open source license.
 
