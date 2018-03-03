@@ -10,9 +10,9 @@
 #
 # Provides command line interface via ticdat.standard_main
 # For example, typing
-#   python metrorail.py -i metro_rail_sample_data.json -o metro_rail_solution_data.json
-# will read from a model stored in the file metro_rail_sample_data.json and write the
-# solution to metro_rail_solution_data.json.
+#   python metrorail.py -i metrorail_sample_data.json -o metrorail_solution_data.json
+# will read from a model stored in the file metrorail_sample_data.json and write the
+# solution to metrorail_solution_data.json.
 
 # this version of the file uses Gurobi
 
@@ -40,7 +40,7 @@ input_schema.set_data_type("number_of_one_way_trips", "Number", min=0, max=float
                            inclusive_min=False, inclusive_max=False, must_be_int=True)
 
 input_schema.set_data_type("amount_leftover", "Amount", min=0, max=float("inf"),
-                           inclusive_min=False, inclusive_max=False)
+                           inclusive_min=True, inclusive_max=False)
 
 default_one_way_price = 2.25
 # ---------------------------------------------------------------------------------
@@ -98,7 +98,8 @@ def solve(dat):
             for la,x in number_vists.items():
                 if x.x > 0:
                     sln.load_amount_details[number_trips, amount_leftover, la] = round(x.x)
-                    sln.load_amount_summary[number_trips, amount_leftover] += round(x.x)
+                    sln.load_amount_summary[number_trips, amount_leftover] \
+                        ["Number Of Visits"] += round(x.x)
     return sln
 # ---------------------------------------------------------------------------------
 
