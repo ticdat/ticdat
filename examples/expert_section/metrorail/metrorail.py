@@ -28,11 +28,6 @@ input_schema = TicDatFactory (
     number_of_one_way_trips  = [["Number"],[]],
     amount_leftover = [["Amount"], []])
 
-input_schema.set_data_type("parameters", "Key", number_allowed=False,
-                           strings_allowed=["One Way Price"])
-input_schema.set_data_type("parameters", "Value", min=0, max=float("inf"),
-                           inclusive_min=False, inclusive_max=False)
-
 input_schema.set_data_type("load_amounts", "Amount", min=0, max=float("inf"),
                            inclusive_min=False, inclusive_max=False)
 
@@ -42,7 +37,23 @@ input_schema.set_data_type("number_of_one_way_trips", "Number", min=0, max=float
 input_schema.set_data_type("amount_leftover", "Amount", min=0, max=float("inf"),
                            inclusive_min=True, inclusive_max=False)
 
-default_one_way_price = 2.25
+
+default_parameters = {"One Way Price": 2.25, "Amount Leftover Constraint": "Upper Bound"}
+def _good_parameter_key_value(key, value):
+    if key == "One Way Price":
+        try:
+            return 0 < value < float("inf")
+        except:
+            return False
+    if key == "Amount Leftover Constraint":
+        return value  in ["Equality", "Upper Bound"]
+
+assert all(_good_parameter_key_value(k,v) for k,v in default_parameters.items())
+
+input_schema.set_data_type("parameters", "Key", number_allowed=False,
+                           strings_allowed=default_parameters)
+input_schema.add_data_row_predicate("parameters", predicate_name="Good Parameter Value for Key",
+    predicate=lambda row : _good_parameter_key_value(row["Key"], row["Value"]))
 # ---------------------------------------------------------------------------------
 
 
@@ -66,6 +77,7 @@ def solve(dat):
     assert not input_schema.find_foreign_key_failures(dat)
     assert not input_schema.find_data_type_failures(dat)
     assert not input_schema.find_data_row_failures(dat)
+    full_parameters = dict(default_parameters, **{k:v["Value"] for k,v in dat.parameters.items()})
 
     sln = solution_schema.TicDat()
 
@@ -77,18 +89,19 @@ def solve(dat):
         # Create decision variables
         number_vists = {la:mdl.addVar(vtype = gu.GRB.INTEGER, name="load_amount_%s"%la)
                         for la in dat.load_amounts}
+        amount_leftover_var = mdl.addVar(name="amount_leftover", ub=amount_leftover)
+        if full_parameters["Amount Leftover Constraint"] == "Equality":
+            amount_leftover_var.lb = amount_leftover
 
-        one_way_price = default_one_way_price
-        if "One Way Price" in dat.parameters:
-            one_way_price = dat.parameters["One Way Price"]["Value"]
-         # Constraint that we need enough money
-        mdl.addConstr(gu.quicksum(la * number_vists[la] for la in dat.load_amounts)
-                      >= one_way_price * number_trips,
-                      name = "need_enough_money")
-        # Constraint that we can't allow too much left over
-        mdl.addConstr(gu.quicksum(la * number_vists[la] for la in dat.load_amounts) -
-                      one_way_price * number_trips <= amount_leftover,
-                      name = "limit_amount_leftover")
+        one_way_price = full_parameters["One Way Price"]
+
+        # since the amount_leftover_var cannot be negative, this amounts to the "need enough money"
+        # constraint
+        mdl.addConstr(amount_leftover_var ==
+                      gu.quicksum(la * number_vists[la] for la in dat.load_amounts) -
+                      one_way_price * number_trips,
+                      name="set_amount_leftover")
+
 
         # minimize the total number of visits to the ticket office
         mdl.setObjective(gu.quicksum(number_vists.values()), sense=gu.GRB.MINIMIZE)
