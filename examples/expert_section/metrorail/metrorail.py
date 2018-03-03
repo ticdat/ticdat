@@ -46,7 +46,7 @@ def _good_parameter_key_value(key, value):
         except:
             return False
     if key == "Amount Leftover Constraint":
-        return value  in ["Equality", "Upper Bound"]
+        return value  in ["Equality", "Upper Bound", "Upper Bound With Leftover Multiple Rule"]
 
 assert all(_good_parameter_key_value(k,v) for k,v in default_parameters.items())
 
@@ -92,14 +92,16 @@ def solve(dat):
         amount_leftover_var = mdl.addVar(name="amount_leftover", ub=amount_leftover)
         if full_parameters["Amount Leftover Constraint"] == "Equality":
             amount_leftover_var.lb = amount_leftover
-
-        one_way_price = full_parameters["One Way Price"]
+        if full_parameters["Amount Leftover Constraint"] == "Upper Bound With Leftover Multiple Rule":
+            leftover_multiple = mdl.addVar(vtype = gu.GRB.INTEGER, name="leftover_multiple")
+            mdl.addConstr(amount_leftover_var == full_parameters["One Way Price"] * leftover_multiple,
+                          name="set_leftover_multiple")
 
         # since the amount_leftover_var cannot be negative, this amounts to the "need enough money"
         # constraint
         mdl.addConstr(amount_leftover_var ==
                       gu.quicksum(la * number_vists[la] for la in dat.load_amounts) -
-                      one_way_price * number_trips,
+                      full_parameters["One Way Price"] * number_trips,
                       name="set_amount_leftover")
 
 
@@ -111,8 +113,8 @@ def solve(dat):
             for la,x in number_vists.items():
                 if x.x > 0:
                     sln.load_amount_details[number_trips, amount_leftover, la] = round(x.x)
-                    sln.load_amount_summary[number_trips, amount_leftover] \
-                        ["Number Of Visits"] += round(x.x)
+                    sln.load_amount_summary[number_trips, amount_leftover]["Number Of Visits"]\
+                       += round(x.x)
     return sln
 # ---------------------------------------------------------------------------------
 
