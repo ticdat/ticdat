@@ -15,9 +15,8 @@
 # solution to metrorail_solution_data.json.
 
 # this version of the file uses Gurobi
-
 import gurobipy as gu
-from ticdat import TicDatFactory, standard_main, gurobi_env
+from ticdat import TicDatFactory, standard_main
 from itertools import product
 
 # ------------------------ define the input schema --------------------------------
@@ -83,8 +82,7 @@ def solve(dat):
 
     for number_trips, amount_leftover in product(dat.number_of_one_way_trips, dat.amount_leftover):
 
-        # using env=gurobi_env() just makes the code ready for Opalytics deployment
-        mdl = gu.Model("metrorail", env=gurobi_env())
+        mdl = gu.Model("metrorail")
 
         # Create decision variables
         number_vists = {la:mdl.addVar(vtype = gu.GRB.INTEGER, name="load_amount_%s"%la)
