@@ -20,12 +20,11 @@ from ticdat import TicDatFactory, standard_main
 from itertools import product
 
 # ------------------------ define the input schema --------------------------------
-# There are three input tables, with 4 primary key fields and 4 data fields.
 input_schema = TicDatFactory (
-    parameters = [["Key"], ["Value"]],
-    load_amounts = [["Amount"],[]],
-    number_of_one_way_trips  = [["Number"],[]],
-    amount_leftover = [["Amount"], []])
+    parameters=[["Key"], ["Value"]],
+    load_amounts=[["Amount"],[]],
+    number_of_one_way_trips=[["Number"],[]],
+    amount_leftover=[["Amount"], []])
 
 input_schema.set_data_type("load_amounts", "Amount", min=0, max=float("inf"),
                            inclusive_min=False, inclusive_max=False)
@@ -57,11 +56,10 @@ input_schema.add_data_row_predicate("parameters", predicate_name="Good Parameter
 
 
 # ------------------------ define the output schema -------------------------------
-# There are three solution tables, with 2 primary key fields and 3 data fields.
 solution_schema = TicDatFactory(
-    load_amount_details = [["Number One Way Trips", "Amount Leftover", "Load Amount"],
+    load_amount_details=[["Number One Way Trips", "Amount Leftover", "Load Amount"],
                            ["Number Of Visits"]],
-    load_amount_summary = [["Number One Way Trips", "Amount Leftover"],["Number Of Visits"]])
+    load_amount_summary=[["Number One Way Trips", "Amount Leftover"],["Number Of Visits"]])
 # ---------------------------------------------------------------------------------
 
 
@@ -76,10 +74,12 @@ def solve(dat):
     assert not input_schema.find_foreign_key_failures(dat)
     assert not input_schema.find_data_type_failures(dat)
     assert not input_schema.find_data_row_failures(dat)
+    # use default parameters, unless they are overridden by user-supplied parameters
     full_parameters = dict(default_parameters, **{k:v["Value"] for k,v in dat.parameters.items()})
 
-    sln = solution_schema.TicDat()
+    sln = solution_schema.TicDat() # create an empty solution'
 
+    # solve a distinc MIP for each pair of (# of one-way-trips, amount leftover)
     for number_trips, amount_leftover in product(dat.number_of_one_way_trips, dat.amount_leftover):
 
         mdl = gu.Model("metrorail")
@@ -87,16 +87,19 @@ def solve(dat):
         # Create decision variables
         number_vists = {la:mdl.addVar(vtype = gu.GRB.INTEGER, name="load_amount_%s"%la)
                         for la in dat.load_amounts}
-        amount_leftover_var = mdl.addVar(name="amount_leftover", ub=amount_leftover)
+        amount_leftover_var = mdl.addVar(name="amount_leftover", lb=0, ub=amount_leftover)
+
+        # an equality constraint is modeled here as amount_leftover_var.lb = s amount_leftover_var.ub
         if full_parameters["Amount Leftover Constraint"] == "Equality":
             amount_leftover_var.lb = amount_leftover
+        # for left-over is multiple, we will still respect the amount leftover upper bound
+        # but will also enforce that the amount leftover is a multiple of the one way price
         if full_parameters["Amount Leftover Constraint"] == "Upper Bound With Leftover Multiple Rule":
             leftover_multiple = mdl.addVar(vtype = gu.GRB.INTEGER, name="leftover_multiple")
             mdl.addConstr(amount_leftover_var == full_parameters["One Way Price"] * leftover_multiple,
                           name="set_leftover_multiple")
 
-        # since the amount_leftover_var cannot be negative, this amounts to the "need enough money"
-        # constraint
+        # add a constraint to set the amount leftover
         mdl.addConstr(amount_leftover_var ==
                       gu.quicksum(la * number_vists[la] for la in dat.load_amounts) -
                       full_parameters["One Way Price"] * number_trips,
@@ -108,6 +111,7 @@ def solve(dat):
         mdl.optimize()
 
         if mdl.status in [gu.GRB.OPTIMAL, gu.GRB.SUBOPTIMAL]:
+            # store the results if and only if the model is feasible
             for la,x in number_vists.items():
                 if x.x > 0:
                     sln.load_amount_details[number_trips, amount_leftover, la] = round(x.x)
