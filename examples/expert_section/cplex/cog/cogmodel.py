@@ -203,7 +203,7 @@ def percent_error(lb, ub):
     assert lb<=ub
     return "%.2f"%(100.0 * (ub-lb) / ub) + "%"
 
-# when run from the command line, will read/write xls/csv/db/mdb files
+# when run from the command line, will read/write json/xls/csv/db/mdb files
 if __name__ == "__main__":
     if os.path.exists("cog.stop"):
         print "Removing the cog.stop file so that solve can proceed."
