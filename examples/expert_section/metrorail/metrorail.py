@@ -89,7 +89,7 @@ def solve(dat):
                         for la in dat.load_amounts}
         amount_leftover_var = mdl.addVar(name="amount_leftover", lb=0, ub=amount_leftover)
 
-        # an equality constraint is modeled here as amount_leftover_var.lb = s amount_leftover_var.ub
+        # an equality constraint is modeled here as amount_leftover_var.lb = amount_leftover_var.ub
         if full_parameters["Amount Leftover Constraint"] == "Equality":
             amount_leftover_var.lb = amount_leftover
         # for left-over is multiple, we will still respect the amount leftover upper bound
