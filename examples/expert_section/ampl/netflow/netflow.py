@@ -62,7 +62,7 @@ def solve(dat):
     # There are the variables populated by the netflow.lng file.
     solution_variables = TicDatFactory(flow=[["Commodity", "Source", "Destination"], ["Quantity"]])
 
-    sln = ampl_run("netflow.lng", input_schema, dat, solution_variables)
+    sln = ampl_run("netflow.mod", input_schema, dat, solution_variables)
     if sln:
         rtn = solution_schema.TicDat(flow = sln.flow)
         rtn.parameters["Total Cost"] = sum(dat.cost[h, i, j]["Cost"] * r["Quantity"]
