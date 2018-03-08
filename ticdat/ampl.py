@@ -20,9 +20,6 @@ def _unfix_fields_with_ampl_keywords(tdf):
     return change_fields_with_reserved_keywords(tdf, ampl_keywords, True)
 
 def ampl_run(mod_file, input_tdf, input_dat, soln_tdf, infinity=INFINITY, amplrun_path=None, post_solve=None):
-    # Here only for debugging purposes
-    os.environ["TICDAT_AMPL_SOLVER_PATH"] = "/opt/ibm/ILOG/CPLEX_Studio127/cplex/bin/x86-64_linux/cplexamp"
-    os.environ["TICDAT_AMPL_PATH"] = "/opt/opalytics/lenticular/sams-stuff/ampl/install/ampl"
     """
     solve an optimization problem using an AMPL .mod file
     :param mod_file: An AMPL .mod file.
