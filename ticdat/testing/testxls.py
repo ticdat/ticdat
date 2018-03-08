@@ -4,7 +4,7 @@ from ticdat.ticdatfactory import TicDatFactory
 from ticdat.testing.ticdattestutils import dietData, dietSchema, netflowData, netflowSchema, firesException
 from ticdat.testing.ticdattestutils import sillyMeData, sillyMeSchema, makeCleanDir, fail_to_debugger
 from ticdat.testing.ticdattestutils import spacesData, spacesSchema, memo, flagged_as_run_alone
-from ticdat.testing.ticdattestutils import makeCleanPath
+from ticdat.testing.ticdattestutils import makeCleanPath, sillyMeDataTwoTables
 from ticdat.xls import _can_unit_test
 import shutil
 import unittest
@@ -66,8 +66,8 @@ class TestXls(unittest.TestCase):
         xlsTicDat = tdf.xls.create_tic_dat(filePath)
         self.assertTrue(tdf._same_data(ticDat, xlsTicDat))
         tdf.xls.write_file(ticDat, filePath+"x")
-        self.assertFalse(tdf._same_data(ticDat, tdf.xls.create_tic_dat(filePath+"x")))
-        self.assertTrue(tdf._same_data(ticDat, tdf.xls.create_tic_dat(filePath+"x", treat_large_as_inf=True)))
+        self.assertTrue(tdf._same_data(ticDat, tdf.xls.create_tic_dat(filePath+"x")))
+        self.assertFalse(tdf._same_data(ticDat, tdf.xls.create_tic_dat(filePath+"x", treat_inf_as_infinity=False)))
         xlsTicDat.categories["calories"]["minNutrition"]=12
         self.assertFalse(tdf._same_data(ticDat, xlsTicDat))
 
@@ -121,8 +121,18 @@ class TestXls(unittest.TestCase):
         xlsTicDat = tdf.xls.create_tic_dat(filePath, freeze_it=True)
         self.assertTrue(tdf._same_data(ticDat, xlsTicDat))
         tdf.xls.write_file(ticDat, filePath+"x", allow_overwrite=True)
-        self.assertFalse(tdf._same_data(ticDat, tdf.xls.create_tic_dat(filePath+"x")))
-        self.assertTrue(tdf._same_data(ticDat, tdf.xls.create_tic_dat(filePath+"x", treat_large_as_inf=True)))
+        self.assertTrue(tdf._same_data(ticDat, tdf.xls.create_tic_dat(filePath+"x")))
+        self.assertFalse(tdf._same_data(ticDat, tdf.xls.create_tic_dat(filePath+"x", treat_inf_as_infinity=False)))
+
+    def testSillyTwoTables(self):
+        if not self.can_run:
+            return
+        tdf = TicDatFactory(**sillyMeSchema())
+        ticDat = tdf.TicDat(**sillyMeDataTwoTables())
+        filePath = os.path.join(_scratchDir, "sillyMeTwoTables.xls")
+        tdf.xls.write_file(ticDat, filePath)
+        xlsTicDat = tdf.xls.create_tic_dat(filePath)
+        self.assertTrue(tdf._same_data(ticDat, xlsTicDat))
 
     def testSilly(self):
         if not self.can_run:
@@ -164,7 +174,7 @@ class TestXls(unittest.TestCase):
                 else :
                     self.assertTrue(t == "a")
 
-        ticDat5 = tdf5.xls.create_tic_dat(filePath)
+        ticDat5 = tdf5.xls.create_tic_dat(filePath, treat_inf_as_infinity=False)
         self.assertTrue(tdf5._same_data(tdf._keyless(ticDat), ticDat5))
         self.assertTrue(callable(ticDat5.a) and callable(ticDat5.c) and not callable(ticDat5.b))
 
@@ -277,6 +287,26 @@ class TestXls(unittest.TestCase):
         writeData(insert_spaces=True)
         ticDat3 = tdf.xls.create_tic_dat(filePath)
         self.assertTrue(tdf._same_data(ticDat, ticDat3))
+
+    def testSpacey2(self):
+        if not self.can_run:
+            return
+        tdf = TicDatFactory(**spacesSchema())
+        ticDat = tdf.TicDat(**spacesData())
+        for ext in [".xls", ".xlsx"]:
+            filePath = os.path.join(_scratchDir, "spaces_2%s" % ext)
+            tdf.xls.write_file(ticDat, filePath, case_space_sheet_names=True)
+            ticDat2 = tdf.xls.create_tic_dat(filePath)
+            self.assertTrue(tdf._same_data(ticDat, ticDat2))
+
+        tdf = TicDatFactory(**netflowSchema())
+        ticDat = tdf.freeze_me(tdf.TicDat(**{t:getattr(netflowData(),t) for t in tdf.primary_key_fields}))
+        for ext in [".xls", ".xlsx"]:
+            filePath = os.path.join(_scratchDir, "spaces_2_2%s" % ext)
+            tdf.xls.write_file(ticDat, filePath, case_space_sheet_names=True)
+            ticDat2 = tdf.xls.create_tic_dat(filePath)
+            self.assertTrue(tdf._same_data(ticDat, ticDat2))
+
 
     def testRowOffsets(self):
         if not self.can_run:

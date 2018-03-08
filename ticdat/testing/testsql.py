@@ -3,7 +3,7 @@ import ticdat.utils as utils
 from ticdat.ticdatfactory import TicDatFactory
 from ticdat.testing.ticdattestutils import dietData, dietSchema, netflowData, netflowSchema, firesException
 from ticdat.testing.ticdattestutils import sillyMeData, sillyMeSchema, makeCleanDir, fail_to_debugger
-from ticdat.testing.ticdattestutils import makeCleanPath, addNetflowForeignKeys, addDietForeignKeys, flagged_as_run_alone
+from ticdat.testing.ticdattestutils import makeCleanPath, addNetflowForeignKeys, addDietForeignKeys, flagged_as_run_alone, am_on_windows
 from ticdat.testing.ticdattestutils import spacesData, spacesSchema, dietSchemaWeirdCase, dietSchemaWeirdCase2
 from ticdat.testing.ticdattestutils import copyDataDietWeirdCase, copyDataDietWeirdCase2
 from ticdat.sqlitetd import _can_unit_test, sql
@@ -19,7 +19,13 @@ class TestSql(unittest.TestCase):
         makeCleanDir(_scratchDir)
     @classmethod
     def tearDownClass(cls):
-        shutil.rmtree(_scratchDir)
+        if am_on_windows: # working around issue opalytics/opalytics-ticdat#153
+            try:
+                shutil.rmtree(_scratchDir)
+            except:
+                pass
+        else:
+            shutil.rmtree(_scratchDir)
     def firesException(self, f):
         e = firesException(f)
         if e :
@@ -278,8 +284,9 @@ class TestSql(unittest.TestCase):
         self.assertTrue(callable(ticDat5.a) and callable(ticDat5.c) and not callable(ticDat5.b))
 
         self.assertTrue("table d" in self.firesException(lambda  : tdf6.sql.create_tic_dat(filePath)))
-
         ticDat.a["theboger"] = (1, None, 12)
+        if am_on_windows:
+            filePath = filePath.replace("silly.db", "silly_2.db") # working around issue opalytics/opalytics-ticdat#153
         tdf.sql.write_db_data(ticDat, makeCleanPath(filePath))
         ticDatNone = tdf.sql.create_tic_dat(filePath, freeze_it=True)
         self.assertTrue(tdf._same_data(ticDat, ticDatNone))
@@ -318,6 +325,27 @@ class TestSql(unittest.TestCase):
                 con.execute("ALTER TABLE %s RENAME TO [%s]"%(t, t.replace("_", " ")))
         dat3 = tdf.sql.create_tic_dat(filePath, freeze_it=True)
         self.assertTrue(tdf._same_data(dat, dat3))
+
+    def testDefaults(self):
+        tdf = TicDatFactory(one=[["a"],["b", "c"]], two=[["a", "b"],["c"]], three=[["a", "b", "c"],[]])
+        dat = tdf.TicDat(one=[[1, 2, 3],[4, 5, 6]], two=[[1, 2, 3],[4 ,5, 6]], three=[[1, 2, 3], [4, 5, 6]])
+        filePath = makeCleanPath(os.path.join(_scratchDir, "defaults.sql"))
+        tdf.sql.write_sql_file(dat, filePath)
+
+        tdf2 = TicDatFactory(one=[["a"],["b", "c"]], two=[["a", "b"],["c"]], three=[["a", "b", "c"],["d"]])
+        dat2 = tdf2.TicDat(one=dat.one, two=dat.two, three={k:{} for k in dat.three})
+        dat22 = tdf2.sql.create_tic_dat_from_sql(filePath)
+        self.assertTrue(tdf2._same_data(dat2, dat22))
+
+
+
+        tdf2 = TicDatFactory(one=[["a"],["b", "c"]], two=[["a", "b"],["c"]], three=[["a", "b", "c"],["d"]])
+        tdf2.set_default_value("three", "d", float("inf"))
+        dat2_b = tdf2.TicDat(one=dat.one, two=dat.two, three={k:{} for k in dat.three})
+        dat22_b = tdf2.sql.create_tic_dat_from_sql(filePath)
+        self.assertTrue(tdf2._same_data(dat2_b, dat22_b))
+
+        self.assertFalse(tdf2._same_data(dat2, dat2_b))
 
 
 _scratchDir = TestSql.__name__ + "_scratch"

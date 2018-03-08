@@ -23,6 +23,8 @@ def get_testing_file_path(base_name):
     assert os.path.exists(rtn)
     return rtn
 
+am_on_windows = sys.platform in ['win32']
+
 def configure_blank_accdb():
     verify(os.path.isfile("blank.accdb"),
            "You need a blank.accdb file in your current directory.")
@@ -33,7 +35,7 @@ def configure_blank_accdb():
     copy("blank.accdb", mdb_dir)
 
 def configure_oplrun_path():
-    if sys.platform in ['win32']:
+    if am_on_windows:
         oplrun_name = os.path.abspath('oplrun.exe')
     else:
         oplrun_name = os.path.abspath('oplrun')
@@ -45,6 +47,20 @@ def configure_oplrun_path():
     oplrun_path = os.path.abspath(oplrun_name)
     with open(os.path.join(opl_dir, "oplrun_path.txt"), "w") as f:
         f.write(oplrun_path)
+
+def configure_runlingo_path():
+    if am_on_windows:
+        runlingo_name = os.path.abspath('runlingo.exe')
+    else:
+        runlingo_name = os.path.abspath('runlingo')
+    verify(os.path.isfile(runlingo_name), "You need to be in the directory containing runlingo")
+    lingo_dir = os.path.abspath(os.path.join(_codeDir(), ".."))
+    v_str = "Contact ticdat support at ticdat@opalytics.com"
+    verify(os.path.isdir(lingo_dir), "%s is strangely not a directory. %s"%(lingo_dir, v_str))
+    verify(os.path.isfile(os.path.join(lingo_dir,"lingo.py")), "opl.py is missing. %s"%v_str)
+    runlingo_path = os.path.abspath(runlingo_name)
+    with open(os.path.join(lingo_dir, "runlingo_path.txt"), "w") as f:
+        f.write(runlingo_path)
 
 _debug = []
 def _asserting() :
@@ -513,6 +529,9 @@ def sillyMeData() :
         "c" : ((1, 2, 3, 4), ("a", "b", "c", "d"), ("a", "b", 12, 24) )
     }
 
+def sillyMeDataTwoTables():
+    return {k:v for k,v in sillyMeData().items() if k != "b"}
+
 EPSILON = 1e-05
 
 def perError(x1, x2) :
@@ -536,7 +555,7 @@ def _nearlySame(x1, x2, epsilon) :
     return perError(x1, x2) < epsilon
 
 def nearlySame(*args, **kwargs) :
-    assert not kwargs or kwargs.keys() == ["epsilon"]
+    assert not kwargs or list(kwargs.keys()) == ["epsilon"]
     epsilon = kwargs.get("epsilon", EPSILON)
     if len(args) < 2 :
         return True

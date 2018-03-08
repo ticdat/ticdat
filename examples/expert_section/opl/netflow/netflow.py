@@ -16,7 +16,7 @@
 # will read from a model stored in .csv files in the csv_data directory
 # and write the solution to .csv files in the solution_csv_data directory
 #
-# Note that file requires diet.mod to be in the same directory
+# Note that file requires netflow.mod to be in the same directory
 
 from ticdat import TicDatFactory, standard_main, opl_run
 
@@ -63,7 +63,7 @@ def solve(dat):
 # ---------------------------------------------------------------------------------
 
 # ------------------------ provide stand-alone functionality ----------------------
-# when run from the command line, will read/write xls/csv/db/sql/mdb files
+# when run from the command line, will read/write json/xls/csv/db/sql/mdb files
 if __name__ == "__main__":
     standard_main(input_schema, solution_schema, solve)
 # ---------------------------------------------------------------------------------

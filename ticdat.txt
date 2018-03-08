@@ -3,9 +3,6 @@ Help on package ticdat:
 NAME
     ticdat - ticDat module for reading and writing data modules in ticDat format.
 
-FILE
-    /Users/petercacioppi/src/opalytics-ticdat/ticdat/__init__.py
-
 DESCRIPTION
     ticDat is a simple, easy-to-read format for tabular data. It is partly inspired by csv.DictReader
     and csv.DictWriter.  When primary keys are specified, each table is a dictionary of dictionaries.
@@ -24,9 +21,12 @@ DESCRIPTION
 
 PACKAGE CONTENTS
     csvtd
-    logfile
+    jsontd
+    lingo
     mdb
     model
+    opalytics
+    opl
     sqlitetd
     testing (package)
     ticdatfactory
@@ -103,6 +103,71 @@ CLASSES
      |      :param dialect: the csv dialect. Consult csv documentation for details.
      |      :param write_header: Boolean. Should the header information be written
      |                           as the first row?
+     |      :return:
+     |
+     |  ----------------------------------------------------------------------
+     |  Methods inherited from ticdat.utils._Freezeable:
+     |
+     |  __delattr__(self, item)
+     |
+     |  __setattr__(self, key, value)
+     |
+     |  ----------------------------------------------------------------------
+     |  Data descriptors inherited from ticdat.utils._Freezeable:
+     |
+     |  __dict__
+     |      dictionary for instance variables (if defined)
+     |
+     |  __weakref__
+     |      list of weak references to the object (if defined)
+
+    class JsonTicFactory(ticdat.utils._Freezeable)
+     |  Primary class for reading/writing json files with ticDat objects.
+     |  You need the json package to be installed to use it.
+     |
+     |  Method resolution order:
+     |      JsonTicFactory
+     |      ticdat.utils._Freezeable
+     |      __builtin__.object
+     |
+     |  Methods defined here:
+     |
+     |  __init__(self, tic_dat_factory)
+     |      Don't call this function explicitly. A JsonTicFactory will
+     |      automatically be associated with the sql attribute of the parent
+     |      TicDatFactory.
+     |      :param tic_dat_factory:
+     |      :return:
+     |
+     |  create_tic_dat(self, json_file_path, freeze_it=False)
+     |      Create a TicDat object from a json file
+     |      :param json_file_path: A json file path. It should encode a dictionary
+     |                             with table names as keys.
+     |      :param freeze_it: boolean. should the returned object be frozen?
+     |      :return: a TicDat object populated by the matching tables.
+     |      caveats: Table names matches are case insensitive and also
+     |               underscore-space insensitive.
+     |               Tables that don't find a match are inteprested as an empty table.
+     |               Dictionary keys that don't match any table are ignored.
+     |
+     |  find_duplicates(self, json_file_path)
+     |      Find the row counts for duplicated rows.
+     |      :param json_file_path: A json file path. It should encode a dictionary
+     |                             with table names as keys.
+     |      :return: A dictionary whose keys are table names for the primary-ed key tables.
+     |               Each value of the return dictionary is itself a dictionary.
+     |               The inner dictionary is keyed by the primary key values encountered in the table,
+     |               and the value is the count of records in the json entry with this primary key.
+     |               Row counts smaller than 2 are pruned off, as they aren't duplicates
+     |
+     |  write_file(self, tic_dat, json_file_path, allow_overwrite=False, verbose=False)
+     |      write the ticDat data to an excel file
+     |      :param tic_dat: the data object to write (typically a TicDat)
+     |      :param json_file_path: The file path of the json file to create.
+     |      :param allow_overwrite: boolean - are we allowed to overwrite an
+     |                              existing file?
+     |      :param verbose: boolean. Verbose mode writes the data rows as dicts
+     |                      keyed by field name. Otherwise, they are lists.
      |      :return:
      |
      |  ----------------------------------------------------------------------
@@ -289,6 +354,60 @@ CLASSES
      |  can_write_new_file
      |      :return: True if this environment can write to a new mdb database files,
      |               False otherwise
+     |
+     |  ----------------------------------------------------------------------
+     |  Methods inherited from ticdat.utils._Freezeable:
+     |
+     |  __delattr__(self, item)
+     |
+     |  __setattr__(self, key, value)
+     |
+     |  ----------------------------------------------------------------------
+     |  Data descriptors inherited from ticdat.utils._Freezeable:
+     |
+     |  __dict__
+     |      dictionary for instance variables (if defined)
+     |
+     |  __weakref__
+     |      list of weak references to the object (if defined)
+
+    class OpalyticsTicFactory(ticdat.utils._Freezeable)
+     |  Primary class for reading ticDat objects from the Opalytics Cloud Platform
+     |  Not expected to used outside of Opalytics Cloud hosted notebooks
+     |
+     |  Method resolution order:
+     |      OpalyticsTicFactory
+     |      ticdat.utils._Freezeable
+     |      __builtin__.object
+     |
+     |  Methods defined here:
+     |
+     |  __init__(self, tic_dat_factory)
+     |      Don't call this function explicitly. A OpalyticsTicFactory will
+     |      automatically be associated with the opalytics attribute of the parent
+     |      TicDatFactory.
+     |      :param tic_dat_factory:
+     |      :return:
+     |
+     |  create_tic_dat(self, inputset, raw_data=False, freeze_it=False)
+     |      Create a TicDat object from an opalytics inputset
+     |      :param inputset: An opalytics inputset consistent with this TicDatFactory
+     |      :param raw_data: boolean. should data cleaning be skipped? On the Opalytics Cloud Platform
+     |                       cleaned data will be passed to instant apps. Data cleaning involves
+     |                       removing data type failures, data row predicate failures, foreign key
+     |                       failures and deactivated records.
+     |      :param freeze_it: boolean. should the returned object be frozen?
+     |      :return: a TicDat object populated by the tables as they are rendered by inputset
+     |
+     |  find_duplicates(self, inputset, raw_data=False)
+     |      Find the row counts for duplicated rows.
+     |      :param inputset: An opalytics inputset consistent with this TicDatFactory
+     |      :param raw_data: boolean. should data cleaning be skipped? See create_tic_dat.
+     |      :return: A dictionary whose keys are table names for the primary-ed key tables.
+     |               Each value of the return dictionary is itself a dictionary.
+     |               The inner dictionary is keyed by the primary key values encountered in the table,
+     |               and the value is the count of records in the table with this primary key.
+     |               Row counts smaller than 2 are pruned off, as they aren't duplicates.
      |
      |  ----------------------------------------------------------------------
      |  Methods inherited from ticdat.utils._Freezeable:
@@ -831,28 +950,30 @@ CLASSES
      |      :return:
      |
      |  create_tic_dat(self, xls_file_path, row_offsets={}, headers_present=True, freeze_it=False)
-     |      Create a TicDat object from an Excel file
+     |   Create a TicDat object from an Excel file
      |      :param xls_file_path: An Excel file containing sheets whose names match
      |                            the table names in the schema.
      |      :param row_offsets: (optional) A mapping from table names to initial
      |                          number of rows to skip
      |      :param headers_present: Boolean. Does the first row of data contain the
      |                              column headers?
+     |      :param treat_inf_as_infinity: Boolean. Treat the "inf" string (case insensitive) as
+     |                                             as infinity. Similar for "-inf"
      |      :param freeze_it: boolean. should the returned object be frozen?
      |      :return: a TicDat object populated by the matching sheets.
-     |       caveats: Missing sheets resolve to an empty table, but missing fields
-     |                on matching sheets throw an Exception.
-     |                Sheet names are considered case insensitive, and white space is replaced
-     |                with underscore for table name matching.
-     |                Field names are considered case insensitive, but white space is respected.
-     |                (ticdat supports whitespace in field names but not table names).
-     |                The following two caveats apply only if data_types are used.
-     |                 --> Any field for which an empty string is invalid data and None is
-     |                     valid data will replace the empty string with None.
-     |                 --> Any field for which must_be_int is true will replace numeric
-     |                     data that satisfies int(x)==x with int(x). In other words,
-     |                     the ticdat equivalent of pandas.read_excel convert_float
-     |                     is to set must_be_int to true in data_types.
+     |      caveats: Missing sheets resolve to an empty table, but missing fields
+     |               on matching sheets throw an Exception.
+     |               Sheet names are considered case insensitive, and white space is replaced
+     |               with underscore for table name matching.
+     |               Field names are considered case insensitive, but white space is respected.
+     |               (ticdat supports whitespace in field names but not table names).
+     |               The following two caveats apply only if data_types are used.
+     |               --> Any field for which an empty string is invalid data and None is
+     |                   valid data will replace the empty string with None.
+     |               --> Any field for which must_be_int is true will replace numeric
+     |                   data that satisfies int(x)==x with int(x). In other words,
+     |                   the ticdat equivalent of pandas.read_excel convert_float
+     |                   is to set must_be_int to true in data_types.
      |
      |  find_duplicates(self, xls_file_path, row_offsets={}, headers_present=True)
      |      Find the row counts for duplicated rows.
@@ -912,14 +1033,29 @@ FUNCTIONS
         :param x: ticdat object
         :return: x, after it has been frozen
 
-    opl_run(mod_file, input_tdf, input_dat, soln_tdf, infinity=999999, oplrun_path=None,
-            post_solve=None)
+    gurobi_env(*args, **kwargs)
+        Return a gurobipy.Env object for use in constructing gurobipy.Model() objects.
+        On an ordinary Python installation, this is a pass through to gurobipy.Env()
+        :return: A gurobipy.Env object.
+
+    opl_run(mod_file, input_tdf, input_dat, soln_tdf, infinity=999999, oplrun_path=None)
         solve an optimization problem using an OPL .mod file
         :param mod_file: An OPL .mod file.
         :param input_tdf: A TicDatFactory defining the input schema
         :param input_dat: A TicDat object consistent with input_tdf
         :param soln_tdf: A TicDatFactory defining the solution schema
         :param infinity: A number used to represent infinity in OPL
+        :param oplrun_path: A path to the oplrun executable
+        :return: a TicDat object consistent with soln_tdf, or None if no solution found
+
+    lingo_run(lng_file, input_tdf, input_dat, soln_tdf, infinity=INFINITY, runlingo_path=None)
+        solve an optimization problem using an Lingo .lng file
+        :param lng_file: An Lingo .lng file.
+        :param input_tdf: A TicDatFactory defining the input schema
+        :param input_dat: A TicDat object consistent with input_tdf
+        :param soln_tdf: A TicDatFactory defining the solution variables
+        :param infinity: A number used to represent infinity in Lingo
+        :param runlingo_path: A path to the runlingo executable
         :return: a TicDat object consistent with soln_tdf, or None if no solution found
 
     standard_main(input_schema, solution_schema, solve)

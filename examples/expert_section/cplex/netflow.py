@@ -87,7 +87,7 @@ def solve(dat):
         mdl.add_constraint(
             mdl.sum(flow[h_,i_,j_] for h_,i_,j_ in flowslice.slice(h,'*',j)) +
             dat.inflow.get((h,j), {"Quantity":0})["Quantity"] ==
-            mdl.sum(flow[h_,i_,j_] for h_,i_,j_ in flowslice.slice(h, j, '*')),
+            mdl.sum(flow[h_,j_,i_] for h_,j_,i_ in flowslice.slice(h, j, '*')),
             ctname='node_%s_%s' % (h, j))
 
     mdl.minimize(mdl.sum(flow * dat.cost[h, i, j]["Cost"]
@@ -105,7 +105,7 @@ def solve(dat):
 # ---------------------------------------------------------------------------------
 
 # ------------------------ provide stand-alone functionality ----------------------
-# when run from the command line, will read/write xls/csv/db/sql/mdb files
+# when run from the command line, will read/write json/xls/csv/db/sql/mdb files
 if __name__ == "__main__":
     standard_main(input_schema, solution_schema, solve)
 # ---------------------------------------------------------------------------------

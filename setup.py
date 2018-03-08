@@ -1,8 +1,9 @@
+import ticdat
 from setuptools import setup, find_packages
 setup(
 	name = 'ticdat',
 	packages = find_packages(),
-	version = '0.2.6',
+	version = ticdat.__version__,
 	description = ("An easy-to-use data library for developing mathematical engines"),
 	long_description = """
 

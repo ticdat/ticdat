@@ -3,7 +3,7 @@ import ticdat.utils as utils
 from ticdat.ticdatfactory import TicDatFactory
 from ticdat.testing.ticdattestutils import dietData, dietSchema, netflowData, netflowSchema, firesException
 from ticdat.testing.ticdattestutils import sillyMeData, sillyMeSchema, makeCleanDir, fail_to_debugger
-from ticdat.testing.ticdattestutils import makeCleanPath, addNetflowForeignKeys, addDietForeignKeys
+from ticdat.testing.ticdattestutils import makeCleanPath, addNetflowForeignKeys, addDietForeignKeys, am_on_windows
 from ticdat.testing.ticdattestutils import spacesSchema, dietSchemaWeirdCase, dietSchemaWeirdCase2
 from ticdat.testing.ticdattestutils import copyDataDietWeirdCase, copyDataDietWeirdCase2
 import shutil
@@ -23,7 +23,13 @@ class TestMdb(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         tdmdb._dbq = _orig_dbq
-        shutil.rmtree(_scratchDir)
+        if am_on_windows:  # working around issue opalytics/opalytics-ticdat#153
+            try:
+                shutil.rmtree(_scratchDir)
+            except:
+                pass
+        else:
+            shutil.rmtree(_scratchDir)
     def firesException(self, f):
         e = firesException(f)
         if e :
@@ -164,6 +170,8 @@ class TestMdb(unittest.TestCase):
         self.assertTrue("table d" in self.firesException(lambda  : tdf6.mdb.create_tic_dat(filePath)))
 
         ticDat.a["theboger"] = (1, None, "twelve")
+        if am_on_windows:
+            filePath = filePath.replace("silly.mdb", "silly_2.mdb")  # working around issue opalytics/opalytics-ticdat#153
         tdf.mdb.write_file(ticDat, makeCleanSchema())
         ticDatNone = tdf.mdb.create_tic_dat(filePath, freeze_it=True)
         self.assertTrue(tdf._same_data(ticDat, ticDatNone))

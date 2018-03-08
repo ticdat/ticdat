@@ -3,7 +3,7 @@ Read/write ticDat objects from xls files. Requires the xlrd/xlrt module.
 PEP8
 """
 import ticdat.utils as utils
-from ticdat.utils import freezable_factory, TicDatError, verify, containerish, do_it, FrozenDict
+from ticdat.utils import freezable_factory, TicDatError, verify, containerish, case_space_to_pretty, FrozenDict
 import os
 from collections import defaultdict
 from itertools import product
@@ -23,7 +23,8 @@ except:
 
 _can_unit_test = xlrd and xlwt and xlsx
 
-_xlsx_hack_inf = 1e+100 # the xlsxwriter doesn't handle infinity as seamlessly as xls
+# https://github.com/jmcnamara/XlsxWriter/issues/150 ...
+# the xlsxwriter doesn't handle infinity as seamlessly as xls
 _longest_sheet = 30
 
 class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
@@ -44,7 +45,7 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
         self.tic_dat_factory = tic_dat_factory
         self._isFrozen = True
     def create_tic_dat(self, xls_file_path, row_offsets={}, headers_present = True,
-                       treat_large_as_inf = False,
+                       treat_inf_as_infinity = True,
                        freeze_it = False):
         """
         Create a TicDat object from an Excel file
@@ -54,9 +55,8 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
                             number of rows to skip
         :param headers_present: Boolean. Does the first row of data contain the
                                 column headers?
-        :param treat_large_as_inf: Boolean. Treat numbers >= 1e100 as infinity
-                                   Generally only needed for .xlsx files that were
-                                   themselves created by ticdat (see write_file docs)
+        :param treat_inf_as_infinity: Boolean. Treat the "inf" string (case insensitive) as
+                                               as infinity. Similar for "-inf"
         :param freeze_it: boolean. should the returned object be frozen?
         :return: a TicDat object populated by the matching sheets.
         caveats: Missing sheets resolve to an empty table, but missing fields
@@ -76,8 +76,8 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
         self._verify_differentiable_sheet_names()
         verify(xlrd, "xlrd needs to be installed to use this subroutine")
         tdf = self.tic_dat_factory
-        verify(not(treat_large_as_inf and tdf.generator_tables),
-               "treat_large_as_inf not implemented for generator tables")
+        verify(not(treat_inf_as_infinity and tdf.generator_tables),
+               "treat_inf_as_infinity not implemented for generator tables")
         verify(headers_present or not tdf.generic_tables,
                "headers need to be present to read generic tables")
         verify(utils.DataFrame or not tdf.generic_tables,
@@ -94,10 +94,10 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
                 for f,v in r.items():
                     if f in replaceable[t] and v == '':
                         r[f] = None
-                    elif treat_large_as_inf:
-                        if v >= _xlsx_hack_inf:
+                    elif treat_inf_as_infinity and utils.stringish(v):
+                        if v.lower() == "inf":
                             r[f] = float("inf")
-                        if v <= -_xlsx_hack_inf:
+                        if v.lower() == "-inf":
                             r[f] = -float("inf")
         if freeze_it:
             return self.tic_dat_factory.freeze_me(rtn)
@@ -271,7 +271,7 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
                 [field for field, inds in temp_rtn.items() if len(inds) > 1])
 
 
-    def write_file(self, tic_dat, file_path, allow_overwrite = False):
+    def write_file(self, tic_dat, file_path, allow_overwrite = False, case_space_sheet_names = False):
         """
         write the ticDat data to an excel file
         :param tic_dat: the data object to write (typically a TicDat)
@@ -280,9 +280,11 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
                           The latter is capable of writing out larger tables,
                           but the former handles infinity seamlessly.
                           If ".xlsx", then be advised that +/- float("inf") will be replaced
-                          with +/- 1e+100
+                          with "inf"/"-inf"
         :param allow_overwrite: boolean - are we allowed to overwrite an
                                 existing file?
+              case_space_sheet_names: boolean - make best guesses how to add spaces and upper case
+                                      characters to sheet names
         :return:
         caveats: None may be written out as an empty string. This reflects the behavior of xlwt.
         """
@@ -298,18 +300,23 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
                "The %s path exists and overwrite is not allowed"%file_path)
         if self.tic_dat_factory.generic_tables:
             dat, tdf = utils.create_generic_free(tic_dat, self.tic_dat_factory)
-            return tdf.xls.write_file(dat, file_path, allow_overwrite)
+            return tdf.xls.write_file(dat, file_path, allow_overwrite, case_space_sheet_names)
+        case_space_sheet_names = case_space_sheet_names and \
+                                 len(set(self.tic_dat_factory.all_tables)) == \
+                                 len(set(map(case_space_to_pretty, self.tic_dat_factory.all_tables)))
+        tbl_name_mapping = {t:case_space_to_pretty(t) if case_space_sheet_names else t
+                            for t in self.tic_dat_factory.all_tables}
         if file_path.endswith(".xls"):
-            self._xls_write(tic_dat, file_path)
+            self._xls_write(tic_dat, file_path, tbl_name_mapping)
         else:
-            self._xlsx_write(tic_dat, file_path)
-    def _xls_write(self, tic_dat, file_path):
+            self._xlsx_write(tic_dat, file_path, tbl_name_mapping)
+    def _xls_write(self, tic_dat, file_path, tbl_name_mapping):
         verify(xlwt, "Can't write .xls files because xlwt package isn't installed.")
         tdf = self.tic_dat_factory
         book = xlwt.Workbook()
         for t in  sorted(sorted(tdf.all_tables),
                          key=lambda x: len(tdf.primary_key_fields.get(x, ()))) :
-            sheet = book.add_sheet(t[:_longest_sheet])
+            sheet = book.add_sheet(tbl_name_mapping[t][:_longest_sheet])
             for i,f in enumerate(tdf.primary_key_fields.get(t,()) + tdf.data_fields.get(t, ())) :
                 sheet.write(0, i, f)
             _t = getattr(tic_dat, t)
@@ -325,7 +332,7 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
         if os.path.exists(file_path):
             os.remove(file_path)
         book.save(file_path)
-    def _xlsx_write(self, tic_dat, file_path):
+    def _xlsx_write(self, tic_dat, file_path, tbl_name_mapping):
         verify(xlsx, "Can't write .xlsx files because xlsxwriter package isn't installed.")
         tdf = self.tic_dat_factory
         if os.path.exists(file_path):
@@ -333,13 +340,13 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
         book = xlsx.Workbook(file_path)
         def clean_inf(x):
             if x == float("inf"):
-                return _xlsx_hack_inf
+                return "inf"
             if x == -float("inf"):
-                return -_xlsx_hack_inf
+                return "-inf"
             return x
         for t in sorted(sorted(tdf.all_tables),
                          key=lambda x: len(tdf.primary_key_fields.get(x, ()))) :
-            sheet = book.add_worksheet(t)
+            sheet = book.add_worksheet(tbl_name_mapping[t])
             for i,f in enumerate(tdf.primary_key_fields.get(t,()) + tdf.data_fields.get(t, ())) :
                 sheet.write(0, i, f)
             _t = getattr(tic_dat, t)

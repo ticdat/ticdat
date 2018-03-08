@@ -16,7 +16,7 @@
 # Can read from .csv, Access, Excel or SQLite files. Self validates the input data
 # before solving to prevent strange errors or garbage-in, garbage-out problems.
 
-from ticdat import TicDatFactory, standard_main
+from ticdat import TicDatFactory, standard_main, gurobi_env
 
 
 # this version of the file uses Gurobi
@@ -89,7 +89,7 @@ def solve(dat):
     can_be_drafted_by_me = {player_name for player_name,row in dat.players.items() if
                             row["Draft Status"] != "Drafted By Someone Else"}
 
-    m = gu.Model('fantop')
+    m = gu.Model('fantop', env=gurobi_env())
     my_starters = {player_name:m.addVar(vtype=gu.GRB.BINARY, name="starter_%s"%player_name)
                   for player_name in can_be_drafted_by_me}
     my_reserves = {player_name:m.addVar(vtype=gu.GRB.BINARY, name="reserve_%s"%player_name)
@@ -173,7 +173,7 @@ def solve(dat):
 # ---------------------------------------------------------------------------------
 
 # ------------------------ provide stand-alone functionality ----------------------
-# when run from the command line, will read/write xls/csv/db/mdb files
+# when run from the command line, will read/write json/xls/csv/db/mdb files
 if __name__ == "__main__":
     standard_main(input_schema, solution_schema, solve)
 # ---------------------------------------------------------------------------------

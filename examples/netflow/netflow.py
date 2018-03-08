@@ -14,7 +14,7 @@
 # and write the solution to netflow_solution.sql
 
 import gurobipy as gu
-from ticdat import TicDatFactory, standard_main, Slicer
+from ticdat import TicDatFactory, standard_main, Slicer, gurobi_env
 
 # ------------------------ define the input schema --------------------------------
 input_schema = TicDatFactory (
@@ -63,7 +63,7 @@ def solve(dat):
     assert not input_schema.find_foreign_key_failures(dat)
     assert not input_schema.find_data_type_failures(dat)
 
-    mdl = gu.Model("netflow")
+    mdl = gu.Model("netflow", env=gurobi_env())
 
     flow = {(h, i, j): mdl.addVar(name='flow_%s_%s_%s' % (h, i, j))
             for h, i, j in dat.cost if (i,j) in dat.arcs}
@@ -84,7 +84,7 @@ def solve(dat):
         mdl.addConstr(
             gu.quicksum(flow[h_,i_,j_] for h_,i_,j_ in flowslice.slice(h,'*',j)) +
             dat.inflow.get((h,j), {"Quantity":0})["Quantity"] ==
-            gu.quicksum(flow[h_,i_,j_] for h_,i_,j_ in flowslice.slice(h, j, '*')),
+            gu.quicksum(flow[h_,j_,i_] for h_,j_,i_ in flowslice.slice(h, j, '*')),
             name='node_%s_%s' % (h, j))
 
     mdl.setObjective(gu.quicksum(flow * dat.cost[h, i, j]["Cost"]
@@ -103,7 +103,7 @@ def solve(dat):
 # ---------------------------------------------------------------------------------
 
 # ------------------------ provide stand-alone functionality ----------------------
-# when run from the command line, will read/write xls/csv/db/sql/mdb files
+# when run from the command line, will read/write json/xls/csv/db/sql/mdb files
 if __name__ == "__main__":
     standard_main(input_schema, solution_schema, solve)
 # ---------------------------------------------------------------------------------

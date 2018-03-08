@@ -97,7 +97,7 @@ class TestOpl(unittest.TestCase):
         soln_tdf = TicDatFactory(flow=[["source", "destination", "commodity"], ["quantity"]],
                                  parameters=[["paramKey"], ["value"]])
         dat = in_tdf.TicDat(**{t: getattr(netflowData(), t) for t in in_tdf.primary_key_fields})
-        opl_soln = opl_run("sample_netflow.mod", in_tdf, dat, soln_tdf)
+        opl_soln = opl_run(get_testing_file_path("sample_netflow.mod"), in_tdf, dat, soln_tdf)
         self.assertTrue(nearlySame(opl_soln.parameters["Total Cost"]["value"],5500))
         self.assertTrue(nearlySame(opl_soln.flow["Pens", "Detroit", "New York"]["quantity"], 30))
     def testDiet(self):
@@ -140,6 +140,89 @@ class TestOpl(unittest.TestCase):
         oldDatStr = create_opl_text(tdf, oldDat)
         newDat = read_opl_text(tdf, oldDatStr)
         self.assertTrue(tdf._same_data(oldDat, newDat))
+
+    def testOther(self):
+        tdf = TicDatFactory(
+            table1=[["String_Field"], []],
+            table2=[["String_Field", "Num_PK"], ["Num_Field_1","Num_Field_2"]])
+        data = {
+            "table1": {
+                "test1": [],
+                "test2": [],
+            },
+            "table2": {
+                ("test1",1): [2,3],
+                ("test2",2): [3,4]
+            }
+        }
+        oldDat = tdf.freeze_me(tdf.TicDat(**data))
+        oldDatStr = create_opl_text(tdf, oldDat)
+        newDat = read_opl_text(tdf, oldDatStr)
+        self.assertTrue(tdf._same_data(oldDat, newDat))
+        tdf.opl_prepend = "_"
+        oldDatStr = create_opl_text(tdf, oldDat)
+        newDat = read_opl_text(tdf, oldDatStr)
+        self.assertTrue(tdf._same_data(oldDat, newDat))
+
+    def testCreateModText(self):
+        tdf = TicDatFactory(
+            table1=[["string_pk", "num_pk"], ["num_field1","string_field2"]])
+        tdf.set_data_type("table1", "num_pk", min=0, max=float("inf"), inclusive_min=True, inclusive_max=False)
+        tdf.set_data_type("table1", "string_field2", number_allowed=False, strings_allowed='*')
+        modStr = create_opl_mod_text(tdf)
+        self.assertTrue("key string string_pk;" in modStr)
+        self.assertTrue("key float num_pk;" in modStr)
+        self.assertTrue("float num_field1;" in modStr)
+        self.assertTrue("string string_field2;" in modStr)
+
+    def testReadModText(self):
+        tdf1 = TicDatFactory( test_1 = [["sf1"],["sf2","nf1","nf2"]] )
+        tdf1.set_data_type("test_1", "sf2", number_allowed=False, strings_allowed='*')
+        test_str = 'test_1 =  {<"s1" "s2" 1 2> <"s3" "s4" 0 0>}'
+        test_dat = read_opl_text(tdf1,test_str,False)
+        self.assertTrue(test_dat.test_1["s1"]["sf2"] == "s2")
+        self.assertTrue(test_dat.test_1["s1"]["nf2"] == 2)
+        self.assertTrue(test_dat.test_1["s2"]["nf1"] == 0)
+
+        tdf2 = TicDatFactory( test_2 = [["sf1"],[]] )
+        test_str = 'test_2 =  {<"s3">}'
+        test_dat = read_opl_text(tdf2,test_str,False)
+        self.assertTrue(list(test_dat.test_2.keys())[0] == "s3")
+
+        tdf3 = TicDatFactory( test_3 = [["nf1"],[]] )
+        tdf3.set_data_type("test_3", "nf1", min=0, max=float("inf"), inclusive_min=True, inclusive_max=False)
+        test_str = 'test_3 =  {<6> <5>}'
+        test_dat = read_opl_text(tdf3,test_str,False)
+        self.assertTrue(6 in test_dat.test_3.keys())
+        self.assertTrue(5 in test_dat.test_3.keys())
+        self.assertTrue(len(test_dat.test_3.keys()) == 2)
+
+        tdf4 = TicDatFactory( test_4 = [["nf1"],["nf2","nf3","nf4"]] )
+        tdf4.set_data_type("test_4", "nf1", min=0, max=float("inf"), inclusive_min=True, inclusive_max=False)
+        tdf4.set_data_type("test_4", "nf2", min=0, max=float("inf"), inclusive_min=True, inclusive_max=False)
+        tdf4.set_data_type("test_4", "nf3", min=0, max=float("inf"), inclusive_min=True, inclusive_max=False)
+        tdf4.set_data_type("test_4", "nf4", min=0, max=float("inf"), inclusive_min=True, inclusive_max=False)
+        test_str = 'test_4 =  {<7 0 809 9>}'
+        test_dat = read_opl_text(tdf4,test_str,False)
+        self.assertTrue(7 in test_dat.test_4.keys())
+        self.assertTrue(len(test_dat.test_4[7]) == 3)
+        self.assertTrue(test_dat.test_4[7]["nf3"] == 809)
+
+        tdf5 = TicDatFactory( test_5 = [["sf1"],["sf2"]] )
+        tdf5.set_data_type("test_5", "sf2", number_allowed=False, strings_allowed='*')
+        test_str = 'test_5 =  {<"s4" "s5">}'
+        test_dat = read_opl_text(tdf5,test_str,False)
+        self.assertTrue("s4" in test_dat.test_5.keys())
+        self.assertTrue(test_dat.test_5["s4"]["sf2"] == "s5")
+
+        tdf6 = TicDatFactory( test_6 = [["nf1"],["sf1"]] )
+        tdf6.set_data_type("test_6", "nf1", min=0, max=float("inf"), inclusive_min=True, inclusive_max=False)
+        tdf6.set_data_type("test_6", "sf1", number_allowed=False, strings_allowed='*')
+        test_str = 'test_6 =  {<0 "s6">}'
+        test_dat = read_opl_text(tdf6,test_str,False)
+        self.assertTrue(0 in test_dat.test_6.keys())
+        self.assertTrue(test_dat.test_6[0.0]['sf1'] == "s6")
+
 
 if __name__ == "__main__":
     unittest.main()

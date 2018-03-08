@@ -4,9 +4,9 @@ PEP8
 """
 import os
 from collections import defaultdict
-from ticdat.utils import freezable_factory, TicDatError, verify, stringish, dictish, containerish
+from ticdat.utils import freezable_factory, TicDatError, verify, stringish, dictish, containerish, numericish
 from ticdat.utils import FrozenDict, all_underscore_replacements, find_duplicates
-from ticdat.utils import create_duplicate_focused_tdf, create_generic_free
+from ticdat.utils import create_duplicate_focused_tdf, create_generic_free, safe_apply
 
 try:
     import sqlite3 as sql
@@ -158,7 +158,8 @@ class SQLiteTicFactory(freezable_factory(object, "_isFrozen")) :
         TDE = TicDatError
         verify(os.path.exists(db_file_path), "%s isn't a valid file path"%db_file_path)
         try :
-            sql.connect(db_file_path)
+            with sql.connect(db_file_path) as _:
+                pass
         except Exception as e:
             raise TDE("Unable to open %s as SQLite file : %s"%(db_file_path, e.message))
         table_names = self._get_table_names(db_file_path, tables)
@@ -226,10 +227,19 @@ class SQLiteTicFactory(freezable_factory(object, "_isFrozen")) :
         assert not set(self.tic_dat_factory.generic_tables).intersection(tables)
         rtn = []
         fks = self._fks()
+        default_ = lambda t, f : self.tic_dat_factory.default_values[t][f]
+        def data_type(t, f):
+            def_  = default_(t, f)
+            if numericish(def_):
+                if safe_apply(int)(def_) == def_:
+                    return "INT"
+                return "FLOAT"
+            # the TEXT data type doesn't seem to have much value for my purposes.
+            return ""
         for t in [_ for _ in self._ordered_tables() if _ in tables]:
             str = "Create TABLE [%s] (\n"%t
             strl = _brackets(self.tic_dat_factory.primary_key_fields.get(t, ())) + \
-                   ["[%s]"%f + " default [%s]"%self.tic_dat_factory.default_values.get(t, {}).get(f, 0)
+                   ["[%s] " % f + data_type(t,f) + " default [%s]"%default_(t,f)
                     for f in self.tic_dat_factory.data_fields.get(t, ())]
             for fk in fks.get(t, ()) :
                 nativefields, foreignfields = zip(*(fk.nativetoforeignmapping().items()))
