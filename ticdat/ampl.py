@@ -83,7 +83,11 @@ def ampl_run(mod_file, input_tdf, input_dat, soln_tdf, infinity=INFINITY, post_s
     ampl.solve()
     results = {}
     for tbn in {t for t, pk in soln_tdf.primary_key_fields.items() if pk}:
-        results[tbn] = ampl.getVariable(tbn).getValues().toList() # Make simpler ?
+        try:
+            results[tbn] = ampl.getVariable(tbn).getValues().toList()
+        except:
+            print("Could not retrieve %s variable. A solution was likely not generated. Check AMPL output for details" % tbn)
+            return None
     # Some condition needed for sln = None
     soln_tdf = _unfix_fields_with_ampl_keywords(soln_tdf)
     sln = soln_tdf.TicDat(**{k.replace(soln_tdf.ampl_prepend, "", 1): v for k, v in results.items()})
