@@ -120,19 +120,17 @@ def solve(dat):
 
     # TO DO : check solution success somehow
 
-    buy = ampl.getVariable('Buy')
-    consume = ampl.getVariable('Consume')
+    buy = ampl.getVariable('Buy').getValues().toPandas().rename(index=str, columns={'Buy.val':"Quantity"})
+    buy.index.rename("Food", inplace=True)
+    consume = ampl.getVariable('Consume').getValues().toPandas().rename(index=str, 
+                                                                        columns={'Consume.val':"Quantity"})
+    consume.index.rename("Category", inplace=True)
 
-    sln = solution_schema.TicDat()
-    for f,xd in buy.getValues().toPandas().T.to_dict().items():
-        x = xd['Buy.val']
-        if x > 0:
-            sln.buy_food[f] = x
-    for f,xd in consume.getValues().toPandas().T.to_dict().items():
-        x = xd['Consume.val']
-        if x > 0:
-            sln.consume_nutrition[f] = x
+    sln = solution_schema.TicDat(buy_food = buy[buy["Quantity"] > 0], 
+                                 consume_nutrition = consume[consume["Quantity"] > 0])
     sln.parameters['Total Cost'] = ampl.getObjective('Total_Cost').value()
+
+    return sln
 
     return sln
 # ---------------------------------------------------------------------------------
@@ -142,6 +140,3 @@ def solve(dat):
 if __name__ == "__main__":
     standard_main(input_schema, solution_schema, solve)
 # ---------------------------------------------------------------------------------
-
-
-
