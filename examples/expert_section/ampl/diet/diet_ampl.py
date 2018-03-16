@@ -131,8 +131,6 @@ def solve(dat):
     sln.parameters['Total Cost'] = ampl.getObjective('Total_Cost').value()
 
     return sln
-
-    return sln
 # ---------------------------------------------------------------------------------
 
 # ------------------------ provide stand-alone functionality ----------------------
