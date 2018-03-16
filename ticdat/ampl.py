@@ -1,11 +1,14 @@
 from ticdat.utils import verify, containerish, stringish, find_duplicates_from_dict_ticdat
 from ticdat.utils import find_case_space_duplicates, change_fields_with_reserved_keywords
-import ticdat.utils as tu
+from ticdat.utils import development_deployed_environment
 from ticdat.ticdatfactory import TicDatFactory
 import os, subprocess, inspect, time, uuid, shutil
 from collections import defaultdict
 from ticdat.jsontd import make_json_dict
-from amplpy import AMPL
+try:
+    from amplpy import AMPL
+except:
+    AMPL = None
 
 INFINITY = 999999 # Does AMPL have a way to mark infinity?
 
@@ -30,6 +33,7 @@ def ampl_run(mod_file, input_tdf, input_dat, soln_tdf, infinity=INFINITY, post_s
     :param infinity: A number used to represent infinity in AMPL
     :return: a TicDat object consistent with soln_tdf, or None if no solution found
     """
+    verify(AMPL, "amplpy needs to be installed to use ampl_run")
     verify(os.path.isfile(mod_file), "mod_file %s is not a valid file." % mod_file)
     verify(not find_case_space_duplicates(input_tdf), "There are case space duplicate field names in the input schema.")
     verify(not find_case_space_duplicates(soln_tdf),
@@ -60,7 +64,7 @@ def ampl_run(mod_file, input_tdf, input_dat, soln_tdf, infinity=INFINITY, post_s
         mod = f.read()
         assert ("ticdat_" + mod_file_name + ".mod") in mod
     working_dir = os.path.abspath(os.path.dirname(mod_file))
-    if tu.development_deployed_environment:
+    if development_deployed_environment:
         working_dir = os.path.join(working_dir, "amplticdat_%s" % uuid.uuid4())
         shutil.rmtree(working_dir, ignore_errors=True)
         os.mkdir(working_dir)
