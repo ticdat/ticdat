@@ -120,10 +120,9 @@ def solve(dat):
 
     # TO DO : check solution success somehow
 
-    buy = ampl.getVariable('Buy').getValues().toPandas().rename(index=str, columns={'Buy.val':"Quantity"})
+    buy = ampl.getVariable('Buy').getValues().toPandas().rename(columns={'Buy.val':"Quantity"})
     buy.index.rename("Food", inplace=True)
-    consume = ampl.getVariable('Consume').getValues().toPandas().rename(index=str, 
-                                                                        columns={'Consume.val':"Quantity"})
+    consume = ampl.getVariable('Consume').getValues().toPandas().rename(columns={'Consume.val':"Quantity"})
     consume.index.rename("Category", inplace=True)
 
     sln = solution_schema.TicDat(buy_food = buy[buy["Quantity"] > 0], 
