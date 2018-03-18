@@ -73,11 +73,10 @@ def solve(dat):
     assert not input_schema.find_data_type_failures(dat)
     assert not input_schema.find_data_row_failures(dat)
 
-    ampl_dat = input_schema.copy_to_ampl(dat, field_renamings =
-            {("categories", "Name"): "CAT",
-             ("categories", "Min Nutrition"): "n_min", ("categories", "Max Nutrition"): "n_max",
-             ("foods", "Name"): "FOOD", ("foods", "Cost"): "cost",
-             ("nutrition_quantities", "Quantity"): "amt"})
+    # copy the data over to amplpy.DataFrame objects, renaming the data fields as needed
+    dat = input_schema.copy_to_ampl(dat, field_renamings={("foods", "Cost"): "cost",
+            ("categories", "Min Nutrition"): "n_min", ("categories", "Max Nutrition"): "n_max",
+            ("nutrition_quantities", "Quantity"): "amt"})
 
     ampl = AMPL()
     ampl.setOption('solver', 'gurobi')
@@ -101,9 +100,9 @@ def solve(dat):
        Consume[i] =  sum {j in FOOD} amt[j,i] * Buy[j];
     """)
 
-    ampl.setData(ampl_dat.categories, 'CAT')
-    ampl.setData(ampl_dat.foods, 'FOOD')
-    ampl.setData(ampl_dat.nutrition_quantities)
+    ampl.setData(dat.categories, 'CAT')
+    ampl.setData(dat.foods, 'FOOD')
+    ampl.setData(dat.nutrition_quantities)
     ampl.solve()
 
     # TO DO : check solution success somehow
