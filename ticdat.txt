@@ -697,7 +697,7 @@ CLASSES
      |      :return: a deep copy of the tic_dat argument
      |
      |  copy_to_pandas(self, tic_dat, table_restrictions=None, drop_pk_columns=None)
-     |      copies the tic_dat object into a new tic_dat object populated with data_frames
+     |      copies the tic_dat object into a new tic_dat object populated with pandas.DataFrame objects
      |      performs a deep copy
      |      :param tic_dat: a ticdat object
      |      :param table_restrictions: If truthy, a list of tables to turn into
@@ -707,6 +707,16 @@ CLASSES
      |                              into the index.
      |                              If None, then pk fields will be dropped only for tables with data fields
      |      :return: a deep copy of the tic_dat argument into DataFrames
+     |
+     |  def copy_to_ampl(self, tic_dat, table_restrictions = None, field_renamings = None):
+     |      copies the tic_dat object into a new tic_dat object populated with amplpy.DataFrame objects
+     |      performs a deep copy
+     |      :param tic_dat: a ticdat object
+     |      :param table_restrictions: If truthy, a list of tables to turn into
+     |                                 data frames. Defaults to all tables.
+     |      :param field_renamings: dict or None. If fields are to be renamed in the copy, then
+     |                              a mapping from (table_name, field_name) -> new_field_name
+     |      :return: a deep copy of the tic_dat argument into amplpy.DataFrames
      |
      |  enable_foreign_key_links(self)
      |      call to enable foreign key links. For ex. a TicDat object made from
