@@ -101,10 +101,8 @@ def solve(dat):
 
     # TO DO : check solution success somehow
 
-    flow = ampl.getVariable('Flow').getValues().toPandas().rename(columns={'Flow.val':"Quantity"})
-    flow.index = pd.MultiIndex.from_tuples(flow.index, names = ("Commodity", "Source", "Destination"))
-
-    sln = solution_schema.TicDat(flow = flow[flow['Quantity'] > 0])
+    sln = solution_schema.copy_from_ampl_variables(
+        {('flow' ,'Quantity'):ampl.getVariable("Flow")})
     sln.parameters["Total Cost"] = ampl.getObjective('TotalCost').value()
     return sln
 # ---------------------------------------------------------------------------------
