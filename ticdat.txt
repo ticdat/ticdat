@@ -708,7 +708,22 @@ CLASSES
      |                              If None, then pk fields will be dropped only for tables with data fields
      |      :return: a deep copy of the tic_dat argument into DataFrames
      |
-     |  def copy_to_ampl(self, tic_dat, table_restrictions = None, field_renamings = None):
+     |  copy_from_ampl_variables(self, ampl_variables)
+     |      copies the solution results from ampl_variables into a new ticdat object
+     |      :param ampl_variables: a dict mapping from (table_name, field_name) -> amplpy.variable.Variable
+     |                          (amplpy.variable.Variable is the type object returned by
+     |                           AMPL.getVariable)
+     |                           table_name should refer to a table in the schema that has
+     |                           primary key field
+     |                           field_name should refer a data field for table_name
+     |                           Note that by default, only non-zero data is copied over.
+     |                           If you want to override this filter, then instead of mapping to
+     |                           amplpy.variable.Variable you should map to a
+     |                           (amplpy.variable.Variable, filter) where filter accepts a data value
+     |                           and returns a boolean.
+     |   :return: a deep copy of the ampl_variables into a ticdat object
+     |
+     |  copy_to_ampl(self, tic_dat, table_restrictions = None, field_renamings = None):
      |      copies the tic_dat object into a new tic_dat object populated with amplpy.DataFrame objects
      |      performs a deep copy
      |      :param tic_dat: a ticdat object

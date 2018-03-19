@@ -931,13 +931,11 @@ foreign keys, the code throwing this exception will be removed.
                                 table_name should refer to a table in the schema that has
                                 primary key field
                                 field_name should refer a data field for table_name
-
                                 Note that by default, only non-zero data is copied over.
                                 If you want to override this filter, then instead of mapping to
                                 amplpy.variable.Variable you should map to a
                                 (amplpy.variable.Variable, filter) where filter accepts a data value
                                 and returns a boolean.
-
         :return: a deep copy of the ampl_variables into a ticdat object
         """
         def good_map_onto(v):
