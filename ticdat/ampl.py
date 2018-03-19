@@ -7,8 +7,9 @@ from collections import defaultdict
 from ticdat.jsontd import make_json_dict
 try:
     from amplpy import AMPL
+    import amplpy
 except:
-    AMPL = None
+    amplpy = AMPL = None
 
 INFINITY = 999999 # Does AMPL have a way to mark infinity?
 

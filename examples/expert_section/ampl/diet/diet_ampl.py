@@ -73,22 +73,10 @@ def solve(dat):
     assert not input_schema.find_data_type_failures(dat)
     assert not input_schema.find_data_row_failures(dat)
 
-    # pandas DataFrames make it easiest to populate amplpy.DataFrames
-    dat = input_schema.copy_to_pandas(dat, drop_pk_columns=False)
-
-    df_cat = amplpy.DataFrame(index=('CAT',))
-    df_cat.setColumn('CAT', list(dat.categories["Name"]))
-    df_cat.addColumn('n_min', list(dat.categories["Min Nutrition"]))
-    df_cat.addColumn('n_max', list(dat.categories["Max Nutrition"]))
-
-    df_food = amplpy.DataFrame(index=('FOOD',))
-    df_food.setColumn('FOOD', list(dat.foods["Name"]))
-    df_food.addColumn('cost', list(dat.foods["Cost"]))
-
-    df_amt = amplpy.DataFrame(index=('NUTR', 'FOOD'))
-    df_amt.setColumn('NUTR', list(dat.nutrition_quantities["Category"]))
-    df_amt.setColumn('FOOD', list(dat.nutrition_quantities["Food"]))
-    df_amt.addColumn('amt', list(dat.nutrition_quantities["Quantity"]))
+    # copy the data over to amplpy.DataFrame objects, renaming the data fields as needed
+    dat = input_schema.copy_to_ampl(dat, field_renamings={("foods", "Cost"): "cost",
+            ("categories", "Min Nutrition"): "n_min", ("categories", "Max Nutrition"): "n_max",
+            ("nutrition_quantities", "Quantity"): "amt"})
 
     ampl = AMPL()
     ampl.setOption('solver', 'gurobi')
@@ -101,7 +89,7 @@ def solve(dat):
     param n_min {CAT} >= 0;
     param n_max {i in CAT} >= n_min[i];
 
-    param amt {CAT,FOOD} >= 0;
+    param amt {FOOD, CAT} >= 0;
 
     var Buy {j in FOOD} >= 0;
     var Consume {i in CAT } >= n_min [i], <= n_max [i];
@@ -109,24 +97,19 @@ def solve(dat):
     minimize Total_Cost:  sum {j in FOOD} cost[j] * Buy[j];
 
     subject to Diet {i in CAT}:
-       Consume[i] =  sum {j in FOOD} amt[i,j] * Buy[j];
+       Consume[i] =  sum {j in FOOD} amt[j,i] * Buy[j];
     """)
 
-    ampl.setData(df_cat, 'CAT')
-    ampl.setData(df_food, 'FOOD')
-    ampl.setData(df_amt)
-
+    ampl.setData(dat.categories, 'CAT')
+    ampl.setData(dat.foods, 'FOOD')
+    ampl.setData(dat.nutrition_quantities)
     ampl.solve()
 
     # TO DO : check solution success somehow
 
-    buy = ampl.getVariable('Buy').getValues().toPandas().rename(columns={'Buy.val':"Quantity"})
-    buy.index.rename("Food", inplace=True)
-    consume = ampl.getVariable('Consume').getValues().toPandas().rename(columns={'Consume.val':"Quantity"})
-    consume.index.rename("Category", inplace=True)
-
-    sln = solution_schema.TicDat(buy_food = buy[buy["Quantity"] > 0], 
-                                 consume_nutrition = consume[consume["Quantity"] > 0])
+    sln = solution_schema.copy_from_ampl_variables(
+        {("buy_food", "Quantity"):ampl.getVariable("Buy"),
+        ("consume_nutrition", "Quantity"):ampl.getVariable("Consume")})
     sln.parameters['Total Cost'] = ampl.getObjective('Total_Cost').value()
 
     return sln

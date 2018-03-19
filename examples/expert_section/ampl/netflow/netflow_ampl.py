@@ -64,30 +64,9 @@ def solve(dat):
     assert not input_schema.find_foreign_key_failures(dat)
     assert not input_schema.find_data_type_failures(dat)
 
-    # pandas DataFrames make it easiest to populate amplpy.DataFrames
-    dat = input_schema.copy_to_pandas(dat, drop_pk_columns=False)
-
-    df_nodes = amplpy.DataFrame(index=('NODES',))
-    df_nodes.setColumn('NODES', dat.nodes["Name"])
-
-    df_arcs = amplpy.DataFrame(index=('SOURCE', 'DEST',))
-    df_arcs.setColumn('SOURCE', dat.arcs["Source"])
-    df_arcs.setColumn('DEST', dat.arcs["Destination"])
-    df_arcs.addColumn('capacity', dat.arcs['Capacity'])
-
-    df_commodity = amplpy.DataFrame(index=('COMMODITY',))
-    df_commodity.setColumn('COMMODITY', dat.commodities["Name"])
-
-    df_cost = amplpy.DataFrame(index=('COMMODITY', 'SOURCE', 'DEST',))
-    df_cost.setColumn('COMMODITY', dat.cost["Commodity"])
-    df_cost.setColumn('SOURCE', dat.cost["Source"])
-    df_cost.setColumn('DEST', dat.cost["Destination"])
-    df_cost.addColumn('cost', dat.cost["Cost"])
-
-    df_inflow = amplpy.DataFrame(index=('COMMODITY', 'NODE', ))
-    df_inflow.setColumn('COMMODITY', dat.inflow["Commodity"])
-    df_inflow.setColumn('NODE', dat.inflow["Node"])
-    df_inflow.addColumn('inflow', dat.inflow["Quantity"])
+    # copy the data over to amplpy.DataFrame objects, renaming the data fields as needed
+    dat = input_schema.copy_to_ampl(dat, field_renamings={("arcs", "Capacity"): "capacity",
+            ("cost", "Cost"): "cost", ("inflow", "Quantity"): "inflow"})
 
     ampl = amplpy.AMPL()
     ampl.setOption('solver', 'gurobi')
@@ -112,20 +91,18 @@ def solve(dat):
        sum {(i,j) in ARCS} Flow[h,i,j] + inflow[h,j] = sum {(j,i) in ARCS} Flow[h,j,i];
     """)
 
-    ampl.setData(df_nodes, 'NODES')
-    ampl.setData(df_arcs, 'ARCS')
-    ampl.setData(df_commodity, 'COMMODITIES')
-    ampl.setData(df_cost)
-    ampl.setData(df_inflow)
+    ampl.setData(dat.nodes, 'NODES')
+    ampl.setData(dat.arcs, 'ARCS')
+    ampl.setData(dat.commodities, 'COMMODITIES')
+    ampl.setData(dat.cost)
+    ampl.setData(dat.inflow)
 
     ampl.solve()
 
     # TO DO : check solution success somehow
 
-    flow = ampl.getVariable('Flow').getValues().toPandas().rename(columns={'Flow.val':"Quantity"})
-    flow.index = pd.MultiIndex.from_tuples(flow.index, names = ("Commodity", "Source", "Destination"))
-
-    sln = solution_schema.TicDat(flow = flow[flow['Quantity'] > 0])
+    sln = solution_schema.copy_from_ampl_variables(
+        {('flow' ,'Quantity'):ampl.getVariable("Flow")})
     sln.parameters["Total Cost"] = ampl.getObjective('TotalCost').value()
     return sln
 # ---------------------------------------------------------------------------------
