@@ -1010,6 +1010,24 @@ foreign keys, the code throwing this exception will be removed.
                     df_ampl.addColumn(rename(f), list(getattr(copy_from, t)[f]))
             setattr(rtn, t, df_ampl)
         return rtn
+    def set_ampl_data(self, tic_dat, ampl, table_to_set_name = None):
+        """
+        performs bulk setData on the AMPL first argument.
+        :param tic_dat: an AmplTicDat object created by calling copy_to_ampl
+        :param ampl: an amplpy.AMPL object
+        :param table_to_set_name: a mapping of table_name to ampl set name
+        :return:
+        """
+        verify(all(a.startswith("_") or a in self.all_tables for a in dir(tic_dat)),
+               "bad ticdat argument")
+        verify(hasattr(ampl, "setData"), "bad ampl argument")
+        table_to_set_name = table_to_set_name or {}
+        verify(dictish(table_to_set_name) and all(hasattr(tic_dat, k) and
+                   utils.stringish(v) for k,v in table_to_set_name.items()),
+               "bad table_to_set_name argument")
+        for t in set(self.all_tables).intersection(dir(tic_dat)):
+            ampl.setData(getattr(tic_dat, t), *([table_to_set_name[t]]
+                                                if t in table_to_set_name else []))
     def copy_to_pandas(self, tic_dat, table_restrictions = None, drop_pk_columns = None):
         """
         copies the tic_dat object into a new tic_dat object populated with pandas.DataFrame objects

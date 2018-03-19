@@ -100,9 +100,7 @@ def solve(dat):
        Consume[i] =  sum {j in FOOD} amt[j,i] * Buy[j];
     """)
 
-    ampl.setData(dat.categories, 'CAT')
-    ampl.setData(dat.foods, 'FOOD')
-    ampl.setData(dat.nutrition_quantities)
+    input_schema.set_ampl_data(dat, ampl, {"categories": "CAT", "foods": "FOOD"})
     ampl.solve()
 
     # TO DO : check solution success somehow

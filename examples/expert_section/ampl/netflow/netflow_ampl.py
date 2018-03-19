@@ -91,12 +91,8 @@ def solve(dat):
        sum {(i,j) in ARCS} Flow[h,i,j] + inflow[h,j] = sum {(j,i) in ARCS} Flow[h,j,i];
     """)
 
-    ampl.setData(dat.nodes, 'NODES')
-    ampl.setData(dat.arcs, 'ARCS')
-    ampl.setData(dat.commodities, 'COMMODITIES')
-    ampl.setData(dat.cost)
-    ampl.setData(dat.inflow)
-
+    input_schema.set_ampl_data(dat, ampl, {"nodes": "NODES", "arcs": "ARCS",
+                                           "commodities": "COMMODITIES"})
     ampl.solve()
 
     # TO DO : check solution success somehow

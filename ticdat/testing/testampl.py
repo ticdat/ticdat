@@ -194,9 +194,7 @@ class TestAmpl(unittest.TestCase):
         ampl = amplpy.AMPL()
         ampl.setOption('solver', 'gurobi')
         ampl.eval(_diet_mod)
-        ampl.setData(dat.categories, 'CAT')
-        ampl.setData(dat.foods, 'FOOD')
-        ampl.setData(dat.nutrition_quantities)
+        _diet_input_tdf.set_ampl_data(dat, ampl, {"categories": "CAT", "foods": "FOOD"})
         ampl.solve()
 
         sln = _diet_sln_tdf.copy_from_ampl_variables(
@@ -218,11 +216,8 @@ class TestAmpl(unittest.TestCase):
         ampl = amplpy.AMPL()
         ampl.setOption('solver', 'gurobi')
         ampl.eval(_netflow_mod)
-        ampl.setData(dat.nodes, 'NODES')
-        ampl.setData(dat.arcs, 'ARCS')
-        ampl.setData(dat.commodities, 'COMMODITIES')
-        ampl.setData(dat.cost)
-        ampl.setData(dat.inflow)
+        _netflow_input_tdf.set_ampl_data(dat, ampl, {"nodes": "NODES", "arcs": "ARCS",
+                                           "commodities": "COMMODITIES"})
         ampl.solve()
 
         sln = _netflow_sln_tdf.copy_from_ampl_variables(
