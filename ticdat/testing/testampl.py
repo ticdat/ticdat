@@ -190,6 +190,7 @@ class TestAmpl(unittest.TestCase):
         dat = _diet_input_tdf.copy_to_ampl(_diet_dat, field_renamings={("foods", "Cost"): "cost",
                 ("categories", "Min Nutrition"): "n_min", ("categories", "Max Nutrition"): "n_max",
                 ("nutrition_quantities", "Quantity"): "amt"})
+        self.assertTrue({"n_min", "n_max"}.issubset(dat.categories.toPandas().columns))
         ampl = amplpy.AMPL()
         ampl.setOption('solver', 'gurobi')
         ampl.eval(_diet_mod)
@@ -204,6 +205,12 @@ class TestAmpl(unittest.TestCase):
         sln.parameters['Total Cost'] = ampl.getObjective('Total_Cost').value()
 
         self.assertTrue(_nearly_same_dat(_diet_sln_tdf, sln, _diet_sln_ticdat))
+
+        dat = _diet_input_tdf.copy_to_ampl(_diet_dat, {("foods", "Cost"): "cost",
+                ("categories", "Min Nutrition"): "", ("categories", "Max Nutrition"): "n_max"},
+                ["nutrition_quantities"])
+        self.assertFalse(hasattr(dat, "nutrition_quantities"))
+        self.assertTrue({"n_min", "n_max"}.intersection(dat.categories.toPandas().columns) == {"n_max"})
 
     def test_netflow_amplpy(self):
         dat = _netflow_input_tdf.copy_to_ampl(_netflow_dat, field_renamings={("arcs", "Capacity"): "capacity",
