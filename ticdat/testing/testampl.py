@@ -224,6 +224,20 @@ class TestAmpl(unittest.TestCase):
 
         self.assertTrue(_nearly_same_dat(_netflow_sln_tdf, sln, _netflow_sln_ticdat))
 
+        sln2 = _netflow_sln_tdf.copy_from_ampl_variables(
+            {('flow' ,'Quantity'):(ampl.getVariable("Flow"), lambda v : v>30)})
+        sln3 = _netflow_sln_tdf.copy_from_ampl_variables(
+            {('flow' ,'Quantity'):(ampl.getVariable("Flow"), lambda v : 0<v<=30)})
+        sln2.parameters["Total Cost"] = sln3.parameters["Total Cost"] = sln.parameters["Total Cost"]
+
+        self.assertTrue(sln2.flow and sln3.flow)
+        self.assertFalse(_nearly_same_dat(_netflow_sln_tdf, sln, sln2))
+        self.assertFalse(_nearly_same_dat(_netflow_sln_tdf, sln, sln3))
+        for k,v in sln3.flow.items():
+            sln2.flow[k] = v
+        self.assertTrue(_nearly_same_dat(_netflow_sln_tdf, sln, sln2))
+
+
     # def testDiet_ampl_runRequired(self):
     #     self.assertTrue(_can_run_ampl_run_tests)
     #     diet_schema = {"categories" : (("Name",),["Min Nutrition", "Max Nutrition"]),
