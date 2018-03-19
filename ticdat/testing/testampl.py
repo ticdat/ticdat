@@ -10,6 +10,64 @@ from ticdat.testing.ticdattestutils import  netflowSchema,sillyMeData, sillyMeSc
 from ticdat.testing.ticdattestutils import fail_to_debugger, flagged_as_run_alone, get_testing_file_path
 import unittest
 
+_diet_mod = """
+    set CAT;
+    set FOOD;
+    param cost {FOOD} > 0;
+    param n_min {CAT} >= 0;
+    param n_max {i in CAT} >= n_min[i];
+    param amt {FOOD, CAT} >= 0;
+    var Buy {j in FOOD} >= 0;
+    var Consume {i in CAT } >= n_min [i], <= n_max [i];
+    minimize Total_Cost:  sum {j in FOOD} cost[j] * Buy[j];
+    subject to Diet {i in CAT}:
+       Consume[i] =  sum {j in FOOD} amt[j,i] * Buy[j];
+    """
+_diet_sln_tdf = TicDatFactory(
+    parameters = [["Key"],["Value"]],
+    buy_food = [["Food"],["Quantity"]],
+    consume_nutrition = [["Category"],["Quantity"]])
+_diet_sln_ticdat = _diet_sln_tdf.TicDat(**{'buy_food': {
+  u'hamburger': {'Quantity': 0.604513888889},
+  u'ice cream': {'Quantity': 2.59131944444},
+  u'milk': {'Quantity': 6.97013888889}},
+ 'consume_nutrition': {
+  u'calories': {'Quantity': 1800},
+  u'fat': {'Quantity': 59.0559027778},
+  u'protein': {'Quantity': 91},
+  u'sodium': {'Quantity': 1779}},
+ 'parameters': {u'Total Cost': {'Value': 11.8288611111}}})
+
+_netflow_mod = """
+    set NODES;
+    set ARCS within {i in NODES, j in NODES: i <> j};
+    set COMMODITIES;
+    param capacity {ARCS} >= 0;
+    param cost {COMMODITIES,ARCS} > 0;
+    param inflow {COMMODITIES,NODES};
+    var Flow {COMMODITIES,ARCS} >= 0;
+    minimize TotalCost:
+       sum {h in COMMODITIES, (i,j) in ARCS} cost[h,i,j] * Flow[h,i,j];
+    subject to Capacity {(i,j) in ARCS}:
+       sum {h in COMMODITIES} Flow[h,i,j] <= capacity[i,j];
+    subject to Conservation {h in COMMODITIES, j in NODES}:
+       sum {(i,j) in ARCS} Flow[h,i,j] + inflow[h,j] = sum {(j,i) in ARCS} Flow[h,j,i];
+"""
+
+_netflow_sln_tdf = TicDatFactory(
+        flow = [["Commodity", "Source", "Destination"], ["Quantity"]],
+        parameters = [["Key"],["Value"]])
+_netflow_sln_ticdat = _netflow_sln_tdf.TicDat(**{'flow': {
+  (u'Pencils', u'Denver', u'New York'): {'Quantity': 50},
+  (u'Pencils', u'Denver', u'Seattle'): {'Quantity': 10},
+  (u'Pencils', u'Detroit', u'Boston'): {'Quantity': 50},
+  (u'Pens', u'Denver', u'Boston'): {'Quantity': 10},
+  (u'Pens', u'Denver', u'Seattle'): {'Quantity': 30},
+  (u'Pens', u'Detroit', u'Boston'): {'Quantity': 30},
+  (u'Pens', u'Detroit', u'New York'): {'Quantity': 30}},
+ 'parameters': {u'Total Cost': {'Value': 5500}}}
+)
+
 #@fail_to_debugger
 class TestAmpl(unittest.TestCase):
     @classmethod
