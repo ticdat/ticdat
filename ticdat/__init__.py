@@ -19,7 +19,6 @@ from ticdat.utils import Sloc, LogFile, Progress, Slicer, \
                          find_denormalized_sub_table_failures, standard_main, \
                          gurobi_env
 from ticdat.opl import opl_run, create_opl_mod_text, create_opl_mod_output_text
-from ticdat.ampl import ampl_run, create_ampl_mod_text
 from ticdat.lingo import lingo_run
 from ticdat.model import Model
 __version__ = '0.2.12'
