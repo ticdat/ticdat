@@ -210,6 +210,17 @@ class TestAmpl(unittest.TestCase):
         self.assertFalse(hasattr(dat, "nutrition_quantities"))
         self.assertTrue({"n_min", "n_max"}.intersection(dat.categories.toPandas().columns) == {"n_max"})
 
+        sln_tdf_2  = TicDatFactory(buy_food = [["Food"],["Quantity"]],
+                                   consume_nutrition = [["Category"],[]])
+        sln_tdf_2.set_default_value("buy_food", "Quantity", 1)
+        sln_2 = sln_tdf_2.copy_from_ampl_variables(
+            {("buy_food", False):ampl.getVariable("Buy"),
+             ("consume_nutrition",False):(ampl.getVariable("Consume"), lambda x : x < 100)})
+        self.assertTrue(set(sln_2.buy_food) == set(sln.buy_food) and
+                        all(v["Quantity"] == 1 for v in sln_2.buy_food.values()))
+        self.assertTrue(sln_2.consume_nutrition and set(sln_2.consume_nutrition) ==
+                        {k for k,v in sln.consume_nutrition.items() if v["Quantity"] < 100})
+
     def test_netflow_amplpy(self):
         dat = _netflow_input_tdf.copy_to_ampl(_netflow_dat, field_renamings={("arcs", "Capacity"): "capacity",
             ("cost", "Cost"): "cost", ("inflow", "Quantity"): "inflow"})

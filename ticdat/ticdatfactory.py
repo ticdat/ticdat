@@ -929,8 +929,11 @@ foreign keys, the code throwing this exception will be removed.
                                (amplpy.variable.Variable is the type object returned by
                                 AMPL.getVariable)
                                 table_name should refer to a table in the schema that has
-                                primary key field
-                                field_name should refer a data field for table_name
+                                primary key fields.
+                                field_name can refer to a data field for table_name, or it
+                                can be falsey. If the latter, then AMPL variables that
+                                pass the filter (see below) will simply populate the primary key
+                                of the table_name.
                                 Note that by default, only non-zero data is copied over.
                                 If you want to override this filter, then instead of mapping to
                                 amplpy.variable.Variable you should map to a
@@ -946,7 +949,7 @@ foreign keys, the code throwing this exception will be removed.
         # verify will always fail
         verify(dictish(ampl_variables) and
                all(containerish(k) and len(k) == 2 and self.primary_key_fields.get(k[0]) and
-                   k[1] in self.data_fields[k[0]] and good_map_onto(v)
+                   (k[1] in self.data_fields[k[0]] or not k[1]) and good_map_onto(v)
                    for k,v in ampl_variables.items()), "invalid ampl_variables argument")
         rtn = self.TicDat()
         for (t,f), av in ampl_variables.items():
@@ -956,16 +959,23 @@ foreign keys, the code throwing this exception will be removed.
             df = av.getValues().toPandas()
             verify(len(df.columns) == 1, "unexpected number of data columns found for ampl_variable" +
                                          "object " + str((t,f)))
-            df.rename(columns={next(iter(df.columns)):f}, inplace=True)
+            df.rename(columns={next(iter(df.columns)):f or "ticdat_dummy"}, inplace=True)
             if len(self.primary_key_fields[t]) == 1:
                 df.index.rename(self.primary_key_fields[t][0], inplace=True)
             else:
                 verify(pd, "pandas needs to installed to help process table %s"%t)
                 df.index = pd.MultiIndex.from_tuples(df.index, names=self.primary_key_fields[t])
-            tic_dat = self.TicDat(**{t:df})
-            for k,r in getattr(tic_dat, t).items():
-                if filter_(r[f]):
-                    getattr(rtn, t)[k][f] = r[f]
+            if f:
+                tic_dat = self.TicDat(**{t:df})
+                for k,r in getattr(tic_dat, t).items():
+                    if filter_(r[f]):
+                        getattr(rtn, t)[k][f] = r[f]
+            else:
+                tic_dat = TicDatFactory(**{t:[self.primary_key_fields[t],
+                                              ["ticdat_dummy"]]}).TicDat(**{t:df})
+                for k,r in getattr(tic_dat, t).items():
+                    if filter_(r["ticdat_dummy"]) and k not in getattr(rtn, t):
+                        getattr(rtn, t)[k] = {}
         return rtn
     def copy_to_ampl(self, tic_dat, field_renamings = None, excluded_tables = None):
         """
