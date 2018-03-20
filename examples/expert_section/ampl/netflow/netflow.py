@@ -14,8 +14,7 @@
 # and write the solution to netflow_solution.sql
 
 from ticdat import TicDatFactory, standard_main
-import amplpy
-import pandas as pd
+from amplpy import AMPL
 
 # ------------------------ define the input schema --------------------------------
 input_schema = TicDatFactory (
@@ -68,7 +67,7 @@ def solve(dat):
     dat = input_schema.copy_to_ampl(dat, field_renamings={("arcs", "Capacity"): "capacity",
             ("cost", "Cost"): "cost", ("inflow", "Quantity"): "inflow"})
 
-    ampl = amplpy.AMPL()
+    ampl = AMPL()
     ampl.setOption('solver', 'gurobi')
     ampl.eval("""
     set NODES;

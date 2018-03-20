@@ -18,7 +18,6 @@
 
 # diet_ampl.py doesn't require a separate .mod file. Instead, we use amplpy.AMPL
 from amplpy import AMPL
-import amplpy
 from ticdat import TicDatFactory, standard_main
 
 # ------------------------ define the input schema --------------------------------
