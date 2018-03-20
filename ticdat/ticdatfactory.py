@@ -953,7 +953,7 @@ foreign keys, the code throwing this exception will be removed.
                    for k,v in ampl_variables.items()), "invalid ampl_variables argument")
         rtn = self.TicDat()
         for (t,f), av in ampl_variables.items():
-            filter_ = lambda x : x > 0
+            filter_ = lambda x : x != 0
             if containerish(av):
                 av, filter_ = av
             df = av.getValues().toPandas()

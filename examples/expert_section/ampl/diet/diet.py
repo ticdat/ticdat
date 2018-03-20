@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-# Copyright 2015, 2016 Opalytics, Inc.
+# Copyright 2015, 2016, 2017, 2018 Opalytics, Inc.
 #
 
 # Implement core functionality needed to achieve modularity.
@@ -11,14 +11,15 @@
 #
 # Provides command line interface via ticdat.standard_main
 # For example, typing
-#   python diet.py -i input_data.xlsx -o solution_data.xlsx
+#   python diet_ampl.py -i input_data.xlsx -o solution_data.xlsx
 # will read from a model stored in the file input_data.xlsx and write the solution
 # to solution_data.xlsx.
 #
-# Note that file requires diet.mod to be in the same directory
 
-from ticdat import TicDatFactory, standard_main, ampl_run
-from collections import defaultdict
+# diet_ampl.py doesn't require a separate .mod file. Instead, we use amplpy.AMPL
+from amplpy import AMPL
+import amplpy
+from ticdat import TicDatFactory, standard_main
 
 # ------------------------ define the input schema --------------------------------
 # There are three input tables, with 4 primary key fields and 4 data fields.
@@ -26,6 +27,11 @@ input_schema = TicDatFactory (
     categories = [["Name"],["Min Nutrition", "Max Nutrition"]],
     foods  = [["Name"],["Cost"]],
     nutrition_quantities = [["Food", "Category"], ["Quantity"]])
+
+# Define the foreign key relationships
+input_schema.add_foreign_key("nutrition_quantities", "foods", ["Food", "Name"])
+input_schema.add_foreign_key("nutrition_quantities", "categories",
+                            ["Category", "Name"])
 
 # Define the data types
 input_schema.set_data_type("categories", "Min Nutrition", min=0, max=float("inf"),
@@ -46,7 +52,6 @@ input_schema.add_data_row_predicate(
 input_schema.set_default_value("categories", "Max Nutrition", float("inf"))
 # ---------------------------------------------------------------------------------
 
-
 # ------------------------ define the output schema -------------------------------
 # There are three solution tables, with 2 primary key fields and 3 data fields.
 solution_schema = TicDatFactory(
@@ -62,27 +67,54 @@ def solve(dat):
     :param dat: a good ticdat for the input_schema
     :return: a good ticdat for the solution_schema, or None
     """
+
     assert input_schema.good_tic_dat_object(dat)
     assert not input_schema.find_foreign_key_failures(dat)
     assert not input_schema.find_data_type_failures(dat)
     assert not input_schema.find_data_row_failures(dat)
 
-    # These are the variables populated by the diet.lng file.
-    solution_variables = TicDatFactory(buy=[["Food"],["Quantity"]])
+    # copy the data over to amplpy.DataFrame objects, renaming the data fields as needed
+    dat = input_schema.copy_to_ampl(dat, field_renamings={("foods", "Cost"): "cost",
+            ("categories", "Min Nutrition"): "n_min", ("categories", "Max Nutrition"): "n_max",
+            ("nutrition_quantities", "Quantity"): "amt"})
 
-    sln = ampl_run("diet.mod", input_schema, dat, solution_variables)
-    if sln:
-        rtn = solution_schema.TicDat(buy_food=sln.buy)
-        for (f, c), r in dat.nutrition_quantities.items():
-            if f in rtn.buy_food:
-                rtn.consume_nutrition[c]["Quantity"] += r["Quantity"] * rtn.buy_food[f]["Quantity"]
-        rtn.parameters['Total Cost'] = sum(dat.foods[f]["Cost"] * r["Quantity"]
-                                           for f,r in rtn.buy_food.items())
-        return rtn
+    ampl = AMPL()
+    ampl.setOption('solver', 'gurobi')
+    ampl.eval("""
+    set CAT;
+    set FOOD;
+
+    param cost {FOOD} > 0;
+
+    param n_min {CAT} >= 0;
+    param n_max {i in CAT} >= n_min[i];
+
+    param amt {FOOD, CAT} >= 0;
+
+    var Buy {j in FOOD} >= 0;
+    var Consume {i in CAT } >= n_min [i], <= n_max [i];
+
+    minimize Total_Cost:  sum {j in FOOD} cost[j] * Buy[j];
+
+    subject to Diet {i in CAT}:
+       Consume[i] =  sum {j in FOOD} amt[j,i] * Buy[j];
+    """)
+
+    input_schema.set_ampl_data(dat, ampl, {"categories": "CAT", "foods": "FOOD"})
+    ampl.solve()
+
+    # TO DO : check solution success somehow
+
+    sln = solution_schema.copy_from_ampl_variables(
+        {("buy_food", "Quantity"):ampl.getVariable("Buy"),
+        ("consume_nutrition", "Quantity"):ampl.getVariable("Consume")})
+    sln.parameters['Total Cost'] = ampl.getObjective('Total_Cost').value()
+
+    return sln
 # ---------------------------------------------------------------------------------
 
 # ------------------------ provide stand-alone functionality ----------------------
-# when run from the command line, will read/write xls/csv/db/sql/mdb files
+# when run from the command line, will read/write xls/csv/db/sql/mdb files;
 if __name__ == "__main__":
     standard_main(input_schema, solution_schema, solve)
 # ---------------------------------------------------------------------------------

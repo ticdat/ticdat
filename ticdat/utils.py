@@ -111,7 +111,8 @@ def standard_main(input_schema, solution_schema, solve):
             if output_file.endswith(".json"):
                 solution_schema.json.write_file(sln, output_file, allow_overwrite=True)
             elif output_file.endswith(".xls") or output_file.endswith(".xlsx"):
-                solution_schema.xls.write_file(sln, output_file, allow_overwrite=True)
+                solution_schema.xls.write_file(sln, output_file, allow_overwrite=True,
+                                               case_space_sheet_names=True)
             elif output_file.endswith(".db"):
                 solution_schema.sql.write_db_data(sln, output_file, allow_overwrite=True)
             elif output_file.endswith(".sql"):
