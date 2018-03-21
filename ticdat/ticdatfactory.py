@@ -16,6 +16,10 @@ import ticdat.mdb as mdb
 import ticdat.jsontd as json
 import ticdat.opalytics as opalytics
 import sys
+try:
+    import amplpy
+except:
+    amplpy = None
 
 pd, DataFrame = utils.pd, utils.DataFrame # if pandas not installed will be falsey
 
@@ -72,7 +76,7 @@ class _TypeDictionary(namedtuple("TypeDictionary",
             return bool(self.nullable)
         return False
 
-class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "lingo_prepend"})) :
+class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "lingo_prepend", "ampl_prepend"})) :
     """
     Primary class for ticdat library. This class is constructed with a schema,
     and can be used to generate TicDat objects, or to write TicDat objects to
@@ -918,9 +922,126 @@ foreign keys, the code throwing this exception will be removed.
                "tic_dat not a good object for this factory : %s"%"\n".join(msg))
         rtn = self.TicDat(**{t:getattr(tic_dat, t) for t in self.all_tables})
         return self.freeze_me(rtn) if freeze_it else rtn
+    def copy_from_ampl_variables(self, ampl_variables):
+        """
+        copies the solution results from ampl_variables into a new ticdat object
+        :param ampl_variables: a dict mapping from (table_name, field_name) -> amplpy.variable.Variable
+                               (amplpy.variable.Variable is the type object returned by
+                                AMPL.getVariable)
+                                table_name should refer to a table in the schema that has
+                                primary key fields.
+                                field_name can refer to a data field for table_name, or it
+                                can be falsey. If the latter, then AMPL variables that
+                                pass the filter (see below) will simply populate the primary key
+                                of the table_name.
+                                Note that by default, only non-zero data is copied over.
+                                If you want to override this filter, then instead of mapping to
+                                amplpy.variable.Variable you should map to a
+                                (amplpy.variable.Variable, filter) where filter accepts a data value
+                                and returns a boolean.
+        :return: a deep copy of the ampl_variables into a ticdat object
+        """
+        def good_map_onto(v):
+            if containerish(v):
+                return len(v) == 2 and good_map_onto(v[0]) and callable(v[1])
+            return not containerish(v) and hasattr(v, "getValues")
+        # not that if amplpy changes so that amplpy.variable.Variable is containerish then this
+        # verify will always fail
+        verify(dictish(ampl_variables) and
+               all(containerish(k) and len(k) == 2 and self.primary_key_fields.get(k[0]) and
+                   (k[1] in self.data_fields[k[0]] or not k[1]) and good_map_onto(v)
+                   for k,v in ampl_variables.items()), "invalid ampl_variables argument")
+        rtn = self.TicDat()
+        for (t,f), av in ampl_variables.items():
+          filter_ = lambda x : x != 0
+          if containerish(av):
+            av, filter_ = av
+          if av.getValues().toDict(): # if there are data rows
+            df = av.getValues().toPandas()
+            verify(len(df.columns) == 1, "unexpected number of data columns found for ampl_variable" +
+                                         "object " + str((t,f)))
+            df.rename(columns={next(iter(df.columns)):f or "ticdat_dummy"}, inplace=True)
+            if len(self.primary_key_fields[t]) == 1:
+                df.index.rename(self.primary_key_fields[t][0], inplace=True)
+            else:
+                verify(pd, "pandas needs to installed to help process table %s"%t)
+                df.index = pd.MultiIndex.from_tuples(df.index, names=self.primary_key_fields[t])
+            if f:
+                tic_dat = self.TicDat(**{t:df})
+                for k,r in getattr(tic_dat, t).items():
+                    if filter_(r[f]):
+                        getattr(rtn, t)[k][f] = r[f]
+            else:
+                tic_dat = TicDatFactory(**{t:[self.primary_key_fields[t],
+                                              ["ticdat_dummy"]]}).TicDat(**{t:df})
+                for k,r in getattr(tic_dat, t).items():
+                    if filter_(r["ticdat_dummy"]) and k not in getattr(rtn, t):
+                        getattr(rtn, t)[k] = {}
+        return rtn
+    def copy_to_ampl(self, tic_dat, field_renamings = None, excluded_tables = None):
+        """
+        copies the tic_dat object into a new tic_dat object populated with amplpy.DataFrame objects
+        performs a deep copy
+        :param tic_dat: a ticdat object
+        :param field_renamings: dict or None. If fields are to be renamed in the copy, then
+                                a mapping from (table_name, field_name) -> new_field_name
+                                If a data field is to be omitted, then new_field can be falsey
+                                table_name cannot refer to an excluded table. (see below)
+        :param excluded_tables: If truthy, a list of tables to be excluded from the copy.
+                                Tables without primary key fields are always excluded.
+        :return: a deep copy of the tic_dat argument into amplpy.DataFrames
+        """
+        verify(amplpy, "amplpy needs to be installed in order to enable AMPL functionality")
+        msg  = []
+        verify(self.good_tic_dat_object(tic_dat, msg.append),
+               "tic_dat not a good object for this factory : %s"%"\n".join(msg))
+        verify(not excluded_tables or (containerish(excluded_tables) and
+                                       set(excluded_tables).issubset(self.all_tables)),
+               "bad excluded_tables argument")
+        copy_tables = {t for t in self.all_tables if self.primary_key_fields[t]}.\
+                      difference(excluded_tables or [])
+        field_renamings = field_renamings or {}
+        verify(dictish(field_renamings) and
+               all(containerish(k) and len(k) == 2 and k[0] in copy_tables and
+                   k[1] in self.primary_key_fields[k[0]] + self.data_fields[k[0]] and
+                   ((not bool(v) and k[1] in self.data_fields[k[0]]) or utils.stringish(v))
+                   for k,v in field_renamings.items()), "invalid field_renamings argument")
+        class AmplTicDat(object):
+            def __repr__(self):
+                return "td:" + tuple(copy_tables).__repr__()
+        rtn = AmplTicDat()
+        copy_from = self.copy_to_pandas(tic_dat, copy_tables, drop_pk_columns=False)
+        for t in copy_tables:
+            rename = lambda f : field_renamings.get((t, f), f)
+            df_ampl = amplpy.DataFrame(index=tuple(map(rename, self.primary_key_fields[t])))
+            for f in self.primary_key_fields[t]:
+                df_ampl.setColumn(rename(f), list(getattr(copy_from, t)[f]))
+            for f in self.data_fields[t]:
+                if rename(f):
+                    df_ampl.addColumn(rename(f), list(getattr(copy_from, t)[f]))
+            setattr(rtn, t, df_ampl)
+        return rtn
+    def set_ampl_data(self, tic_dat, ampl, table_to_set_name = None):
+        """
+        performs bulk setData on the AMPL first argument.
+        :param tic_dat: an AmplTicDat object created by calling copy_to_ampl
+        :param ampl: an amplpy.AMPL object
+        :param table_to_set_name: a mapping of table_name to ampl set name
+        :return:
+        """
+        verify(all(a.startswith("_") or a in self.all_tables for a in dir(tic_dat)),
+               "bad ticdat argument")
+        verify(hasattr(ampl, "setData"), "bad ampl argument")
+        table_to_set_name = table_to_set_name or {}
+        verify(dictish(table_to_set_name) and all(hasattr(tic_dat, k) and
+                   utils.stringish(v) for k,v in table_to_set_name.items()),
+               "bad table_to_set_name argument")
+        for t in set(self.all_tables).intersection(dir(tic_dat)):
+            ampl.setData(getattr(tic_dat, t), *([table_to_set_name[t]]
+                                                if t in table_to_set_name else []))
     def copy_to_pandas(self, tic_dat, table_restrictions = None, drop_pk_columns = None):
         """
-        copies the tic_dat object into a new tic_dat object populated with data_frames
+        copies the tic_dat object into a new tic_dat object populated with pandas.DataFrame objects
         performs a deep copy
         :param tic_dat: a ticdat object
         :param table_restrictions: If truthy, a list of tables to turn into
@@ -1341,6 +1462,10 @@ foreign keys, the code throwing this exception will be removed.
         return self._prepends.get("opl", "")
 
     @property
+    def ampl_prepend(self):
+        return self._prepends.get("ampl","")
+
+    @property
     def lingo_prepend(self):
         return self._prepends.get("lingo", "")
 
@@ -1348,6 +1473,11 @@ foreign keys, the code throwing this exception will be removed.
     def opl_prepend(self, value):
         verify(utils.stringish(value), "opl_prepend should be a string")
         self._prepends["opl"] = value
+
+    @ampl_prepend.setter
+    def ampl_prepend(self,value):
+        verify(utils.stringish(value), "ampl_prepend should be a string")
+        self._prepends["ampl"] = value
 
     @lingo_prepend.setter
     def lingo_prepend(self,value):
