@@ -19,23 +19,32 @@ def _nearly_same_dat(tdf, dat1, dat2):
 # using the diet/netlfow flavors consistent with the examples instead of the older ones in
 # ticdat.testing.ticdattestutils
 
+# the diet code is slightly hacked so there are two data fields in the nutrition_quantities table
+# this is just to exercise more code
 _diet_mod = """
     set CAT;
     set FOOD;
+
     param cost {FOOD} > 0;
+
     param n_min {CAT} >= 0;
     param n_max {i in CAT} >= n_min[i];
+
     param amt {FOOD, CAT} >= 0;
+    param other_amt {FOOD, CAT} >= 0;
+
     var Buy {j in FOOD} >= 0;
     var Consume {i in CAT } >= n_min [i], <= n_max [i];
+
     minimize Total_Cost:  sum {j in FOOD} cost[j] * Buy[j];
+
     subject to Diet {i in CAT}:
-       Consume[i] =  sum {j in FOOD} amt[j,i] * Buy[j];
+       Consume[i] =  sum {j in FOOD} (amt[j,i] + other_amt[j,i]) * Buy[j];
     """
 _diet_input_tdf = TicDatFactory (
     categories = [["Name"],["Min Nutrition", "Max Nutrition"]],
     foods  = [["Name"],["Cost"]],
-    nutrition_quantities = [["Food", "Category"], ["Quantity"]])
+    nutrition_quantities = [["Food", "Category"], ["Quantity", "Other Quantity"]])
 _diet_dat = _diet_input_tdf.TicDat(**{'categories': {
   u'calories': {'Max Nutrition': 2200.0, 'Min Nutrition': 1800},
   u'fat': {'Max Nutrition': 65.0, 'Min Nutrition': 0},
@@ -187,8 +196,28 @@ class TestAmpl(unittest.TestCase):
     def test_diet_amplpy(self):
         dat = _diet_input_tdf.copy_to_ampl(_diet_dat, field_renamings={("foods", "Cost"): "cost",
                 ("categories", "Min Nutrition"): "n_min", ("categories", "Max Nutrition"): "n_max",
-                ("nutrition_quantities", "Quantity"): "amt"})
+                ("nutrition_quantities", "Quantity"): "amt",
+                ("nutrition_quantities", "Other Quantity"): "other_amt"})
         self.assertTrue({"n_min", "n_max"}.issubset(dat.categories.toPandas().columns))
+        ampl = amplpy.AMPL()
+        ampl.setOption('solver', 'gurobi')
+        ampl.eval(_diet_mod)
+        _diet_input_tdf.set_ampl_data(dat, ampl, {"categories": "CAT", "foods": "FOOD"})
+        ampl.solve()
+
+        sln = _diet_sln_tdf.copy_from_ampl_variables(
+            {("buy_food", "Quantity"):ampl.getVariable("Buy"),
+            ("consume_nutrition", "Quantity"):ampl.getVariable("Consume")})
+        sln.parameters['Total Cost'] = ampl.getObjective('Total_Cost').value()
+
+        diet_dat_two = _diet_input_tdf.copy_tic_dat(_diet_dat)
+        for r in diet_dat_two.nutrition_quantities.values():
+            r["Quantity"], r["Other Quantity"] = [0.5 * r["Quantity"]] * 2
+
+        dat = _diet_input_tdf.copy_to_ampl(diet_dat_two, field_renamings={("foods", "Cost"): "cost",
+                ("categories", "Min Nutrition"): "n_min", ("categories", "Max Nutrition"): "n_max",
+                ("nutrition_quantities", "Quantity"): "amt",
+                ("nutrition_quantities", "Other Quantity"): "other_amt"})
         ampl = amplpy.AMPL()
         ampl.setOption('solver', 'gurobi')
         ampl.eval(_diet_mod)
