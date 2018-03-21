@@ -724,7 +724,7 @@ CLASSES
      |                           amplpy.variable.Variable you should map to a
      |                           (amplpy.variable.Variable, filter) where filter accepts a data value
      |                           and returns a boolean.
-     |   :return: a deep copy of the ampl_variables into a ticdat object
+     |      :return: a deep copy of the ampl_variables into a ticdat object
      |
      |  copy_to_ampl(self, tic_dat, field_renamings = None, excluded_tables = None):
      |      copies the tic_dat object into a new tic_dat object populated with amplpy.DataFrame objects
@@ -737,6 +737,13 @@ CLASSES
      |      :param excluded_tables: If truthy, a list of tables to be excluded from the copy.
      |                              Tables without primary key fields are always excluded.
      |      :return: a deep copy of the tic_dat argument into amplpy.DataFrames
+     | 
+     |  set_ampl_data(self, tic_dat, ampl, table_to_set_name = None):
+     |      performs bulk setData on the AMPL first argument.
+     |      :param tic_dat: an AmplTicDat object created by calling copy_to_ampl
+     |      :param ampl: an amplpy.AMPL object
+     |      :param table_to_set_name: a mapping of table_name to ampl set name
+     |      :return:
      |
      |  enable_foreign_key_links(self)
      |      call to enable foreign key links. For ex. a TicDat object made from
