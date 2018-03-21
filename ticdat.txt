@@ -134,7 +134,7 @@ CLASSES
      |
      |  __init__(self, tic_dat_factory)
      |      Don't call this function explicitly. A JsonTicFactory will
-     |      automatically be associated with the sql attribute of the parent
+     |      automatically be associated with the json attribute of the parent
      |      TicDatFactory.
      |      :param tic_dat_factory:
      |      :return:
@@ -697,7 +697,7 @@ CLASSES
      |      :return: a deep copy of the tic_dat argument
      |
      |  copy_to_pandas(self, tic_dat, table_restrictions=None, drop_pk_columns=None)
-     |      copies the tic_dat object into a new tic_dat object populated with data_frames
+     |      copies the tic_dat object into a new tic_dat object populated with pandas.DataFrame objects
      |      performs a deep copy
      |      :param tic_dat: a ticdat object
      |      :param table_restrictions: If truthy, a list of tables to turn into
@@ -707,6 +707,43 @@ CLASSES
      |                              into the index.
      |                              If None, then pk fields will be dropped only for tables with data fields
      |      :return: a deep copy of the tic_dat argument into DataFrames
+     |
+     |  copy_from_ampl_variables(self, ampl_variables)
+     |      copies the solution results from ampl_variables into a new ticdat object
+     |      :param ampl_variables: a dict mapping from (table_name, field_name) -> amplpy.variable.Variable
+     |                          (amplpy.variable.Variable is the type object returned by
+     |                           AMPL.getVariable)
+     |                           table_name should refer to a table in the schema that has
+     |                           primary key fields.
+     |                           field_name can refer to a data field for table_name, or it
+     |                           can be falsey. If the latter, then AMPL variables that
+     |                           pass the filter (see below) will simply populate the primary key
+     |                           of the table_name.
+     |                           Note that by default, only non-zero data is copied over.
+     |                           If you want to override this filter, then instead of mapping to
+     |                           amplpy.variable.Variable you should map to a
+     |                           (amplpy.variable.Variable, filter) where filter accepts a data value
+     |                           and returns a boolean.
+     |      :return: a deep copy of the ampl_variables into a ticdat object
+     |
+     |  copy_to_ampl(self, tic_dat, field_renamings = None, excluded_tables = None):
+     |      copies the tic_dat object into a new tic_dat object populated with amplpy.DataFrame objects
+     |      performs a deep copy
+     |      :param tic_dat: a ticdat object
+     |      :param field_renamings: dict or None. If fields are to be renamed in the copy, then
+     |                              a mapping from (table_name, field_name) -> new_field_name
+     |                              If a data field is to be omitted, then new_field can be falsey
+     |                              table_name cannot refer to an excluded table. (see below)
+     |      :param excluded_tables: If truthy, a list of tables to be excluded from the copy.
+     |                              Tables without primary key fields are always excluded.
+     |      :return: a deep copy of the tic_dat argument into amplpy.DataFrames
+     | 
+     |  set_ampl_data(self, tic_dat, ampl, table_to_set_name = None):
+     |      performs bulk setData on the AMPL first argument.
+     |      :param tic_dat: an AmplTicDat object created by calling copy_to_ampl
+     |      :param ampl: an amplpy.AMPL object
+     |      :param table_to_set_name: a mapping of table_name to ampl set name
+     |      :return:
      |
      |  enable_foreign_key_links(self)
      |      call to enable foreign key links. For ex. a TicDat object made from

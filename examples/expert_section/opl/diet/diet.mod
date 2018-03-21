@@ -21,19 +21,3 @@ subject to {
   }
 
 }
-include "ticdat_diet_output.mod";
-float nutrition_consumed[c in categories] = sum(nq in nutrition_quantities: nq.category == c.name) nq.quantity * purchase[nq.food];
-
-float total_cost = sum(f in foodItems) foodCost[f] * purchase[f];
-execute {
-   for (var f in foodItems){
-      buy_food.add(f,purchase[f]);
-   }
-
-   for (var c in categories){
-      consume_nutrition.add(c.name,nutrition_consumed[c]);
-   }
-
-   parameters.add("Total Cost",total_cost);
-   writeOutputToFile();
-}

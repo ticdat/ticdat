@@ -111,7 +111,8 @@ def standard_main(input_schema, solution_schema, solve):
             if output_file.endswith(".json"):
                 solution_schema.json.write_file(sln, output_file, allow_overwrite=True)
             elif output_file.endswith(".xls") or output_file.endswith(".xlsx"):
-                solution_schema.xls.write_file(sln, output_file, allow_overwrite=True)
+                solution_schema.xls.write_file(sln, output_file, allow_overwrite=True,
+                                               case_space_sheet_names=True)
             elif output_file.endswith(".db"):
                 solution_schema.sql.write_db_data(sln, output_file, allow_overwrite=True)
             elif output_file.endswith(".sql"):
@@ -307,6 +308,8 @@ def change_fields_with_reserved_keywords(tdf, reserved_keywords, undo=False):
                               *(tdf.data_types[table][original_field]))
     if hasattr(tdf,'opl_prepend'):
         rtn.opl_prepend = tdf.opl_prepend
+    if hasattr(tdf,'ampl_prepend'):
+        rtn.ampl_prepend = tdf.ampl_prepend
     if hasattr(tdf,'lingo_prepend'):
         rtn.lingo_prepend = tdf.lingo_prepend
     return rtn

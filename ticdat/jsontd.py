@@ -47,7 +47,7 @@ class JsonTicFactory(freezable_factory(object, "_isFrozen")) :
     def __init__(self, tic_dat_factory):
         """
         Don't call this function explicitly. A JsonTicFactory will
-        automatically be associated with the sql attribute of the parent
+        automatically be associated with the json attribute of the parent
         TicDatFactory.
         :param tic_dat_factory:
         :return:
