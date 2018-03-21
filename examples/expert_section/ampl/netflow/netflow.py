@@ -94,12 +94,11 @@ def solve(dat):
                                            "commodities": "COMMODITIES"})
     ampl.solve()
 
-    # TO DO : check solution success somehow
-
-    sln = solution_schema.copy_from_ampl_variables(
-        {('flow' ,'Quantity'):ampl.getVariable("Flow")})
-    sln.parameters["Total Cost"] = ampl.getObjective('TotalCost').value()
-    return sln
+    if ampl.getValue("solve_result") != "infeasible":
+        sln = solution_schema.copy_from_ampl_variables(
+            {('flow' ,'Quantity'):ampl.getVariable("Flow")})
+        sln.parameters["Total Cost"] = ampl.getObjective('TotalCost').value()
+        return sln
 # ---------------------------------------------------------------------------------
 
 # ------------------------ provide stand-alone functionality ----------------------

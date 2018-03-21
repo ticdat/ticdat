@@ -102,14 +102,13 @@ def solve(dat):
     input_schema.set_ampl_data(dat, ampl, {"categories": "CAT", "foods": "FOOD"})
     ampl.solve()
 
-    # TO DO : check solution success somehow
+    if ampl.getValue("solve_result") != "infeasible":
+        sln = solution_schema.copy_from_ampl_variables(
+            {("buy_food", "Quantity"):ampl.getVariable("Buy"),
+            ("consume_nutrition", "Quantity"):ampl.getVariable("Consume")})
+        sln.parameters['Total Cost'] = ampl.getObjective('Total_Cost').value()
 
-    sln = solution_schema.copy_from_ampl_variables(
-        {("buy_food", "Quantity"):ampl.getVariable("Buy"),
-        ("consume_nutrition", "Quantity"):ampl.getVariable("Consume")})
-    sln.parameters['Total Cost'] = ampl.getObjective('Total_Cost').value()
-
-    return sln
+        return sln
 # ---------------------------------------------------------------------------------
 
 # ------------------------ provide stand-alone functionality ----------------------

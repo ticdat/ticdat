@@ -2,7 +2,7 @@ import os
 import sys
 from ticdat.ticdatfactory import TicDatFactory, amplpy
 import ticdat.utils as utils
-from ticdat.testing.ticdattestutils import nearlySame
+from ticdat.testing.ticdattestutils import nearlySame, fail_to_debugger
 import unittest
 
 def _nearly_same_dat(tdf, dat1, dat2):
@@ -19,13 +19,12 @@ def _nearly_same_dat(tdf, dat1, dat2):
 # using the diet/netlfow flavors consistent with the examples instead of the older ones in
 # ticdat.testing.ticdattestutils
 
-# the diet code is slightly hacked so there are two data fields in the nutrition_quantities table
-# this is just to exercise more code
+# the diet_mod is hacked from the example code to get exercise more amplpy behaviors
 _diet_mod = """
     set CAT;
     set FOOD;
 
-    param cost {FOOD} > 0;
+    param cost {FOOD};
 
     param n_min {CAT} >= 0;
     param n_max {i in CAT} >= n_min[i];
@@ -223,6 +222,7 @@ class TestAmpl(unittest.TestCase):
         ampl.eval(_diet_mod)
         _diet_input_tdf.set_ampl_data(dat, ampl, {"categories": "CAT", "foods": "FOOD"})
         ampl.solve()
+        self.assertTrue("solved" == ampl.getValue("solve_result"))
 
         sln = _diet_sln_tdf.copy_from_ampl_variables(
             {("buy_food", "Quantity"):ampl.getVariable("Buy"),
@@ -247,6 +247,34 @@ class TestAmpl(unittest.TestCase):
                         all(v["Quantity"] == 1 for v in sln_2.buy_food.values()))
         self.assertTrue(sln_2.consume_nutrition and set(sln_2.consume_nutrition) ==
                         {k for k,v in sln.consume_nutrition.items() if v["Quantity"] < 100})
+
+        diet_dat_two = _diet_input_tdf.copy_tic_dat(_diet_dat)
+        diet_dat_two.categories["calories"] = [0,200]
+        dat = _diet_input_tdf.copy_to_ampl(diet_dat_two, field_renamings={("foods", "Cost"): "cost",
+                ("categories", "Min Nutrition"): "n_min", ("categories", "Max Nutrition"): "n_max",
+                ("nutrition_quantities", "Quantity"): "amt",
+                ("nutrition_quantities", "Other Quantity"): "other_amt"})
+        ampl = amplpy.AMPL()
+        ampl.setOption('solver', 'gurobi')
+        ampl.eval(_diet_mod)
+        _diet_input_tdf.set_ampl_data(dat, ampl, {"categories": "CAT", "foods": "FOOD"})
+        ampl.solve()
+        self.assertTrue("infeasible" == ampl.getValue("solve_result"))
+
+        diet_dat_two = _diet_input_tdf.copy_tic_dat(_diet_dat)
+        for v in diet_dat_two.categories.values():
+            v["Max Nutrition"] = float("inf")
+        diet_dat_two.foods["hamburger"] = -1
+        dat = _diet_input_tdf.copy_to_ampl(diet_dat_two, field_renamings={("foods", "Cost"): "cost",
+                ("categories", "Min Nutrition"): "n_min", ("categories", "Max Nutrition"): "n_max",
+                ("nutrition_quantities", "Quantity"): "amt",
+                ("nutrition_quantities", "Other Quantity"): "other_amt"})
+        ampl = amplpy.AMPL()
+        ampl.setOption('solver', 'gurobi')
+        ampl.eval(_diet_mod)
+        _diet_input_tdf.set_ampl_data(dat, ampl, {"categories": "CAT", "foods": "FOOD"})
+        ampl.solve()
+        self.assertTrue("unbounded" == ampl.getValue("solve_result"))
 
     def test_netflow_amplpy(self):
         dat = _netflow_input_tdf.copy_to_ampl(_netflow_dat, field_renamings={("arcs", "Capacity"): "capacity",
