@@ -953,9 +953,10 @@ foreign keys, the code throwing this exception will be removed.
                    for k,v in ampl_variables.items()), "invalid ampl_variables argument")
         rtn = self.TicDat()
         for (t,f), av in ampl_variables.items():
-            filter_ = lambda x : x != 0
-            if containerish(av):
-                av, filter_ = av
+          filter_ = lambda x : x != 0
+          if containerish(av):
+            av, filter_ = av
+          if av.getValues().toDict(): # if there are data rows
             df = av.getValues().toPandas()
             verify(len(df.columns) == 1, "unexpected number of data columns found for ampl_variable" +
                                          "object " + str((t,f)))
