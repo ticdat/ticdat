@@ -109,7 +109,8 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
         rtn = [v for k,v in rtn.items() if len(v) > 1]
         verify(not rtn, "The following tables collide when names are truncated to %s characters.\n%s"%
                (_longest_sheet, sorted(map(sorted, rtn))))
-    def _get_sheets_and_fields(self, xls_file_path, all_tables, row_offsets, headers_present):
+    def _get_sheets_and_fields(self, xls_file_path, all_tables, row_offsets, headers_present,
+                               print_missing_tables = False):
         verify(utils.stringish(xls_file_path) and os.path.exists(xls_file_path),
                "xls_file_path argument %s is not a valid file path."%xls_file_path)
         try :
@@ -124,6 +125,10 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
         verify(not duplicated_sheets, "The following sheet names were duplicated : " +
                ",".join(duplicated_sheets))
         sheets = FrozenDict({k:v[0] for k,v in sheets.items() })
+        missing_tables = {t for t in all_tables if t not in sheets}
+        if missing_tables and print_missing_tables:
+            print ("The following table names could not be found in the %s file.\n%s\n"%
+                   (xls_file_path,"\n".join(missing_tables)))
         field_indicies, missing_fields, dup_fields = {}, {}, {}
         for table, sheet in sheets.items() :
             field_indicies[table], missing_fields[table], dup_fields[table] = \
@@ -160,7 +165,7 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
         rtn = {}
         sheets, field_indicies = self._get_sheets_and_fields(xls_file_path,
                                     set(tdf.all_tables).difference(tdf.generator_tables),
-                                    row_offsets, headers_present)
+                                    row_offsets, headers_present, print_missing_tables=True)
         ho = 1 if headers_present else 0
         for tbl, sheet in sheets.items() :
             fields = tdf.primary_key_fields.get(tbl, ()) + tdf.data_fields.get(tbl, ())
