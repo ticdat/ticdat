@@ -84,6 +84,29 @@ class TestJson(unittest.TestCase):
             jsonTicDat = tdf.json.create_tic_dat(writePath)
             self.assertTrue(tdf._same_data(ticDat, jsonTicDat))
 
+    def testMissingTable(self):
+        if not self.can_run:
+            return
+        tdf = TicDatFactory(**dietSchema())
+        tdf2 = TicDatFactory(**{k:v for k,v in dietSchema().items() if k != "nutritionQuantities"})
+        ticDat2 = tdf2.copy_tic_dat(dietData())
+        filePath = os.path.join(_scratchDir, "diet_missing.json")
+        tdf2.json.write_file(ticDat2, filePath, allow_overwrite=True)
+        ticDat3 = tdf.json.create_tic_dat(filePath)
+        self.assertTrue(tdf2._same_data(ticDat2, ticDat3))
+        self.assertTrue(all(hasattr(ticDat3, x) for x in tdf.all_tables))
+        self.assertFalse(ticDat3.nutritionQuantities)
+        self.assertTrue(ticDat3.categories and ticDat3.foods)
+
+        tdf2 = TicDatFactory(**{k:v for k,v in dietSchema().items() if k == "categories"})
+        ticDat2 = tdf2.copy_tic_dat(dietData())
+        tdf2.json.write_file(ticDat2, filePath, allow_overwrite=True)
+        ticDat3 = tdf.json.create_tic_dat(filePath)
+        self.assertTrue(tdf2._same_data(ticDat2, ticDat3))
+        self.assertTrue(all(hasattr(ticDat3, x) for x in tdf.all_tables))
+        self.assertFalse(ticDat3.nutritionQuantities or ticDat3.foods)
+        self.assertTrue(ticDat3.categories)
+
     def testNetflow(self):
         if not self.can_run:
             return

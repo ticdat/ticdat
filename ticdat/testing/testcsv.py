@@ -7,6 +7,7 @@ from ticdat.testing.ticdattestutils import dietData, dietSchema, netflowData, di
 from ticdat.testing.ticdattestutils import  netflowSchema, firesException, copyDataDietWeirdCase
 from ticdat.testing.ticdattestutils import sillyMeData, sillyMeSchema, sillyMeDataTwoTables, fail_to_debugger
 from ticdat.testing.ticdattestutils import makeCleanDir, dietSchemaWeirdCase2, copyDataDietWeirdCase2
+from ticdat.testing.ticdattestutils import flagged_as_run_alone
 import unittest
 from ticdat.csvtd import _can_unit_test
 
@@ -105,6 +106,29 @@ class TestCsv(unittest.TestCase):
         shutil.copy(os.path.join(dirPath, "nutrition quantities.csv"),
                     os.path.join(dirPath, "nutrition_quantities.csv"))
         self.assertTrue(self.firesException(lambda : tdf3.csv.create_tic_dat(dirPath)))
+
+    def testMissingTable(self):
+        if not self.can_run:
+            return
+        tdf = TicDatFactory(**dietSchema())
+        tdf2 = TicDatFactory(**{k:v for k,v in dietSchema().items() if k != "nutritionQuantities"})
+        ticDat2 = tdf2.copy_tic_dat(dietData())
+        dirPath = os.path.join(_scratchDir, "diet_missing")
+        tdf2.csv.write_directory(ticDat2, makeCleanDir(dirPath))
+        ticDat3 = tdf.csv.create_tic_dat(dirPath)
+        self.assertTrue(tdf2._same_data(ticDat2, ticDat3))
+        self.assertTrue(all(hasattr(ticDat3, x) for x in tdf.all_tables))
+        self.assertFalse(ticDat3.nutritionQuantities)
+        self.assertTrue(ticDat3.categories and ticDat3.foods)
+
+        tdf2 = TicDatFactory(**{k:v for k,v in dietSchema().items() if k == "categories"})
+        ticDat2 = tdf2.copy_tic_dat(dietData())
+        tdf2.csv.write_directory(ticDat2, makeCleanDir(dirPath))
+        ticDat3 = tdf.csv.create_tic_dat(dirPath)
+        self.assertTrue(tdf2._same_data(ticDat2, ticDat3))
+        self.assertTrue(all(hasattr(ticDat3, x) for x in tdf.all_tables))
+        self.assertFalse(ticDat3.nutritionQuantities or ticDat3.foods)
+        self.assertTrue(ticDat3.categories)
 
     def testSillyTwoTables(self):
         if not self.can_run:
