@@ -68,6 +68,10 @@ class CsvTicFactory(freezable_factory(object, "_isFrozen")) :
         verify(os.path.isdir(dir_path), "Invalid directory path %s"%dir_path)
         rtn =  {t : self._create_table(dir_path, t, dialect, headers_present)
                 for t in self.tic_dat_factory.all_tables}
+        missing_tables = {t for t in self.tic_dat_factory.all_tables if not rtn[t]}
+        if missing_tables:
+            print ("The following table names could not be found in the %s directory.\n%s\n"%
+                   (dir_path,"\n".join(missing_tables)))
         return {k:v for k,v in rtn.items() if v}
     def find_duplicates(self, dir_path, dialect='excel', headers_present = True):
         """

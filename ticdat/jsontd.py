@@ -63,12 +63,17 @@ class JsonTicFactory(freezable_factory(object, "_isFrozen")) :
         :return: a TicDat object populated by the matching tables.
         caveats: Table names matches are case insensitive and also
                  underscore-space insensitive.
-                 Tables that don't find a match are inteprested as an empty table.
+                 Tables that don't find a match are interpreted as an empty table.
                  Dictionary keys that don't match any table are ignored.
         """
         _standard_verify(self.tic_dat_factory)
         jdict = self._create_jdict(json_file_path)
-        rtn = self.tic_dat_factory.TicDat(**self._create_tic_dat_dict(jdict))
+        tic_dat_dict = self._create_tic_dat_dict(jdict)
+        missing_tables = set(self.tic_dat_factory.all_tables).difference(tic_dat_dict)
+        if missing_tables:
+            print ("The following table names could not be found in the %s file.\n%s\n"%
+                   (json_file_path,"\n".join(missing_tables)))
+        rtn = self.tic_dat_factory.TicDat(**tic_dat_dict)
         if freeze_it:
             return self.tic_dat_factory.freeze_me(rtn)
         return rtn
