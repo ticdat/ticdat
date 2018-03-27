@@ -147,7 +147,7 @@ CLASSES
      |      :return: a TicDat object populated by the matching tables.
      |      caveats: Table names matches are case insensitive and also
      |               underscore-space insensitive.
-     |               Tables that don't find a match are inteprested as an empty table.
+     |               Tables that don't find a match are interpreted as an empty table.
      |               Dictionary keys that don't match any table are ignored.
      |
      |  find_duplicates(self, json_file_path)
