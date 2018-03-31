@@ -15,7 +15,7 @@
 # solution to metrorail_solution_data.json.
 
 # this version of the file uses amplpy and Gurobi
-import gurobipy as gu
+from amplpy import AMPL
 from ticdat import TicDatFactory, standard_main
 
 # ------------------------ define the input schema --------------------------------
@@ -38,36 +38,35 @@ def solve(dat):
     assert input_schema.good_tic_dat_object(dat)
     assert not input_schema.find_data_type_failures(dat)
 
+    dat = input_schema.copy_to_ampl(dat)
+    ampl = AMPL()
+    ampl.setOption('solver', 'gurobi')
+    ampl.eval("""
+    set LOAD_AMTS;
+    var Num_Visits {LOAD_AMTS} integer >= 0;
+
+    var Amt_Leftover >= 1.75, <= 1.75;
+
+    minimize Total_Visits:
+       sum {la in LOAD_AMTS} Num_Visits[la];
+
+    subj to Set_Amt_Leftover:
+       Amt_Leftover = sum {la in LOAD_AMTS} la * Num_Visits[la] - 2.25 * 12;
+
+    """)
+
+    input_schema.set_ampl_data(dat, ampl, {"load_amounts": "LOAD_AMTS"})
+    ampl.solve()
+
     sln = solution_schema.TicDat() # create an empty solution'
 
-
-    mdl = gu.Model("metrorail")
-
-    # Create decision variables
-    number_vists = {la:mdl.addVar(vtype = gu.GRB.INTEGER, name="load_amount_%s"%la)
-                    for la in dat.load_amounts}
-    amount_leftover_var = mdl.addVar(name="amount_leftover")
-
-    amount_leftover_var.lb = amount_leftover_var.ub = 1.75 # DELIBERATELY HARDCODING FOR THIS EXAMPLE!
-
-    # add a constraint to set the amount leftover
-    # DELIBERATELY HARD-CODING 2.25 as the one way price, and 12 as the number of trips below
-    mdl.addConstr(amount_leftover_var ==
-                  gu.quicksum(la * number_vists[la] for la in dat.load_amounts) -
-                  2.25 * 12,
-                  name="set_amount_leftover")
-
-
-    # minimize the total number of visits to the ticket office
-    mdl.setObjective(gu.quicksum(number_vists.values()), sense=gu.GRB.MINIMIZE)
-    mdl.optimize()
-
-    if mdl.status in [gu.GRB.OPTIMAL, gu.GRB.SUBOPTIMAL]:
+    if ampl.getValue("solve_result") != "infeasible":
         number_total_visits = 0
-        # store the results if and only if the model is feasible
-        for la,x in number_vists.items():
-            if x.x > 0:
-                number_total_visits += round(x.x)
+        tmp_schema = TicDatFactory (load_amounts=[["Amount"],["Number of Visits"]])
+        tmp_sln = tmp_schema.copy_from_ampl_variables(
+            {("load_amounts", "Number of Visits"): ampl.getVariable("Num_Visits")})
+        for la,x in tmp_sln.load_amounts.items():
+            number_total_visits += round(x["Number of Visits"])
         print "Total number of visits %s"%number_total_visits
         return solution_schema.TicDat()
     else :
