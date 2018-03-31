@@ -58,15 +58,13 @@ def solve(dat):
     input_schema.set_ampl_data(dat, ampl, {"load_amounts": "LOAD_AMTS"})
     ampl.solve()
 
-    sln = solution_schema.TicDat() # create an empty solution'
+    sln = solution_schema.TicDat() # create an empty solution
 
     if ampl.getValue("solve_result") != "infeasible":
         number_total_visits = 0
-        tmp_schema = TicDatFactory (load_amounts=[["Amount"],["Number of Visits"]])
-        tmp_sln = tmp_schema.copy_from_ampl_variables(
-            {("load_amounts", "Number of Visits"): ampl.getVariable("Num_Visits")})
-        for la,x in tmp_sln.load_amounts.items():
-            number_total_visits += round(x["Number of Visits"])
+        for la,x in ampl.getVariable("Num_Visits").getValues().toDict().items():
+            if round(x[0]) > 0:
+                number_total_visits += round(x[0])
         print "Total number of visits %s"%number_total_visits
         return solution_schema.TicDat()
     else :
