@@ -5,6 +5,7 @@ import ticdat.utils as utils
 from ticdat.testing.ticdattestutils import nearlySame, fail_to_debugger
 import unittest
 from itertools import product
+from collections import defaultdict
 
 def _nearly_same_dat(tdf, dat1, dat2):
     def _same_table(t1, t2):
@@ -253,7 +254,23 @@ class TestAmpl(unittest.TestCase):
         utils.development_deployed_environment = cls._original_value
 
     def test_metro_amplpy(self):
+        def feas(sln, dat):
+            one_way_price = 2.25
+            self.assertTrue("One Way Price" not in dat.parameters)
+            sub_totals = defaultdict(int)
+            price_needed = {k:one_way_price*k[0] for k in sln.load_amount_summary}
+            for k,v in sln.load_amount_details.items():
+                price_needed[k[:2]] -= k[-1] * v.values()[0]
+                sub_totals[k[:2]] += v.values()[0]
+            self.assertTrue(sub_totals == {k:v.values()[0] for k,v in sln.load_amount_summary.items()})
+            if "Amount Leftover Constraint" in dat.parameters and\
+                dat.parameters["Amount Leftover Constraint"]["Value"] == "Equality":
+                self.assertTrue(all(nearlySame(k[1], -v) for k,v in price_needed.items()))
+            else:
+                self.assertTrue(all(k[1] >= -v and v<=0 for k,v in price_needed.items()))
+
         sln = _metro_solve(_metro_dat)
+        feas(sln, _metro_dat)
         self.assertTrue({k:v.values()[0] for k,v in sln.load_amount_summary.items()} == {(2, 0.0): 1, (2, 0.5): 1,
  (2, 0.75): 2, (2, 1.0): 2, (2, 1.5): 2, (2, 1.75): 3, (2, 2): 3, (2, 3): 2, (2, 4): 3, (2, 8.5): 2, (4, 0.0): 2,
  (4, 0.25): 4, (4, 0.5): 2, (4, 0.75): 3, (4, 1.0): 1, (4, 1.25): 3, (4, 1.5): 3, (4, 1.75): 4, (4, 2): 2, (4, 3): 3,
@@ -275,6 +292,7 @@ class TestAmpl(unittest.TestCase):
         dat.parameters.pop("Amount Leftover Constraint")
 
         sln = _metro_solve(dat)
+        feas(sln, dat)
         self.assertTrue({k:v.values()[0] for k,v in sln.load_amount_summary.items()} ==
 {(2, 0.0): 1, (2, 0.25): 1, (2, 0.5): 1,
  (2, 0.75): 1, (2, 1.0): 1, (2, 1.25): 1, (2, 1.5): 1, (2, 1.75): 1, (2, 2): 1, (2, 3): 1, (2, 4): 1, (2, 8.5): 1,
