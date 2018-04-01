@@ -38,22 +38,27 @@ def solve(dat):
     assert input_schema.good_tic_dat_object(dat)
     assert not input_schema.find_data_type_failures(dat)
 
+    amount_leftover = 1.75
+    number_trips = 12
+    one_way_price = 2.25
     dat = input_schema.copy_to_ampl(dat)
     ampl = AMPL()
     ampl.setOption('solver', 'gurobi')
+    # since we are calling format to set parameters, the doubled up the curly braces are the ones being
+    # passed to ampl.eval and the single curly braces are being formatted with numbers.
     ampl.eval("""
     set LOAD_AMTS;
-    var Num_Visits {LOAD_AMTS} integer >= 0;
+    var Num_Visits {{LOAD_AMTS}} integer >= 0;
 
-    var Amt_Leftover >= 1.75, <= 1.75;
+    var Amt_Leftover >= {amount_leftover}, <= {amount_leftover};
 
     minimize Total_Visits:
-       sum {la in LOAD_AMTS} Num_Visits[la];
+       sum {{la in LOAD_AMTS}} Num_Visits[la];
 
     subj to Set_Amt_Leftover:
-       Amt_Leftover = sum {la in LOAD_AMTS} la * Num_Visits[la] - 2.25 * 12;
+       Amt_Leftover = sum {{la in LOAD_AMTS}} la * Num_Visits[la] - {one_way_price} * {number_trips};
 
-    """)
+    """.format(amount_leftover=amount_leftover, number_trips=number_trips, one_way_price=one_way_price))
 
     input_schema.set_ampl_data(dat, ampl, {"load_amounts": "LOAD_AMTS"})
     ampl.solve()
