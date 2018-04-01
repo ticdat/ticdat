@@ -151,6 +151,26 @@ try:
 except:
     cplexprogress = None
 
+def ampl_format(mod_str, **kwargs):
+    """
+    Return a formatted version of mod_str, using substitutions from kwargs.
+    The substitutions are identified by doubled-braces ('{{' and '}}').
+    Very similar to str.format, except single braces are left unmolested and double-braces
+    are used to identify substitutions. This allows AMPL mod code to be more readable
+    to AMPL developers.
+    :param mod_str: the string that has doubled-braced substitutions entries.
+    :param kwargs: Named arguments map from substitution-entry label to value.
+    :return: A copy of mod_str with the substitutions performed.
+    """
+    verify(stringish(mod_str), "mod_str argument should be a string")
+    left, right = ["_ticdat_ampl_format_%s_"%_ for _ in ["[", "]"]]
+    for _ in [left, right]:
+        verify(_ not in mod_str, "The %s string cannot be a sub-string of mod_str"%_)
+    rtn = mod_str.replace("{{", left).replace("}}", right)
+    rtn = rtn.replace("{", "{{").replace("}", "}}")
+    rtn = rtn.replace(left, "{").replace(right, "}")
+    return rtn.format(**kwargs)
+
 def find_denormalized_sub_table_failures(table, pk_fields, data_fields):
     """
     checks to see if the table argument contains a denormalized sub-table

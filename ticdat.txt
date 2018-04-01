@@ -1055,6 +1055,16 @@ CLASSES
      |      list of weak references to the object (if defined)
 
 FUNCTIONS
+    ampl_format(mod_str, **kwargs)
+        Return a formatted version of mod_str, using substitutions from kwargs.
+        The substitutions are identified by doubled-braces ('{{' and '}}').
+        Very similar to str.format, except single braces are left unmolested and double-braces
+        are used to identify substitutions. This allows AMPL mod code to be more readable
+        to AMPL developers.
+        :param mod_str: the string that has doubled-braced substitutions entries.
+        :param kwargs: Named arguments map from substitution-entry label to value.
+        :return: A copy of mod_str with the substitutions performed.
+
     create_opl_mod_output_text(tdf)
         Generate a OPL .mod string from a TicDat object for diagnostic purposes
         :param tdf: A TicDatFactory defining the input schema

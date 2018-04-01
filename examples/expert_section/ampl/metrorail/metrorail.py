@@ -16,7 +16,7 @@
 
 # this version of the file uses amplpy and Gurobi
 from amplpy import AMPL
-from ticdat import TicDatFactory, standard_main
+from ticdat import TicDatFactory, standard_main, ampl_format
 from itertools import product
 
 # ------------------------ define the input schema --------------------------------
@@ -86,17 +86,16 @@ def solve(dat):
 
         ampl = AMPL()
         ampl.setOption('solver', 'gurobi')
-        # since we are calling format to set parameters, the doubled up curly braces are the ones being
-        # passed to ampl.eval and the single curly braces are being formatted with numbers.
-        ampl.eval("""
+        # use the ampl_format function for AMPL friendly key-named text substitutions
+        ampl.eval(ampl_format("""
         set LOAD_AMTS;
-        var Num_Visits {{LOAD_AMTS}} integer >= 0;
-        var Amt_Leftover >= {amount_leftover_lb}, <= {amount_leftover_ub};
+        var Num_Visits {LOAD_AMTS} integer >= 0;
+        var Amt_Leftover >= {{amount_leftover_lb}}, <= {{amount_leftover_ub}};
         minimize Total_Visits:
-           sum {{la in LOAD_AMTS}} Num_Visits[la];
+           sum {la in LOAD_AMTS} Num_Visits[la];
         subj to Set_Amt_Leftover:
-           Amt_Leftover = sum {{la in LOAD_AMTS}} la * Num_Visits[la] - {one_way_price} * {number_trips};
-        """.format(number_trips=number_trips, one_way_price=full_parameters["One Way Price"],
+           Amt_Leftover = sum {la in LOAD_AMTS} la * Num_Visits[la] - {{one_way_price}} * {{number_trips}};""",
+            number_trips=number_trips, one_way_price=full_parameters["One Way Price"],
             amount_leftover_lb=amount_leftover if full_parameters["Amount Leftover Constraint"] == "Equality" else 0,
             amount_leftover_ub=amount_leftover))
 

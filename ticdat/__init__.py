@@ -17,10 +17,10 @@ The ticDat library is distributed under the BSD2 open source license.
 from ticdat.ticdatfactory import TicDatFactory, freeze_me
 from ticdat.utils import Sloc, LogFile, Progress, Slicer, \
                          find_denormalized_sub_table_failures, standard_main, \
-                         gurobi_env
+                         gurobi_env, ampl_format
 from ticdat.opl import opl_run, create_opl_mod_text, create_opl_mod_output_text
 from ticdat.lingo import lingo_run
 from ticdat.model import Model
 __version__ = '0.2.12'
 __all__ = ["TicDatFactory", "freeze_me", "LogFile", "Sloc", "Slicer", "Progress", "standard_main", "Model", "opl_run",
-           "create_opl_mod_text", "create_opl_mod_output_text", "lingo_run", "ampl_run","gurobi_env"]
+           "create_opl_mod_text", "create_opl_mod_output_text", "lingo_run", "ampl_format","gurobi_env"]
