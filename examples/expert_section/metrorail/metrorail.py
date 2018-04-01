@@ -79,7 +79,7 @@ def solve(dat):
 
     sln = solution_schema.TicDat() # create an empty solution'
 
-    # solve a distinc MIP for each pair of (# of one-way-trips, amount leftover)
+    # solve a distinct MIP for each pair of (# of one-way-trips, amount leftover)
     for number_trips, amount_leftover in product(dat.number_of_one_way_trips, dat.amount_leftover):
 
         mdl = gu.Model("metrorail")
@@ -113,7 +113,7 @@ def solve(dat):
         if mdl.status in [gu.GRB.OPTIMAL, gu.GRB.SUBOPTIMAL]:
             # store the results if and only if the model is feasible
             for la,x in number_vists.items():
-                if x.x > 0:
+                if round(x.x) > 0:
                     sln.load_amount_details[number_trips, amount_leftover, la] = round(x.x)
                     sln.load_amount_summary[number_trips, amount_leftover]["Number Of Visits"]\
                        += round(x.x)
