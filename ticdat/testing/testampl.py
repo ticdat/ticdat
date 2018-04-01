@@ -4,6 +4,7 @@ from ticdat.ticdatfactory import TicDatFactory, amplpy
 import ticdat.utils as utils
 from ticdat.testing.ticdattestutils import nearlySame, fail_to_debugger
 import unittest
+from itertools import product
 
 def _nearly_same_dat(tdf, dat1, dat2):
     def _same_table(t1, t2):
@@ -182,6 +183,65 @@ _netflow_sln_ticdat = _netflow_sln_tdf.TicDat(**{'flow': {
  'parameters': {u'Total Cost': {'Value': 5500}}}
 )
 
+_metro_input_tdf = TicDatFactory (
+    parameters=[["Key"], ["Value"]],
+    load_amounts=[["Amount"],[]],
+    number_of_one_way_trips=[["Number"],[]],
+    amount_leftover=[["Amount"], []])
+_metro_dat = _metro_input_tdf.TicDat(**
+{
+  "amount_leftover": [[0.0],[0.25],[2],[3],[4],[1.25],[1.0],[8.5],[1.75],[0.75],[1.5],[0.5]],
+  "load_amounts": [[2.25],[1], [3], [5], [4.5], [40], [10], [20]],
+  "number_of_one_way_trips": [[2], [4], [6], [8], [10], [12], [14], [16], [18], [20]],
+  "parameters": [["Amount Leftover Constraint", "Equality"]]}
+)
+_metro_solution_tdf = TicDatFactory(
+    load_amount_details=[["Number One Way Trips", "Amount Leftover", "Load Amount"],
+                           ["Number Of Visits"]],
+    load_amount_summary=[["Number One Way Trips", "Amount Leftover"],["Number Of Visits"]])
+
+def _metro_solve(dat):
+    input_schema = _metro_input_tdf
+    ampl_format = utils.ampl_format
+    AMPL = amplpy.AMPL
+    default_parameters = {"One Way Price": 2.25, "Amount Leftover Constraint": "Upper Bound"}
+    assert input_schema.good_tic_dat_object(dat)
+    full_parameters = dict(default_parameters, **{k:v["Value"] for k,v in dat.parameters.items()})
+
+    sln = _metro_solution_tdf.TicDat() # create an empty solution
+
+    ampl_dat = input_schema.copy_to_ampl(dat, excluded_tables=
+                   set(input_schema.all_tables).difference({"load_amounts"}))
+    # solve a distinct MIP for each pair of (# of one-way-trips, amount leftover)
+    for number_trips, amount_leftover in product(dat.number_of_one_way_trips, dat.amount_leftover):
+
+        ampl = AMPL()
+        ampl.setOption('solver', 'gurobi')
+        # use the ampl_format function for AMPL friendly key-named text substitutions
+        ampl.eval(ampl_format("""
+        set LOAD_AMTS;
+        var Num_Visits {LOAD_AMTS} integer >= 0;
+        var Amt_Leftover >= {{amount_leftover_lb}}, <= {{amount_leftover_ub}};
+        minimize Total_Visits:
+           sum {la in LOAD_AMTS} Num_Visits[la];
+        subj to Set_Amt_Leftover:
+           Amt_Leftover = sum {la in LOAD_AMTS} la * Num_Visits[la] - {{one_way_price}} * {{number_trips}};""",
+            number_trips=number_trips, one_way_price=full_parameters["One Way Price"],
+            amount_leftover_lb=amount_leftover if full_parameters["Amount Leftover Constraint"] == "Equality" else 0,
+            amount_leftover_ub=amount_leftover))
+
+        input_schema.set_ampl_data(ampl_dat, ampl, {"load_amounts": "LOAD_AMTS"})
+        ampl.solve()
+
+        if ampl.getValue("solve_result") != "infeasible":
+            # store the results if and only if the model is feasible
+            for la,x in ampl.getVariable("Num_Visits").getValues().toDict().items():
+                if round(x[0]) > 0:
+                    sln.load_amount_details[number_trips, amount_leftover, la] = round(x[0])
+                    sln.load_amount_summary[number_trips, amount_leftover]["Number Of Visits"]\
+                       += round(x[0])
+    return sln
+
 #@fail_to_debugger
 class TestAmpl(unittest.TestCase):
     @classmethod
@@ -191,6 +251,14 @@ class TestAmpl(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         utils.development_deployed_environment = cls._original_value
+
+    def test_metro_amplpy(self):
+        sln = _metro_solve(_metro_dat)
+
+        dat = _metro_input_tdf.copy_tic_dat(_metro_dat)
+        dat.parameters.pop("Amount Leftover Constraint")
+
+        sln = _metro_solve(dat)
 
     def test_diet_amplpy(self):
         dat = _diet_input_tdf.copy_to_ampl(_diet_dat, field_renamings={("foods", "Cost"): "cost",

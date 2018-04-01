@@ -44,7 +44,7 @@ def _good_parameter_key_value(key, value):
         except:
             return False
     if key == "Amount Leftover Constraint":
-        return value  in ["Equality", "Upper Bound", "Upper Bound With Leftover Multiple Rule"]
+        return value  in ["Equality", "Upper Bound"]
 
 assert all(_good_parameter_key_value(k,v) for k,v in default_parameters.items())
 
