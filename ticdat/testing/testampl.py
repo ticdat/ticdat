@@ -1,9 +1,17 @@
+# on OSX operating system I used
+# %env PATH = PATH:/Users/myusername/ampl/ampl
+# from within ipython to find the AMPL executable. This was the directory created by
+# ampl.macosx64.tgz (which I had placed in an ampl directory and then opened to create
+# another ampl directory).
+
 import os
 import sys
 from ticdat.ticdatfactory import TicDatFactory, amplpy
 import ticdat.utils as utils
 from ticdat.testing.ticdattestutils import nearlySame, fail_to_debugger
 import unittest
+from itertools import product
+from collections import defaultdict
 
 def _nearly_same_dat(tdf, dat1, dat2):
     def _same_table(t1, t2):
@@ -182,6 +190,65 @@ _netflow_sln_ticdat = _netflow_sln_tdf.TicDat(**{'flow': {
  'parameters': {u'Total Cost': {'Value': 5500}}}
 )
 
+_metro_input_tdf = TicDatFactory (
+    parameters=[["Key"], ["Value"]],
+    load_amounts=[["Amount"],[]],
+    number_of_one_way_trips=[["Number"],[]],
+    amount_leftover=[["Amount"], []])
+_metro_dat = _metro_input_tdf.TicDat(**
+{
+  "amount_leftover": [[0.0],[0.25],[2],[3],[4],[1.25],[1.0],[8.5],[1.75],[0.75],[1.5],[0.5]],
+  "load_amounts": [[2.25],[1], [3], [5], [4.5], [40], [10], [20]],
+  "number_of_one_way_trips": [[2], [4], [6], [8], [10], [12], [14], [16], [18], [20]],
+  "parameters": [["Amount Leftover Constraint", "Equality"]]}
+)
+_metro_solution_tdf = TicDatFactory(
+    load_amount_details=[["Number One Way Trips", "Amount Leftover", "Load Amount"],
+                           ["Number Of Visits"]],
+    load_amount_summary=[["Number One Way Trips", "Amount Leftover"],["Number Of Visits"]])
+
+def _metro_solve(dat):
+    input_schema = _metro_input_tdf
+    ampl_format = utils.ampl_format
+    AMPL = amplpy.AMPL
+    default_parameters = {"One Way Price": 2.25, "Amount Leftover Constraint": "Upper Bound"}
+    assert input_schema.good_tic_dat_object(dat)
+    full_parameters = dict(default_parameters, **{k:v["Value"] for k,v in dat.parameters.items()})
+
+    sln = _metro_solution_tdf.TicDat() # create an empty solution
+
+    ampl_dat = input_schema.copy_to_ampl(dat, excluded_tables=
+                   set(input_schema.all_tables).difference({"load_amounts"}))
+    # solve a distinct MIP for each pair of (# of one-way-trips, amount leftover)
+    for number_trips, amount_leftover in product(dat.number_of_one_way_trips, dat.amount_leftover):
+
+        ampl = AMPL()
+        ampl.setOption('solver', 'gurobi')
+        # use the ampl_format function for AMPL friendly key-named text substitutions
+        ampl.eval(ampl_format("""
+        set LOAD_AMTS;
+        var Num_Visits {LOAD_AMTS} integer >= 0;
+        var Amt_Leftover >= {{amount_leftover_lb}}, <= {{amount_leftover_ub}};
+        minimize Total_Visits:
+           sum {la in LOAD_AMTS} Num_Visits[la];
+        subj to Set_Amt_Leftover:
+           Amt_Leftover = sum {la in LOAD_AMTS} la * Num_Visits[la] - {{one_way_price}} * {{number_trips}};""",
+            number_trips=number_trips, one_way_price=full_parameters["One Way Price"],
+            amount_leftover_lb=amount_leftover if full_parameters["Amount Leftover Constraint"] == "Equality" else 0,
+            amount_leftover_ub=amount_leftover))
+
+        input_schema.set_ampl_data(ampl_dat, ampl, {"load_amounts": "LOAD_AMTS"})
+        ampl.solve()
+
+        if ampl.getValue("solve_result") != "infeasible":
+            # store the results if and only if the model is feasible
+            for la,x in ampl.getVariable("Num_Visits").getValues().toDict().items():
+                if round(x[0]) > 0:
+                    sln.load_amount_details[number_trips, amount_leftover, la] = round(x[0])
+                    sln.load_amount_summary[number_trips, amount_leftover]["Number Of Visits"]\
+                       += round(x[0])
+    return sln
+
 #@fail_to_debugger
 class TestAmpl(unittest.TestCase):
     @classmethod
@@ -191,6 +258,64 @@ class TestAmpl(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         utils.development_deployed_environment = cls._original_value
+
+    def test_metro_amplpy(self):
+        def feas(sln, dat):
+            one_way_price = 2.25
+            self.assertTrue("One Way Price" not in dat.parameters)
+            sub_totals = defaultdict(int)
+            price_needed = {k:one_way_price*k[0] for k in sln.load_amount_summary}
+            for k,v in sln.load_amount_details.items():
+                price_needed[k[:2]] -= k[-1] * v.values()[0]
+                sub_totals[k[:2]] += v.values()[0]
+            self.assertTrue(sub_totals == {k:v.values()[0] for k,v in sln.load_amount_summary.items()})
+            if "Amount Leftover Constraint" in dat.parameters and\
+                dat.parameters["Amount Leftover Constraint"]["Value"] == "Equality":
+                self.assertTrue(all(nearlySame(k[1], -v) for k,v in price_needed.items()))
+            else:
+                self.assertTrue(all(k[1] >= -v and v<=0 for k,v in price_needed.items()))
+
+        sln = _metro_solve(_metro_dat)
+        feas(sln, _metro_dat)
+        self.assertTrue({k:v.values()[0] for k,v in sln.load_amount_summary.items()} == {(2, 0.0): 1, (2, 0.5): 1,
+ (2, 0.75): 2, (2, 1.0): 2, (2, 1.5): 2, (2, 1.75): 3, (2, 2): 3, (2, 3): 2, (2, 4): 3, (2, 8.5): 2, (4, 0.0): 2,
+ (4, 0.25): 4, (4, 0.5): 2, (4, 0.75): 3, (4, 1.0): 1, (4, 1.25): 3, (4, 1.5): 3, (4, 1.75): 4, (4, 2): 2, (4, 3): 3,
+ (4, 4): 2, (4, 8.5): 3, (6, 0.0): 3, (6, 0.25): 5, (6, 0.5): 3, (6, 0.75): 4, (6, 1.0): 2, (6, 1.25): 4, (6, 1.5): 2,
+ (6, 1.75): 3, (6, 2): 3, (6, 3): 4, (6, 4): 3, (6, 8.5): 3, (8, 0.0): 3, (8, 0.25): 4, (8, 0.5): 4, (8, 0.75): 5,
+ (8, 1.0): 3, (8, 1.25): 5, (8, 1.5): 3, (8, 1.75): 4, (8, 2): 1, (8, 3): 2, (8, 4): 3, (8, 8.5): 4, (10, 0.0): 4,
+ (10, 0.25): 5,(10, 0.5): 2, (10, 0.75): 3, (10, 1.0): 4, (10, 1.25): 6, (10, 1.5): 3, (10, 1.75): 4, (10, 2): 2,
+ (10, 3): 3, (10, 4): 4, (10, 8.5): 3, (12, 0.0): 4, (12, 0.25): 3, (12, 0.5): 3, (12, 0.75): 4, (12, 1.0): 3,
+ (12, 1.25): 4, (12, 1.5): 4, (12, 1.75): 5, (12, 2): 3, (12, 3): 2, (12, 4): 3, (12, 8.5): 4, (14, 0.0): 5,
+ (14, 0.25): 4, (14, 0.5): 4, (14, 0.75): 3, (14, 1.0): 4, (14, 1.25): 5, (14, 1.5): 3, (14, 1.75): 4, (14, 2): 4,
+ (14, 3): 3, (14, 4): 4, (14, 8.5): 1, (16, 0.0): 4, (16, 0.25): 5, (16, 0.5): 5, (16, 0.75): 4, (16, 1.0): 5,
+ (16, 1.25): 4, (16, 1.5): 4, (16, 1.75): 5, (16, 2): 4, (16, 3): 4, (16, 4): 1, (16, 8.5): 2, (18, 0.0): 5,
+ (18, 0.25): 6, (18, 0.5): 2, (18, 0.75): 5, (18, 1.0): 6, (18, 1.25): 5, (18, 1.5): 3, (18, 1.75): 2,
+ (18, 2): 5, (18, 3): 5, (18, 4): 2, (18, 8.5): 3, (20, 0.0): 2, (20, 0.25): 3, (20, 0.5): 3, (20, 0.75): 6,
+ (20, 1.0): 3, (20, 1.25): 4, (20, 1.5): 4, (20, 1.75): 3, (20, 2): 4, (20, 3): 3, (20, 4): 3, (20, 8.5): 4})
+
+
+        dat = _metro_input_tdf.copy_tic_dat(_metro_dat)
+        dat.parameters.pop("Amount Leftover Constraint")
+
+        sln = _metro_solve(dat)
+        feas(sln, dat)
+        self.assertTrue({k:v.values()[0] for k,v in sln.load_amount_summary.items()} ==
+{(2, 0.0): 1, (2, 0.25): 1, (2, 0.5): 1,
+ (2, 0.75): 1, (2, 1.0): 1, (2, 1.25): 1, (2, 1.5): 1, (2, 1.75): 1, (2, 2): 1, (2, 3): 1, (2, 4): 1, (2, 8.5): 1,
+ (4, 0.0): 2, (4, 0.25): 2, (4, 0.5): 2, (4, 0.75): 2, (4, 1.0): 1, (4, 1.25): 1, (4, 1.5): 1, (4, 1.75): 1, (4, 2): 1,
+ (4, 3): 1, (4, 4): 1, (4, 8.5): 1, (6, 0.0): 3, (6, 0.25): 3, (6, 0.5): 3, (6, 0.75): 3, (6, 1.0): 2, (6, 1.25): 2,
+ (6, 1.5): 2, (6, 1.75): 2, (6, 2): 2, (6, 3): 2, (6, 4): 2, (6, 8.5): 1, (8, 0.0): 3, (8, 0.25): 3, (8, 0.5): 3,
+ (8, 0.75): 3, (8, 1.0): 3, (8, 1.25): 3, (8, 1.5): 3, (8, 1.75): 3, (8, 2): 1, (8, 3): 1, (8, 4): 1, (8, 8.5): 1,
+ (10, 0.0): 4, (10, 0.25): 4, (10, 0.5): 2, (10, 0.75): 2, (10, 1.0): 2, (10, 1.25): 2, (10, 1.5): 2, (10, 1.75): 2,
+ (10, 2): 2, (10, 3): 2, (10, 4): 2, (10, 8.5): 2, (12, 0.0): 4, (12, 0.25): 3, (12, 0.5): 3, (12, 0.75): 3,
+ (12, 1.0): 3, (12, 1.25): 3, (12, 1.5): 3, (12, 1.75): 3, (12, 2): 3, (12, 3): 2, (12, 4): 2, (12, 8.5): 2,
+ (14, 0.0): 5, (14, 0.25): 4, (14, 0.5): 4, (14, 0.75): 3, (14, 1.0): 3, (14, 1.25): 3, (14, 1.5): 3, (14, 1.75): 3,
+ (14, 2): 3, (14, 3): 3, (14, 4): 3, (14, 8.5): 1, (16, 0.0): 4, (16, 0.25): 4, (16, 0.5): 4, (16, 0.75): 4,
+ (16, 1.0): 4, (16, 1.25): 4, (16, 1.5): 4, (16, 1.75): 4, (16, 2): 4, (16, 3): 4, (16, 4): 1, (16, 8.5): 1,
+ (18, 0.0): 5, (18, 0.25): 5, (18, 0.5): 2, (18, 0.75): 2, (18, 1.0): 2, (18, 1.25): 2, (18, 1.5): 2, (18, 1.75): 2,
+ (18, 2): 2, (18, 3): 2, (18, 4): 2, (18, 8.5): 2, (20, 0.0): 2, (20, 0.25): 2, (20, 0.5): 2, (20, 0.75): 2,
+ (20, 1.0): 2, (20, 1.25): 2, (20, 1.5): 2, (20, 1.75): 2, (20, 2): 2, (20, 3): 2, (20, 4): 2, (20, 8.5): 2})
+
 
     def test_diet_amplpy(self):
         dat = _diet_input_tdf.copy_to_ampl(_diet_dat, field_renamings={("foods", "Cost"): "cost",

@@ -14,9 +14,9 @@
 # will read from a model stored in the file metrorail_sample_data.json and write the
 # solution to metrorail_solution_data.json.
 
-# this version of the file uses Gurobi
-import gurobipy as gu
-from ticdat import TicDatFactory, standard_main
+# this version of the file uses amplpy and Gurobi
+from amplpy import AMPL
+from ticdat import TicDatFactory, standard_main, ampl_format
 from itertools import product
 
 # ------------------------ define the input schema --------------------------------
@@ -44,7 +44,7 @@ def _good_parameter_key_value(key, value):
         except:
             return False
     if key == "Amount Leftover Constraint":
-        return value  in ["Equality", "Upper Bound", "Upper Bound With Leftover Multiple Rule"]
+        return value  in ["Equality", "Upper Bound"]
 
 assert all(_good_parameter_key_value(k,v) for k,v in default_parameters.items())
 
@@ -79,44 +79,36 @@ def solve(dat):
 
     sln = solution_schema.TicDat() # create an empty solution'
 
+    ampl_dat = input_schema.copy_to_ampl(dat, excluded_tables=
+                   set(input_schema.all_tables).difference({"load_amounts"}))
     # solve a distinct MIP for each pair of (# of one-way-trips, amount leftover)
     for number_trips, amount_leftover in product(dat.number_of_one_way_trips, dat.amount_leftover):
 
-        mdl = gu.Model("metrorail")
+        ampl = AMPL()
+        ampl.setOption('solver', 'gurobi')
+        # use the ampl_format function for AMPL friendly key-named text substitutions
+        ampl.eval(ampl_format("""
+        set LOAD_AMTS;
+        var Num_Visits {LOAD_AMTS} integer >= 0;
+        var Amt_Leftover >= {{amount_leftover_lb}}, <= {{amount_leftover_ub}};
+        minimize Total_Visits:
+           sum {la in LOAD_AMTS} Num_Visits[la];
+        subj to Set_Amt_Leftover:
+           Amt_Leftover = sum {la in LOAD_AMTS} la * Num_Visits[la] - {{one_way_price}} * {{number_trips}};""",
+            number_trips=number_trips, one_way_price=full_parameters["One Way Price"],
+            amount_leftover_lb=amount_leftover if full_parameters["Amount Leftover Constraint"] == "Equality" else 0,
+            amount_leftover_ub=amount_leftover))
 
-        # Create decision variables
-        number_vists = {la:mdl.addVar(vtype = gu.GRB.INTEGER, name="load_amount_%s"%la)
-                        for la in dat.load_amounts}
-        amount_leftover_var = mdl.addVar(name="amount_leftover", lb=0, ub=amount_leftover)
+        input_schema.set_ampl_data(ampl_dat, ampl, {"load_amounts": "LOAD_AMTS"})
+        ampl.solve()
 
-        # an equality constraint is modeled here as amount_leftover_var.lb = amount_leftover_var.ub
-        if full_parameters["Amount Leftover Constraint"] == "Equality":
-            amount_leftover_var.lb = amount_leftover
-        # for left-over is multiple, we will still respect the amount leftover upper bound
-        # but will also enforce that the amount leftover is a multiple of the one way price
-        if full_parameters["Amount Leftover Constraint"] == "Upper Bound With Leftover Multiple Rule":
-            leftover_multiple = mdl.addVar(vtype = gu.GRB.INTEGER, name="leftover_multiple")
-            mdl.addConstr(amount_leftover_var == full_parameters["One Way Price"] * leftover_multiple,
-                          name="set_leftover_multiple")
-
-        # add a constraint to set the amount leftover
-        mdl.addConstr(amount_leftover_var ==
-                      gu.quicksum(la * number_vists[la] for la in dat.load_amounts) -
-                      full_parameters["One Way Price"] * number_trips,
-                      name="set_amount_leftover")
-
-
-        # minimize the total number of visits to the ticket office
-        mdl.setObjective(gu.quicksum(number_vists.values()), sense=gu.GRB.MINIMIZE)
-        mdl.optimize()
-
-        if mdl.status in [gu.GRB.OPTIMAL, gu.GRB.SUBOPTIMAL]:
+        if ampl.getValue("solve_result") != "infeasible":
             # store the results if and only if the model is feasible
-            for la,x in number_vists.items():
-                if round(x.x) > 0:
-                    sln.load_amount_details[number_trips, amount_leftover, la] = round(x.x)
+            for la,x in ampl.getVariable("Num_Visits").getValues().toDict().items():
+                if round(x[0]) > 0:
+                    sln.load_amount_details[number_trips, amount_leftover, la] = round(x[0])
                     sln.load_amount_summary[number_trips, amount_leftover]["Number Of Visits"]\
-                       += round(x.x)
+                       += round(x[0])
     return sln
 # ---------------------------------------------------------------------------------
 
