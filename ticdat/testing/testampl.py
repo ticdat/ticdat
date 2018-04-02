@@ -1,3 +1,9 @@
+# on OSX operating system I used
+# %env PATH = PATH:/Users/myusername/ampl/ampl
+# from within ipython to find the AMPL executable. This was the directory created by
+# ampl.macosx64.tgz (which I had placed in an ampl directory and then opened to create
+# another ampl directory).
+
 import os
 import sys
 from ticdat.ticdatfactory import TicDatFactory, amplpy
