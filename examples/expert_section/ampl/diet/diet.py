@@ -1,8 +1,5 @@
 #!/usr/bin/python
 
-# Copyright 2015, 2016, 2017, 2018 Opalytics, Inc.
-#
-
 # Implement core functionality needed to achieve modularity.
 # 1. Define the input data schema
 # 2. Define the output data schema
@@ -52,7 +49,7 @@ input_schema.set_default_value("categories", "Max Nutrition", float("inf"))
 # ---------------------------------------------------------------------------------
 
 # ------------------------ define the output schema -------------------------------
-# There are three solution tables, with 2 primary key fields and 3 data fields.
+# There are three solution tables, with 3 primary key fields and 3 data fields.
 solution_schema = TicDatFactory(
     parameters = [["Key"],["Value"]],
     buy_food = [["Food"],["Quantity"]],
