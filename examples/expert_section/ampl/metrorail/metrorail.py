@@ -105,10 +105,10 @@ def solve(dat):
         if ampl.getValue("solve_result") != "infeasible":
             # store the results if and only if the model is feasible
             for la,x in ampl.getVariable("Num_Visits").getValues().toDict().items():
-                if round(x[0]) > 0:
-                    sln.load_amount_details[number_trips, amount_leftover, la] = round(x[0])
+                if round(x) > 0:
+                    sln.load_amount_details[number_trips, amount_leftover, la] = round(x)
                     sln.load_amount_summary[number_trips, amount_leftover]["Number Of Visits"]\
-                       += round(x[0])
+                       += round(x)
     return sln
 # ---------------------------------------------------------------------------------
 

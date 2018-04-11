@@ -207,7 +207,8 @@ _metro_solution_tdf = TicDatFactory(
                            ["Number Of Visits"]],
     load_amount_summary=[["Number One Way Trips", "Amount Leftover"],["Number Of Visits"]])
 
-def _metro_solve(dat):
+def _metro_solve(dat, sln_read_method = "amplToDict"):
+    assert sln_read_method in ["amplToDict", "ticdat"]
     input_schema = _metro_input_tdf
     ampl_format = utils.ampl_format
     AMPL = amplpy.AMPL
@@ -242,11 +243,20 @@ def _metro_solve(dat):
 
         if ampl.getValue("solve_result") != "infeasible":
             # store the results if and only if the model is feasible
-            for la,x in ampl.getVariable("Num_Visits").getValues().toDict().items():
-                if round(x[0]) > 0:
-                    sln.load_amount_details[number_trips, amount_leftover, la] = round(x[0])
-                    sln.load_amount_summary[number_trips, amount_leftover]["Number Of Visits"]\
-                       += round(x[0])
+            if sln_read_method == "ticdat":
+                temp_tdf = TicDatFactory(num_visits = [["Load Amount"],["Number Of Visits"]])
+                temp_sln = temp_tdf.copy_from_ampl_variables(
+                    {("num_visits", "Number Of Visits"): (ampl.getVariable("Num_Visits"), lambda _: round(_) > 0)})
+                for la,r in temp_sln.num_visits.items():
+                    x = round(r["Number Of Visits"])
+                    sln.load_amount_details[number_trips, amount_leftover, la] = round(x)
+                    sln.load_amount_summary[number_trips, amount_leftover]["Number Of Visits"] += x
+            else:
+                for la,x in ampl.getVariable("Num_Visits").getValues().toDict().items():
+                    if round(x) > 0:
+                        sln.load_amount_details[number_trips, amount_leftover, la] = round(x)
+                        sln.load_amount_summary[number_trips, amount_leftover]["Number Of Visits"]\
+                           += round(x)
     return sln
 
 #@fail_to_debugger
@@ -275,32 +285,34 @@ class TestAmpl(unittest.TestCase):
             else:
                 self.assertTrue(all(k[1] >= -v and v<=0 for k,v in price_needed.items()))
 
-        sln = _metro_solve(_metro_dat)
-        feas(sln, _metro_dat)
-        self.assertTrue({k:v.values()[0] for k,v in sln.load_amount_summary.items()} == {(2, 0.0): 1, (2, 0.5): 1,
+        for sln_read_method in ["amplToDict", "ticdat"]:
+
+            sln = _metro_solve(_metro_dat, sln_read_method)
+            feas(sln, _metro_dat)
+            self.assertTrue({k:v.values()[0] for k,v in sln.load_amount_summary.items()} == {(2, 0.0): 1, (2, 0.5): 1,
  (2, 0.75): 2, (2, 1.0): 2, (2, 1.5): 2, (2, 1.75): 3, (2, 2): 3, (2, 3): 2, (2, 4): 3, (2, 8.5): 2, (4, 0.0): 2,
  (4, 0.25): 4, (4, 0.5): 2, (4, 0.75): 3, (4, 1.0): 1, (4, 1.25): 3, (4, 1.5): 3, (4, 1.75): 4, (4, 2): 2, (4, 3): 3,
- (4, 4): 2, (4, 8.5): 3, (6, 0.0): 3, (6, 0.25): 5, (6, 0.5): 3, (6, 0.75): 4, (6, 1.0): 2, (6, 1.25): 4, (6, 1.5): 2,
- (6, 1.75): 3, (6, 2): 3, (6, 3): 4, (6, 4): 3, (6, 8.5): 3, (8, 0.0): 3, (8, 0.25): 4, (8, 0.5): 4, (8, 0.75): 5,
- (8, 1.0): 3, (8, 1.25): 5, (8, 1.5): 3, (8, 1.75): 4, (8, 2): 1, (8, 3): 2, (8, 4): 3, (8, 8.5): 4, (10, 0.0): 4,
- (10, 0.25): 5,(10, 0.5): 2, (10, 0.75): 3, (10, 1.0): 4, (10, 1.25): 6, (10, 1.5): 3, (10, 1.75): 4, (10, 2): 2,
- (10, 3): 3, (10, 4): 4, (10, 8.5): 3, (12, 0.0): 4, (12, 0.25): 3, (12, 0.5): 3, (12, 0.75): 4, (12, 1.0): 3,
- (12, 1.25): 4, (12, 1.5): 4, (12, 1.75): 5, (12, 2): 3, (12, 3): 2, (12, 4): 3, (12, 8.5): 4, (14, 0.0): 5,
- (14, 0.25): 4, (14, 0.5): 4, (14, 0.75): 3, (14, 1.0): 4, (14, 1.25): 5, (14, 1.5): 3, (14, 1.75): 4, (14, 2): 4,
- (14, 3): 3, (14, 4): 4, (14, 8.5): 1, (16, 0.0): 4, (16, 0.25): 5, (16, 0.5): 5, (16, 0.75): 4, (16, 1.0): 5,
- (16, 1.25): 4, (16, 1.5): 4, (16, 1.75): 5, (16, 2): 4, (16, 3): 4, (16, 4): 1, (16, 8.5): 2, (18, 0.0): 5,
- (18, 0.25): 6, (18, 0.5): 2, (18, 0.75): 5, (18, 1.0): 6, (18, 1.25): 5, (18, 1.5): 3, (18, 1.75): 2,
+ (4, 4): 2, (4, 8.5): 3, (6, 0.0): 3, (6, 0.25): 5, (6, 0.5): 3, (6, 0.75): 4, (6, 1.0): 2, (6, 1.25): 4,
+ (6, 1.5): 2, (6, 1.75): 3, (6, 2): 3, (6, 3): 4, (6, 4): 3, (6, 8.5): 3, (8, 0.0): 3, (8, 0.25): 4, (8, 0.5): 4,
+ (8, 0.75): 5, (8, 1.0): 3, (8, 1.25): 5, (8, 1.5): 3, (8, 1.75): 4, (8, 2): 1, (8, 3): 2, (8, 4): 3, (8, 8.5): 4,
+ (10, 0.0): 4, (10, 0.25): 5,(10, 0.5): 2, (10, 0.75): 3, (10, 1.0): 4, (10, 1.25): 6, (10, 1.5): 3, (10, 1.75): 4,
+ (10, 2): 2, (10, 3): 3, (10, 4): 4, (10, 8.5): 3, (12, 0.0): 4, (12, 0.25): 3, (12, 0.5): 3, (12, 0.75): 4,
+ (12, 1.0): 3, (12, 1.25): 4, (12, 1.5): 4, (12, 1.75): 5, (12, 2): 3, (12, 3): 2, (12, 4): 3, (12, 8.5): 4,
+ (14, 0.0): 5, (14, 0.25): 4, (14, 0.5): 4, (14, 0.75): 3, (14, 1.0): 4, (14, 1.25): 5, (14, 1.5): 3, (14, 1.75): 4,
+ (14, 2): 4, (14, 3): 3, (14, 4): 4, (14, 8.5): 1, (16, 0.0): 4, (16, 0.25): 5, (16, 0.5): 5, (16, 0.75): 4,
+ (16, 1.0): 5, (16, 1.25): 4, (16, 1.5): 4, (16, 1.75): 5, (16, 2): 4, (16, 3): 4, (16, 4): 1, (16, 8.5): 2,
+ (18, 0.0): 5, (18, 0.25): 6, (18, 0.5): 2, (18, 0.75): 5, (18, 1.0): 6, (18, 1.25): 5, (18, 1.5): 3, (18, 1.75): 2,
  (18, 2): 5, (18, 3): 5, (18, 4): 2, (18, 8.5): 3, (20, 0.0): 2, (20, 0.25): 3, (20, 0.5): 3, (20, 0.75): 6,
  (20, 1.0): 3, (20, 1.25): 4, (20, 1.5): 4, (20, 1.75): 3, (20, 2): 4, (20, 3): 3, (20, 4): 3, (20, 8.5): 4})
 
 
-        dat = _metro_input_tdf.copy_tic_dat(_metro_dat)
-        dat.parameters.pop("Amount Leftover Constraint")
+            dat = _metro_input_tdf.copy_tic_dat(_metro_dat)
+            dat.parameters.pop("Amount Leftover Constraint")
 
-        sln = _metro_solve(dat)
-        feas(sln, dat)
-        self.assertTrue({k:v.values()[0] for k,v in sln.load_amount_summary.items()} ==
-{(2, 0.0): 1, (2, 0.25): 1, (2, 0.5): 1,
+            sln = _metro_solve(dat, sln_read_method)
+            feas(sln, dat)
+            self.assertTrue({k:v.values()[0] for k,v in sln.load_amount_summary.items()} == {
+ (2, 0.0): 1, (2, 0.25): 1, (2, 0.5): 1,
  (2, 0.75): 1, (2, 1.0): 1, (2, 1.25): 1, (2, 1.5): 1, (2, 1.75): 1, (2, 2): 1, (2, 3): 1, (2, 4): 1, (2, 8.5): 1,
  (4, 0.0): 2, (4, 0.25): 2, (4, 0.5): 2, (4, 0.75): 2, (4, 1.0): 1, (4, 1.25): 1, (4, 1.5): 1, (4, 1.75): 1, (4, 2): 1,
  (4, 3): 1, (4, 4): 1, (4, 8.5): 1, (6, 0.0): 3, (6, 0.25): 3, (6, 0.5): 3, (6, 0.75): 3, (6, 1.0): 2, (6, 1.25): 2,
