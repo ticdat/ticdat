@@ -131,7 +131,7 @@ class JsonTicFactory(freezable_factory(object, "_isFrozen")) :
         """
         _standard_verify(self.tic_dat_factory)
         verify(not (os.path.exists(json_file_path) and not allow_overwrite),
-               "%s exists and allow_overwrite is not enabled")
+               "%s exists and allow_overwrite is not enabled"%json_file_path)
         msg = []
         if not self.tic_dat_factory.good_tic_dat_object(tic_dat, lambda m : msg.append(m)) :
             raise TicDatError("Not a valid TicDat object for this schema : " + " : ".join(msg))
