@@ -348,7 +348,7 @@ class TestUtils(unittest.TestCase):
                             appendageBadChild = [["bk1", "bk2"], []])
         tdf.add_foreign_key("goodChild", "parentTable", fkm("gd1" , "pk"))
         tdf.add_foreign_key("badChild", "parentTable", ["bk2" , "pk"])
-        self.assertTrue("X-to-many" in self.firesException(lambda :
+        self.assertFalse(self.firesException(lambda :
                 tdf.add_foreign_key("badChild", "parentTable", ["bd", "pd2"])))
         tdf.add_foreign_key("appendageChild", "parentTable", ["ak", "pk"])
         tdf.add_foreign_key("appendageBadChild", "badChild", (("bk2", "bk2"), ("bk1","bk1")))

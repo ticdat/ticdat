@@ -48,7 +48,10 @@ class _ForeignKey(namedtuple("ForeignKey", ("native_table", "foreign_table", "ma
         return {v:k for k,v in self.foreigntonativemapping().items()}
 
 _ForeignKeyMapping = namedtuple("FKMapping", ("native_field", "foreign_field"))
-
+def _x_to_many_fk(fk):
+    assert lupish(fk) and (all(lupish(_) and len(_) == 2 for _ in fk) or
+                           not any(map(lupish, fk)))
+    return fk and containerish(fk[0])
 # can I get away with ordering this consistently with the function? hopefully I can!
 class _TypeDictionary(namedtuple("TypeDictionary",
                     ("number_allowed", "inclusive_min", "inclusive_max", "min",
@@ -320,12 +323,19 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
         for (native,foreign), nativefieldtuples in self._foreign_keys.items():
             for nativefields in nativefieldtuples :
                 mappings = tuple(_ForeignKeyMapping(nf,ff) for nf,ff in
-                                 zip(nativefields, self.primary_key_fields[foreign]))
+                                 (nativefields if _x_to_many_fk(nativefields) else
+                                  zip(nativefields, self.primary_key_fields[foreign])))
                 mappings = mappings[0] if len(mappings)==1 else mappings
-                if set(nativefields) == set(self.primary_key_fields.get(native, ())) :
-                    cardinality = "one-to-one"
+                if _x_to_many_fk(nativefields):
+                    if set(_[0] for _ in nativefields) == set(self.primary_key_fields.get(native, ())):
+                        cardinality = "one-to-many"
+                    else:
+                        cardinality = "many-to-many"
                 else:
-                   cardinality = "many-to-one"
+                    if set(nativefields) == set(self.primary_key_fields.get(native, ())) :
+                        cardinality = "one-to-one"
+                    else:
+                       cardinality = "many-to-one"
                 rtn.append(_ForeignKey(native, foreign, mappings, cardinality))
         assert len(rtn) == len(set(rtn))
         return tuple(rtn)
@@ -380,16 +390,14 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
                    "%s does not refer to one of %s 's fields"%(k, native_table))
             verify(v in self._allFields(foreign_table),
                    "%s does not refer to one of %s 's fields"%(v, foreign_table))
-        verify(set(self.primary_key_fields.get(foreign_table, ())) == set(_mappings.values()),
-            """%s is not the primary key for %s.
-This exception is being thrown because ticDat doesn't currently support X-to-many
-foreign key relationships. The ticDat API is forward compatible with re: to X-to-many
-relationships. When a future version of ticDat is released that supports X-to-many
-foreign keys, the code throwing this exception will be removed.
-            """%(",".join(_mappings.values()), foreign_table))
-        reverseMapping = {v:k for k,v in _mappings.items()}
-        self._foreign_keys[native_table, foreign_table].add(tuple(reverseMapping[pkf]
-                            for pkf in self.primary_key_fields[foreign_table]))
+        if set(self.primary_key_fields.get(foreign_table, ())) == set(_mappings.values()):
+            reverseMapping = {v:k for k,v in _mappings.items()}
+            fk = tuple(reverseMapping[pkf] for pkf in self.primary_key_fields[foreign_table])
+            assert not _x_to_many_fk(fk)
+        else:
+            fk = tuple(_mappings.items())
+            assert _x_to_many_fk(fk)
+        self._foreign_keys[native_table, foreign_table].add(fk)
     def _trigger_has_been_used(self):
         if self._has_been_used :
             return # idempotent
@@ -397,6 +405,7 @@ foreign keys, the code throwing this exception will be removed.
             curFKs = self._foreign_keys_by_native()
             for (nativetable, bridgetable), nativefieldstuples in self._foreign_keys.items():
                 for nativefieldtuple in nativefieldstuples :
+                  if not _x_to_many_fk(nativefieldtuple) : # ignore for x-many relationships
                     for bfk in curFKs.get(bridgetable,()):
                         nativefields = bfk.nativefields()
                         if set(nativefields)\
@@ -412,7 +421,8 @@ foreign keys, the code throwing this exception will be removed.
         while findderivedforeignkey():
             pass
         for (nativetable, foreigntable), nativeFieldsTuples in self._foreign_keys.items():
-            nativeFieldsSet = frozenset(frozenset(_) for _ in nativeFieldsTuples)
+            nativeFieldsSet = frozenset(frozenset(_) for _ in nativeFieldsTuples
+                                        if not _x_to_many_fk(_)) # ignore for x-many relationships
             if len(nativeFieldsSet)==1:
                 self._linkName[nativetable, foreigntable, next(_ for _ in nativeFieldsSet)] = \
                     nativetable
