@@ -43,6 +43,19 @@ class TestUtils(unittest.TestCase):
             self.assertTrue("TicDatError" in e.__class__.__name__)
             return str(e)
 
+    def testXToMany(self):
+        input_schema = TicDatFactory (roster = [["Name"],["Grade", "Arrival Inning", "Departure Inning",
+                                                          "Min Innings Played", "Max Innings Played"]],
+                                      positions = [["Position"],["Position Importance", "Position Group",
+                                                                 "Consecutive Innings Only"]],
+                                      innings = [["Inning"],["Inning Group"]],
+                                      position_constraints = [["Position Group", "Inning Group", "Grade"],
+                                                              ["Min Players", "Max Players"]])
+        input_schema.add_foreign_key("position_constraints", "roster", ["Grade", "Grade"])
+        input_schema.add_foreign_key("position_constraints", "positions", ["Position Group", "Position Group"])
+        input_schema.add_foreign_key("position_constraints", "innings", ["Inning Group", "Inning Group"])
+
+
     def testDenormalizedErrors(self):
         c = clean_denormalization_errors
         tdf = TicDatFactory(**spacesSchema())
