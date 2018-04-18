@@ -8,7 +8,7 @@ import os
 import sys
 from ticdat.ticdatfactory import TicDatFactory, amplpy
 import ticdat.utils as utils
-from ticdat.testing.ticdattestutils import nearlySame, fail_to_debugger
+from ticdat.testing.ticdattestutils import nearlySame, firesException, fail_to_debugger
 import unittest
 from itertools import product
 from collections import defaultdict
@@ -207,7 +207,8 @@ _metro_solution_tdf = TicDatFactory(
                            ["Number Of Visits"]],
     load_amount_summary=[["Number One Way Trips", "Amount Leftover"],["Number Of Visits"]])
 
-def _metro_solve(dat, sln_read_method = "amplToDict"):
+def _metro_solve(dat, sln_read_method = "amplToDict", excluded_tables=
+                 frozenset(_metro_input_tdf.all_tables).difference({"load_amounts"})):
     assert sln_read_method in ["amplToDict", "ticdat"]
     input_schema = _metro_input_tdf
     ampl_format = utils.ampl_format
@@ -218,8 +219,7 @@ def _metro_solve(dat, sln_read_method = "amplToDict"):
 
     sln = _metro_solution_tdf.TicDat() # create an empty solution
 
-    ampl_dat = input_schema.copy_to_ampl(dat, excluded_tables=
-                   set(input_schema.all_tables).difference({"load_amounts"}))
+    ampl_dat = input_schema.copy_to_ampl(dat, excluded_tables=excluded_tables)
     # solve a distinct MIP for each pair of (# of one-way-trips, amount leftover)
     for number_trips, amount_leftover in product(dat.number_of_one_way_trips, dat.amount_leftover):
 
@@ -268,6 +268,12 @@ class TestAmpl(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         utils.development_deployed_environment = cls._original_value
+
+    def firesException(self, f):
+        e = firesException(f)
+        if e :
+            self.assertTrue("TicDatError" in e.__class__.__name__)
+            return str(e)
 
     def test_metro_amplpy(self):
         def feas(sln, dat):
@@ -327,6 +333,9 @@ class TestAmpl(unittest.TestCase):
  (18, 0.0): 5, (18, 0.25): 5, (18, 0.5): 2, (18, 0.75): 2, (18, 1.0): 2, (18, 1.25): 2, (18, 1.5): 2, (18, 1.75): 2,
  (18, 2): 2, (18, 3): 2, (18, 4): 2, (18, 8.5): 2, (20, 0.0): 2, (20, 0.25): 2, (20, 0.5): 2, (20, 0.75): 2,
  (20, 1.0): 2, (20, 1.25): 2, (20, 1.5): 2, (20, 1.75): 2, (20, 2): 2, (20, 3): 2, (20, 4): 2, (20, 8.5): 2})
+
+            ex = self.firesException(lambda : _metro_solve(dat, excluded_tables=[]))
+            self.assertTrue(any(_ in str(ex) for _ in set(_metro_input_tdf.all_tables).difference({"load_amounts"})))
 
 
     def test_diet_amplpy(self):
