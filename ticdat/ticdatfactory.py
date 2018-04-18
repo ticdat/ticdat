@@ -1037,8 +1037,11 @@ foreign keys, the code throwing this exception will be removed.
                    utils.stringish(v) for k,v in table_to_set_name.items()),
                "bad table_to_set_name argument")
         for t in set(self.all_tables).intersection(dir(tic_dat)):
-            ampl.setData(getattr(tic_dat, t), *([table_to_set_name[t]]
+            try:
+                ampl.setData(getattr(tic_dat, t), *([table_to_set_name[t]]
                                                 if t in table_to_set_name else []))
+            except:
+                raise utils.TicDatError(t + " cannot be passed as an argument to AMPL.setData()")
     def copy_to_pandas(self, tic_dat, table_restrictions = None, drop_pk_columns = None):
         """
         copies the tic_dat object into a new tic_dat object populated with pandas.DataFrame objects
