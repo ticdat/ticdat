@@ -501,6 +501,38 @@ class TestUtils(unittest.TestCase):
             self.assertFalse(tdf._same_data(obfudat4.copy, goodDat))
             self.assertFalse(tdf._same_data(obfudat4.copy, obfudat.copy))
 
+    def testSixB(self):
+        tdf = TicDatFactory(pt1 = [["F1"],[]], pt2 = [["F2"],[]], pt3 = [["F1","F2"],[]],
+                            pt4 = [["F1"],["F2"]], pt5 = [[],["F1","F2"]])
+        for c in ["pt3", "pt4", "pt5"]:
+            tdf.add_foreign_key(c, "pt1", ["F1", "F1"])
+            tdf.add_foreign_key(c, "pt2", ["F2", "F2"])
+        ticDat = tdf.TicDat(pt1=[1, 2, 3, 4], pt2=[5, 6, 7, 8])
+        for f1, f2 in itertools.product(range(1,5), range(5,9)):
+            ticDat.pt3[f1, f2] = {}
+            ticDat.pt4[f1] = f2
+            ticDat.pt5.append((f1, f2))
+        origDat = tdf.copy_tic_dat(ticDat, freeze_it=True)
+        self.assertFalse(tdf.find_foreign_key_failures(origDat))
+        ticDat.pt3["no",6] = ticDat.pt3[1, "no"] = {}
+        ticDat.pt4["no"] = 6
+        ticDat.pt4["nono"]=6.01
+        fails1 = tdf.find_foreign_key_failures(ticDat)
+        self.assertTrue(fails1)
+        tdf.remove_foreign_keys_failures(ticDat)
+        self.assertTrue(tdf._same_data(ticDat, origDat) and not tdf.find_foreign_key_failures(ticDat))
+
+        ticDat.pt3["no",6] = ticDat.pt3[1, "no"] = {}
+        ticDat.pt4["no"] = 6
+        ticDat.pt4["nono"]=6.01
+        ticDat.pt5.append(("no",6))
+        ticDat.pt5.append((1, "no"))
+        fails2 = tdf.find_foreign_key_failures(ticDat)
+        self.assertTrue(set(fails1) != set(fails2) and set(fails1).issubset(fails2))
+        ex = self.firesException(lambda : tdf.remove_foreign_keys_failures(ticDat))
+        self.assertTrue("pt5" in str(ex))
+
+
     def testSeven(self):
         tdf = TicDatFactory(**dietSchema())
         def makeIt() :
