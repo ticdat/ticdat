@@ -57,16 +57,44 @@ class TestUtils(unittest.TestCase):
 
         self.assertTrue({fk.cardinality for fk in input_schema.foreign_keys} == {"many-to-many"})
 
+        dat = input_schema.TicDat()
+        for i,p in enumerate(["bob", "joe", "fred", "alice", "lisa", "joean", "ginny"]):
+            dat.roster[p]["Grade"] = (i%3)+1
+        dat.roster["dummy"]["Grade"]  = "whatevers"
+        for i,p in enumerate(["pitcher", "catcher", "1b", "2b", "ss", "3b", "lf", "cf", "rf"]):
+            dat.positions[p]["Position Group"] = "PG %s"%((i%4)+1)
+        for i in range(1, 10):
+            dat.innings[i]["Inning Group"] = "before stretch" if i < 7 else "after stretch"
+        dat.innings[0] ={}
+        for pg, ig, g in itertools.product(["PG %s"%i for i in range(1,5)], ["before stretch", "after stretch"],
+                                           [1, 2, 3]):
+            dat.position_constraints[pg, ig, g] = {}
+
+        orig_dat = input_schema.copy_tic_dat(dat, freeze_it=True)
+        self.assertFalse(input_schema.find_foreign_key_failures(orig_dat))
+
+        dat.position_constraints["no", "no", "no"] = dat.position_constraints[1, 2, 3] = {}
+        fk_fails = input_schema.find_foreign_key_failures(input_schema.copy_tic_dat(dat, freeze_it=True))
+        self.assertTrue({(1, 'no'), (2, 'no'), ('no',)} ==  {_.native_values for _ in fk_fails.values()})
+        input_schema.remove_foreign_keys_failures(dat)
+        self.assertTrue(input_schema._same_data(dat, orig_dat) and not input_schema.find_foreign_key_failures(dat))
+
         input_schema = TicDatFactory(table_one = [["One", "Two"], []],
                                      table_two = [["One"], ["Two"]])
         input_schema.add_foreign_key("table_two", "table_one", ["One", "One"])
         self.assertTrue({fk.cardinality for fk in input_schema.foreign_keys} == {"one-to-many"})
 
-        # find foreign key errors and perform cascading deletes
 
-        dat = input_schema.TicDat(table_one = [[1,2], [3,4], [5,6]], table_two = {1:2, 3:4, 5:6})
+        dat = input_schema.TicDat(table_one = [[1,2], [3,4], [5,6], [7,8]], table_two = {1:2, 3:4, 5:6})
         ex = self.firesException(lambda : input_schema.obfusimplify(dat))
         self.assertTrue("many-to-many and one-to-many foreign keys are not currently supported" in str(ex))
+        orig_dat = input_schema.copy_tic_dat(dat, freeze_it=True)
+        self.assertFalse(input_schema.find_foreign_key_failures(orig_dat))
+        dat.table_two[9]=10
+        self.assertTrue(input_schema.find_foreign_key_failures(input_schema.copy_tic_dat(dat, freeze_it=True)))
+        input_schema.remove_foreign_keys_failures(dat)
+        self.assertTrue(input_schema._same_data(dat, orig_dat) and not input_schema.find_foreign_key_failures(dat))
+
 
     def testDenormalizedErrors(self):
         c = clean_denormalization_errors
