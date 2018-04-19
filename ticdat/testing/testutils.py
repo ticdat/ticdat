@@ -55,12 +55,18 @@ class TestUtils(unittest.TestCase):
         input_schema.add_foreign_key("position_constraints", "positions", ["Position Group", "Position Group"])
         input_schema.add_foreign_key("position_constraints", "innings", ["Inning Group", "Inning Group"])
 
-        # read the foreign key status results (i.e. many to many in this case, then make a case with one to many)
+        self.assertTrue({fk.cardinality for fk in input_schema.foreign_keys} == {"many-to-many"})
+
+        input_schema = TicDatFactory(table_one = [["One", "Two"], []],
+                                     table_two = [["One"], ["Two"]])
+        input_schema.add_foreign_key("table_two", "table_one", ["One", "One"])
+        self.assertTrue({fk.cardinality for fk in input_schema.foreign_keys} == {"one-to-many"})
 
         # find foreign key errors and perform cascading deletes
 
-        # obfusimplify should just ignore x-to-many foreign key changes as they are impossible, and exception
-        # out if primary key fields get caught up in x-to-many changes
+        dat = input_schema.TicDat(table_one = [[1,2], [3,4], [5,6]], table_two = {1:2, 3:4, 5:6})
+        ex = self.firesException(lambda : input_schema.obfusimplify(dat))
+        self.assertTrue("many-to-many and one-to-many foreign keys are not currently supported" in str(ex))
 
     def testDenormalizedErrors(self):
         c = clean_denormalization_errors

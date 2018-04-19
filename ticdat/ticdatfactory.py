@@ -1338,6 +1338,8 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
         msg  = []
         verify(self.good_tic_dat_object(tic_dat, msg.append),
                "tic_dat not a good object for this factory : %s"%"\n".join(msg))
+        verify({fk.cardinality for fk in self.foreign_keys}.issubset({"many-to-one", "one-to-one"}),
+               "many-to-many and one-to-many foreign keys are not currently supported for obfusimplify")
         verify(not self.find_foreign_key_failures(tic_dat),
                "Cannot obfusimplify an object with foreign key failures")
         verify(not self.generator_tables, "Cannot obfusimplify a tic_dat that uses generators")
@@ -1360,7 +1362,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
             verify(k in self.all_tables, "%s is not a table name")
             verify(len(self.primary_key_fields.get(k, ())) ==1, "%s does not have a single primary key field"%k)
             verify(k in entity_tables, "%s is not an entity table due to child foreign key relationship"%k)
-            verify(utils.stringish(v) and  set(v).issubset(uppercase) and not v.endswith("I"),
+            verify(utils.stringish(v) and set(v).issubset(uppercase) and not v.endswith("I"),
                    "Your table_prepend string %s is not an all uppercase string ending in a letter other than I")
         verify(len(set(table_prepends.values())) == len(table_prepends.values()),
                "You provided duplicate table prepends")
