@@ -3,7 +3,7 @@ Create TicDatFactory. Main entry point for ticdat library.
 PEP8
 """
 import collections as clt
-from collections import namedtuple
+from collections import namedtuple, defaultdict
 import ticdat.utils as utils
 from ticdat.utils import verify, freezable_factory, FrozenDict, FreezeableDict
 from ticdat.utils import dictish, containerish, deep_freeze, lupish, safe_apply
@@ -40,9 +40,9 @@ class _ForeignKey(namedtuple("ForeignKey", ("native_table", "foreign_table", "ma
         return (self.mapping.native_field,) if type(self.mapping) is _ForeignKeyMapping \
                                            else tuple(_.native_field for _ in self.mapping)
     def foreigntonativemapping(self):
-        if type(self.mapping) is _ForeignKeyMapping :
+        if type(self.mapping) is _ForeignKeyMapping : # simple field fk
             return {self.mapping.foreign_field:self.mapping.native_field}
-        else :
+        else: # compound foreign key
             return {_.foreign_field:_.native_field for _ in self.mapping}
     def nativetoforeignmapping(self):
         return {v:k for k,v in self.foreigntonativemapping().items()}
@@ -401,7 +401,8 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
     def _trigger_has_been_used(self):
         if self._has_been_used :
             return # idempotent
-        def findderivedforeignkey() :
+        def findderivedforeignkey():
+            # this cascades foreign keys downward (i.e. computes implied foreign key relationships)
             curFKs = self._foreign_keys_by_native()
             for (nativetable, bridgetable), nativefieldstuples in self._foreign_keys.items():
                 for nativefieldtuple in nativefieldstuples :
@@ -1137,31 +1138,54 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
         verify(self.good_tic_dat_object(tic_dat, msg.append),
                "tic_dat not a good object for this factory : %s"%"\n".join(msg))
         rtn_values, rtn_pks = clt.defaultdict(set), clt.defaultdict(set)
+
+        def getcell(tblname, native_pk, native_data_row, field_name):
+             assert field_name in self.primary_key_fields.get(tblname, ()) + \
+                                  self.data_fields.get(tblname, ())
+             if [field_name] == list(self.primary_key_fields.get(tblname, ())):
+                 return native_pk
+             if field_name in native_data_row:
+                 return native_data_row[field_name]
+             return native_pk[self.primary_key_fields[tblname].index(field_name)]
+
+        # this subroutine/dict needed only for x-to-many fields
+        table_data = defaultdict(set)
+        def get_table_data(tblname, fields):
+            if (tblname, fields) not in table_data:
+                add_here = table_data[tblname, fields]
+                tbl = getattr(tic_dat, tblname)
+                for k,v in (tbl.items() if dictish(tbl) else enumerate(tbl)):
+                    add_here.add(tuple(getcell(tblname, k, v, f) for f in fields))
+            return table_data[tblname, fields]
+
         for native, fks in self._foreign_keys_by_native().items():
-            def getcell(native_pk, native_data_row, field_name):
-                 assert field_name in self.primary_key_fields.get(native, ()) + \
-                                      self.data_fields.get(native, ())
-                 if [field_name] == list(self.primary_key_fields.get(native, ())):
-                     return native_pk
-                 if field_name in native_data_row:
-                     return native_data_row[field_name]
-                 return native_pk[self.primary_key_fields[native].index(field_name)]
+            def getcell_(native_pk, native_data_row, field_name):
+                 return getcell(native, native_pk, native_data_row, field_name)
             for fk in fks:
                 foreign_to_native = fk.foreigntonativemapping()
                 for native_pk, native_data_row in (getattr(tic_dat, native).items()
                             if dictish(getattr(tic_dat, native))
                             else enumerate(getattr(tic_dat, native))):
-                    foreign_pk = tuple(getcell(native_pk, native_data_row, foreign_to_native[_fpk])
+                  if fk.cardinality.endswith("to-many"):
+                    ffs = tuple(_ff for _ff in self.primary_key_fields.get(fk.foreign_table, ()) +
+                                self.data_fields.get(fk.foreign_table, ())
+                                if _ff in foreign_to_native)
+                    foreign_look_up = tuple(getcell_(native_pk, native_data_row, foreign_to_native[_ff])
+                                        for _ff in ffs)
+                    foreign_look_into = get_table_data(fk.foreign_table, ffs)
+                  else:
+                    foreign_look_up = tuple(getcell_(native_pk, native_data_row, foreign_to_native[_fpk])
                                        for _fpk in self.primary_key_fields[fk.foreign_table])
-                    foreign_pk = foreign_pk[0] if len(foreign_pk) == 1 else foreign_pk
-                    if foreign_pk not in getattr(tic_dat, fk.foreign_table):
-                        rtn_pks[fk].add(native_pk)
-                        if type(fk.mapping) is _ForeignKeyMapping :
-                            rtn_values[fk].add(getcell(native_pk, native_data_row,
-                                                       fk.mapping.native_field))
-                        else:
-                            rtn_values[fk].add(tuple(getcell(native_pk,
-                                    native_data_row, _.native_field) for _ in fk.mapping))
+                    foreign_look_up = foreign_look_up[0] if len(foreign_look_up) == 1 else foreign_look_up
+                    foreign_look_into = getattr(tic_dat, fk.foreign_table)
+                  if foreign_look_up not in foreign_look_into:
+                    rtn_pks[fk].add(native_pk)
+                    if type(fk.mapping) is _ForeignKeyMapping :
+                        rtn_values[fk].add(getcell_(native_pk, native_data_row,
+                                                    fk.mapping.native_field))
+                    else:
+                        rtn_values[fk].add(tuple(getcell_(native_pk,
+                                            native_data_row, _.native_field) for _ in fk.mapping))
         assert set(rtn_pks) == set(rtn_values)
         RtnType = namedtuple("ForeignKeyFailures", ("native_values", "native_pks"))
 
