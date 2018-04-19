@@ -3,7 +3,7 @@ Create TicDatFactory. Main entry point for ticdat library.
 PEP8
 """
 import collections as clt
-from collections import namedtuple
+from collections import namedtuple, defaultdict
 import ticdat.utils as utils
 from ticdat.utils import verify, freezable_factory, FrozenDict, FreezeableDict
 from ticdat.utils import dictish, containerish, deep_freeze, lupish, safe_apply
@@ -40,15 +40,18 @@ class _ForeignKey(namedtuple("ForeignKey", ("native_table", "foreign_table", "ma
         return (self.mapping.native_field,) if type(self.mapping) is _ForeignKeyMapping \
                                            else tuple(_.native_field for _ in self.mapping)
     def foreigntonativemapping(self):
-        if type(self.mapping) is _ForeignKeyMapping :
+        if type(self.mapping) is _ForeignKeyMapping : # simple field fk
             return {self.mapping.foreign_field:self.mapping.native_field}
-        else :
+        else: # compound foreign key
             return {_.foreign_field:_.native_field for _ in self.mapping}
     def nativetoforeignmapping(self):
         return {v:k for k,v in self.foreigntonativemapping().items()}
 
 _ForeignKeyMapping = namedtuple("FKMapping", ("native_field", "foreign_field"))
-
+def _x_to_many_fk(fk):
+    assert lupish(fk) and (all(lupish(_) and len(_) == 2 for _ in fk) or
+                           not any(map(lupish, fk)))
+    return fk and containerish(fk[0])
 # can I get away with ordering this consistently with the function? hopefully I can!
 class _TypeDictionary(namedtuple("TypeDictionary",
                     ("number_allowed", "inclusive_min", "inclusive_max", "min",
@@ -320,12 +323,19 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
         for (native,foreign), nativefieldtuples in self._foreign_keys.items():
             for nativefields in nativefieldtuples :
                 mappings = tuple(_ForeignKeyMapping(nf,ff) for nf,ff in
-                                 zip(nativefields, self.primary_key_fields[foreign]))
+                                 (nativefields if _x_to_many_fk(nativefields) else
+                                  zip(nativefields, self.primary_key_fields[foreign])))
                 mappings = mappings[0] if len(mappings)==1 else mappings
-                if set(nativefields) == set(self.primary_key_fields.get(native, ())) :
-                    cardinality = "one-to-one"
+                if _x_to_many_fk(nativefields):
+                    if set(_[0] for _ in nativefields) == set(self.primary_key_fields.get(native, ())):
+                        cardinality = "one-to-many"
+                    else:
+                        cardinality = "many-to-many"
                 else:
-                   cardinality = "many-to-one"
+                    if set(nativefields) == set(self.primary_key_fields.get(native, ())) :
+                        cardinality = "one-to-one"
+                    else:
+                       cardinality = "many-to-one"
                 rtn.append(_ForeignKey(native, foreign, mappings, cardinality))
         assert len(rtn) == len(set(rtn))
         return tuple(rtn)
@@ -380,23 +390,23 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
                    "%s does not refer to one of %s 's fields"%(k, native_table))
             verify(v in self._allFields(foreign_table),
                    "%s does not refer to one of %s 's fields"%(v, foreign_table))
-        verify(set(self.primary_key_fields.get(foreign_table, ())) == set(_mappings.values()),
-            """%s is not the primary key for %s.
-This exception is being thrown because ticDat doesn't currently support X-to-many
-foreign key relationships. The ticDat API is forward compatible with re: to X-to-many
-relationships. When a future version of ticDat is released that supports X-to-many
-foreign keys, the code throwing this exception will be removed.
-            """%(",".join(_mappings.values()), foreign_table))
-        reverseMapping = {v:k for k,v in _mappings.items()}
-        self._foreign_keys[native_table, foreign_table].add(tuple(reverseMapping[pkf]
-                            for pkf in self.primary_key_fields[foreign_table]))
+        if set(self.primary_key_fields.get(foreign_table, ())) == set(_mappings.values()):
+            reverseMapping = {v:k for k,v in _mappings.items()}
+            fk = tuple(reverseMapping[pkf] for pkf in self.primary_key_fields[foreign_table])
+            assert not _x_to_many_fk(fk)
+        else:
+            fk = tuple(_mappings.items())
+            assert _x_to_many_fk(fk)
+        self._foreign_keys[native_table, foreign_table].add(fk)
     def _trigger_has_been_used(self):
         if self._has_been_used :
             return # idempotent
-        def findderivedforeignkey() :
+        def findderivedforeignkey():
+            # this cascades foreign keys downward (i.e. computes implied foreign key relationships)
             curFKs = self._foreign_keys_by_native()
             for (nativetable, bridgetable), nativefieldstuples in self._foreign_keys.items():
                 for nativefieldtuple in nativefieldstuples :
+                  if not _x_to_many_fk(nativefieldtuple) : # ignore for x-many relationships
                     for bfk in curFKs.get(bridgetable,()):
                         nativefields = bfk.nativefields()
                         if set(nativefields)\
@@ -412,7 +422,8 @@ foreign keys, the code throwing this exception will be removed.
         while findderivedforeignkey():
             pass
         for (nativetable, foreigntable), nativeFieldsTuples in self._foreign_keys.items():
-            nativeFieldsSet = frozenset(frozenset(_) for _ in nativeFieldsTuples)
+            nativeFieldsSet = frozenset(frozenset(_) for _ in nativeFieldsTuples
+                                        if not _x_to_many_fk(_)) # ignore for x-many relationships
             if len(nativeFieldsSet)==1:
                 self._linkName[nativetable, foreigntable, next(_ for _ in nativeFieldsSet)] = \
                     nativetable
@@ -1127,31 +1138,54 @@ foreign keys, the code throwing this exception will be removed.
         verify(self.good_tic_dat_object(tic_dat, msg.append),
                "tic_dat not a good object for this factory : %s"%"\n".join(msg))
         rtn_values, rtn_pks = clt.defaultdict(set), clt.defaultdict(set)
+
+        def getcell(tblname, native_pk, native_data_row, field_name):
+             assert field_name in self.primary_key_fields.get(tblname, ()) + \
+                                  self.data_fields.get(tblname, ())
+             if [field_name] == list(self.primary_key_fields.get(tblname, ())):
+                 return native_pk
+             if field_name in native_data_row:
+                 return native_data_row[field_name]
+             return native_pk[self.primary_key_fields[tblname].index(field_name)]
+
+        # this subroutine/dict needed only for x-to-many fields
+        table_data = defaultdict(set)
+        def get_table_data(tblname, fields):
+            if (tblname, fields) not in table_data:
+                add_here = table_data[tblname, fields]
+                tbl = getattr(tic_dat, tblname)
+                for k,v in (tbl.items() if dictish(tbl) else enumerate(tbl)):
+                    add_here.add(tuple(getcell(tblname, k, v, f) for f in fields))
+            return table_data[tblname, fields]
+
         for native, fks in self._foreign_keys_by_native().items():
-            def getcell(native_pk, native_data_row, field_name):
-                 assert field_name in self.primary_key_fields.get(native, ()) + \
-                                      self.data_fields.get(native, ())
-                 if [field_name] == list(self.primary_key_fields.get(native, ())):
-                     return native_pk
-                 if field_name in native_data_row:
-                     return native_data_row[field_name]
-                 return native_pk[self.primary_key_fields[native].index(field_name)]
+            def getcell_(native_pk, native_data_row, field_name):
+                 return getcell(native, native_pk, native_data_row, field_name)
             for fk in fks:
                 foreign_to_native = fk.foreigntonativemapping()
                 for native_pk, native_data_row in (getattr(tic_dat, native).items()
                             if dictish(getattr(tic_dat, native))
                             else enumerate(getattr(tic_dat, native))):
-                    foreign_pk = tuple(getcell(native_pk, native_data_row, foreign_to_native[_fpk])
+                  if fk.cardinality.endswith("to-many"):
+                    ffs = tuple(_ff for _ff in self.primary_key_fields.get(fk.foreign_table, ()) +
+                                self.data_fields.get(fk.foreign_table, ())
+                                if _ff in foreign_to_native)
+                    foreign_look_up = tuple(getcell_(native_pk, native_data_row, foreign_to_native[_ff])
+                                        for _ff in ffs)
+                    foreign_look_into = get_table_data(fk.foreign_table, ffs)
+                  else:
+                    foreign_look_up = tuple(getcell_(native_pk, native_data_row, foreign_to_native[_fpk])
                                        for _fpk in self.primary_key_fields[fk.foreign_table])
-                    foreign_pk = foreign_pk[0] if len(foreign_pk) == 1 else foreign_pk
-                    if foreign_pk not in getattr(tic_dat, fk.foreign_table):
-                        rtn_pks[fk].add(native_pk)
-                        if type(fk.mapping) is _ForeignKeyMapping :
-                            rtn_values[fk].add(getcell(native_pk, native_data_row,
-                                                       fk.mapping.native_field))
-                        else:
-                            rtn_values[fk].add(tuple(getcell(native_pk,
-                                    native_data_row, _.native_field) for _ in fk.mapping))
+                    foreign_look_up = foreign_look_up[0] if len(foreign_look_up) == 1 else foreign_look_up
+                    foreign_look_into = getattr(tic_dat, fk.foreign_table)
+                  if foreign_look_up not in foreign_look_into:
+                    rtn_pks[fk].add(native_pk)
+                    if type(fk.mapping) is _ForeignKeyMapping :
+                        rtn_values[fk].add(getcell_(native_pk, native_data_row,
+                                                    fk.mapping.native_field))
+                    else:
+                        rtn_values[fk].add(tuple(getcell_(native_pk,
+                                            native_data_row, _.native_field) for _ in fk.mapping))
         assert set(rtn_pks) == set(rtn_values)
         RtnType = namedtuple("ForeignKeyFailures", ("native_values", "native_pks"))
 
@@ -1167,6 +1201,8 @@ foreign keys, the code throwing this exception will be removed.
         """
         fk_failures = self.find_foreign_key_failures(tic_dat)
         for fk, (_, failed_pks) in fk_failures.items():
+            verify(dictish(getattr(tic_dat, fk.native_table)),
+                   "%s lacks a primary key and thus can't remove foreign key failures"%fk.native_table)
             for failed_pk in failed_pks:
                 if failed_pk in getattr(tic_dat, fk.native_table) :
                     del(getattr(tic_dat, fk.native_table)[failed_pk])
@@ -1328,6 +1364,8 @@ foreign keys, the code throwing this exception will be removed.
         msg  = []
         verify(self.good_tic_dat_object(tic_dat, msg.append),
                "tic_dat not a good object for this factory : %s"%"\n".join(msg))
+        verify({fk.cardinality for fk in self.foreign_keys}.issubset({"many-to-one", "one-to-one"}),
+               "many-to-many and one-to-many foreign keys are not currently supported for obfusimplify")
         verify(not self.find_foreign_key_failures(tic_dat),
                "Cannot obfusimplify an object with foreign key failures")
         verify(not self.generator_tables, "Cannot obfusimplify a tic_dat that uses generators")
@@ -1350,7 +1388,7 @@ foreign keys, the code throwing this exception will be removed.
             verify(k in self.all_tables, "%s is not a table name")
             verify(len(self.primary_key_fields.get(k, ())) ==1, "%s does not have a single primary key field"%k)
             verify(k in entity_tables, "%s is not an entity table due to child foreign key relationship"%k)
-            verify(utils.stringish(v) and  set(v).issubset(uppercase) and not v.endswith("I"),
+            verify(utils.stringish(v) and set(v).issubset(uppercase) and not v.endswith("I"),
                    "Your table_prepend string %s is not an all uppercase string ending in a letter other than I")
         verify(len(set(table_prepends.values())) == len(table_prepends.values()),
                "You provided duplicate table prepends")
