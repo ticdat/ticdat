@@ -1201,6 +1201,8 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
         """
         fk_failures = self.find_foreign_key_failures(tic_dat)
         for fk, (_, failed_pks) in fk_failures.items():
+            verify(dictish(getattr(tic_dat, fk.native_table)),
+                   "%s lacks a primary key and thus can't remove foreign key failures"%fk.native_table)
             for failed_pk in failed_pks:
                 if failed_pk in getattr(tic_dat, fk.native_table) :
                     del(getattr(tic_dat, fk.native_table)[failed_pk])
