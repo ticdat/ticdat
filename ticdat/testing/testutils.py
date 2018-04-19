@@ -55,6 +55,12 @@ class TestUtils(unittest.TestCase):
         input_schema.add_foreign_key("position_constraints", "positions", ["Position Group", "Position Group"])
         input_schema.add_foreign_key("position_constraints", "innings", ["Inning Group", "Inning Group"])
 
+        # read the foreign key status results (i.e. many to many in this case, then make a case with one to many)
+
+        # find foreign key errors and perform cascading deletes
+
+        # obfusimplify should just ignore x-to-many foreign key changes as they are impossible, and exception
+        # out if primary key fields get caught up in x-to-many changes
 
     def testDenormalizedErrors(self):
         c = clean_denormalization_errors
