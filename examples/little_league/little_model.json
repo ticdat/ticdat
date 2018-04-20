@@ -1,0 +1,576 @@
+{
+  "grades": [
+    [
+      "4th"
+    ], 
+    [
+      "3rd"
+    ]
+  ], 
+  "inning_groups": [
+    [
+      "Five & Six"
+    ], 
+    [
+      "First 4"
+    ]
+  ], 
+  "innings": [
+    [
+      1.0, 
+      "First 4"
+    ], 
+    [
+      2.0, 
+      "First 4"
+    ], 
+    [
+      3.0, 
+      "First 4"
+    ], 
+    [
+      4.0, 
+      "First 4"
+    ], 
+    [
+      5.0, 
+      "Five & Six"
+    ], 
+    [
+      6.0, 
+      "Five & Six"
+    ]
+  ], 
+  "parameters": [
+    [
+      "Limit Outfield Play", 
+      "True"
+    ], 
+    [
+      "Max Consecutive Bench", 
+      1
+    ], 
+    [
+      "Balanced Playing Time", 
+      "True"
+    ]
+  ], 
+  "player_ratings": [
+    [
+      "Sam MacKay", 
+      "OF", 
+      1.0
+    ], 
+    [
+      "Andrew Rich", 
+      "OF", 
+      1.0
+    ], 
+    [
+      "Abigail Perry", 
+      "IF", 
+      1.0
+    ], 
+    [
+      "Henry Brownell", 
+      "P", 
+      5.0
+    ], 
+    [
+      "Henry Rogowski", 
+      "C", 
+      1.0
+    ], 
+    [
+      "Jake Everds", 
+      "OF", 
+      1.0
+    ], 
+    [
+      "Devin Neumann", 
+      "P", 
+      1.0
+    ], 
+    [
+      "Henry Rogowski", 
+      "P", 
+      1.0
+    ], 
+    [
+      "Devin Neumann", 
+      "IF", 
+      1.0
+    ], 
+    [
+      "Andrew Rich", 
+      "IF", 
+      1.0
+    ], 
+    [
+      "Charles Lubinsky", 
+      "OF", 
+      1.0
+    ], 
+    [
+      "James Bauman", 
+      "P", 
+      5.0
+    ], 
+    [
+      "Devin Neumann", 
+      "C", 
+      1.0
+    ], 
+    [
+      "Abigail Perry", 
+      "P", 
+      5.0
+    ], 
+    [
+      "Miles Lyons", 
+      "OF", 
+      1.0
+    ], 
+    [
+      "Henry Brownell", 
+      "OF", 
+      1.0
+    ], 
+    [
+      "Cash Nelson", 
+      "OF", 
+      1.0
+    ], 
+    [
+      "Alex Byhre", 
+      "C", 
+      1.0
+    ], 
+    [
+      "Dylan Stiller", 
+      "IF", 
+      1.0
+    ], 
+    [
+      "Dylan Stiller", 
+      "OF", 
+      1.0
+    ], 
+    [
+      "Cash Nelson", 
+      "P", 
+      5.0
+    ], 
+    [
+      "Henry Rogowski", 
+      "OF", 
+      1.0
+    ], 
+    [
+      "Cash Nelson", 
+      "C", 
+      1.0
+    ], 
+    [
+      "Charles Lubinsky", 
+      "P", 
+      1.0
+    ], 
+    [
+      "Jake Everds", 
+      "P", 
+      1.0
+    ], 
+    [
+      "Alex Byhre", 
+      "P", 
+      1.0
+    ], 
+    [
+      "Henry Rogowski", 
+      "IF", 
+      1.0
+    ], 
+    [
+      "Charles Lubinsky", 
+      "C", 
+      1.0
+    ], 
+    [
+      "Devin Neumann", 
+      "OF", 
+      1.0
+    ], 
+    [
+      "Henry Brownell", 
+      "C", 
+      1.0
+    ], 
+    [
+      "Miles Lyons", 
+      "C", 
+      1.0
+    ], 
+    [
+      "Cash Nelson", 
+      "IF", 
+      1.0
+    ], 
+    [
+      "Henry Brownell", 
+      "IF", 
+      1.0
+    ], 
+    [
+      "Abigail Perry", 
+      "OF", 
+      1.0
+    ], 
+    [
+      "Ryder Bingaman", 
+      "P", 
+      5.0
+    ], 
+    [
+      "James Bauman", 
+      "IF", 
+      1.0
+    ], 
+    [
+      "Sam MacKay", 
+      "P", 
+      1.0
+    ], 
+    [
+      "Dylan Stiller", 
+      "C", 
+      1.0
+    ], 
+    [
+      "Alex Byhre", 
+      "IF", 
+      1.0
+    ], 
+    [
+      "Alex Byhre", 
+      "OF", 
+      1.0
+    ], 
+    [
+      "Sam MacKay", 
+      "C", 
+      1.0
+    ], 
+    [
+      "James Bauman", 
+      "OF", 
+      1.0
+    ], 
+    [
+      "Ryder Bingaman", 
+      "C", 
+      1.0
+    ], 
+    [
+      "Jake Everds", 
+      "IF", 
+      1.0
+    ], 
+    [
+      "Aaron Shalin", 
+      "IF", 
+      1.0
+    ], 
+    [
+      "Andrew Rich", 
+      "C", 
+      1.0
+    ], 
+    [
+      "Ryder Bingaman", 
+      "IF", 
+      1.0
+    ], 
+    [
+      "Dylan Stiller", 
+      "P", 
+      5.0
+    ], 
+    [
+      "Sam MacKay", 
+      "IF", 
+      1.0
+    ], 
+    [
+      "Aaron Shalin", 
+      "C", 
+      1.0
+    ], 
+    [
+      "Jake Everds", 
+      "C", 
+      1.0
+    ], 
+    [
+      "James Bauman", 
+      "C", 
+      5.0
+    ], 
+    [
+      "Andrew Rich", 
+      "P", 
+      1.0
+    ], 
+    [
+      "Aaron Shalin", 
+      "P", 
+      5.0
+    ], 
+    [
+      "Ryder Bingaman", 
+      "OF", 
+      1.0
+    ], 
+    [
+      "Miles Lyons", 
+      "P", 
+      1.0
+    ], 
+    [
+      "Aaron Shalin", 
+      "OF", 
+      1.0
+    ], 
+    [
+      "Abigail Perry", 
+      "C", 
+      0.0
+    ], 
+    [
+      "Charles Lubinsky", 
+      "IF", 
+      1.0
+    ], 
+    [
+      "Miles Lyons", 
+      "IF", 
+      1.0
+    ]
+  ], 
+  "position_constraints": [
+    [
+      "P", 
+      "First 4", 
+      "3rd", 
+      2.0, 
+      99.0
+    ]
+  ], 
+  "position_groups": [
+    [
+      "OF"
+    ], 
+    [
+      "C"
+    ], 
+    [
+      "Bench"
+    ], 
+    [
+      "P"
+    ], 
+    [
+      "IF"
+    ]
+  ], 
+  "positions": [
+    [
+      "LF", 
+      2.0, 
+      "OF", 
+      "False"
+    ], 
+    [
+      "C", 
+      5.0, 
+      "C", 
+      "True"
+    ], 
+    [
+      "SS", 
+      3.0, 
+      "IF", 
+      "False"
+    ], 
+    [
+      "Bench", 
+      0.0, 
+      "Bench", 
+      "False"
+    ], 
+    [
+      "LCF", 
+      3.0, 
+      "OF", 
+      "False"
+    ], 
+    [
+      "P", 
+      5.0, 
+      "P", 
+      "True"
+    ], 
+    [
+      "RF", 
+      2.0, 
+      "OF", 
+      "False"
+    ], 
+    [
+      "1B", 
+      5.0, 
+      "IF", 
+      "False"
+    ], 
+    [
+      "2B", 
+      4.0, 
+      "IF", 
+      "False"
+    ], 
+    [
+      "3B", 
+      3.0, 
+      "IF", 
+      "False"
+    ], 
+    [
+      "RCF", 
+      3.0, 
+      "OF", 
+      "False"
+    ]
+  ], 
+  "roster": [
+    [
+      "Abigail Perry", 
+      "4th", 
+      1.0, 
+      6.0, 
+      3.0, 
+      6.0
+    ], 
+    [
+      "Devin Neumann", 
+      "3rd", 
+      1.0, 
+      6.0, 
+      3.0, 
+      6.0
+    ], 
+    [
+      "Andrew Rich", 
+      "4th", 
+      1.0, 
+      6.0, 
+      3.0, 
+      6.0
+    ], 
+    [
+      "Henry Brownell", 
+      "3rd", 
+      1.0, 
+      6.0, 
+      3.0, 
+      6.0
+    ], 
+    [
+      "Alex Byhre", 
+      "3rd", 
+      1.0, 
+      6.0, 
+      3.0, 
+      6.0
+    ], 
+    [
+      "Jake Everds", 
+      "4th", 
+      1.0, 
+      6.0, 
+      3.0, 
+      6.0
+    ], 
+    [
+      "Dylan Stiller", 
+      "4th", 
+      1.0, 
+      6.0, 
+      3.0, 
+      6.0
+    ], 
+    [
+      "Aaron Shalin", 
+      "4th", 
+      1.0, 
+      6.0, 
+      3.0, 
+      6.0
+    ], 
+    [
+      "Cash Nelson", 
+      "4th", 
+      1.0, 
+      6.0, 
+      3.0, 
+      6.0
+    ], 
+    [
+      "James Bauman", 
+      "4th", 
+      1.0, 
+      6.0, 
+      3.0, 
+      6.0
+    ], 
+    [
+      "Henry Rogowski", 
+      "3rd", 
+      1.0, 
+      6.0, 
+      3.0, 
+      6.0
+    ], 
+    [
+      "Ryder Bingaman", 
+      "3rd", 
+      1.0, 
+      6.0, 
+      3.0, 
+      6.0
+    ], 
+    [
+      "Miles Lyons", 
+      "4th", 
+      1.0, 
+      6.0, 
+      3.0, 
+      6.0
+    ], 
+    [
+      "Charles Lubinsky", 
+      "3rd", 
+      1.0, 
+      6.0, 
+      3.0, 
+      6.0
+    ], 
+    [
+      "Sam MacKay", 
+      "3rd", 
+      1.0, 
+      6.0, 
+      3.0, 
+      6.0
+    ]
+  ]
+}
