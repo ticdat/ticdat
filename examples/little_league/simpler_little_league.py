@@ -8,31 +8,23 @@ from math import floor
 from itertools import product, combinations
 
 input_schema = TicDatFactory (
-    grades = [["Name"],[]],
     roster = [["Name"],["Grade"]],
-    position_groups = [["Name"],[]],
     positions = [["Position"],["Position Importance", "Position Group"]],
     player_ratings = [["Name", "Position Group"], ["Rating"]],
-    inning_groups = [["Name"],[]],
     innings = [["Inning"],["Inning Group"]],
     position_constraints = [["Position Group", "Inning Group", "Grade"],["Min Players", "Max Players"]])
 
-input_schema.add_foreign_key("roster", "grades", ["Grade", "Name"])
-
 input_schema.set_data_type("positions", "Position Importance",min=0, max=float("inf"),
                            inclusive_min=True, inclusive_max=False)
-input_schema.add_foreign_key("positions", "position_groups", ["Position Group", "Name"])
 
 input_schema.add_foreign_key("player_ratings", "roster", ["Name", "Name"])
-input_schema.add_foreign_key("player_ratings", "position_groups", ["Position Group", "Name"])
+input_schema.add_foreign_key("player_ratings", "positions", ["Position Group", "Position Group"])
 input_schema.set_data_type("player_ratings", "Rating", min=0, max=float("inf"),
                            inclusive_min=True, inclusive_max=False)
 
-input_schema.add_foreign_key("innings", "inning_groups", ["Inning Group", "Name"])
-
-input_schema.add_foreign_key("position_constraints", "position_groups", ["Position Group", "Name"])
-input_schema.add_foreign_key("position_constraints", "inning_groups", ["Inning Group", "Name"])
-input_schema.add_foreign_key("position_constraints", "grades", ["Grade", "Name"])
+input_schema.add_foreign_key("position_constraints", "positions", ["Position Group", "Position Group"])
+input_schema.add_foreign_key("position_constraints", "innings", ["Inning Group", "Inning Group"])
+input_schema.add_foreign_key("position_constraints", "roster", ["Grade", "Grade"])
 input_schema.set_data_type("position_constraints", "Min Players", min=0, max=float("inf"),
                            inclusive_min=True, inclusive_max=True)
 input_schema.set_data_type("position_constraints", "Max Players", min=0, max=float("inf"),

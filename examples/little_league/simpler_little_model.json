@@ -1,23 +1,4 @@
 {
-  "grades": [
-    [
-      "sixth"
-    ], 
-    [
-      "fourth"
-    ], 
-    [
-      "fifth"
-    ]
-  ], 
-  "inning_groups": [
-    [
-      "Second Half"
-    ], 
-    [
-      "First Half"
-    ]
-  ], 
   "innings": [
     [
       1.0, 
@@ -93,9 +74,9 @@
       2
     ], 
     [
-      "Jakey", 
+      "Louis", 
       "Infield", 
-      1
+      5
     ], 
     [
       "Erin", 
@@ -113,9 +94,9 @@
       2
     ], 
     [
-      "Louis", 
+      "Jakey", 
       "Infield", 
-      5
+      1
     ], 
     [
       "Jenny", 
@@ -232,14 +213,6 @@
       "fifth", 
       0, 
       9
-    ]
-  ], 
-  "position_groups": [
-    [
-      "Outfield"
-    ], 
-    [
-      "Infield"
     ]
   ], 
   "positions": [
