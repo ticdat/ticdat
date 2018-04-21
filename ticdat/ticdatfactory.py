@@ -1141,9 +1141,10 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
                  return native_data_row[field_name]
              return native_pk[self.primary_key_fields[tblname].index(field_name)]
 
-        # this subroutine/dict needed only for x-to-many fields
         table_data = defaultdict(set)
         def get_table_data(tblname, fields):
+            if fields == self.primary_key_fields.get(tblname, ()):
+                return getattr(tic_dat, tblname)
             if (tblname, fields) not in table_data:
                 add_here = table_data[tblname, fields]
                 tbl = getattr(tic_dat, tblname)
@@ -1159,26 +1160,22 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
                 for native_pk, native_data_row in (getattr(tic_dat, native).items()
                             if dictish(getattr(tic_dat, native))
                             else enumerate(getattr(tic_dat, native))):
-                  if fk.cardinality.endswith("to-many"):
                     ffs = tuple(_ff for _ff in self.primary_key_fields.get(fk.foreign_table, ()) +
                                 self.data_fields.get(fk.foreign_table, ())
                                 if _ff in foreign_to_native)
                     foreign_look_up = tuple(getcell_(native_pk, native_data_row, foreign_to_native[_ff])
                                         for _ff in ffs)
+                    if ffs == self.primary_key_fields.get(fk.foreign_table) and len(ffs)==1:
+                        foreign_look_up = foreign_look_up[0]
                     foreign_look_into = get_table_data(fk.foreign_table, ffs)
-                  else:
-                    foreign_look_up = tuple(getcell_(native_pk, native_data_row, foreign_to_native[_fpk])
-                                       for _fpk in self.primary_key_fields[fk.foreign_table])
-                    foreign_look_up = foreign_look_up[0] if len(foreign_look_up) == 1 else foreign_look_up
-                    foreign_look_into = getattr(tic_dat, fk.foreign_table)
-                  if foreign_look_up not in foreign_look_into:
-                    rtn_pks[fk].add(native_pk)
-                    if type(fk.mapping) is _ForeignKeyMapping :
-                        rtn_values[fk].add(getcell_(native_pk, native_data_row,
-                                                    fk.mapping.native_field))
-                    else:
-                        rtn_values[fk].add(tuple(getcell_(native_pk,
-                                            native_data_row, _.native_field) for _ in fk.mapping))
+                    if foreign_look_up not in foreign_look_into:
+                        rtn_pks[fk].add(native_pk)
+                        if type(fk.mapping) is _ForeignKeyMapping :
+                            rtn_values[fk].add(getcell_(native_pk, native_data_row,
+                                                        fk.mapping.native_field))
+                        else:
+                            rtn_values[fk].add(tuple(getcell_(native_pk,
+                                                native_data_row, _.native_field) for _ in fk.mapping))
         assert set(rtn_pks) == set(rtn_values)
         RtnType = namedtuple("ForeignKeyFailures", ("native_values", "native_pks"))
 
@@ -1357,6 +1354,9 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
         msg  = []
         verify(self.good_tic_dat_object(tic_dat, msg.append),
                "tic_dat not a good object for this factory : %s"%"\n".join(msg))
+        for (native, foreign), fks in self._foreign_keys.items():
+            verify(all(self._simple_fk(foreign, _) for _ in fks),
+                   "complex foreign key between %s and %s prevents obfusimplification"%(native, foreign))
         verify({fk.cardinality for fk in self.foreign_keys}.issubset({"many-to-one", "one-to-one"}),
                "many-to-many and one-to-many foreign keys are not currently supported for obfusimplify")
         verify(not self.find_foreign_key_failures(tic_dat),

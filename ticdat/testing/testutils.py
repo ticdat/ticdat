@@ -87,7 +87,7 @@ class TestUtils(unittest.TestCase):
 
         dat = input_schema.TicDat(table_one = [[1,2], [3,4], [5,6], [7,8]], table_two = {1:2, 3:4, 5:6})
         ex = self.firesException(lambda : input_schema.obfusimplify(dat))
-        self.assertTrue("many-to-many and one-to-many foreign keys are not currently supported" in str(ex))
+        self.assertTrue("complex foreign key" in str(ex))
         orig_dat = input_schema.copy_tic_dat(dat, freeze_it=True)
         self.assertFalse(input_schema.find_foreign_key_failures(orig_dat))
         dat.table_two[9]=10
