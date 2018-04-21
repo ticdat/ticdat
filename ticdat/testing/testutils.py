@@ -96,6 +96,42 @@ class TestUtils(unittest.TestCase):
         self.assertTrue(input_schema._same_data(dat, orig_dat) and not input_schema.find_foreign_key_failures(dat))
 
 
+    def testXToManyTwo(self):
+        input_schema = TicDatFactory (parent = [["F1", "F2"],["F3"]], child_one = [["F1", "F2", "F3"], []],
+                                      child_two = [["F1", "F2"], ["F3"]], child_three = [[],["F1", "F2", "F3"]])
+        for t in ["child_one", "child_two", "child_three"]:
+            input_schema.add_foreign_key(t, "parent", [["F1"]*2, ["F2"]*2, ["F3"]*2])
+        self.assertTrue({fk.cardinality for fk in input_schema.foreign_keys} == {"one-to-many", "many-to-many"})
+
+        rows =[[1,2,3], [1,2.1,3], [4,5,6],[4,5.1,6],[7,8,9]]
+        dat = input_schema.TicDat(parent = rows, child_one = rows, child_two = rows, child_three=rows)
+        self.assertTrue(all(len(getattr(dat, t)) == 5 for t in input_schema.all_tables))
+        orig_dat = input_schema.copy_tic_dat(dat, True)
+        self.assertFalse(input_schema.find_foreign_key_failures(orig_dat))
+        dat.child_one[1, 2, 4] = {}
+        dat.child_two[1,2.2]=3
+        dat.child_three.append([1,2,4])
+        self.assertTrue(len(input_schema.find_foreign_key_failures(dat)) == 3)
+        dat.child_three.pop() # because no PK cannot participate in remove foreign keys
+        input_schema.remove_foreign_keys_failures(dat)
+        self.assertTrue(input_schema._same_data(dat, orig_dat) and not input_schema.find_foreign_key_failures(dat))
+
+        input_schema = TicDatFactory (parent = [["F1", "F2"],["F3"]], child_one = [["F1", "F2", "F3"], []],
+                                      child_two = [["F1", "F2"], ["F3"]], child_three = [[],["F1", "F2", "F3"]])
+        for t in ["child_one", "child_two", "child_three"]:
+            input_schema.add_foreign_key(t, "parent", [["F1"]*2, ["F3"]*2])
+        dat = input_schema.TicDat(parent = rows, child_one = rows, child_two = rows, child_three=rows)
+        self.assertTrue(all(len(getattr(dat, t)) == 5 for t in input_schema.all_tables))
+        orig_dat = input_schema.copy_tic_dat(dat, True)
+        self.assertFalse(input_schema.find_foreign_key_failures(orig_dat))
+        dat.child_one[1, 2, 4] = {}
+        dat.child_two[1,2.2]=4
+        dat.child_three.append([1,2,4])
+        self.assertTrue(len(input_schema.find_foreign_key_failures(dat)) == 3)
+        dat.child_three.pop() # because no PK cannot participate in remove foreign keys
+        input_schema.remove_foreign_keys_failures(dat)
+        self.assertTrue(input_schema._same_data(dat, orig_dat) and not input_schema.find_foreign_key_failures(dat))
+
     def testDenormalizedErrors(self):
         c = clean_denormalization_errors
         tdf = TicDatFactory(**spacesSchema())
