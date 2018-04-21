@@ -101,7 +101,7 @@ class TestUtils(unittest.TestCase):
                                       child_two = [["F1", "F2"], ["F3"]], child_three = [[],["F1", "F2", "F3"]])
         for t in ["child_one", "child_two", "child_three"]:
             input_schema.add_foreign_key(t, "parent", [["F1"]*2, ["F2"]*2, ["F3"]*2])
-        self.assertTrue({fk.cardinality for fk in input_schema.foreign_keys} == {"one-to-many", "many-to-many"})
+        self.assertTrue({fk.cardinality for fk in input_schema.foreign_keys} == {"one-to-one", "many-to-one"})
 
         rows =[[1,2,3], [1,2.1,3], [4,5,6],[4,5.1,6],[7,8,9]]
         dat = input_schema.TicDat(parent = rows, child_one = rows, child_two = rows, child_three=rows)

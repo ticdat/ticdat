@@ -323,7 +323,8 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
                 mappings = mappings[0] if len(mappings)==1 else mappings
                 def half_card(tbl, fields):
                     assert fields.issubset(self._allFields(tbl))
-                    if fields == set(self.primary_key_fields.get(tbl, ())):
+                    pkfs = self.primary_key_fields.get(tbl, ())
+                    if pkfs and fields.issuperset(pkfs):
                         return "one"
                     return "many"
                 cardinality = "%s-to-%s"%(half_card(native, {_[0] for _ in n_f_mapping}),
