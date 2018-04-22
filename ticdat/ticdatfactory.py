@@ -390,6 +390,9 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
         ffs = {_[1] for _ in fk}
         assert ffs.issubset(ftbl_pks.union(self.data_fields.get(ftbl,())))
         return ftbl_pks == ffs
+    def _complex_fks(self):
+        return tuple((native, foreign, fk) for (native, foreign), fks in self._foreign_keys.items()
+                    for fk in fks if not self._simple_fk(foreign, fk))
     def _trigger_has_been_used(self):
         if self._has_been_used :
             return # idempotent
@@ -1354,9 +1357,8 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
         msg  = []
         verify(self.good_tic_dat_object(tic_dat, msg.append),
                "tic_dat not a good object for this factory : %s"%"\n".join(msg))
-        for (native, foreign), fks in self._foreign_keys.items():
-            verify(all(self._simple_fk(foreign, _) for _ in fks),
-                   "complex foreign key between %s and %s prevents obfusimplification"%(native, foreign))
+        verify(not self._complex_fks(), ("complex foreign key between %s and %s prevents " +
+                                         "obfusimplify")%((self._complex_fks() or [(None,)*3])[0][:2]))
         verify({fk.cardinality for fk in self.foreign_keys}.issubset({"many-to-one", "one-to-one"}),
                "many-to-many and one-to-many foreign keys are not currently supported for obfusimplify")
         verify(not self.find_foreign_key_failures(tic_dat),
