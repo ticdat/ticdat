@@ -48,10 +48,7 @@ class _ForeignKey(namedtuple("ForeignKey", ("native_table", "foreign_table", "ma
         return {v:k for k,v in self.foreigntonativemapping().items()}
 
 _ForeignKeyMapping = namedtuple("FKMapping", ("native_field", "foreign_field"))
-def _x_to_many_fk(fk):
-    assert lupish(fk) and (all(lupish(_) and len(_) == 2 for _ in fk) or
-                           not any(map(lupish, fk)))
-    return fk and containerish(fk[0])
+
 # can I get away with ordering this consistently with the function? hopefully I can!
 class _TypeDictionary(namedtuple("TypeDictionary",
                     ("number_allowed", "inclusive_min", "inclusive_max", "min",
@@ -320,22 +317,18 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
     @property
     def foreign_keys(self):
         rtn = []
-        for (native,foreign), nativefieldtuples in self._foreign_keys.items():
-            for nativefields in nativefieldtuples :
-                mappings = tuple(_ForeignKeyMapping(nf,ff) for nf,ff in
-                                 (nativefields if _x_to_many_fk(nativefields) else
-                                  zip(nativefields, self.primary_key_fields[foreign])))
+        for (native,foreign), nativeforeignmappings in self._foreign_keys.items():
+            for n_f_mapping in nativeforeignmappings :
+                mappings = tuple(_ForeignKeyMapping(nf,ff) for nf,ff in n_f_mapping)
                 mappings = mappings[0] if len(mappings)==1 else mappings
-                if _x_to_many_fk(nativefields):
-                    if set(_[0] for _ in nativefields) == set(self.primary_key_fields.get(native, ())):
-                        cardinality = "one-to-many"
-                    else:
-                        cardinality = "many-to-many"
-                else:
-                    if set(nativefields) == set(self.primary_key_fields.get(native, ())) :
-                        cardinality = "one-to-one"
-                    else:
-                       cardinality = "many-to-one"
+                def half_card(tbl, fields):
+                    assert fields.issubset(self._allFields(tbl))
+                    pkfs = self.primary_key_fields.get(tbl, ())
+                    if pkfs and fields.issuperset(pkfs):
+                        return "one"
+                    return "many"
+                cardinality = "%s-to-%s"%(half_card(native, {_[0] for _ in n_f_mapping}),
+                                          half_card(foreign, {_[1] for _ in n_f_mapping}))
                 rtn.append(_ForeignKey(native, foreign, mappings, cardinality))
         assert len(rtn) == len(set(rtn))
         return tuple(rtn)
@@ -356,7 +349,6 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
         :return:
         """
         self._foreign_key_links_enabled[:] = [True]
-
     def add_foreign_key(self, native_table, foreign_table, mappings):
         """
         Adds a foreign key relationship to the schema.  Adding a foreign key doesn't block
@@ -390,40 +382,41 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
                    "%s does not refer to one of %s 's fields"%(k, native_table))
             verify(v in self._allFields(foreign_table),
                    "%s does not refer to one of %s 's fields"%(v, foreign_table))
-        if set(self.primary_key_fields.get(foreign_table, ())) == set(_mappings.values()):
-            reverseMapping = {v:k for k,v in _mappings.items()}
-            fk = tuple(reverseMapping[pkf] for pkf in self.primary_key_fields[foreign_table])
-            assert not _x_to_many_fk(fk)
-        else:
-            fk = tuple(_mappings.items())
-            assert _x_to_many_fk(fk)
-        self._foreign_keys[native_table, foreign_table].add(fk)
+        self._foreign_keys[native_table, foreign_table].add(tuple(_mappings.items()))
+    def _simple_fk(self, ftbl, fk):
+        assert ftbl in self.all_tables
+        ftbl_pks = set(self.primary_key_fields.get(ftbl,()))
+        assert lupish(fk) and all(lupish(_) and len(_) == 2 for _ in fk)
+        ffs = {_[1] for _ in fk}
+        assert ffs.issubset(ftbl_pks.union(self.data_fields.get(ftbl,())))
+        return ftbl_pks == ffs
+    def _complex_fks(self):
+        return tuple((native, foreign, fk) for (native, foreign), fks in self._foreign_keys.items()
+                    for fk in fks if not self._simple_fk(foreign, fk))
     def _trigger_has_been_used(self):
         if self._has_been_used :
             return # idempotent
         def findderivedforeignkey():
             # this cascades foreign keys downward (i.e. computes implied foreign key relationships)
             curFKs = self._foreign_keys_by_native()
-            for (nativetable, bridgetable), nativefieldstuples in self._foreign_keys.items():
-                for nativefieldtuple in nativefieldstuples :
-                  if not _x_to_many_fk(nativefieldtuple) : # ignore for x-many relationships
-                    for bfk in curFKs.get(bridgetable,()):
+            if not self._complex_fks():
+                for (nativetable, bridgetable), nativebridgemappings in self._foreign_keys.items():
+                    for nb_map in nativebridgemappings :
+                      for bfk in curFKs.get(bridgetable,()):
                         nativefields = bfk.nativefields()
-                        if set(nativefields)\
-                                .issubset(self.primary_key_fields[bridgetable]):
-                            bridgetonative = {pkf:nf for pkf,nf in
-                                    zip(self.primary_key_fields[bridgetable], nativefieldtuple)}
-                            foreigntobridge = bfk.foreigntonativemapping()
-                            newnativeft = tuple(bridgetonative[foreigntobridge[pkf]] for pkf in
-                                            self.primary_key_fields[bfk.foreign_table])
-                            fkSet = self._foreign_keys[nativetable, bfk.foreign_table]
-                            if newnativeft not in fkSet :
-                                return fkSet.add(newnativeft) or True
+                        assert set(nativefields).issubset(self._allFields(bridgetable))
+                        bridgetonative = {bf:nf for nf,bf in nb_map}
+                        foreigntobridge = bfk.foreigntonativemapping()
+                        newnativeft = tuple((bridgetonative[bf], ff) for ff,bf in
+                                             foreigntobridge.items() if bf in bridgetonative)
+                        fkSet = self._foreign_keys[nativetable, bfk.foreign_table]
+                        if newnativeft not in fkSet and self._simple_fk(bfk.foreign_table, newnativeft):
+                            return fkSet.add(newnativeft) or True
         while findderivedforeignkey():
             pass
-        for (nativetable, foreigntable), nativeFieldsTuples in self._foreign_keys.items():
-            nativeFieldsSet = frozenset(frozenset(_) for _ in nativeFieldsTuples
-                                        if not _x_to_many_fk(_)) # ignore for x-many relationships
+        for (nativetable, foreigntable), nativeforeignmappings in self._foreign_keys.items():
+            nativeFieldsSet = frozenset(frozenset(_[0] for _ in nfm) for nfm in nativeforeignmappings
+                                        if self._simple_fk(foreigntable, nfm)) # ignore for complex
             if len(nativeFieldsSet)==1:
                 self._linkName[nativetable, foreigntable, next(_ for _ in nativeFieldsSet)] = \
                     nativetable
@@ -656,6 +649,8 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
             def _try_make_foreign_links(self):
                 if not superself._foreign_key_links_enabled:
                     return
+                verify(not superself._complex_fks(), ("complex foreign key between %s and %s " +
+                       "prevents foreign_key_links")%((superself._complex_fks() or [(None,)*3])[0][:2]))
                 assert not self._made_foreign_links, "call once"
                 self._made_foreign_links = True
                 can_link_w_me = lambda t : t not in superself.generator_tables and \
@@ -1148,9 +1143,10 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
                  return native_data_row[field_name]
              return native_pk[self.primary_key_fields[tblname].index(field_name)]
 
-        # this subroutine/dict needed only for x-to-many fields
         table_data = defaultdict(set)
         def get_table_data(tblname, fields):
+            if fields == self.primary_key_fields.get(tblname, ()):
+                return getattr(tic_dat, tblname)
             if (tblname, fields) not in table_data:
                 add_here = table_data[tblname, fields]
                 tbl = getattr(tic_dat, tblname)
@@ -1166,26 +1162,22 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
                 for native_pk, native_data_row in (getattr(tic_dat, native).items()
                             if dictish(getattr(tic_dat, native))
                             else enumerate(getattr(tic_dat, native))):
-                  if fk.cardinality.endswith("to-many"):
                     ffs = tuple(_ff for _ff in self.primary_key_fields.get(fk.foreign_table, ()) +
                                 self.data_fields.get(fk.foreign_table, ())
                                 if _ff in foreign_to_native)
                     foreign_look_up = tuple(getcell_(native_pk, native_data_row, foreign_to_native[_ff])
                                         for _ff in ffs)
+                    if ffs == self.primary_key_fields.get(fk.foreign_table) and len(ffs)==1:
+                        foreign_look_up = foreign_look_up[0]
                     foreign_look_into = get_table_data(fk.foreign_table, ffs)
-                  else:
-                    foreign_look_up = tuple(getcell_(native_pk, native_data_row, foreign_to_native[_fpk])
-                                       for _fpk in self.primary_key_fields[fk.foreign_table])
-                    foreign_look_up = foreign_look_up[0] if len(foreign_look_up) == 1 else foreign_look_up
-                    foreign_look_into = getattr(tic_dat, fk.foreign_table)
-                  if foreign_look_up not in foreign_look_into:
-                    rtn_pks[fk].add(native_pk)
-                    if type(fk.mapping) is _ForeignKeyMapping :
-                        rtn_values[fk].add(getcell_(native_pk, native_data_row,
-                                                    fk.mapping.native_field))
-                    else:
-                        rtn_values[fk].add(tuple(getcell_(native_pk,
-                                            native_data_row, _.native_field) for _ in fk.mapping))
+                    if foreign_look_up not in foreign_look_into:
+                        rtn_pks[fk].add(native_pk)
+                        if type(fk.mapping) is _ForeignKeyMapping :
+                            rtn_values[fk].add(getcell_(native_pk, native_data_row,
+                                                        fk.mapping.native_field))
+                        else:
+                            rtn_values[fk].add(tuple(getcell_(native_pk,
+                                                native_data_row, _.native_field) for _ in fk.mapping))
         assert set(rtn_pks) == set(rtn_values)
         RtnType = namedtuple("ForeignKeyFailures", ("native_values", "native_pks"))
 
@@ -1364,6 +1356,8 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
         msg  = []
         verify(self.good_tic_dat_object(tic_dat, msg.append),
                "tic_dat not a good object for this factory : %s"%"\n".join(msg))
+        verify(not self._complex_fks(), ("complex foreign key between %s and %s prevents " +
+                                         "obfusimplify")%((self._complex_fks() or [(None,)*3])[0][:2]))
         verify({fk.cardinality for fk in self.foreign_keys}.issubset({"many-to-one", "one-to-one"}),
                "many-to-many and one-to-many foreign keys are not currently supported for obfusimplify")
         verify(not self.find_foreign_key_failures(tic_dat),
