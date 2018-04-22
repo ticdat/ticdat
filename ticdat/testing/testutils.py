@@ -87,7 +87,7 @@ class TestUtils(unittest.TestCase):
 
         dat = input_schema.TicDat(table_one = [[1,2], [3,4], [5,6], [7,8]], table_two = {1:2, 3:4, 5:6})
         ex = self.firesException(lambda : input_schema.obfusimplify(dat))
-        self.assertTrue("many-to-many and one-to-many foreign keys are not currently supported" in str(ex))
+        self.assertTrue("complex foreign key" in str(ex))
         orig_dat = input_schema.copy_tic_dat(dat, freeze_it=True)
         self.assertFalse(input_schema.find_foreign_key_failures(orig_dat))
         dat.table_two[9]=10
@@ -95,6 +95,42 @@ class TestUtils(unittest.TestCase):
         input_schema.remove_foreign_keys_failures(dat)
         self.assertTrue(input_schema._same_data(dat, orig_dat) and not input_schema.find_foreign_key_failures(dat))
 
+
+    def testXToManyTwo(self):
+        input_schema = TicDatFactory (parent = [["F1", "F2"],["F3"]], child_one = [["F1", "F2", "F3"], []],
+                                      child_two = [["F1", "F2"], ["F3"]], child_three = [[],["F1", "F2", "F3"]])
+        for t in ["child_one", "child_two", "child_three"]:
+            input_schema.add_foreign_key(t, "parent", [["F1"]*2, ["F2"]*2, ["F3"]*2])
+        self.assertTrue({fk.cardinality for fk in input_schema.foreign_keys} == {"one-to-one", "many-to-one"})
+
+        rows =[[1,2,3], [1,2.1,3], [4,5,6],[4,5.1,6],[7,8,9]]
+        dat = input_schema.TicDat(parent = rows, child_one = rows, child_two = rows, child_three=rows)
+        self.assertTrue(all(len(getattr(dat, t)) == 5 for t in input_schema.all_tables))
+        orig_dat = input_schema.copy_tic_dat(dat, True)
+        self.assertFalse(input_schema.find_foreign_key_failures(orig_dat))
+        dat.child_one[1, 2, 4] = {}
+        dat.child_two[1,2.2]=3
+        dat.child_three.append([1,2,4])
+        self.assertTrue(len(input_schema.find_foreign_key_failures(dat)) == 3)
+        dat.child_three.pop() # because no PK cannot participate in remove foreign keys
+        input_schema.remove_foreign_keys_failures(dat)
+        self.assertTrue(input_schema._same_data(dat, orig_dat) and not input_schema.find_foreign_key_failures(dat))
+
+        input_schema = TicDatFactory (parent = [["F1", "F2"],["F3"]], child_one = [["F1", "F2", "F3"], []],
+                                      child_two = [["F1", "F2"], ["F3"]], child_three = [[],["F1", "F2", "F3"]])
+        for t in ["child_one", "child_two", "child_three"]:
+            input_schema.add_foreign_key(t, "parent", [["F1"]*2, ["F3"]*2])
+        dat = input_schema.TicDat(parent = rows, child_one = rows, child_two = rows, child_three=rows)
+        self.assertTrue(all(len(getattr(dat, t)) == 5 for t in input_schema.all_tables))
+        orig_dat = input_schema.copy_tic_dat(dat, True)
+        self.assertFalse(input_schema.find_foreign_key_failures(orig_dat))
+        dat.child_one[1, 2, 4] = {}
+        dat.child_two[1,2.2]=4
+        dat.child_three.append([1,2,4])
+        self.assertTrue(len(input_schema.find_foreign_key_failures(dat)) == 3)
+        dat.child_three.pop() # because no PK cannot participate in remove foreign keys
+        input_schema.remove_foreign_keys_failures(dat)
+        self.assertTrue(input_schema._same_data(dat, orig_dat) and not input_schema.find_foreign_key_failures(dat))
 
     def testDenormalizedErrors(self):
         c = clean_denormalization_errors
@@ -403,6 +439,39 @@ class TestUtils(unittest.TestCase):
         self.assertTrue(tdf.foreign_keys and "appendageBadChild" not in tdf.foreign_keys)
         tdf.clear_foreign_keys()
         self.assertFalse(tdf.foreign_keys)
+
+    def testFiveB(self):
+        tdf = TicDatFactory(parent = [["Boo"],["Field"]], other_parent = [["Bar"],["Field"]],
+                            child = [["Boo", "Bar"], ["Field"]], more_child = [["Bar", "Boo"], ["Field"]])
+        tdf.add_foreign_key("child", "parent", ["Boo"]*2)
+        tdf.add_foreign_key("child", "other_parent", ["Bar"]*2)
+        tdf.add_foreign_key("more_child", "child", [["Boo"]*2, ["Bar"]*2])
+
+        tic_dat = tdf.TicDat(parent = [[1, 1], [2,2], [3,3]],
+                             other_parent = [[4,4], [5,5]])
+        for i, (p,op) in enumerate(itertools.product(tic_dat.parent, tic_dat.other_parent)):
+            tic_dat.child[p,op] = i
+            if i%3==1:
+                tic_dat.more_child[op,p]=10*i
+        tic_dat = tdf.copy_tic_dat(tic_dat, freeze_it=1)
+        obfudat = tdf.obfusimplify(tic_dat, freeze_it=1)
+        other_dat = obfudat.copy
+        renamings = obfudat.renamings
+
+        for t in tdf.all_tables:
+            self.assertTrue(len(getattr(tic_dat, t)) == len(getattr(other_dat, t)))
+
+        for k,r in other_dat.parent.items():
+            self.assertTrue(tic_dat.parent[renamings[k][1]]["Field"] == r["Field"])
+
+        for k,r in other_dat.other_parent.items():
+            self.assertTrue(tic_dat.other_parent[renamings[k][1]]["Field"] == r["Field"])
+
+        for (k1, k2),r in other_dat.child.items():
+            self.assertTrue(tic_dat.child[renamings[k1][1], renamings[k2][1]]["Field"] == r["Field"])
+
+        for (k1, k2),r in other_dat.more_child.items():
+            self.assertTrue(tic_dat.more_child[renamings[k1][1], renamings[k2][1]]["Field"] == r["Field"])
 
     def testSix(self):
         for cloning in [True, False]:
