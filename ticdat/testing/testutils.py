@@ -440,6 +440,39 @@ class TestUtils(unittest.TestCase):
         tdf.clear_foreign_keys()
         self.assertFalse(tdf.foreign_keys)
 
+    def testFiveB(self):
+        tdf = TicDatFactory(parent = [["Boo"],["Field"]], other_parent = [["Bar"],["Field"]],
+                            child = [["Boo", "Bar"], ["Field"]], more_child = [["Bar", "Boo"], ["Field"]])
+        tdf.add_foreign_key("child", "parent", ["Boo"]*2)
+        tdf.add_foreign_key("child", "other_parent", ["Bar"]*2)
+        tdf.add_foreign_key("more_child", "child", [["Boo"]*2, ["Bar"]*2])
+
+        tic_dat = tdf.TicDat(parent = [[1, 1], [2,2], [3,3]],
+                             other_parent = [[4,4], [5,5]])
+        for i, (p,op) in enumerate(itertools.product(tic_dat.parent, tic_dat.other_parent)):
+            tic_dat.child[p,op] = i
+            if i%3==1:
+                tic_dat.more_child[op,p]=10*i
+        tic_dat = tdf.copy_tic_dat(tic_dat, freeze_it=1)
+        obfudat = tdf.obfusimplify(tic_dat, freeze_it=1)
+        other_dat = obfudat.copy
+        renamings = obfudat.renamings
+
+        for t in tdf.all_tables:
+            self.assertTrue(len(getattr(tic_dat, t)) == len(getattr(other_dat, t)))
+
+        for k,r in other_dat.parent.items():
+            self.assertTrue(tic_dat.parent[renamings[k][1]]["Field"] == r["Field"])
+
+        for k,r in other_dat.other_parent.items():
+            self.assertTrue(tic_dat.other_parent[renamings[k][1]]["Field"] == r["Field"])
+
+        for (k1, k2),r in other_dat.child.items():
+            self.assertTrue(tic_dat.child[renamings[k1][1], renamings[k2][1]]["Field"] == r["Field"])
+
+        for (k1, k2),r in other_dat.more_child.items():
+            self.assertTrue(tic_dat.more_child[renamings[k1][1], renamings[k2][1]]["Field"] == r["Field"])
+
     def testSix(self):
         for cloning in [True, False]:
             clone_me_maybe = lambda x : x.clone() if cloning else x
