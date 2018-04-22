@@ -400,21 +400,18 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
             # this cascades foreign keys downward (i.e. computes implied foreign key relationships)
             curFKs = self._foreign_keys_by_native()
             if not self._complex_fks():
-                for (nativetable, bridgetable), nativeforeignmappings in self._foreign_keys.items():
-                    for nf_map in nativeforeignmappings :
+                for (nativetable, bridgetable), nativebridgemappings in self._foreign_keys.items():
+                    for nb_map in nativebridgemappings :
                       for bfk in curFKs.get(bridgetable,()):
                         nativefields = bfk.nativefields()
                         assert set(nativefields).issubset(self._allFields(bridgetable))
-                        if set(nativefields)\
-                                .issubset(self.primary_key_fields[bridgetable]):
-                          bridgetonative = {pkf:nf for nf,pkf in nf_map}
-                          foreigntobridge = bfk.foreigntonativemapping()
-                          if set(foreigntobridge).issuperset(self.primary_key_fields[bfk.foreign_table]):
-                            newnativeft = tuple((bridgetonative[foreigntobridge[pkf]], pkf) for pkf in
-                                            self.primary_key_fields[bfk.foreign_table])
-                            fkSet = self._foreign_keys[nativetable, bfk.foreign_table]
-                            if newnativeft not in fkSet :
-                                return fkSet.add(newnativeft) or True
+                        bridgetonative = {bf:nf for nf,bf in nb_map}
+                        foreigntobridge = bfk.foreigntonativemapping()
+                        newnativeft = tuple((bridgetonative[bf], ff) for ff,bf in
+                                             foreigntobridge.items() if bf in bridgetonative)
+                        fkSet = self._foreign_keys[nativetable, bfk.foreign_table]
+                        if newnativeft not in fkSet and self._simple_fk(bfk.foreign_table, newnativeft):
+                            return fkSet.add(newnativeft) or True
         while findderivedforeignkey():
             pass
         for (nativetable, foreigntable), nativeforeignmappings in self._foreign_keys.items():
