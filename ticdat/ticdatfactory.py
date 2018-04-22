@@ -399,10 +399,10 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
         def findderivedforeignkey():
             # this cascades foreign keys downward (i.e. computes implied foreign key relationships)
             curFKs = self._foreign_keys_by_native()
-            for (nativetable, bridgetable), nativeforeignmappings in self._foreign_keys.items():
-                for nf_map in nativeforeignmappings :
-                  if self._simple_fk(bridgetable, nf_map) : # ignore for complex foreign keys
-                    for bfk in curFKs.get(bridgetable,()):
+            if not self._complex_fks():
+                for (nativetable, bridgetable), nativeforeignmappings in self._foreign_keys.items():
+                    for nf_map in nativeforeignmappings :
+                      for bfk in curFKs.get(bridgetable,()):
                         nativefields = bfk.nativefields()
                         assert set(nativefields).issubset(self._allFields(bridgetable))
                         if set(nativefields)\
@@ -652,6 +652,8 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
             def _try_make_foreign_links(self):
                 if not superself._foreign_key_links_enabled:
                     return
+                verify(not superself._complex_fks(), ("complex foreign key between %s and %s " +
+                       "prevents foreign_key_links")%((superself._complex_fks() or [(None,)*3])[0][:2]))
                 assert not self._made_foreign_links, "call once"
                 self._made_foreign_links = True
                 can_link_w_me = lambda t : t not in superself.generator_tables and \
