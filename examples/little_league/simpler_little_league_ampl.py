@@ -121,6 +121,9 @@ def solve(dat):
 
     if ampl.getValue("solve_result") != "infeasible":
         sln = solution_schema.TicDat()
+        for (i,p,pl),x in ampl.getVariable("Play").getValues().toDict().items():
+            if round(x[0]) > 0:
+                sln.lineup[i,p] = pl
         sln.parameters["Total Cost"] = ampl.getObjective('TotalImportance').value()
         return sln
 
