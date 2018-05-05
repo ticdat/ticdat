@@ -1,7 +1,6 @@
-# this version of the file uses gurobipy
+# this version of the file uses amplpy
 
-# really should be 2360.0 obj value, this gets 2333.0 with purely numeric data, not sure what the problem is
-# but not worrying about that too much, could be an LB/UB thing
+# should be 2360.0 obj value
 
 from ticdat import TicDatFactory,  standard_main
 from amplpy import AMPL
@@ -61,7 +60,7 @@ def solve(dat):
     # Players and grades
 
     set PLAYERS;
-    param grade {PLAYERS};
+    param grade {PLAYERS} symbolic;
     set GRADES = setof {pl in PLAYERS} grade[pl];
     set IN_GRADE {g in GRADES} = {pl in PLAYERS: grade[pl] = g};
 
@@ -69,7 +68,7 @@ def solve(dat):
 
     set POSITIONS;
     param position_importance {POSITIONS};
-    param position_group {POSITIONS};
+    param position_group {POSITIONS} symbolic;
     set POSITION_GROUPS = setof {p in POSITIONS} position_group[p];
     set IN_POSITION_GROUP {pg in POSITION_GROUPS} = {p in POSITIONS: position_group[p] = pg};
 
@@ -78,7 +77,7 @@ def solve(dat):
     # Innings and inning groups; player limits
 
     set INNINGS;
-    param inning_group {INNINGS};
+    param inning_group {INNINGS} symbolic;
     set INNING_GROUPS = setof {i in INNINGS} inning_group[i];
     set IN_INNING_GROUP {ig in INNING_GROUPS} = {i in INNINGS: inning_group[i] = ig};
 
