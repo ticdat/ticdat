@@ -64,14 +64,12 @@ def solve(dat):
     assert not input_schema.find_foreign_key_failures(dat)
     assert not input_schema.find_data_type_failures(dat)
 
-    # our AMPL code assumes inflow is fully populated so lets make it so
-    for c,n in product(dat.commodities, dat.nodes):
-        dat.inflow[c,n] = dat.inflow[c,n] # ticdat will act like a default dict here and insert zeros as needed
-
     # copy the data over to amplpy.DataFrame objects, renaming the data fields as needed
     dat = input_schema.copy_to_ampl(dat, field_renamings={("arcs", "Capacity"): "capacity",
             ("cost", "Cost"): "cost", ("inflow", "Quantity"): "inflow"})
 
+    # for instructional purposes, the following code anticipates extreme sparsity and doesn't generate
+    # conservation of flow records unless they are really needed
     ampl = AMPL()
     ampl.setOption('solver', 'gurobi')
     ampl.eval("""
@@ -81,18 +79,22 @@ def solve(dat):
     param capacity {ARCS} >= 0;
     set SHIPMENT_OPTIONS within {COMMODITIES,ARCS};
     param cost {SHIPMENT_OPTIONS} > 0;
-    param inflow {COMMODITIES,NODES};
+    set INFLOW_INDEX within {COMMODITIES,NODES};
+    param inflow {INFLOW_INDEX};
     var Flow {SHIPMENT_OPTIONS} >= 0;
     minimize TotalCost:
        sum {(h,i,j) in SHIPMENT_OPTIONS} cost[h,i,j] * Flow[h,i,j];
     subject to Capacity {(i,j) in ARCS}:
        sum {(h,i,j) in SHIPMENT_OPTIONS} Flow[h,i,j] <= capacity[i,j];
     subject to Conservation {h in COMMODITIES, j in NODES}:
-       sum {(h,i,j) in SHIPMENT_OPTIONS} Flow[h,i,j] + inflow[h,j] = sum {(h,j,i) in SHIPMENT_OPTIONS} Flow[h,j,i];
+       sum {(h,i,j) in SHIPMENT_OPTIONS} Flow[h,i,j] +
+       sum {(h,j) in INFLOW_INDEX} inflow[h,j] =
+       sum {(h,j,i) in SHIPMENT_OPTIONS} Flow[h,j,i];
     """)
 
     input_schema.set_ampl_data(dat, ampl, {"nodes": "NODES", "arcs": "ARCS",
-                                       "commodities": "COMMODITIES", "cost":"SHIPMENT_OPTIONS"})
+                                           "commodities": "COMMODITIES", "cost":"SHIPMENT_OPTIONS",
+                                            "inflow":"INFLOW_INDEX"})
     ampl.solve()
 
     if ampl.getValue("solve_result") != "infeasible":
