@@ -86,7 +86,10 @@ def solve(dat):
        sum {(h,i,j) in SHIPMENT_OPTIONS} cost[h,i,j] * Flow[h,i,j];
     subject to Capacity {(i,j) in ARCS}:
        sum {(h,i,j) in SHIPMENT_OPTIONS} Flow[h,i,j] <= capacity[i,j];
-    subject to Conservation {h in COMMODITIES, j in NODES}:
+    subject to Conservation {h in COMMODITIES, j in NODES:
+         card {(h,i,j) in SHIPMENT_OPTIONS} > 0 or
+         card {(h,j,i) in SHIPMENT_OPTIONS} > 0 or
+         (h,j) in INFLOW_INDEX}:
        sum {(h,i,j) in SHIPMENT_OPTIONS} Flow[h,i,j] +
        (if (h,j) in INFLOW_INDEX then inflow[h,j]) =
        sum {(h,j,i) in SHIPMENT_OPTIONS} Flow[h,j,i];
