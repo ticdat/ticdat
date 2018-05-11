@@ -88,7 +88,7 @@ def solve(dat):
        sum {(h,i,j) in SHIPMENT_OPTIONS} Flow[h,i,j] <= capacity[i,j];
     subject to Conservation {h in COMMODITIES, j in NODES}:
        sum {(h,i,j) in SHIPMENT_OPTIONS} Flow[h,i,j] +
-       sum {(h,j) in INFLOW_INDEX} inflow[h,j] =
+       (if (h,j) in INFLOW_INDEX then inflow[h,j]) =
        sum {(h,j,i) in SHIPMENT_OPTIONS} Flow[h,j,i];
     """)
 
