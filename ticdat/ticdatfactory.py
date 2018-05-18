@@ -865,14 +865,18 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
                     _rtn.append(dict(dr))
             setattr(rtn, t, _rtn)
         return rtn
-    def _same_data(self, obj1, obj2):
+    def _same_data(self, obj1, obj2, epsilon = 0):
         assert self.good_tic_dat_object(obj1) and self.good_tic_dat_object(obj2)
-        def samerow(r1, r2) :
+        assert epsilon >= 0
+        _n_s = lambda x, y: False
+        if epsilon > 0:
+            _n_s = lambda x, y: utils.safe_apply(utils.nearly_same)(x, y, epsilon)
+        def samerow(r1, r2):
             if dictish(r1) and dictish(r2):
                 if bool(r1) != bool(r2) or set(r1) != set(r2) :
                     return False
                 for _k in r1:
-                    if r1[_k] != r2[_k] :
+                    if r1[_k] != r2[_k] and not _n_s(r1[_k], r2[_k]):
                         return False
                 return True
             if dictish(r2) and not dictish(r1) :

@@ -953,6 +953,17 @@ class TestUtils(unittest.TestCase):
             self.assertTrue(failures["c_table", "two_nums"] == (1,))
             self.assertTrue(failures["c_table", "all_strings"] == (0,2))
 
+    def testNineteen(self):
+        dataObj = dietData()
+        tdf = TicDatFactory(**dietSchema())
+        self.assertTrue(tdf.good_tic_dat_object(dataObj))
+        dataObj2 = tdf.copy_tic_dat(dataObj)
+        dataObj2.categories["calories"]["minNutrition"] *= 1.00001
+        dataObj2.nutritionQuantities["salad", "sodium"]["qty"]  *= 2-1.00001
+
+        self.assertFalse(tdf._same_data(dataObj, dataObj2))
+        self.assertFalse(tdf._same_data(dataObj, dataObj2, pow(.00001, 3)))
+        self.assertTrue(tdf._same_data(dataObj, dataObj2, pow(.00001, 0.333)))
 
 
 
