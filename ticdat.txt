@@ -780,9 +780,9 @@ CLASSES
      |               --> bad_values - the distinct values for the (table, field) pair that are inconsistent
      |                                with the data type for (table, field).
      |               --> pks - the distinct primary key entries of the table containing the bad_values
-     |                                data
+     |                                data (will be row index for tables with no primary key)
      |               That is to say, bad_values tells you which values in field are failing the data type check,
-     |               and  tells you which table rows will have their field entry changed if you call
+     |               and  pks tells you which table rows will have their field entry changed if you call
      |               replace_data_type_failures().
      |
      |  find_denormalized_sub_table_failures(self, tic_dat, table, sub_table_pk_fields, sub_table_data_fields)

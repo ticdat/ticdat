@@ -870,7 +870,7 @@ class TestUtils(unittest.TestCase):
         failures = tdf.find_data_type_failures(dat)
         self.assertTrue(len(failures) == 1)
         badValues, badPks = failures["boger", "foo"]
-        self.assertTrue(badPks is None)
+        self.assertTrue(badPks == (1,2,3))
         self.assertTrue(set(badValues) == {2.1, 1.1})
         tdf.replace_data_type_failures(dat)
         self.assertFalse(tdf.find_data_type_failures(dat))
