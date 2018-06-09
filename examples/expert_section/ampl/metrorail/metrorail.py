@@ -88,13 +88,17 @@ def solve(dat):
         ampl.setOption('solver', 'gurobi')
         # use the ampl_format function for AMPL friendly key-named text substitutions
         ampl.eval(ampl_format("""
+        param amount_leftover_lb = {{amount_leftover_lb}};
+        param amount_leftover_ub = {{amount_leftover_ub}};
+        param one_way_price = {{one_way_price}};
+        param number_trips = {{number_trips}};
         set LOAD_AMTS;
         var Num_Visits {LOAD_AMTS} integer >= 0;
-        var Amt_Leftover >= {{amount_leftover_lb}}, <= {{amount_leftover_ub}};
+        var Amt_Leftover >= amount_leftover_lb, <= amount_leftover_ub;
         minimize Total_Visits:
            sum {la in LOAD_AMTS} Num_Visits[la];
         subj to Set_Amt_Leftover:
-           Amt_Leftover = sum {la in LOAD_AMTS} la * Num_Visits[la] - {{one_way_price}} * {{number_trips}};""",
+           Amt_Leftover = sum {la in LOAD_AMTS} la * Num_Visits[la] - one_way_price * number_trips;""",
             number_trips=number_trips, one_way_price=full_parameters["One Way Price"],
             amount_leftover_lb=amount_leftover if full_parameters["Amount Leftover Constraint"] == "Equality" else 0,
             amount_leftover_ub=amount_leftover))

@@ -591,6 +591,7 @@ class TestUtils(unittest.TestCase):
         tdf.remove_foreign_keys_failures(ticDat)
         self.assertTrue(tdf._same_data(ticDat, origDat) and not tdf.find_foreign_key_failures(ticDat))
 
+        orig_lens = {t:len(getattr(ticDat, t)) for t in tdf.all_tables}
         ticDat.pt3["no",6] = ticDat.pt3[1, "no"] = {}
         ticDat.pt4["no"] = 6
         ticDat.pt4["nono"]=6.01
@@ -598,8 +599,9 @@ class TestUtils(unittest.TestCase):
         ticDat.pt5.append((1, "no"))
         fails2 = tdf.find_foreign_key_failures(ticDat)
         self.assertTrue(set(fails1) != set(fails2) and set(fails1).issubset(fails2))
-        ex = self.firesException(lambda : tdf.remove_foreign_keys_failures(ticDat))
-        self.assertTrue("pt5" in str(ex))
+        tdf.remove_foreign_keys_failures(ticDat)
+        self.assertFalse(tdf.find_foreign_key_failures(ticDat))
+        self.assertTrue({t:len(getattr(ticDat, t)) for t in tdf.all_tables} == orig_lens)
 
 
     def testSeven(self):
@@ -870,7 +872,7 @@ class TestUtils(unittest.TestCase):
         failures = tdf.find_data_type_failures(dat)
         self.assertTrue(len(failures) == 1)
         badValues, badPks = failures["boger", "foo"]
-        self.assertTrue(badPks is None)
+        self.assertTrue(badPks == (1,2,3))
         self.assertTrue(set(badValues) == {2.1, 1.1})
         tdf.replace_data_type_failures(dat)
         self.assertFalse(tdf.find_data_type_failures(dat))
@@ -953,6 +955,17 @@ class TestUtils(unittest.TestCase):
             self.assertTrue(failures["c_table", "two_nums"] == (1,))
             self.assertTrue(failures["c_table", "all_strings"] == (0,2))
 
+    def testNineteen(self):
+        dataObj = dietData()
+        tdf = TicDatFactory(**dietSchema())
+        self.assertTrue(tdf.good_tic_dat_object(dataObj))
+        dataObj2 = tdf.copy_tic_dat(dataObj)
+        dataObj2.categories["calories"]["minNutrition"] *= 1.00001
+        dataObj2.nutritionQuantities["salad", "sodium"]["qty"]  *= 2-1.00001
+
+        self.assertFalse(tdf._same_data(dataObj, dataObj2))
+        self.assertFalse(tdf._same_data(dataObj, dataObj2, pow(.00001, 3)))
+        self.assertTrue(tdf._same_data(dataObj, dataObj2, pow(.00001, 0.333)))
 
 
 

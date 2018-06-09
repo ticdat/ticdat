@@ -15,6 +15,7 @@
 
 from ticdat import TicDatFactory, standard_main
 from amplpy import AMPL
+from itertools import product
 
 # ------------------------ define the input schema --------------------------------
 input_schema = TicDatFactory (
@@ -67,31 +68,36 @@ def solve(dat):
     dat = input_schema.copy_to_ampl(dat, field_renamings={("arcs", "Capacity"): "capacity",
             ("cost", "Cost"): "cost", ("inflow", "Quantity"): "inflow"})
 
+    # for instructional purposes, the following code anticipates extreme sparsity and doesn't generate
+    # conservation of flow records unless they are really needed
     ampl = AMPL()
     ampl.setOption('solver', 'gurobi')
     ampl.eval("""
     set NODES;
     set ARCS within {i in NODES, j in NODES: i <> j};
     set COMMODITIES;
-
     param capacity {ARCS} >= 0;
-    param cost {COMMODITIES,ARCS} > 0;
-    param inflow {COMMODITIES,NODES};
-
-    var Flow {COMMODITIES,ARCS} >= 0;
-
+    set SHIPMENT_OPTIONS within {COMMODITIES,ARCS};
+    param cost {SHIPMENT_OPTIONS} > 0;
+    set INFLOW_INDEX within {COMMODITIES,NODES};
+    param inflow {INFLOW_INDEX};
+    var Flow {SHIPMENT_OPTIONS} >= 0;
     minimize TotalCost:
-       sum {h in COMMODITIES, (i,j) in ARCS} cost[h,i,j] * Flow[h,i,j];
-
+       sum {(h,i,j) in SHIPMENT_OPTIONS} cost[h,i,j] * Flow[h,i,j];
     subject to Capacity {(i,j) in ARCS}:
-       sum {h in COMMODITIES} Flow[h,i,j] <= capacity[i,j];
-
-    subject to Conservation {h in COMMODITIES, j in NODES}:
-       sum {(i,j) in ARCS} Flow[h,i,j] + inflow[h,j] = sum {(j,i) in ARCS} Flow[h,j,i];
+       sum {(h,i,j) in SHIPMENT_OPTIONS} Flow[h,i,j] <= capacity[i,j];
+    subject to Conservation {h in COMMODITIES, j in NODES:
+         card {(h,i,j) in SHIPMENT_OPTIONS} > 0 or
+         card {(h,j,i) in SHIPMENT_OPTIONS} > 0 or
+         (h,j) in INFLOW_INDEX}:
+       sum {(h,i,j) in SHIPMENT_OPTIONS} Flow[h,i,j] +
+       (if (h,j) in INFLOW_INDEX then inflow[h,j]) =
+       sum {(h,j,i) in SHIPMENT_OPTIONS} Flow[h,j,i];
     """)
 
     input_schema.set_ampl_data(dat, ampl, {"nodes": "NODES", "arcs": "ARCS",
-                                           "commodities": "COMMODITIES"})
+                                           "commodities": "COMMODITIES", "cost":"SHIPMENT_OPTIONS",
+                                            "inflow":"INFLOW_INDEX"})
     ampl.solve()
 
     if ampl.getValue("solve_result") != "infeasible":

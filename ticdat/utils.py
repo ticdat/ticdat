@@ -735,3 +735,25 @@ class Progress(object):
                 if not keep_going:
                     self.abort()
         model.add_progress_listener(MyListener())
+
+EPSILON = 1e-05
+
+def per_error(x1, x2) :
+    x1 = float(x1)
+    x2 = float(x2)
+    if (x1 < 0) and (x2 < 0) :
+        return per_error(-x1, -x2)
+    if x1 == float("inf") :
+        return 0 if (x2 == float("inf")) else x1
+    SMALL_NOT_ZERO = 1e-10
+    assert(EPSILON>SMALL_NOT_ZERO)
+    abs1 = abs(x1)
+    abs2 = abs(x2)
+    # is it safe to divide by the bigger absolute value
+    if max(abs1, abs2) > SMALL_NOT_ZERO:
+        rtn = ((max(x1, x2) - min(x1, x2)) / max(abs1, abs2))
+        return rtn
+    return 0
+
+def nearly_same(x1, x2, epsilon) :
+    return per_error(x1, x2) < epsilon
