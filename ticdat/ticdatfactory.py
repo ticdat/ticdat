@@ -1196,12 +1196,17 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
         :return: tic_dat, with the foreign key failures removed
         """
         fk_failures = self.find_foreign_key_failures(tic_dat)
+        needs_removal = set()
         for fk, (_, failed_pks) in fk_failures.items():
-            verify(dictish(getattr(tic_dat, fk.native_table)),
-                   "%s lacks a primary key and thus can't remove foreign key failures"%fk.native_table)
             for failed_pk in failed_pks:
-                if failed_pk in getattr(tic_dat, fk.native_table) :
-                    del(getattr(tic_dat, fk.native_table)[failed_pk])
+                if self.primary_key_fields.get(fk.native_table):
+                    assert dictish(getattr(tic_dat, fk.native_table))
+                    if failed_pk in getattr(tic_dat, fk.native_table) :
+                        del(getattr(tic_dat, fk.native_table)[failed_pk])
+                else:
+                    needs_removal.add((fk.native_table, failed_pk))
+        for t,row_index in sorted(needs_removal, reverse=True):
+            getattr(tic_dat, t).pop(row_index)
         if fk_failures and propagate:
             return self.remove_foreign_keys_failures(tic_dat)
         return tic_dat
@@ -1228,7 +1233,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
                  --> bad_values - the distinct values for the (table, field) pair that are inconsistent
                                   with the data type for (table, field).
                  --> pks - the distinct primary key entries of the table containing the bad_values
-                           data. (will be None for tables with no primary key)
+                           data. (will be row index for tables with no primary key)
                  That is to say, bad_values tells you which values in field are failing the data type check,
                  and pks tells you which table rows will have their field entry changed if you call
                  replace_data_type_failures().
@@ -1248,10 +1253,11 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
                             rtn_values[(table, field)].add(full_row[field])
                             rtn_pks[(table, field)].add(pk)
             elif containerish(_table):
-                for data_row in _table:
+                for pk, data_row in enumerate(_table):
                     for field, data_type in type_row.items():
                         if not data_type.valid_data(data_row[field]) :
                             rtn_values[(table, field)].add(data_row[field])
+                            rtn_pks[(table, field)].add(pk)
         assert set(rtn_values).issuperset(set(rtn_pks))
         TableField = clt.namedtuple("TableField", ["table", "field"])
         ValuesPks = clt.namedtuple("ValuesPks", ["bad_values", "pks"])

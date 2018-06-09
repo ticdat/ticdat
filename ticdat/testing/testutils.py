@@ -591,6 +591,7 @@ class TestUtils(unittest.TestCase):
         tdf.remove_foreign_keys_failures(ticDat)
         self.assertTrue(tdf._same_data(ticDat, origDat) and not tdf.find_foreign_key_failures(ticDat))
 
+        orig_lens = {t:len(getattr(ticDat, t)) for t in tdf.all_tables}
         ticDat.pt3["no",6] = ticDat.pt3[1, "no"] = {}
         ticDat.pt4["no"] = 6
         ticDat.pt4["nono"]=6.01
@@ -598,8 +599,9 @@ class TestUtils(unittest.TestCase):
         ticDat.pt5.append((1, "no"))
         fails2 = tdf.find_foreign_key_failures(ticDat)
         self.assertTrue(set(fails1) != set(fails2) and set(fails1).issubset(fails2))
-        ex = self.firesException(lambda : tdf.remove_foreign_keys_failures(ticDat))
-        self.assertTrue("pt5" in str(ex))
+        tdf.remove_foreign_keys_failures(ticDat)
+        self.assertFalse(tdf.find_foreign_key_failures(ticDat))
+        self.assertTrue({t:len(getattr(ticDat, t)) for t in tdf.all_tables} == orig_lens)
 
 
     def testSeven(self):
@@ -870,7 +872,7 @@ class TestUtils(unittest.TestCase):
         failures = tdf.find_data_type_failures(dat)
         self.assertTrue(len(failures) == 1)
         badValues, badPks = failures["boger", "foo"]
-        self.assertTrue(badPks is None)
+        self.assertTrue(badPks == (1,2,3))
         self.assertTrue(set(badValues) == {2.1, 1.1})
         tdf.replace_data_type_failures(dat)
         self.assertFalse(tdf.find_data_type_failures(dat))
