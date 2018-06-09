@@ -1196,12 +1196,17 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
         :return: tic_dat, with the foreign key failures removed
         """
         fk_failures = self.find_foreign_key_failures(tic_dat)
+        needs_removal = set()
         for fk, (_, failed_pks) in fk_failures.items():
-            verify(dictish(getattr(tic_dat, fk.native_table)),
-                   "%s lacks a primary key and thus can't remove foreign key failures"%fk.native_table)
             for failed_pk in failed_pks:
-                if failed_pk in getattr(tic_dat, fk.native_table) :
-                    del(getattr(tic_dat, fk.native_table)[failed_pk])
+                if self.primary_key_fields.get(fk.native_table):
+                    assert dictish(getattr(tic_dat, fk.native_table))
+                    if failed_pk in getattr(tic_dat, fk.native_table) :
+                        del(getattr(tic_dat, fk.native_table)[failed_pk])
+                else:
+                    needs_removal.add((fk.native_table, failed_pk))
+        for t,row_index in sorted(needs_removal, reverse=True):
+            getattr(tic_dat, t).pop(row_index)
         if fk_failures and propagate:
             return self.remove_foreign_keys_failures(tic_dat)
         return tic_dat
