@@ -16,7 +16,7 @@
 
 # this version of the file uses amplpy and Gurobi
 from amplpy import AMPL
-from ticdat import TicDatFactory, standard_main, ampl_format
+from ticdat import TicDatFactory, standard_main
 from itertools import product
 
 # ------------------------ define the input schema --------------------------------
@@ -77,7 +77,7 @@ def solve(dat):
     # use default parameters, unless they are overridden by user-supplied parameters
     full_parameters = dict(default_parameters, **{k:v["Value"] for k,v in dat.parameters.items()})
 
-    sln = solution_schema.TicDat() # create an empty solution'
+    sln = solution_schema.TicDat() # create an empty solution
 
     ampl_dat = input_schema.copy_to_ampl(dat, excluded_tables=
                    set(input_schema.all_tables).difference({"load_amounts"}))
@@ -86,24 +86,26 @@ def solve(dat):
 
         ampl = AMPL()
         ampl.setOption('solver', 'gurobi')
-        # use the ampl_format function for AMPL friendly key-named text substitutions
-        ampl.eval(ampl_format("""
-        param amount_leftover_lb = {{amount_leftover_lb}};
-        param amount_leftover_ub = {{amount_leftover_ub}};
-        param one_way_price = {{one_way_price}};
-        param number_trips = {{number_trips}};
+        ampl.eval("""
+        param amount_leftover_lb >= 0;
+        param amount_leftover_ub >= amount_leftover_lb;
+        param one_way_price >= 0;
+        param number_trips >= 0;
         set LOAD_AMTS;
         var Num_Visits {LOAD_AMTS} integer >= 0;
         var Amt_Leftover >= amount_leftover_lb, <= amount_leftover_ub;
         minimize Total_Visits:
            sum {la in LOAD_AMTS} Num_Visits[la];
         subj to Set_Amt_Leftover:
-           Amt_Leftover = sum {la in LOAD_AMTS} la * Num_Visits[la] - one_way_price * number_trips;""",
-            number_trips=number_trips, one_way_price=full_parameters["One Way Price"],
-            amount_leftover_lb=amount_leftover if full_parameters["Amount Leftover Constraint"] == "Equality" else 0,
-            amount_leftover_ub=amount_leftover))
+           Amt_Leftover = sum {la in LOAD_AMTS} la * Num_Visits[la] - one_way_price * number_trips;""")
 
+        ampl.param['amount_leftover_lb'] = amount_leftover \
+            if full_parameters["Amount Leftover Constraint"] == "Equality" else 0
+        ampl.param['amount_leftover_ub'] = amount_leftover
+        ampl.param['number_trips'] = number_trips
+        ampl.param['one_way_price'] = full_parameters["One Way Price"]
         input_schema.set_ampl_data(ampl_dat, ampl, {"load_amounts": "LOAD_AMTS"})
+
         ampl.solve()
 
         if ampl.getValue("solve_result") != "infeasible":
