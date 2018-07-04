@@ -1,4 +1,4 @@
-INSERT INTO [parameters] ([Key],[Value]) VALUES ('Maximum Total Investment',500);
+INSERT INTO [parameters] ([Parameter],[Value]) VALUES ('Maximum Total Investment',500);
 INSERT INTO [forecast_sales] ([Product],[Cost Per Unit],[Sales]) VALUES ('Mr. Popper',2.8925,34.56);
 INSERT INTO [forecast_sales] ([Product],[Cost Per Unit],[Sales]) VALUES ('11 Down',1.56,90.02);
 INSERT INTO [forecast_sales] ([Product],[Cost Per Unit],[Sales]) VALUES ('Popsi Kola',1.7275,133.42);

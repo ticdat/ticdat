@@ -23,13 +23,13 @@ from ticdat import TicDatFactory, standard_main, opl_run
 
 # ------------------------ define the input schema --------------------------------
 input_schema = TicDatFactory (
-     parameters = [["Key"],["Value"]],
+     parameters = [["Parameter"],["Value"]],
      gas = [["Name"],["Demand","Sales Price","Min Octane Rating", "Max Lead Contents"]],
      oil = [["Name"],["Supply","Purchase Price","Octane Rating", "Lead Contents"]])
 
 # no foreign keys
 
-input_schema.set_data_type("parameters", "Key", number_allowed = False,
+input_schema.set_data_type("parameters", "Parameter", number_allowed = False,
                            strings_allowed= ["Maximum Production", "Production Cost"])
 input_schema.set_data_type("parameters", "Value", min=0, max=float("inf"),
                            inclusive_min=True, inclusive_max=True)
@@ -51,7 +51,7 @@ input_schema.set_data_type("oil", "Lead Contents", min=0, max=float("inf"),
                            inclusive_min=True, inclusive_max=False)
 # We tolerate float("inf") as the Maximum Production but not the Production Cost
 input_schema.add_data_row_predicate("parameters",
-                                    lambda row : not (row["Key"] == "Production Cost" and
+                                    lambda row : not (row["Parameter"] == "Production Cost" and
                                                       row["Value"] == float("inf")))
 
 input_schema.opl_prepend = "inp_" # avoid table name collisions
@@ -60,7 +60,7 @@ input_schema.opl_prepend = "inp_" # avoid table name collisions
 
 # ------------------------ define the output schema -------------------------------
 solution_schema = TicDatFactory(
-    parameters = [["Key"],["Value"]],
+    parameters = [["Parameter"],["Value"]],
     advertising = [["Gas"],["Dollars Spent"]],
     blending = [["Oil","Gas"],["Quantity"]])
 

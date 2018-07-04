@@ -56,7 +56,7 @@ input_schema.set_default_value("arcs", "Capacity", float("inf"))
 # ------------------------ define the output schema -------------------------------
 solution_schema = TicDatFactory(
         flow = [["Commodity", "Source", "Destination"], ["Quantity"]],
-        parameters = [["Key"],["Value"]])
+        parameters = [["Parameter"],["Value"]])
 # ---------------------------------------------------------------------------------
 
 # ------------------------ solving section-----------------------------------------
