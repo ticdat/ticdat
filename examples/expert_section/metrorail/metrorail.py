@@ -21,7 +21,7 @@ from itertools import product
 
 # ------------------------ define the input schema --------------------------------
 input_schema = TicDatFactory (
-    parameters=[["Key"], ["Value"]],
+    parameters=[["Parameter"], ["Value"]],
     load_amounts=[["Amount"],[]],
     number_of_one_way_trips=[["Number"],[]],
     amount_leftover=[["Amount"], []])
@@ -48,10 +48,10 @@ def _good_parameter_key_value(key, value):
 
 assert all(_good_parameter_key_value(k,v) for k,v in default_parameters.items())
 
-input_schema.set_data_type("parameters", "Key", number_allowed=False,
+input_schema.set_data_type("parameters", "Parameter", number_allowed=False,
                            strings_allowed=default_parameters)
-input_schema.add_data_row_predicate("parameters", predicate_name="Good Parameter Value for Key",
-    predicate=lambda row : _good_parameter_key_value(row["Key"], row["Value"]))
+input_schema.add_data_row_predicate("parameters", predicate_name="Good Parameter Value",
+    predicate=lambda row : _good_parameter_key_value(row["Parameter"], row["Value"]))
 # ---------------------------------------------------------------------------------
 
 

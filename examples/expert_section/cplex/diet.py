@@ -53,7 +53,7 @@ input_schema.set_default_value("categories", "Max Nutrition", float("inf"))
 # ------------------------ define the output schema -------------------------------
 # There are three solution tables, with 3 primary key fields and 3 data fields.
 solution_schema = TicDatFactory(
-    parameters = [["Key"],["Value"]],
+    parameters = [["Parameter"],["Value"]],
     buy_food = [["Food"],["Quantity"]],
     consume_nutrition = [["Category"],["Quantity"]])
 # ---------------------------------------------------------------------------------

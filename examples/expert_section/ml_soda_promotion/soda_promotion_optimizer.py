@@ -24,13 +24,13 @@
 from ticdat import TicDatFactory, standard_main, Slicer, gurobi_env
 import gurobipy as gu
 
-input_schema = TicDatFactory(parameters = [["Key"],["Value"]],
+input_schema = TicDatFactory(parameters = [["Parameter"],["Value"]],
                              products = [["Name"],["Family"]],
                              forecast_sales = [["Product", "Cost Per Unit"],
                                                ["Sales"]],
                              max_promotions = [["Product Family"],["Max Promotions"]])
 
-input_schema.set_data_type("parameters", "Key", number_allowed=False, strings_allowed=("Maximum Total Investment",))
+input_schema.set_data_type("parameters", "Parameter", number_allowed=False, strings_allowed=("Maximum Total Investment",))
 input_schema.set_data_type("parameters", "Value", min=0, max=float("inf"), inclusive_max=True)
 input_schema.set_data_type("forecast_sales", "Cost Per Unit", min=0, max=float("inf"))
 input_schema.set_data_type("max_promotions", "Product Family", number_allowed=False, strings_allowed= ("Dark", "Clear"))
@@ -41,7 +41,7 @@ input_schema.add_foreign_key("products", "max_promotions", ["Family", "Product F
 input_schema.add_foreign_key("forecast_sales", "products", ["Product", "Name"])
 
 
-solution_schema  = TicDatFactory(parameters = [["Key"],["Value"]],
+solution_schema  = TicDatFactory(parameters = [["Parameter"],["Value"]],
                                  product_pricing = [["Product"],["Cost Per Unit", "Family", "Promotional Status"]])
 
 def solve(dat):

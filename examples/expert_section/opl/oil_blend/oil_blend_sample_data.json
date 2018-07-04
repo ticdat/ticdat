@@ -47,11 +47,11 @@
   ], 
   "parameters": [
     {
-      "Key": "Maximum Production", 
+      "Parameter": "Maximum Production",
       "Value": 14000
     }, 
     {
-      "Key": "Production Cost", 
+      "Parameter": "Production Cost",
       "Value": 4
     }
   ]

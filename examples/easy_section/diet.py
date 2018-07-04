@@ -9,7 +9,7 @@ input_schema = TicDatFactory (
     nutrition_quantities = [["Food", "Category"], ["Quantity"]])
 
 solution_schema = TicDatFactory(
-    parameters = [["Key"],["Value"]],
+    parameters = [["Parameter"],["Value"]],
     buy_food = [["Food"],["Quantity"]],
     consume_nutrition = [["Category"],["Quantity"]])
 

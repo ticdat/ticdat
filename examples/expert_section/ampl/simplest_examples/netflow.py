@@ -13,7 +13,7 @@ input_schema = TicDatFactory (
 
 solution_schema = TicDatFactory(
         flow = [["Commodity", "Source", "Destination"], ["Quantity"]],
-        parameters = [["Key"],["Value"]])
+        parameters = [["Parameter"],["Value"]])
 
 def solve(dat):
     assert input_schema.good_tic_dat_object(dat)
