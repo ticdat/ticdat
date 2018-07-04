@@ -5,7 +5,7 @@ from ticdat import TicDatFactory, standard_main, ampl_format
 from itertools import product
 
 input_schema = TicDatFactory (
-    parameters=[["Key"], ["Value"]],
+    parameters=[["Parameter"], ["Value"]],
     load_amounts=[["Amount"],[]],
     number_of_one_way_trips=[["Number"],[]],
     amount_leftover=[["Amount"], []])

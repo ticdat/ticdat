@@ -180,10 +180,10 @@ def solve(dat, out, err, progress):
     if not hasattr(m, "status"):
         print "missing status - likely premature termination"
         return
-    for failStr,grbKey in (("inf_or_unbd", gu.GRB.INF_OR_UNBD),
+    for failStr,grbkey in (("inf_or_unbd", gu.GRB.INF_OR_UNBD),
                            ("infeasible", gu.GRB.INFEASIBLE),
                            ("unbounded", gu.GRB.UNBOUNDED)):
-         if m.status == grbKey:
+         if m.status == grbkey:
             print "Optimization failed due to model status of %s"%failStr
             return
 
