@@ -30,24 +30,24 @@ from ticdat import TicDatFactory, Progress, LogFile, Slicer, standard_main, guro
 # ------------------------ define the input schema --------------------------------
 # There are three input tables, with 4 primary key fields  and 4 data fields.
 input_schema = TicDatFactory (
-     sites      = [['name'],['demand', 'center_status']],
-     distance   = [['source', 'destination'],['distance']],
-     parameters = [["key"], ["value"]])
+     sites      = [['Name'],['Demand', 'Center Status']],
+     distance   = [['Source', 'Destination'],['Distance']],
+     parameters = [["Parameter"], ["Value"]])
 
 # add foreign key constraints
-input_schema.add_foreign_key("distance", "sites", ['source', 'name'])
-input_schema.add_foreign_key("distance", "sites", ['destination', 'name'])
+input_schema.add_foreign_key("distance", "sites", ['Source', 'Name'])
+input_schema.add_foreign_key("distance", "sites", ['Destination', 'Name'])
 
 # center_status is a flag field which can take one of two string values.
-input_schema.set_data_type("sites", "center_status", number_allowed=False,
+input_schema.set_data_type("sites", "Center Status", number_allowed=False,
                           strings_allowed=["Can Be Center", "Pure Demand Point"])
 # The default type of non infinite, non negative works for distance
-input_schema.set_data_type("distance", "distance")
+input_schema.set_data_type("distance", "Distance")
 
 # There are three types of parameters
-input_schema.set_data_type("parameters", "key", number_allowed=False,
+input_schema.set_data_type("parameters", "Parameter", number_allowed=False,
                            strings_allowed=["Number of Centroids", "MIP Gap", "Formulation"])
-input_schema.set_data_type("parameters", "value", number_allowed=True,
+input_schema.set_data_type("parameters", "Value", number_allowed=True,
                            strings_allowed=["Weak", "Strong"])
 
 def _good_parameter_key_value(key, value):
@@ -57,8 +57,8 @@ def _good_parameter_key_value(key, value):
         return 0 <= value < float("inf")
     if key == "Formulation":
         return value in ["Weak", "Strong"]
-input_schema.add_data_row_predicate("parameters", predicate_name="Good Parameter Value for Key",
-    predicate=lambda row : _good_parameter_key_value(row["Key"], row["Value"]))
+input_schema.add_data_row_predicate("parameters", predicate_name="Good Parameter Value",
+    predicate=lambda row : _good_parameter_key_value(row["Parameter"], row["Value"]))
 # ---------------------------------------------------------------------------------
 
 
@@ -66,9 +66,9 @@ input_schema.add_data_row_predicate("parameters", predicate_name="Good Parameter
 # There are three solution tables, with 2 primary key fields and 3
 # data fields amongst them.
 solution_schema = TicDatFactory(
-    openings    = [['site'],[]],
-    assignments = [['site', 'assigned_to'],[]],
-    parameters  = [["key"], ["value"]])
+    openings    = [['Site'],[]],
+    assignments = [['Site', 'Assigned To'],[]],
+    parameters  = [["Parameter"], ["Value"]])
 # ---------------------------------------------------------------------------------
 
 # ------------------------ create a solve function --------------------------------
@@ -83,19 +83,19 @@ def solve(dat, out, err, progress):
 
     def get_distance(x,y):
         if (x,y) in dat.distance:
-            return dat.distance[x,y]["distance"]
+            return dat.distance[x,y]["Distance"]
         if (y,x) in dat.distance:
-            return dat.distance[y,x]["distance"]
+            return dat.distance[y,x]["Distance"]
         return float("inf")
 
     def can_assign(x, y):
-        return dat.sites[y]["center_status"] == "Can Be Center" \
+        return dat.sites[y]["Center Status"] == "Can Be Center" \
                and get_distance(x,y)<float("inf")
 
 
     unassignables = [n for n in dat.sites if not
                      any(can_assign(n,y) for y in dat.sites) and
-                     dat.sites[n]["demand"] > 0]
+                     dat.sites[n]["Demand"] > 0]
     if unassignables:
         # Infeasibility detected. Generate an error table and return None
         err.write("The following sites have demand, but can't be " +
@@ -105,7 +105,7 @@ def solve(dat, out, err, progress):
         return
 
     useless = [n for n in dat.sites if not any(can_assign(y,n) for y in dat.sites) and
-                                             dat.sites[n]["demand"] == 0]
+                                             dat.sites[n]["Demand"] == 0]
     if useless:
         # Log in the error table as a warning, but can still try optimization.
         err.write("The following sites have no demand, and can't serve as the " +
@@ -119,12 +119,12 @@ def solve(dat, out, err, progress):
     assign_vars = {(n, assigned_to) : m.addVar(vtype = gu.GRB.BINARY,
                                         name = "%s_%s"%(n,assigned_to),
                                         obj = get_distance(n,assigned_to) *
-                                              dat.sites[n]["demand"])
+                                              dat.sites[n]["Demand"])
                     for n in dat.sites for assigned_to in dat.sites
                     if can_assign(n, assigned_to)}
     open_vars = {n : m.addVar(vtype = gu.GRB.BINARY, name = "open_%s"%n)
                      for n in dat.sites
-                     if dat.sites[n]["center_status"] == "Can Be Center"}
+                     if dat.sites[n]["Center Status"] == "Can Be Center"}
     if not open_vars:
         err.write("Nothing can be a center!\n") # Infeasibility detected.
         return
@@ -137,16 +137,16 @@ def solve(dat, out, err, progress):
     assign_slicer = Slicer(assign_vars)
 
     for n, r in dat.sites.items():
-        if r["demand"] > 0:
+        if r["Demand"] > 0:
             m.addConstr(gu.quicksum(assign_vars[n, assign_to]
                                     for _, assign_to in assign_slicer.slice(n, "*"))
                         == 1,
                         name = "must_assign_%s"%n)
 
     crippledfordemo = "Formulation" in dat.parameters and \
-                      dat.parameters["Formulation"]["value"] == "Weak"
+                      dat.parameters["Formulation"]["Value"] == "Weak"
     for assigned_to, r in dat.sites.items():
-        if r["center_status"] == "Can Be Center":
+        if r["Center Status"] == "Can Be Center":
             _assign_vars = [assign_vars[n, assigned_to]
                             for n,_ in assign_slicer.slice("*", assigned_to)]
             if crippledfordemo:
@@ -158,7 +158,7 @@ def solve(dat, out, err, progress):
                     m.addConstr(var <= open_vars[assigned_to],
                                 name = "strong_force_open_%s"%assigned_to)
 
-    number_of_centroids = dat.parameters["Number of Centroids"]["value"] \
+    number_of_centroids = dat.parameters["Number of Centroids"]["Value"] \
                           if "Number of Centroids" in dat.parameters else 1
     if number_of_centroids <= 0:
         err.write("Need to specify a positive number of centroids\n") # Infeasibility detected.
@@ -168,7 +168,7 @@ def solve(dat, out, err, progress):
                 name= "numCentroids")
 
     if "MIP Gap" in dat.parameters:
-        m.Params.MIPGap = dat.parameters["MIP Gap"]["value"]
+        m.Params.MIPGap = dat.parameters["MIP Gap"]["Value"]
     m.update()
 
     progress.numerical_progress("Core Model Creation", 100)
@@ -199,8 +199,8 @@ def solve(dat, out, err, progress):
     sln = solution_schema.TicDat()
     sln.parameters["Lower Bound"] = getattr(m, "objBound", m.objVal)
     sln.parameters["Upper Bound"] = m.objVal
-    out.write('Upper Bound: %g\n' % sln.parameters["Upper Bound"]["value"])
-    out.write('Lower Bound: %g\n' % sln.parameters["Lower Bound"]["value"])
+    out.write('Upper Bound: %g\n' % sln.parameters["Upper Bound"]["Value"])
+    out.write('Lower Bound: %g\n' % sln.parameters["Lower Bound"]["Value"])
 
     def almostone(x) :
         return abs(x-1) < 0.0001
@@ -247,10 +247,10 @@ if __name__ == "__main__":
             with LogFile("error.txt") as err :
                 solution = solve(dat, out, err, CogStopProgress())
                 if solution :
-                    print('\n\nUpper Bound   : %g' % solution.parameters["Upper Bound"]["value"])
-                    print('Lower Bound   : %g' % solution.parameters["Lower Bound"]["value"])
-                    print('Percent Error : %s' % percent_error(solution.parameters["Lower Bound"]["value"],
-                                                               solution.parameters["Upper Bound"]["value"]))
+                    print('\n\nUpper Bound   : %g' % solution.parameters["Upper Bound"]["Value"])
+                    print('Lower Bound   : %g' % solution.parameters["Lower Bound"]["Value"])
+                    print('Percent Error : %s' % percent_error(solution.parameters["Lower Bound"]["Value"],
+                                                               solution.parameters["Upper Bound"]["Value"]))
                     return solution
                 else :
                     print('\nNo solution')
