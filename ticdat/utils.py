@@ -9,6 +9,7 @@ import ticdat
 import getopt
 import sys
 import os
+from collections import namedtuple
 
 try:
     import pandas as pd
@@ -22,6 +23,50 @@ except:
     drm = None
 
 import inspect
+
+def acceptable_default(v) :
+    return numericish(v) or stringish(v) or (v is None)
+
+# can I get away with ordering this consistently with the function? hopefully I can!
+class TypeDictionary(namedtuple("TypeDictionary",
+                    ("number_allowed", "inclusive_min", "inclusive_max", "min",
+                      "max", "must_be_int", "strings_allowed", "nullable",))):
+    def valid_data(self, data):
+        if numericish(data):
+            if not self.number_allowed:
+                return False
+            if (data < self.min) or (data > self.max):
+                return False
+            if (not self.inclusive_min) and (data == self.min):
+                return False
+            if (not self.inclusive_max) and (data  == self.max):
+                return False
+            if (self.must_be_int) and (safe_apply(int)(data) != data) and \
+               not (data == self.max == float("inf") and self.inclusive_max):
+                return False
+            return True
+        if stringish(data):
+            if self.strings_allowed == "*":
+                return True
+            assert containerish(self.strings_allowed)
+            return data in self.strings_allowed
+        if data is None:
+            return bool(self.nullable)
+        return False
+
+class ForeignKey(namedtuple("ForeignKey", ("native_table", "foreign_table", "mapping", "cardinality"))) :
+    def nativefields(self):
+        return (self.mapping.native_field,) if type(self.mapping) is ForeignKeyMapping \
+                                           else tuple(_.native_field for _ in self.mapping)
+    def foreigntonativemapping(self):
+        if type(self.mapping) is ForeignKeyMapping : # simple field fk
+            return {self.mapping.foreign_field:self.mapping.native_field}
+        else: # compound foreign key
+            return {_.foreign_field:_.native_field for _ in self.mapping}
+    def nativetoforeignmapping(self):
+        return {v:k for k,v in self.foreigntonativemapping().items()}
+
+ForeignKeyMapping = namedtuple("FKMapping", ("native_field", "foreign_field"))
 
 # likely replace this with some sort of sys.platform call that makes a good guess
 development_deployed_environment = False

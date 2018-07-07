@@ -1,5 +1,5 @@
 """
-Create TicDatFactory. Main entry point for ticdat library.
+Create TicDatFactory. Along with pandatfactory.py, one of two main entry points for ticdat library.
 PEP8
 """
 import collections as clt
@@ -7,6 +7,7 @@ from collections import namedtuple, defaultdict
 import ticdat.utils as utils
 from ticdat.utils import verify, freezable_factory, FrozenDict, FreezeableDict
 from ticdat.utils import dictish, containerish, deep_freeze, lupish, safe_apply
+from ticdat.utils import ForeignKey, ForeignKeyMapping, TypeDictionary
 from string import ascii_uppercase as uppercase
 from itertools import count
 import ticdat.xls as xls
@@ -23,9 +24,6 @@ except:
 
 pd, DataFrame = utils.pd, utils.DataFrame # if pandas not installed will be falsey
 
-def _acceptable_default(v) :
-    return utils.numericish(v) or utils.stringish(v) or (v is None)
-
 def _keylen(k) :
     if not utils.containerish(k) :
         return 1
@@ -34,47 +32,6 @@ def _keylen(k) :
     except :
         rtn = 0
     return rtn
-
-class _ForeignKey(namedtuple("ForeignKey", ("native_table", "foreign_table", "mapping", "cardinality"))) :
-    def nativefields(self):
-        return (self.mapping.native_field,) if type(self.mapping) is _ForeignKeyMapping \
-                                           else tuple(_.native_field for _ in self.mapping)
-    def foreigntonativemapping(self):
-        if type(self.mapping) is _ForeignKeyMapping : # simple field fk
-            return {self.mapping.foreign_field:self.mapping.native_field}
-        else: # compound foreign key
-            return {_.foreign_field:_.native_field for _ in self.mapping}
-    def nativetoforeignmapping(self):
-        return {v:k for k,v in self.foreigntonativemapping().items()}
-
-_ForeignKeyMapping = namedtuple("FKMapping", ("native_field", "foreign_field"))
-
-# can I get away with ordering this consistently with the function? hopefully I can!
-class _TypeDictionary(namedtuple("TypeDictionary",
-                    ("number_allowed", "inclusive_min", "inclusive_max", "min",
-                      "max", "must_be_int", "strings_allowed", "nullable",))):
-    def valid_data(self, data):
-        if utils.numericish(data):
-            if not self.number_allowed:
-                return False
-            if (data < self.min) or (data > self.max):
-                return False
-            if (not self.inclusive_min) and (data == self.min):
-                return False
-            if (not self.inclusive_max) and (data  == self.max):
-                return False
-            if (self.must_be_int) and (safe_apply(int)(data) != data) and \
-               not (data == self.max == float("inf") and self.inclusive_max):
-                return False
-            return True
-        if utils.stringish(data):
-            if self.strings_allowed == "*":
-                return True
-            assert utils.containerish(self.strings_allowed)
-            return data in self.strings_allowed
-        if data is None:
-            return bool(self.nullable)
-        return False
 
 class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "lingo_prepend", "ampl_prepend"})) :
     """
@@ -189,12 +146,12 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
             verify(utils.numericish(max), "max should be numeric")
             verify(utils.numericish(min), "min should be numeric")
             verify(max >= min, "max cannot be smaller than min")
-            self._data_types[table][field] = _TypeDictionary(number_allowed=True,
+            self._data_types[table][field] = TypeDictionary(number_allowed=True,
                 strings_allowed=strings_allowed,  nullable = bool(nullable),
                 min = min, max = max, inclusive_min= bool(inclusive_min), inclusive_max = bool(inclusive_max),
                 must_be_int = bool(must_be_int))
         else :
-            self._data_types[table][field] = _TypeDictionary(number_allowed=False,
+            self._data_types[table][field] = TypeDictionary(number_allowed=False,
                 strings_allowed=strings_allowed,  nullable = bool(nullable),
                 min = 0, max = float("inf"), inclusive_min= True, inclusive_max = True,
                 must_be_int = False)
@@ -258,7 +215,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
                "The default values can't be changed after a TicDatFactory has been used.")
         verify(table in self.all_tables, "Unrecognized table name %s"%table)
         verify(field in self.data_fields[table], "%s does not refer to a data field for %s"%(field, table))
-        verify(_acceptable_default(default_value), "%s can not be used as a default value"%default_value)
+        verify(utils.acceptable_default(default_value), "%s can not be used as a default value"%default_value)
         self._default_values[table][field] = default_value
 
     def set_default_values(self, **tableDefaults):
@@ -278,7 +235,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
             verify(dictish(v) and set(v).issubset(self.data_fields[k]),
                 "Default values for %s should be a dictionary mapping data field names to values"
                 %k)
-            verify(all(_acceptable_default(_v) for _v in v.values()), "some default values are unacceptable")
+            verify(all(utils.acceptable_default(_v) for _v in v.values()), "some default values are unacceptable")
             self._default_values[k] = dict(self._default_values[k], **v)
     def set_generator_tables(self, g):
         """
@@ -319,7 +276,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
         rtn = []
         for (native,foreign), nativeforeignmappings in self._foreign_keys.items():
             for n_f_mapping in nativeforeignmappings :
-                mappings = tuple(_ForeignKeyMapping(nf,ff) for nf,ff in n_f_mapping)
+                mappings = tuple(ForeignKeyMapping(nf,ff) for nf,ff in n_f_mapping)
                 mappings = mappings[0] if len(mappings)==1 else mappings
                 def half_card(tbl, fields):
                     assert fields.issubset(self._allFields(tbl))
@@ -329,7 +286,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
                     return "many"
                 cardinality = "%s-to-%s"%(half_card(native, {_[0] for _ in n_f_mapping}),
                                           half_card(foreign, {_[1] for _ in n_f_mapping}))
-                rtn.append(_ForeignKey(native, foreign, mappings, cardinality))
+                rtn.append(ForeignKey(native, foreign, mappings, cardinality))
         assert len(rtn) == len(set(rtn))
         return tuple(rtn)
     def _foreign_keys_by_native(self):
@@ -1176,7 +1133,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
                     foreign_look_into = get_table_data(fk.foreign_table, ffs)
                     if foreign_look_up not in foreign_look_into:
                         rtn_pks[fk].add(native_pk)
-                        if type(fk.mapping) is _ForeignKeyMapping :
+                        if type(fk.mapping) is ForeignKeyMapping :
                             rtn_values[fk].add(getcell_(native_pk, native_data_row,
                                                         fk.mapping.native_field))
                         else:
