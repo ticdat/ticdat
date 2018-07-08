@@ -157,7 +157,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
                 must_be_int = False)
     def clear_data_type(self, table, field):
         """
-        clears the data type for a field. By default, fields don't types.  Adding a data type doesn't block
+        clears the data type for a field. By default, fields don't have types.  Adding a data type doesn't block
         data of the wrong type from being entered. Data types are useful for recognizing errant data entries.
         If no data type is specified (the default) then no errant data will be recognized.
         :param table: table in the schema

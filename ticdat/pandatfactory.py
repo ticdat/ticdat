@@ -4,8 +4,12 @@ PEP8
 """
 
 import ticdat.utils as utils
-from ticdat.utils import ForeignKey, ForeignKeyMapping, TypeDictionary
+from ticdat.utils import ForeignKey, ForeignKeyMapping, TypeDictionary, verify, dictish
+from ticdat.utils import lupish, deep_freeze, containerish, FrozenDict, safe_apply
+from itertools import count
+import collections as clt
 pd, DataFrame = utils.pd, utils.DataFrame # if pandas not installed will be falsey
+
 
 
 class PanDatFactory(object):
@@ -41,3 +45,360 @@ class PanDatFactory(object):
                 "foreign_keys" : self.foreign_keys,
                 "default_values" : self.default_values,
                 "data_types" : self.data_types}
+    @staticmethod
+    def create_from_full_schema(full_schema):
+        """
+        create a PanDatFactory complete with default values, data types, and foreign keys
+        :param full_schema: a dictionary consistent with the data returned by a call to schema()
+                            with include_ancillary_info = True
+        :return: a TicDatFactory reflecting the tables, fields, default values, data types,
+                 and foreign keys consistent with the full_schema argument
+        """
+        verify(dictish(full_schema) and set(full_schema) == {"tables_fields", "foreign_keys",
+                                                             "default_values", "data_types"},
+               "full_schema should be the result of calling schema(True) for some TicDatFactory")
+        fks = full_schema["foreign_keys"]
+        verify( (not fks) or (lupish(fks) and all(lupish(_) and len(_) >= 3 for _ in fks)),
+                "foreign_keys entry poorly formed")
+        dts = full_schema["data_types"]
+        verify( (not dts) or (dictish(dts) and all(map(dictish, dts.values())) and
+                              all(all(map(lupish, _.values())) for _ in dts.values())),
+                "data_types entry poorly formatted")
+        dvs = full_schema["default_values"]
+        verify( (not dvs) or (dictish(dvs) and all(map(dictish, dvs.values()))),
+                "default_values entry poorly formatted")
+
+        rtn = PanDatFactory(**full_schema["tables_fields"])
+        for fk in (fks or []):
+            rtn.add_foreign_key(*fk[:3])
+        for t,fds in (dts or {}).items():
+            for f,dt in fds.items():
+                rtn.set_data_type(t, f, *dt)
+        for t,fdvs in (dvs or {}).items():
+            for f, dv in fdvs.items():
+                rtn.set_default_value(t,f,dv)
+        return rtn
+    @property
+    def generator_tables(self):
+        return deep_freeze(self._generator_tables)
+    @property
+    def default_values(self):
+        return deep_freeze(self._default_values)
+    @property
+    def data_types(self):
+        return utils.FrozenDict({t : utils.FrozenDict({k :v for k,v in vd.items()})
+                                for t,vd in self._data_types.items()})
+    def set_data_type(self, table, field, number_allowed = True,
+                      inclusive_min = True, inclusive_max = False, min = 0, max = float("inf"),
+                      must_be_int = False, strings_allowed= (), nullable = False):
+        """
+        sets the data type for a field. By default, fields don't have types. Adding a data type doesn't block
+        data of the wrong type from being entered. Data types are useful for recognizing errant data entries
+        with find_data_type_failures(). Errant data entries can be replaced with replace_data_type_failures().
+        :param table: a table in the schema
+        :param field: a data field for this table
+        :param number_allowed: boolean does this field allow numbers?
+        :param inclusive_min: boolean : if number allowed, is the min inclusive?
+        :param inclusive_max: boolean : if number allowed, is the max inclusive?
+        :param min: if number allowed, the minimum value
+        :param max: if number allowed, the maximum value
+        :param must_be_int: boolean : if number allowed, must the number be integral?
+        :param strings_allowed: if a collection - then a list of the strings allowed.
+                                The empty collection prohibits strings.
+                                If a "*", then any string is accepted.
+        :param nullable : boolean : can this value contain null (aka None)
+        :return:
+        """
+        verify(not self._has_been_used,
+               "The data types can't be changed after a PanDatFactory has been used.")
+        verify(table in self.all_tables, "Unrecognized table name %s"%table)
+        verify(table not in self.generic_tables, "Cannot set data type for generic table")
+        verify(field in self.data_fields[table] + self.primary_key_fields[table],
+               "%s does not refer to a field for %s"%(field, table))
+
+        verify((strings_allowed == '*') or
+               (containerish(strings_allowed) and all(utils.stringish(x) for x in strings_allowed)),
+"""The strings_allowed argument should be a container of strings, or the single '*' character.""")
+        if utils.containerish(strings_allowed):
+            strings_allowed = tuple(strings_allowed) # defensive copy
+        if number_allowed:
+            verify(utils.numericish(max), "max should be numeric")
+            verify(utils.numericish(min), "min should be numeric")
+            verify(max >= min, "max cannot be smaller than min")
+            self._data_types[table][field] = TypeDictionary(number_allowed=True,
+                strings_allowed=strings_allowed,  nullable = bool(nullable),
+                min = min, max = max, inclusive_min= bool(inclusive_min), inclusive_max = bool(inclusive_max),
+                must_be_int = bool(must_be_int))
+        else :
+            self._data_types[table][field] = TypeDictionary(number_allowed=False,
+                strings_allowed=strings_allowed,  nullable = bool(nullable),
+                min = 0, max = float("inf"), inclusive_min= True, inclusive_max = True,
+                must_be_int = False)
+
+    def clear_data_type(self, table, field):
+        """
+        clears the data type for a field. By default, fields don't have types.  Adding a data type doesn't block
+        data of the wrong type from being entered. Data types are useful for recognizing errant data entries.
+        If no data type is specified (the default) then no errant data will be recognized.
+        :param table: table in the schema
+        :param field:
+        :return:
+        """
+        if field not in self._data_types.get(table, ()):
+            return
+        verify(not self._has_been_used,
+               "The data types can't be changed after a PanDatFactory has been used.")
+        del(self._data_types[table][field])
+
+    def add_data_row_predicate(self, table, predicate, predicate_name = None):
+        """
+        Adds a data row predicate for a table. Row predicates can be used to check for
+        sophisticated data integrity problems of the sort that can't be easily handled with
+        a data type rule. For example, a min_supply column can be verified to be no larger than
+        a max_supply column.
+        :param table: table in the schema
+        :param predicate: A one argument function that accepts a table row as an argument and returns
+                          Truthy if the row is valid and Falsey otherwise. The argument passed to
+                          predicate will be a dict that maps field name to data value for all fields
+                          (both primary key and data field) in the table.
+                          Note - if None is passed as a predicate, then any previously added
+                          predicate matching (table, predicate_name) will be removed.
+        :param predicate_name: The name of the predicate. If omitted, the smallest non-colliding
+                               number will be used.
+        :return:
+        """
+        verify(not self._has_been_used,
+               "The data row predicates can't be changed after a TicDatFactory has been used.")
+        verify(table in self.all_tables, "Unrecognized table name %s"%table)
+
+        if predicate is None:
+            if table in self._data_row_predicates:
+                self._data_row_predicates[table].pop(predicate_name, None)
+            return
+
+        verify(callable(predicate), "predicate should be a one argument function")
+        if predicate_name is None:
+            predicate_name = next(i for i in count() if i not in self._data_row_predicates[table])
+        self._data_row_predicates[table][predicate_name] = predicate
+
+    def set_default_value(self, table, field, default_value):
+        """
+        sets the default value for a specific field
+        :param table: a table in the schema
+        :param field: a field in the table
+        :param default_value: the default value to apply
+        :return:
+        """
+        verify(not self._has_been_used,
+               "The default values can't be changed after a TicDatFactory has been used.")
+        verify(table in self.all_tables, "Unrecognized table name %s"%table)
+        verify(field in self.data_fields[table] + self.primary_key_fields[table],
+               "%s does not refer to a field for %s"%(field, table))
+        verify(utils.acceptable_default(default_value), "%s can not be used as a default value"%default_value)
+        self._default_values[table][field] = default_value
+
+    def set_default_values(self, **tableDefaults):
+        """
+        sets the default values for the fields
+        :param tableDefaults:
+             A dictionary of named arguments. Each argument name (i.e. each key) should be a table name
+             Each value should itself be a dictionary mapping data field names to default values
+             Ex: tdf.set_default_values(categories = {"minNutrition":0, "maxNutrition":float("inf")},
+                         foods = {"cost":0}, nutritionQuantities = {"qty":0})
+        :return:
+        """
+        verify(not self._has_been_used,
+               "The default values can't be changed after a TicDatFactory has been used.")
+        for k,v in tableDefaults.items():
+            verify(k in self.all_tables, "Unrecognized table name %s"%k)
+            verify(dictish(v) and set(v).issubset(self.data_fields[k] + self.primary_key_fields[k]),
+                "Default values for %s should be a dictionary mapping field names to values"
+                %k)
+            verify(all(utils.acceptable_default(_v) for _v in v.values()), "some default values are unacceptable")
+            self._default_values[k] = dict(self._default_values[k], **v)
+
+    def clear_foreign_keys(self, native_table = None):
+        """
+        create a PanDatFactory
+        :param native_table: optional. The table whose foreign keys should be cleared.
+                             If omitted, all foreign keys are cleared.
+        """
+        verify(not self._has_been_used,
+               "The foreign keys can't be changed after a TicDatFactory has been used.")
+        verify(native_table is None or native_table in self.all_tables,
+               "If provided, native_table should specify a table.")
+        deleteme = []
+        for nt,ft in self._foreign_keys:
+            if nt == (native_table or nt) :
+                deleteme.append((nt,ft))
+        for nt, ft in deleteme:
+            del(self._foreign_keys[nt,ft])
+    @property
+    def foreign_keys(self):
+        rtn = []
+        for (native,foreign), nativeforeignmappings in self._foreign_keys.items():
+            for n_f_mapping in nativeforeignmappings :
+                mappings = tuple(ForeignKeyMapping(nf,ff) for nf,ff in n_f_mapping)
+                mappings = mappings[0] if len(mappings)==1 else mappings
+                def half_card(tbl, fields):
+                    assert fields.issubset(self._allFields(tbl))
+                    pkfs = self.primary_key_fields.get(tbl, ())
+                    if pkfs and fields.issuperset(pkfs):
+                        return "one"
+                    return "many"
+                cardinality = "%s-to-%s"%(half_card(native, {_[0] for _ in n_f_mapping}),
+                                          half_card(foreign, {_[1] for _ in n_f_mapping}))
+                rtn.append(ForeignKey(native, foreign, mappings, cardinality))
+        assert len(rtn) == len(set(rtn))
+        return tuple(rtn)
+    def _foreign_keys_by_native(self):
+        rtn = clt.defaultdict(list)
+        for fk in self.foreign_keys:
+            rtn[fk.native_table].append(fk)
+        return utils.FrozenDict({k:frozenset(v) for k,v in rtn.items()})
+    def add_foreign_key(self, native_table, foreign_table, mappings):
+        """
+        Adds a foreign key relationship to the schema.  Adding a foreign key doesn't block
+        the entry of child records that fail to find a parent match. It does make it easy
+        to recognize such records (with find_foreign_key_failures()) and to remove such records
+        (with remove_foreign_keys_failures())
+        :param native_table: (aka child table). The table with fields that must match some other table.
+        :param foreign_table: (aka parent table). The table providing the matching entries.
+        :param mappings: For simple foreign keys, a [native_field, foreign_field] pair.
+                         For compound foreign keys an iterable of [native_field, foreign_field]
+                         pairs.
+        :return:
+        """
+        verify(not self._has_been_used,
+                "The foreign keys can't be changed after a PanDatFactory has been used.")
+        for t in (native_table, foreign_table):
+            verify(t in self.all_tables, "%s is not a table name"%t)
+            verify(t not in self.generic_tables, "%s is a generic table"%t)
+        verify(lupish(mappings) and mappings, "mappings needs to be a non empty list or a tuple")
+        if lupish(mappings[0]):
+            verify(all(len(_) == 2 for _ in mappings),
+"""when making a compound foreign key, mappings should contain sublists of format
+[native field, foreign field]""")
+            _mappings = {k:v for k,v in mappings}
+        else :
+            verify(len(mappings) == 2,
+"""when making a simple foreign key, mappings should be a list of the form [native field, foreign field]""")
+            _mappings = {mappings[0]:mappings[1]}
+        for k,v in _mappings.items() :
+            verify(k in self._allFields(native_table),
+                   "%s does not refer to one of %s 's fields"%(k, native_table))
+            verify(v in self._allFields(foreign_table),
+                   "%s does not refer to one of %s 's fields"%(v, foreign_table))
+        self._foreign_keys[native_table, foreign_table].add(tuple(_mappings.items()))
+    def _simple_fk(self, ftbl, fk):
+        assert ftbl in self.all_tables
+        ftbl_pks = set(self.primary_key_fields.get(ftbl,()))
+        assert lupish(fk) and all(lupish(_) and len(_) == 2 for _ in fk)
+        ffs = {_[1] for _ in fk}
+        assert ffs.issubset(ftbl_pks.union(self.data_fields.get(ftbl,())))
+        return ftbl_pks == ffs
+    def _complex_fks(self):
+        return tuple((native, foreign, fk) for (native, foreign), fks in self._foreign_keys.items()
+                    for fk in fks if not self._simple_fk(foreign, fk))
+    def _trigger_has_been_used(self):
+        self._has_been_used = True
+    def __init__(self, **init_fields):
+        """
+        create a PanDatFactory
+        :param init_fields: a mapping of tables to primary key fields
+                            and data fields. Each field listing consists
+                            of two sub lists ... first primary keys fields,
+                            than data fields.
+        ex: PanDatFactory (categories =  [["name"],["Min Nutrition", "Max Nutrition"]],
+                           foods  =  [["Name"],["Cost"]]
+                           nutritionQuantities = [["Food", "Category"],["Qty"]])
+                           Use '*' instead of a pair of lists for generic tables
+        ex: PanDatFactory (typical_table = [["Primary Key Field"],["Data Field"]],
+                           generic_table = '*')
+        :return: a PanDatFactory
+        """
+        verify(DataFrame and pd, "Need to install pandas in order to create a PanDatFactory")
+        self._has_been_used = False
+        verify(not any(x.startswith("_") for x in init_fields),
+               "table names shouldn't start with underscore")
+        verify(not any(" " in x for x in init_fields), "table names shouldn't have white space")
+        verify(len(init_fields) == len({_.lower() for _ in init_fields}),
+               "there are case insensitive duplicate table names")
+        for k,v in init_fields.items():
+            verify(v == '*' or
+                   (containerish(v) and len(v) == 2 and all(containerish(_) for _ in v)),
+                   ("Table %s needs to indicate it is a generic table by using '*'\n" +
+                    "or specify two sublists, one for primary key fields and one for data fields")
+                   %k)
+            if v != '*':
+                verify(all(utils.stringish(s) for _ in v for s in _),
+                       "The field names for %s need to be strings"%k)
+                verify(v[0] or v[1], "No field names specified for table %s"%k)
+                verify(len(set(v[0]).union(v[1])) == len(v[0])+len(v[1]),
+                       "There are duplicate field names for table %s"%k)
+                verify(len({_.lower() for _ in list(v[0]) + list(v[1])}) == len(v[0])+len(v[1]),
+                       "There are case insensitive duplicate field names for %s"%k)
+        self.generic_tables = frozenset(k for k,v in init_fields.items() if v == '*')
+        self._primary_key_fields = FrozenDict({k : tuple(v[0])for k,v in init_fields.items()
+                                               if v != '*'})
+        self._data_fields = FrozenDict({k : tuple(v[1]) for k,v in init_fields.items() if v != '*'})
+        self._default_values = clt.defaultdict(dict)
+        for tbl,flds in self._data_fields.items():
+            for fld in flds:
+                self._default_values[tbl][fld] = 0
+        self._data_types = clt.defaultdict(dict)
+        self._data_row_predicates = clt.defaultdict(dict)
+        self._foreign_keys = clt.defaultdict(set)
+        self.all_tables = frozenset(init_fields)
+        superself = self
+        class PanDat(object):
+            def __repr__(self):
+                tlen = lambda t: len(getattr(self, t))
+                return "pd: {" + ", ".join("%s: %s"%(t, safe_apply(tlen)(t)) for t in superself.all_tables) + "}"
+            def __init__(self, **init_tables):
+                superself._trigger_has_been_used()
+                for t in init_tables :
+                    verify(t in superself.all_tables, "Unexpected table name %s"%t)
+                    tbl = safe_apply(DataFrame)(init_tables[t])
+                    verify(isinstance(tbl, DataFrame), "Failed to provide a valid DataFrame for %s"%t)
+                    setattr(self, t, tbl)
+                missing_fields = {(t, f) for t in superself.all_tables for f in
+                                  superself.primary_key_fields.get(t, ()) + superself.data_fields.get(t, ())
+                                  if f not in getattr(self, t).columns}
+                verify(not missing_fields,
+                       "The following are (table, field) pairs missing from the data.\n%s"%missing_fields)
+        self.PanDat = PanDat
+
+    def good_tic_dat_object(self, data_obj, bad_message_handler = lambda x : None):
+        """
+        determines if an object is a valid PanDat object for this schema
+        :param data_obj: the object to verify
+        :param bad_message_handler: a call back function to receive description of any failure message
+        :return: True if the dataObj can be recognized as a PanDat data object. False otherwise.
+        """
+        verify(DataFrame and pd, "Need to install pandas")
+        for t in self.all_tables:
+            if not hasattr(data_obj, t) :
+                bad_message_handler(t + " not an attribute.")
+                return False
+            if not isinstance(getattr(data_obj, t), DataFrame):
+                bad_message_handler(t + " is not a DataFrame")
+                return False
+        missing_fields = {(t, f) for t in self.all_tables for f in
+                          self.primary_key_fields.get(t, ()) + self.data_fields.get(t, ())
+                          if f not in getattr(data_obj, t).columns}
+        if missing_fields:
+            bad_message_handler("The following are (table, field) pairs missing from the data.\n%s"%missing_fields)
+            return False
+        return True
+    def copy_pan_dat(self, pan_dat, freeze_it = False):
+        """
+        copies the tic_dat object into a new tic_dat object
+        performs a deep copy
+        :param pan_dat: a ticdat object
+        :return: a deep copy of the pan_dat argument
+        """
+        msg  = []
+        verify(self.good_tic_dat_object(pan_dat, msg.append),
+               "pan_dat not a good object for this factory : %s"%"\n".join(msg))
+        return self.PanDat(**{t:getattr(pan_dat, t) for t in self.all_tables})
