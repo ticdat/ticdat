@@ -361,7 +361,7 @@ class PanDatFactory(object):
                     verify(t in superself.all_tables, "Unexpected table name %s"%t)
                     tbl = safe_apply(DataFrame)(init_tables[t])
                     verify(isinstance(tbl, DataFrame), "Failed to provide a valid DataFrame for %s"%t)
-                    setattr(self, t, tbl)
+                    setattr(self, t, tbl.copy())
                 missing_fields = {(t, f) for t in superself.all_tables for f in
                                   superself.primary_key_fields.get(t, ()) + superself.data_fields.get(t, ())
                                   if f not in getattr(self, t).columns}
@@ -369,7 +369,7 @@ class PanDatFactory(object):
                        "The following are (table, field) pairs missing from the data.\n%s"%missing_fields)
         self.PanDat = PanDat
 
-    def good_tic_dat_object(self, data_obj, bad_message_handler = lambda x : None):
+    def good_pan_dat_object(self, data_obj, bad_message_handler = lambda x : None):
         """
         determines if an object is a valid PanDat object for this schema
         :param data_obj: the object to verify
@@ -391,14 +391,38 @@ class PanDatFactory(object):
             bad_message_handler("The following are (table, field) pairs missing from the data.\n%s"%missing_fields)
             return False
         return True
-    def copy_pan_dat(self, pan_dat, freeze_it = False):
+    def copy_pan_dat(self, pan_dat):
         """
         copies the tic_dat object into a new tic_dat object
         performs a deep copy
-        :param pan_dat: a ticdat object
+        :param pan_dat: a pandat object
         :return: a deep copy of the pan_dat argument
         """
         msg  = []
-        verify(self.good_tic_dat_object(pan_dat, msg.append),
+        verify(self.good_pan_dat_object(pan_dat, msg.append),
                "pan_dat not a good object for this factory : %s"%"\n".join(msg))
         return self.PanDat(**{t:getattr(pan_dat, t) for t in self.all_tables})
+    def copy_to_tic_dat(self, pan_dat, freeze_it = False):
+        """
+        copies the pan_dat object into a new tic_dat object
+        performs a deep copy
+        :param pan_dat: a pandat object
+        :param freeze_it: boolean. should the returned object be frozen?
+        :return: a deep copy of the pan_dat argument in tic_dat format
+        """
+        msg  = []
+        verify(self.good_pan_dat_object(pan_dat, msg.append),
+               "pan_dat not a good object for this factory : %s"%"\n".join(msg))
+        from ticdat import TicDatFactory
+        tdf = TicDatFactory(**{k:v for k,v in self.schema().items()})
+        def df(t):
+            rtn = getattr(pan_dat, t)
+            if self.primary_key_fields.get(t, ()):
+                return rtn.set_index(list(self.primary_key_fields[t]), drop=False)
+            return rtn
+        rtn = tdf.TicDat(**{t:df(t) for t in self.all_tables})
+        return tdf.freeze_me(rtn) if freeze_it else rtn
+    def _same_data(self, obj1, obj2, epsilon = 0):
+        from ticdat import TicDatFactory
+        tdf = TicDatFactory(**{k:v for k,v in self.schema().items()})
+        return tdf._same_data(self.copy_to_tic_dat(obj1), self.copy_to_tic_dat(obj2), epsilon=epsilon)
