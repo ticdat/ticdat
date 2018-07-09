@@ -302,13 +302,16 @@ def netflowData() :
 
     return dat
 
-def netflowPandasData():
-    tdf = TicDatFactory(**netflowSchema())
-    dat = tdf.copy_tic_dat(netflowData())
+def copy_to_pandas_with_reset(tdf, dat):
     rtn = tdf.copy_to_pandas(dat, drop_pk_columns=False)
     for t in tdf.all_tables:
         getattr(rtn, t).reset_index(drop=True, inplace=True)
     return rtn
+
+def netflowPandasData():
+    tdf = TicDatFactory(**netflowSchema())
+    dat = tdf.copy_tic_dat(netflowData())
+    return copy_to_pandas_with_reset(tdf, dat)
 
 def addNetflowForeignKeys(tdf) :
     tdf.add_foreign_key("arcs", "nodes", [u'source', u'name'])

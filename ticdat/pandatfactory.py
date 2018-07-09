@@ -7,6 +7,7 @@ import ticdat.utils as utils
 from ticdat.utils import ForeignKey, ForeignKeyMapping, TypeDictionary, verify, dictish
 from ticdat.utils import lupish, deep_freeze, containerish, FrozenDict, safe_apply
 from itertools import count
+from math import isnan
 import collections as clt
 pd, DataFrame = utils.pd, utils.DataFrame # if pandas not installed will be falsey
 
@@ -106,7 +107,7 @@ class PanDatFactory(object):
         :param strings_allowed: if a collection - then a list of the strings allowed.
                                 The empty collection prohibits strings.
                                 If a "*", then any string is accepted.
-        :param nullable : boolean : can this value contain null (aka None)
+        :param nullable : boolean : can this value contain null (aka None aka nan (since pandas treats null as nan))
         :return:
         """
         verify(not self._has_been_used,
@@ -156,6 +157,10 @@ class PanDatFactory(object):
         sophisticated data integrity problems of the sort that can't be easily handled with
         a data type rule. For example, a min_supply column can be verified to be no larger than
         a max_supply column.
+        !!! NB!!!!
+                   pandas will render None as nan.
+                   Don't check for None in your predicate functions, use math.isnan instead
+        !!!!!!!!!!
         :param table: table in the schema
         :param predicate: A one argument function that accepts a table row as an argument and returns
                           Truthy if the row is valid and Falsey otherwise. The argument passed to
@@ -410,7 +415,7 @@ class PanDatFactory(object):
         :param freeze_it: boolean. should the returned object be frozen?
         :return: a deep copy of the pan_dat argument in tic_dat format
         """
-        msg  = []
+        msg = []
         verify(self.good_pan_dat_object(pan_dat, msg.append),
                "pan_dat not a good object for this factory : %s"%"\n".join(msg))
         from ticdat import TicDatFactory
@@ -426,3 +431,32 @@ class PanDatFactory(object):
         from ticdat import TicDatFactory
         tdf = TicDatFactory(**{k:v for k,v in self.schema().items()})
         return tdf._same_data(self.copy_to_tic_dat(obj1), self.copy_to_tic_dat(obj2), epsilon=epsilon)
+
+    def find_data_type_failures(self, pan_dat):
+        """
+        Finds the data type failures for a pandat object
+        :param tic_dat: pandat object
+        :return: A dictionary constructed as follow:
+                 The keys are namedTuples with members "table", "field". Each (table,field) pair
+                 has data values that are inconsistent with its data type. (table, field) pairs
+                 with no data type at all are never part of the returned dictionary.
+                 The values are DataFrames that contain the subset of rows that exhibit data failures
+                 for this specific table, field pair.
+        """
+        msg = []
+        verify(self.good_pan_dat_object(pan_dat, msg.append),
+               "pan_dat not a good object for this factory : %s"%"\n".join(msg))
+
+        rtn = {}
+        TableField = clt.namedtuple("TableField", ["table", "field"])
+        for table, type_row in self._data_types.items():
+            _table = getattr(pan_dat, table)
+            for field, data_type in type_row.items():
+                def bad_row(row):
+                    data = row[field]
+                    # pandas turns None into nan
+                    return not data_type.valid_data(None if safe_apply(isnan)(data) else data)
+                bad_table = _table[_table.apply(bad_row, axis=1)]
+                if len(bad_table):
+                    rtn[TableField(table, field)] = bad_table.copy()
+        return rtn

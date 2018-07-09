@@ -2,7 +2,10 @@ import unittest
 from ticdat.pandatfactory import PanDatFactory
 from ticdat.utils import DataFrame
 from ticdat.testing.ticdattestutils import fail_to_debugger, flagged_as_run_alone, netflowPandasData
-from ticdat.testing.ticdattestutils import netflowSchema
+from ticdat.testing.ticdattestutils import netflowSchema, copy_to_pandas_with_reset, dietSchema, netflowData
+from ticdat.testing.ticdattestutils import addNetflowForeignKeys
+from ticdat.ticdatfactory import TicDatFactory
+import itertools
 
 #uncomment decorator to drop into debugger for assertTrue, assertFalse failures
 #@fail_to_debugger
@@ -32,6 +35,54 @@ class TestUtils(unittest.TestCase):
         dat4 = pdf.copy_pan_dat(dat)
         dat4.cost["cost"] += 1
         self.assertFalse(pdf._same_data(dat, dat4))
+
+    def testDataTypes(self):
+        tdf = TicDatFactory(**dietSchema())
+        pdf = PanDatFactory(**dietSchema())
+
+        ticdat = tdf.TicDat()
+        ticdat.foods["a"] = 12
+        ticdat.foods["b"] = None
+        ticdat.categories["1"] = {"maxNutrition":100, "minNutrition":40}
+        ticdat.categories["2"] = [10,20]
+        for f, p in itertools.product(ticdat.foods, ticdat.categories):
+            ticdat.nutritionQuantities[f,p] = 5
+        ticdat.nutritionQuantities['a', 2] = 12
+
+        pandat = pdf.copy_pan_dat(copy_to_pandas_with_reset(tdf, ticdat))
+
+        self.assertFalse(pdf.find_data_type_failures(pandat))
+
+        pdf = PanDatFactory(**dietSchema())
+        pdf.set_data_type("foods", "cost", nullable=False)
+        pdf.set_data_type("nutritionQuantities", "qty", min=5, inclusive_min=False, max=12, inclusive_max=True)
+        failed = pdf.find_data_type_failures(pandat)
+        self.assertTrue(set(failed) == {('foods', 'cost'), ('nutritionQuantities', 'qty')})
+        self.assertTrue(set(failed['foods', 'cost']["name"]) == {'b'})
+        self.assertTrue(set({(v["food"], v["category"])
+                             for v in failed['nutritionQuantities', 'qty'].T.to_dict().values()}) ==
+                            {('b', '1'), ('a', '2'), ('a', '1'), ('b', '2')})
+
+        tdf = TicDatFactory(**netflowSchema())
+        tdf.enable_foreign_key_links()
+        addNetflowForeignKeys(tdf)
+        pdf = PanDatFactory(**netflowSchema())
+        ticdat = tdf.copy_tic_dat(netflowData())
+        for n in ticdat.nodes["Detroit"].arcs_source:
+            ticdat.arcs["Detroit", n] = n
+        pandat = pdf.copy_pan_dat(copy_to_pandas_with_reset(tdf, ticdat))
+        self.assertFalse(pdf.find_data_type_failures(pandat))
+
+        pdf = PanDatFactory(**netflowSchema())
+        pdf.set_data_type("arcs", "capacity", strings_allowed="*")
+        self.assertFalse(pdf.find_data_type_failures(pandat))
+
+        pdf = PanDatFactory(**netflowSchema())
+        pdf.set_data_type("arcs", "capacity", strings_allowed=["Boston", "Seattle", "lumberjack"])
+        failed = pdf.find_data_type_failures(pandat)
+        self.assertTrue(set(failed) == {('arcs', 'capacity')})
+        self.assertTrue(set({(v["source"], v["destination"])
+                             for v in failed['arcs', 'capacity'].T.to_dict().values()}) == {("Detroit", "New York")})
 
 # Run the tests.
 if __name__ == "__main__":
