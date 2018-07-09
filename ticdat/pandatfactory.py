@@ -431,11 +431,10 @@ class PanDatFactory(object):
         from ticdat import TicDatFactory
         tdf = TicDatFactory(**{k:v for k,v in self.schema().items()})
         return tdf._same_data(self.copy_to_tic_dat(obj1), self.copy_to_tic_dat(obj2), epsilon=epsilon)
-
     def find_data_type_failures(self, pan_dat):
         """
         Finds the data type failures for a pandat object
-        :param tic_dat: pandat object
+        :param pan_dat: pandat object
         :return: A dictionary constructed as follow:
                  The keys are namedTuples with members "table", "field". Each (table,field) pair
                  has data values that are inconsistent with its data type. (table, field) pairs
@@ -459,4 +458,28 @@ class PanDatFactory(object):
                 bad_table = _table[_table.apply(bad_row, axis=1)]
                 if len(bad_table):
                     rtn[TableField(table, field)] = bad_table.copy()
+        return rtn
+    def find_data_row_failures(self, pan_dat):
+        """
+        Finds the data row failures for a ticdat object
+        :param pan_dat: a pandat object
+        :return: A dictionary constructed as follow:
+
+                 The keys are namedTuples with members "table", "predicate_name".
+
+                 The values are DataFrames that contain the subset of rows that exhibit data failures
+                 for this specific table, predicate pair.
+        """
+        msg = []
+        verify(self.good_pan_dat_object(pan_dat, msg.append),
+               "pan_dat not a good object for this factory : %s"%"\n".join(msg))
+        rtn = {}
+        TPN = clt.namedtuple("TablePredicateName", ["table", "predicate_name"])
+        for tbl, row_predicates in self._data_row_predicates.items():
+            for pn, p in row_predicates.items():
+                _table = getattr(pan_dat, tbl)
+                bad_row = lambda row: not p(row)
+                bad_table = _table[_table.apply(bad_row, axis=1)]
+                if len(bad_table):
+                    rtn[TPN(tbl, pn)] = bad_table.copy()
         return rtn
