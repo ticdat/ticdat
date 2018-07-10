@@ -483,3 +483,43 @@ class PanDatFactory(object):
                 if len(bad_table):
                     rtn[TPN(tbl, pn)] = bad_table.copy()
         return rtn
+    def find_foreign_key_failures(self, pan_dat):
+        """
+        Finds the foreign key failures for a pandat object
+        :param pan_dat: pandat object
+        :return: A dictionary constructed as follow:
+                 The keys are namedTuples with members "native_table", "foreign_table",
+                 "mapping", "cardinality".
+                 The key data matches the arguments to add_foreign_key that constructed the
+                 foreign key (with "cardinality" being deduced from the overall schema).
+
+                 The values are DataFrames that contain the subset of rows that exhibit data failures
+                 for this specific table, predicate pair.
+        """
+        msg  = []
+        verify(self.good_pan_dat_object(pan_dat, msg.append),
+               "pan_dat not a good object for this factory : %s"%"\n".join(msg))
+        rtn = {}
+        for fk in self.foreign_keys:
+            native, foreign, mappings, card = fk
+            child = getattr(pan_dat, native).copy(deep= True)
+            parent = getattr(pan_dat, foreign).copy(deep= True)
+            _ = 0
+            while any("_%s_"%_ in c for c in set(parent.columns).union(child.columns)):
+                _ += 1
+            magic_field = "_%s_"%_
+            parent[magic_field] = True
+            # can drop parent index fields because we know there is at least one other field (the magic field)
+            if all(hasattr(mappings, _) for _ in ["native_field", "foreign_field"]):
+                child.set_index(mappings.native_field, drop=False, inplace=True)
+                parent[mappings.native_field] = parent[mappings.foreign_field]
+                parent.set_index(mappings.native_field, drop=True, inplace=True)
+            else:
+                child.set_index([_.native_field for _ in mappings], drop=False, inplace=True)
+                for _ in mappings:
+                    parent[_.native_field] = parent[_.foreign_field]
+                parent.set_index([_.native_field for _ in mappings], drop=True, inplace=True)
+            binary_vector = child.join(parent, rsuffix=magic_field)[magic_field] != True
+            if binary_vector.any():
+                rtn[fk] = getattr(pan_dat, native)[binary_vector]
+        return rtn

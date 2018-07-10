@@ -38,6 +38,8 @@ class TestUtils(unittest.TestCase):
         self.assertFalse(pdf._same_data(dat, dat4))
 
     def testDataTypes(self):
+        if not self.canRun:
+            return
         tdf = TicDatFactory(**dietSchema())
         pdf = PanDatFactory(**dietSchema())
 
@@ -86,6 +88,8 @@ class TestUtils(unittest.TestCase):
                              for v in failed['arcs', 'capacity'].T.to_dict().values()}) == {("Detroit", "New York")})
 
     def testDataPredicates(self):
+        if not self.canRun:
+            return
         tdf = TicDatFactory(**dietSchema())
         pdf = PanDatFactory(**dietSchema())
 
