@@ -79,9 +79,16 @@ class PanDatFactory(object):
             for f, dv in fdvs.items():
                 rtn.set_default_value(t,f,dv)
         return rtn
-    @property
-    def generator_tables(self):
-        return deep_freeze(self._generator_tables)
+    def clone(self):
+        """
+        clones the TicDatFactory
+        :return: a clone of the TicDatFactory
+        """
+        rtn = PanDatFactory.create_from_full_schema(self.schema(include_ancillary_info=True))
+        for tbl, row_predicates in self._data_row_predicates.items():
+            for pn, p in row_predicates.items():
+                rtn.add_data_row_predicate(tbl, predicate=p, predicate_name=pn)
+        return rtn
     @property
     def default_values(self):
         return deep_freeze(self._default_values)

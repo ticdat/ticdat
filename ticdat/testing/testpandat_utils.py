@@ -1,12 +1,20 @@
 import unittest
 from ticdat.pandatfactory import PanDatFactory
-from ticdat.utils import DataFrame, numericish
+from ticdat.utils import DataFrame, numericish, ForeignKey, ForeignKeyMapping
+import ticdat.utils as utils
 from ticdat.testing.ticdattestutils import fail_to_debugger, flagged_as_run_alone, netflowPandasData
 from ticdat.testing.ticdattestutils import netflowSchema, copy_to_pandas_with_reset, dietSchema, netflowData
 from ticdat.testing.ticdattestutils import addNetflowForeignKeys
 from ticdat.ticdatfactory import TicDatFactory
 import itertools
 from math import isnan
+
+def _deep_anonymize(x)  :
+    if not hasattr(x, "__contains__") or utils.stringish(x):
+        return x
+    if utils.dictish(x) :
+        return {_deep_anonymize(k):_deep_anonymize(v) for k,v in x.items()}
+    return list(map(_deep_anonymize,x))
 
 #uncomment decorator to drop into debugger for assertTrue, assertFalse failures
 #@fail_to_debugger
@@ -246,6 +254,103 @@ class TestUtils(unittest.TestCase):
         self.assertFalse(input_schema.find_foreign_key_failures(new_pan_dat))
         self.assertTrue(input_schema._same_data(orig_pan_dat, new_pan_dat))
 
+    def _testPdfReproduction(self, pdf):
+        def _tdfs_same(pdf, pdf2):
+            self.assertTrue(pdf.schema() == pdf2.schema())
+            self.assertTrue(set(pdf.foreign_keys) == set(pdf2.foreign_keys))
+            self.assertTrue(pdf.data_types == pdf2.data_types)
+            self.assertTrue(pdf.default_values == pdf2.default_values)
+        _tdfs_same(pdf, TicDatFactory.create_from_full_schema(pdf.schema(True)))
+        _tdfs_same(pdf, TicDatFactory.create_from_full_schema(_deep_anonymize(pdf.schema(True))))
+
+    def testBasicFKs(self):
+        for cloning in [True, False]:
+            clone_me_maybe = lambda x : x.clone() if cloning else x
+
+            pdf = PanDatFactory(plants = [["name"], ["stuff", "otherstuff"]],
+                                lines = [["name"], ["plant", "weird stuff"]],
+                                line_descriptor = [["name"], ["booger"]],
+                                products = [["name"],["gover"]],
+                                production = [["line", "product"], ["min", "max"]],
+                                pureTestingTable = [[], ["line", "plant", "product", "something"]],
+                                extraProduction = [["line", "product"], ["extramin", "extramax"]],
+                                weirdProduction = [["line1", "line2", "product"], ["weirdmin", "weirdmax"]])
+            pdf.add_foreign_key("production", "lines", ("line", "name"))
+            pdf.add_foreign_key("production", "products", ("product", "name"))
+            pdf.add_foreign_key("lines", "plants", ("plant", "name"))
+            pdf.add_foreign_key("line_descriptor", "lines", ("name", "name"))
+            for f in set(pdf.data_fields["pureTestingTable"]).difference({"something"}):
+                pdf.add_foreign_key("pureTestingTable", "%ss"%f, (f,"name"))
+            pdf.add_foreign_key("extraProduction", "production", (("line", "line"), ("product","product")))
+            pdf.add_foreign_key("weirdProduction", "production", (("line1", "line"), ("product","product")))
+            pdf.add_foreign_key("weirdProduction", "extraProduction", (("line2","line"), ("product","product")))
+            self._testPdfReproduction(pdf)
+            pdf = clone_me_maybe(pdf)
+
+            tdf = TicDatFactory(**pdf.schema())
+            goodDat = tdf.TicDat()
+            goodDat.plants["Cleveland"] = ["this", "that"]
+            goodDat.plants["Newark"]["otherstuff"] =1
+            goodDat.products["widgets"] = goodDat.products["gadgets"] = "shizzle"
+
+            for i,p in enumerate(goodDat.plants):
+                goodDat.lines[i]["plant"] = p
+
+            for i,(pl, pd) in enumerate(itertools.product(goodDat.lines, goodDat.products)):
+                goodDat.production[pl, pd] = {"min":1, "max":10+i}
+
+            badDat1 = tdf.copy_tic_dat(goodDat)
+            badDat1.production["notaline", "widgets"] = [0,1]
+            badDat2 = tdf.copy_tic_dat(badDat1)
+
+
+            pan_dat_ = lambda _ : pdf.copy_pan_dat(copy_to_pandas_with_reset(tdf, _))
+            fk, fkm = ForeignKey, ForeignKeyMapping
+            fk_fails1 = pdf.find_foreign_key_failures(pan_dat_(badDat1))
+            fk_fails2 = pdf.find_foreign_key_failures(pan_dat_(badDat2))
+
+            self.assertTrue(set(fk_fails1) == set(fk_fails2) ==
+                            {fk('production', 'lines', fkm('line', 'name'), 'many-to-one')})
+            for row_fails in [next(iter(_.values())) for _ in [fk_fails1, fk_fails2]]:
+                self.assertTrue(set(row_fails["line"]) == {"notaline"} and set(row_fails["product"]) == {"widgets"})
+
+            badDat1.lines["notaline"]["plant"] = badDat2.lines["notaline"]["plant"] = "notnewark"
+            fk_fails1 = pdf.find_foreign_key_failures(pan_dat_(badDat1))
+            fk_fails2 = pdf.find_foreign_key_failures(pan_dat_(badDat2))
+            self.assertTrue(set(fk_fails1) == set(fk_fails2) ==
+                            {fk('lines', 'plants', fkm('plant', 'name'), 'many-to-one')})
+            for row_fails in [next(iter(_.values())) for _ in [fk_fails1, fk_fails2]]:
+                self.assertTrue(set(row_fails["name"]) == {"notaline"} and set(row_fails["plant"]) == {"notnewark"})
+
+
+            for bad in [badDat1, badDat2]:
+                bad_pan = pdf.remove_foreign_keys_failures(pan_dat_(bad))
+                self.assertFalse(pdf.find_foreign_key_failures(bad_pan))
+                self.assertTrue(pdf._same_data(bad_pan, pan_dat_(goodDat)))
+
+
+            _ = len(goodDat.lines)
+            for i,p in enumerate(list(goodDat.plants.keys()) + list(goodDat.plants.keys())):
+                goodDat.lines[i+_]["plant"] = p
+            for l in goodDat.lines:
+                if i%2:
+                    goodDat.line_descriptor[l] = i+10
+
+            for i,(l,pl,pdct) in enumerate(sorted(itertools.product(goodDat.lines, goodDat.plants, goodDat.products))):
+                goodDat.pureTestingTable.append((l,pl,pdct,i))
+            self.assertFalse(pdf.find_foreign_key_failures(pan_dat_(goodDat)))
+            badDat = tdf.copy_tic_dat(goodDat)
+            badDat.pureTestingTable.append(("j", "u", "nk", "ay"))
+            fk_fails = pdf.find_foreign_key_failures(pan_dat_(badDat))
+            self.assertTrue(set(fk_fails) ==
+                {fk('pureTestingTable', 'plants', fkm('plant', 'name'), 'many-to-one'),
+                 fk('pureTestingTable', 'products', fkm('product', 'name'), 'many-to-one'),
+                 fk('pureTestingTable', 'lines', fkm('line', 'name'), 'many-to-one')})
+
+            for df in fk_fails.values():
+                df = df.T
+                c = df.columns[0]
+                self.assertTrue({'ay', 'j', 'nk', 'u'} == set(df[c]))
 
 # Run the tests.
 if __name__ == "__main__":
