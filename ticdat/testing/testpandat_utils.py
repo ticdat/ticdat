@@ -352,6 +352,45 @@ class TestUtils(unittest.TestCase):
                 c = df.columns[0]
                 self.assertTrue({'ay', 'j', 'nk', 'u'} == set(df[c]))
 
+    def testAdditionalFKs(self):
+        pdf = PanDatFactory(pt1 = [["F1"],[]], pt2 = [["F2"],[]], pt3 = [["F1","F2"],[]],
+                            pt4 = [["F1"],["F2"]], pt5 = [[],["F1","F2"]])
+        for c in ["pt3", "pt4", "pt5"]:
+            pdf.add_foreign_key(c, "pt1", ["F1", "F1"])
+            pdf.add_foreign_key(c, "pt2", ["F2", "F2"])
+        tdf = TicDatFactory(**pdf.schema())
+        pan_dat_ = lambda _ : pdf.copy_pan_dat(copy_to_pandas_with_reset(tdf, _))
+        ticDat = tdf.TicDat(pt1=[1, 2, 3, 4], pt2=[5, 6, 7, 8])
+        for f1, f2 in itertools.product(range(1,5), range(5,9)):
+            ticDat.pt3[f1, f2] = {}
+            ticDat.pt4[f1] = f2
+            ticDat.pt5.append((f1, f2))
+        origDat = tdf.copy_tic_dat(ticDat, freeze_it=True)
+        self.assertFalse(pdf.find_foreign_key_failures(pan_dat_(origDat)))
+        ticDat.pt3["no",6] = ticDat.pt3[1, "no"] = {}
+        ticDat.pt4["no"] = 6
+        ticDat.pt4["nono"]=6.01
+        panDat = pan_dat_(ticDat)
+        fails1 = pdf.find_foreign_key_failures(panDat)
+        self.assertTrue(fails1)
+        pdf.remove_foreign_keys_failures(panDat)
+        self.assertFalse(pdf.find_foreign_key_failures(panDat))
+        self.assertTrue(pdf._same_data(panDat, pan_dat_(origDat)))
+
+        orig_lens = {t:len(getattr(origDat, t)) for t in tdf.all_tables}
+        ticDat.pt3["no",6] = ticDat.pt3[1, "no"] = {}
+        ticDat.pt4["no"] = 6
+        ticDat.pt4["nono"]=6.01
+        ticDat.pt5.append(("no",6))
+        ticDat.pt5.append((1, "no"))
+        panDat = pan_dat_(ticDat)
+        fails2 = pdf.find_foreign_key_failures(panDat)
+        self.assertTrue(set(fails1) != set(fails2) and set(fails1).issubset(fails2))
+        pdf.remove_foreign_keys_failures(panDat)
+        self.assertFalse(pdf.find_foreign_key_failures(panDat))
+        self.assertTrue({t:len(getattr(panDat, t)) for t in tdf.all_tables} == orig_lens)
+
+
 # Run the tests.
 if __name__ == "__main__":
     if not DataFrame :
