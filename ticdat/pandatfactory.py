@@ -506,20 +506,18 @@ class PanDatFactory(object):
         for fk in self.foreign_keys:
             native, foreign, mappings, card = fk
             child = getattr(pan_dat, native).copy(deep=True)
-            # in theory, one would think you could simply copy parent when dropping duplicates,
-            # but that generated the "A value is trying to be set on a copy of a slice from a DataFrame."
-            # warning
-            parent = getattr(pan_dat, foreign).copy(deep=True)
+            # makes sense to deep copy the possibly smaller drop_duplicates slice of the parent table
+            parent = getattr(pan_dat, foreign)
             _ = 0
             while any("_%s_"%_ in c for c in set(parent.columns).union(child.columns)):
                 _ += 1
             magic_field = "_%s_"%_
             if all(hasattr(mappings, _) for _ in ["native_field", "foreign_field"]):
-                parent.drop_duplicates(mappings.foreign_field, inplace=True)
+                parent = parent.drop_duplicates(mappings.foreign_field, inplace=False).copy(deep=True)
                 parent[mappings.native_field] = parent[mappings.foreign_field]
                 new_index = mappings.native_field
             else:
-                parent.drop_duplicates([_.foreign_field for _ in mappings], inplace=True)
+                parent = parent.drop_duplicates([_.foreign_field for _ in mappings], inplace=False).copy(deep=True)
                 for _ in mappings:
                     parent[_.native_field] = parent[_.foreign_field]
                 new_index = [_.native_field for _ in mappings]
