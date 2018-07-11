@@ -422,7 +422,7 @@ class PanDatFactory(object):
         verify(self.good_pan_dat_object(pan_dat, msg.append),
                "pan_dat not a good object for this factory : %s"%"\n".join(msg))
         from ticdat import TicDatFactory
-        tdf = TicDatFactory(**{k:v for k,v in self.schema().items()})
+        tdf = TicDatFactory(**self.schema())
         def df(t):
             rtn = getattr(pan_dat, t)
             if self.primary_key_fields.get(t, ()):
@@ -432,7 +432,7 @@ class PanDatFactory(object):
         return tdf.freeze_me(rtn) if freeze_it else rtn
     def _same_data(self, obj1, obj2, epsilon = 0):
         from ticdat import TicDatFactory
-        tdf = TicDatFactory(**{k:v for k,v in self.schema().items()})
+        tdf = TicDatFactory(**self.schema())
         return tdf._same_data(self.copy_to_tic_dat(obj1), self.copy_to_tic_dat(obj2), epsilon=epsilon)
     def find_data_type_failures(self, pan_dat):
         """
@@ -499,6 +499,12 @@ class PanDatFactory(object):
                  The values are DataFrames that contain the subset of native table rows that fail to find
                  foreign table matching defined by the associated returned key.
         """
+        rtn = {}
+        for fk, rows in self._find_foreign_key_failure_rows(pan_dat).items():
+            native, foreign, mappings, card = fk
+            rtn[fk] = getattr(pan_dat, native)[rows]
+        return rtn
+    def _find_foreign_key_failure_rows(self, pan_dat):
         msg  = []
         verify(self.good_pan_dat_object(pan_dat, msg.append),
                "pan_dat not a good object for this factory : %s"%"\n".join(msg))
@@ -521,14 +527,33 @@ class PanDatFactory(object):
                 for _ in mappings:
                     parent[_.native_field] = parent[_.foreign_field]
                 new_index = [_.native_field for _ in mappings]
+            # sadly a join might knacker the row order, hence the ugliness with magic_field*2 for child
             parent[magic_field] = True
-            # can drop parent index fields because we know there is at least one other field (the magic field)
+            child.insert(0, magic_field*2, range(0, len(child)))
             parent.set_index(new_index, drop=True, inplace=True)
-            child.set_index(new_index, drop=False, inplace=True)
-
-            binary_vector = list(child.join(parent, rsuffix=magic_field)[magic_field] != True)
-            if any(binary_vector):
-                rtn[fk] = getattr(pan_dat, native)[binary_vector]
+            child.set_index(new_index, drop=True, inplace=True)
+            joined = child.join(parent, rsuffix=magic_field)
+            bad_rows = set(joined[joined[magic_field] != True][magic_field*2])
+            if bad_rows:
+                rtn[fk] = list(child.apply(lambda row: row[magic_field*2] in bad_rows, axis=1))
         return rtn
+    def remove_foreign_keys_failures(self, pan_dat):
+        """
+        Removes foreign key failures (i.e. child records with no parent table record)
+        :param pan_dat: pandat object (will be side-effected)
+        :return: pan_dat, with the foreign key failures removed
+                 Note that all foreign key removals are cascading. When a child removal results in
+                 new foreign key failures, those failures are removed as well.
+        """
+        remove_rows = self._find_foreign_key_failure_rows(pan_dat)
+        while remove_rows:
+            # just performing one bulk removal per iteration, since fks can intermingle in complicated ways
+            fk = next(iter(remove_rows))
+            native, foreign, mappings, card = fk
+            rows = remove_rows[fk]
+            setattr(pan_dat, native, getattr(pan_dat, native)[[not _ for _ in rows]].copy(deep=True))
+            remove_rows = self._find_foreign_key_failure_rows(pan_dat)
+
+        return pan_dat
     # NEED fk failure testing
     # NEED find_duplicates since that we don't step on duplicates during reading

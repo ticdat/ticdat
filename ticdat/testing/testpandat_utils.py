@@ -176,11 +176,15 @@ class TestUtils(unittest.TestCase):
         self.assertFalse(input_schema.find_foreign_key_failures(orig_pan_dat))
 
         dat.position_constraints["no", "no", "no"] = dat.position_constraints[1, 2, 3] = {}
-        fk_fails = input_schema.find_foreign_key_failures(input_schema.copy_pan_dat(
-                                                          copy_to_pandas_with_reset(tdf, dat)))
+        new_pan_dat = input_schema.copy_pan_dat(copy_to_pandas_with_reset(tdf, dat))
+        self.assertFalse(input_schema._same_data(orig_pan_dat, new_pan_dat))
+        fk_fails = input_schema.find_foreign_key_failures(new_pan_dat)
         self.assertTrue({tuple(k)[:2]:len(v) for k,v in fk_fails.items()} ==
                         {('position_constraints', 'innings'): 2, ('position_constraints', 'positions'): 2,
                          ('position_constraints', 'roster'): 1})
+        input_schema.remove_foreign_keys_failures(new_pan_dat)
+        self.assertFalse(input_schema.find_foreign_key_failures(new_pan_dat))
+        self.assertTrue(input_schema._same_data(orig_pan_dat, new_pan_dat))
 
         input_schema = PanDatFactory(table_one=[["One", "Two"], []],
                                      table_two=[["One"], ["Two"]])
@@ -193,8 +197,55 @@ class TestUtils(unittest.TestCase):
         orig_pan_dat = input_schema.copy_pan_dat(copy_to_pandas_with_reset(tdf, dat))
         self.assertFalse(input_schema.find_foreign_key_failures(orig_pan_dat))
         dat.table_two[9]=10
-        fk_fails = input_schema.find_foreign_key_failures(input_schema.copy_pan_dat(copy_to_pandas_with_reset(tdf, dat)))
+        new_pan_dat = input_schema.copy_pan_dat(copy_to_pandas_with_reset(tdf, dat))
+        fk_fails = input_schema.find_foreign_key_failures(new_pan_dat)
         self.assertTrue({tuple(k)[:2]:len(v) for k,v in fk_fails.items()} == {('table_two', 'table_one'): 1})
+        input_schema.remove_foreign_keys_failures(new_pan_dat)
+        self.assertFalse(input_schema.find_foreign_key_failures(new_pan_dat))
+        self.assertTrue(input_schema._same_data(orig_pan_dat, new_pan_dat))
+
+
+    def testXToManyTwo(self):
+        input_schema = PanDatFactory (parent = [["F1", "F2"],["F3"]], child_one = [["F1", "F2", "F3"], []],
+                                      child_two = [["F1", "F2"], ["F3"]], child_three = [[],["F1", "F2", "F3"]])
+        for t in ["child_one", "child_two", "child_three"]:
+            input_schema.add_foreign_key(t, "parent", [["F1"]*2, ["F2"]*2, ["F3"]*2])
+        self.assertTrue({fk.cardinality for fk in input_schema.foreign_keys} == {"one-to-one", "many-to-one"})
+
+        rows =[[1,2,3], [1,2.1,3], [4,5,6],[4,5.1,6],[7,8,9]]
+        tdf = TicDatFactory(**input_schema.schema())
+        dat = tdf.TicDat(parent = rows, child_one = rows, child_two = rows, child_three=rows)
+        self.assertTrue(all(len(getattr(dat, t)) == 5 for t in input_schema.all_tables))
+        orig_pan_dat = input_schema.copy_pan_dat(copy_to_pandas_with_reset(tdf, dat))
+        self.assertFalse(input_schema.find_foreign_key_failures(orig_pan_dat))
+        dat.child_one[1, 2, 4] = {}
+        dat.child_two[1,2.2]=3
+        dat.child_three.append([1,2,4])
+        new_pan_dat = input_schema.copy_pan_dat(copy_to_pandas_with_reset(tdf, dat))
+        fk_fails = input_schema.find_foreign_key_failures(new_pan_dat)
+        self.assertTrue(len(fk_fails) == 3)
+        input_schema.remove_foreign_keys_failures(new_pan_dat)
+        self.assertFalse(input_schema.find_foreign_key_failures(new_pan_dat))
+        self.assertTrue(input_schema._same_data(orig_pan_dat, new_pan_dat))
+
+        input_schema = PanDatFactory (parent = [["F1", "F2"],["F3"]], child_one = [["F1", "F2", "F3"], []],
+                                      child_two = [["F1", "F2"], ["F3"]], child_three = [[],["F1", "F2", "F3"]])
+        for t in ["child_one", "child_two", "child_three"]:
+            input_schema.add_foreign_key(t, "parent", [["F1"]*2, ["F3"]*2])
+        tdf = TicDatFactory(**input_schema.schema())
+        dat = tdf.TicDat(parent=rows, child_one=rows, child_two=rows, child_three=rows)
+        self.assertTrue(all(len(getattr(dat, t)) == 5 for t in input_schema.all_tables))
+        orig_pan_dat = input_schema.copy_pan_dat(copy_to_pandas_with_reset(tdf, dat))
+        self.assertFalse(input_schema.find_foreign_key_failures(orig_pan_dat))
+        dat.child_one[1, 2, 4] = {}
+        dat.child_two[1,2.2]=4
+        dat.child_three.append([1,2,4])
+        new_pan_dat = input_schema.copy_pan_dat(copy_to_pandas_with_reset(tdf, dat))
+        self.assertTrue(len(input_schema.find_foreign_key_failures(new_pan_dat)) == 3)
+        input_schema.remove_foreign_keys_failures(new_pan_dat)
+        self.assertFalse(input_schema.find_foreign_key_failures(new_pan_dat))
+        self.assertTrue(input_schema._same_data(orig_pan_dat, new_pan_dat))
+
 
 # Run the tests.
 if __name__ == "__main__":
