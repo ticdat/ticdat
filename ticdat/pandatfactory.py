@@ -246,7 +246,7 @@ class PanDatFactory(object):
                 mappings = tuple(ForeignKeyMapping(nf,ff) for nf,ff in n_f_mapping)
                 mappings = mappings[0] if len(mappings)==1 else mappings
                 def half_card(tbl, fields):
-                    assert fields.issubset(self._allFields(tbl))
+                    assert fields.issubset(self._all_fields(tbl))
                     pkfs = self.primary_key_fields.get(tbl, ())
                     if pkfs and fields.issuperset(pkfs):
                         return "one"
@@ -261,6 +261,9 @@ class PanDatFactory(object):
         for fk in self.foreign_keys:
             rtn[fk.native_table].append(fk)
         return utils.FrozenDict({k:frozenset(v) for k,v in rtn.items()})
+    def _all_fields(self, table):
+        assert table in self.all_tables
+        return set(self.primary_key_fields.get(table, ())).union(self.data_fields.get(table, ()))
     def add_foreign_key(self, native_table, foreign_table, mappings):
         """
         Adds a foreign key relationship to the schema.  Adding a foreign key doesn't block
@@ -290,9 +293,9 @@ class PanDatFactory(object):
 """when making a simple foreign key, mappings should be a list of the form [native field, foreign field]""")
             _mappings = {mappings[0]:mappings[1]}
         for k,v in _mappings.items() :
-            verify(k in self._allFields(native_table),
+            verify(k in self._all_fields(native_table),
                    "%s does not refer to one of %s 's fields"%(k, native_table))
-            verify(v in self._allFields(foreign_table),
+            verify(v in self._all_fields(foreign_table),
                    "%s does not refer to one of %s 's fields"%(v, foreign_table))
         self._foreign_keys[native_table, foreign_table].add(tuple(_mappings.items()))
     def _simple_fk(self, ftbl, fk):
@@ -493,8 +496,8 @@ class PanDatFactory(object):
                  The key data matches the arguments to add_foreign_key that constructed the
                  foreign key (with "cardinality" being deduced from the overall schema).
 
-                 The values are DataFrames that contain the subset of rows that exhibit data failures
-                 for this specific table, predicate pair.
+                 The values are DataFrames that contain the subset of native table rows that fail to find
+                 foreign table matching defined by the associated returned key.
         """
         msg  = []
         verify(self.good_pan_dat_object(pan_dat, msg.append),
@@ -502,24 +505,32 @@ class PanDatFactory(object):
         rtn = {}
         for fk in self.foreign_keys:
             native, foreign, mappings, card = fk
-            child = getattr(pan_dat, native).copy(deep= True)
-            parent = getattr(pan_dat, foreign).copy(deep= True)
+            child = getattr(pan_dat, native).copy(deep=True)
+            # in theory, one would think you could simply copy parent when dropping duplicates,
+            # but that generated the "A value is trying to be set on a copy of a slice from a DataFrame."
+            # warning
+            parent = getattr(pan_dat, foreign).copy(deep=True)
             _ = 0
             while any("_%s_"%_ in c for c in set(parent.columns).union(child.columns)):
                 _ += 1
             magic_field = "_%s_"%_
-            parent[magic_field] = True
-            # can drop parent index fields because we know there is at least one other field (the magic field)
             if all(hasattr(mappings, _) for _ in ["native_field", "foreign_field"]):
-                child.set_index(mappings.native_field, drop=False, inplace=True)
+                parent.drop_duplicates(mappings.foreign_field, inplace=True)
                 parent[mappings.native_field] = parent[mappings.foreign_field]
-                parent.set_index(mappings.native_field, drop=True, inplace=True)
+                new_index = mappings.native_field
             else:
-                child.set_index([_.native_field for _ in mappings], drop=False, inplace=True)
+                parent.drop_duplicates([_.foreign_field for _ in mappings], inplace=True)
                 for _ in mappings:
                     parent[_.native_field] = parent[_.foreign_field]
-                parent.set_index([_.native_field for _ in mappings], drop=True, inplace=True)
-            binary_vector = child.join(parent, rsuffix=magic_field)[magic_field] != True
-            if binary_vector.any():
+                new_index = [_.native_field for _ in mappings]
+            parent[magic_field] = True
+            # can drop parent index fields because we know there is at least one other field (the magic field)
+            parent.set_index(new_index, drop=True, inplace=True)
+            child.set_index(new_index, drop=False, inplace=True)
+
+            binary_vector = list(child.join(parent, rsuffix=magic_field)[magic_field] != True)
+            if any(binary_vector):
                 rtn[fk] = getattr(pan_dat, native)[binary_vector]
         return rtn
+    # NEED fk failure testing
+    # NEED find_duplicates since that we don't step on duplicates during reading

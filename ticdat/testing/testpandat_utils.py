@@ -144,6 +144,58 @@ class TestUtils(unittest.TestCase):
         self.assertTrue(set({(v["source"], v["destination"])
                              for v in failed['arcs', 'capacity'].T.to_dict().values()}) == {("Detroit", "New York")})
 
+    def testXToMany(self):
+        input_schema = PanDatFactory (roster = [["Name"],["Grade", "Arrival Inning", "Departure Inning",
+                                                          "Min Innings Played", "Max Innings Played"]],
+                                      positions = [["Position"],["Position Importance", "Position Group",
+                                                                 "Consecutive Innings Only"]],
+                                      innings = [["Inning"],["Inning Group"]],
+                                      position_constraints = [["Position Group", "Inning Group", "Grade"],
+                                                              ["Min Players", "Max Players"]])
+        input_schema.add_foreign_key("position_constraints", "roster", ["Grade", "Grade"])
+        input_schema.add_foreign_key("position_constraints", "positions", ["Position Group", "Position Group"])
+        input_schema.add_foreign_key("position_constraints", "innings", ["Inning Group", "Inning Group"])
+
+        self.assertTrue({fk.cardinality for fk in input_schema.foreign_keys} == {"many-to-many"})
+
+        tdf = TicDatFactory(**input_schema.schema())
+        dat = tdf.TicDat()
+        for i,p in enumerate(["bob", "joe", "fred", "alice", "lisa", "joean", "ginny"]):
+            dat.roster[p]["Grade"] = (i%3)+1
+        dat.roster["dummy"]["Grade"]  = "whatevers"
+        for i,p in enumerate(["pitcher", "catcher", "1b", "2b", "ss", "3b", "lf", "cf", "rf"]):
+            dat.positions[p]["Position Group"] = "PG %s"%((i%4)+1)
+        for i in range(1, 10):
+            dat.innings[i]["Inning Group"] = "before stretch" if i < 7 else "after stretch"
+        dat.innings[0] ={}
+        for pg, ig, g in itertools.product(["PG %s"%i for i in range(1,5)], ["before stretch", "after stretch"],
+                                           [1, 2, 3]):
+            dat.position_constraints[pg, ig, g] = {}
+
+        orig_pan_dat = input_schema.copy_pan_dat(copy_to_pandas_with_reset(tdf, dat))
+        self.assertFalse(input_schema.find_foreign_key_failures(orig_pan_dat))
+
+        dat.position_constraints["no", "no", "no"] = dat.position_constraints[1, 2, 3] = {}
+        fk_fails = input_schema.find_foreign_key_failures(input_schema.copy_pan_dat(
+                                                          copy_to_pandas_with_reset(tdf, dat)))
+        self.assertTrue({tuple(k)[:2]:len(v) for k,v in fk_fails.items()} ==
+                        {('position_constraints', 'innings'): 2, ('position_constraints', 'positions'): 2,
+                         ('position_constraints', 'roster'): 1})
+
+        input_schema = PanDatFactory(table_one=[["One", "Two"], []],
+                                     table_two=[["One"], ["Two"]])
+        input_schema.add_foreign_key("table_two", "table_one", ["One", "One"])
+        self.assertTrue({fk.cardinality for fk in input_schema.foreign_keys} == {"one-to-many"})
+
+        tdf = TicDatFactory(**input_schema.schema())
+        dat = tdf.TicDat(table_one = [[1,2], [3,4], [5,6], [7,8]], table_two = {1:2, 3:4, 5:6})
+
+        orig_pan_dat = input_schema.copy_pan_dat(copy_to_pandas_with_reset(tdf, dat))
+        self.assertFalse(input_schema.find_foreign_key_failures(orig_pan_dat))
+        dat.table_two[9]=10
+        fk_fails = input_schema.find_foreign_key_failures(input_schema.copy_pan_dat(copy_to_pandas_with_reset(tdf, dat)))
+        self.assertTrue({tuple(k)[:2]:len(v) for k,v in fk_fails.items()} == {('table_two', 'table_one'): 1})
+
 # Run the tests.
 if __name__ == "__main__":
     if not DataFrame :
