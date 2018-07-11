@@ -562,5 +562,4 @@ class PanDatFactory(object):
             remove_rows = self._find_foreign_key_failure_rows(pan_dat)
 
         return pan_dat
-    # NEED fk failure testing
     # NEED find_duplicates since that we don't step on duplicates during reading
