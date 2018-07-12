@@ -111,6 +111,7 @@ class TestUtils(unittest.TestCase):
         ticdat.nutritionQuantities['a', 2] = 12
 
         pandat = pdf.copy_pan_dat(copy_to_pandas_with_reset(tdf, ticdat))
+        self.assertFalse(pdf.find_duplicates(pandat))
 
         self.assertFalse(pdf.find_data_row_failures(pandat))
 
@@ -138,6 +139,7 @@ class TestUtils(unittest.TestCase):
         for n in ticdat.nodes["Detroit"].arcs_source:
             ticdat.arcs["Detroit", n] = n
         pandat = pdf.copy_pan_dat(copy_to_pandas_with_reset(tdf, ticdat))
+        self.assertFalse(pdf.find_duplicates(pandat))
         self.assertFalse(pdf.find_data_row_failures(pandat))
 
         pdf = PanDatFactory(**netflowSchema())
@@ -304,7 +306,10 @@ class TestUtils(unittest.TestCase):
             badDat2 = tdf.copy_tic_dat(badDat1)
 
 
-            pan_dat_ = lambda _ : pdf.copy_pan_dat(copy_to_pandas_with_reset(tdf, _))
+            def pan_dat_(_):
+                rtn =  pdf.copy_pan_dat(copy_to_pandas_with_reset(tdf, _))
+                self.assertFalse(pdf.find_duplicates(rtn))
+                return rtn
             fk, fkm = ForeignKey, ForeignKeyMapping
             fk_fails1 = pdf.find_foreign_key_failures(pan_dat_(badDat1))
             fk_fails2 = pdf.find_foreign_key_failures(pan_dat_(badDat2))
@@ -359,7 +364,10 @@ class TestUtils(unittest.TestCase):
             pdf.add_foreign_key(c, "pt1", ["F1", "F1"])
             pdf.add_foreign_key(c, "pt2", ["F2", "F2"])
         tdf = TicDatFactory(**pdf.schema())
-        pan_dat_ = lambda _ : pdf.copy_pan_dat(copy_to_pandas_with_reset(tdf, _))
+        def pan_dat_(_):
+            rtn =  pdf.copy_pan_dat(copy_to_pandas_with_reset(tdf, _))
+            self.assertFalse(pdf.find_duplicates(rtn))
+            return rtn
         ticDat = tdf.TicDat(pt1=[1, 2, 3, 4], pt2=[5, 6, 7, 8])
         for f1, f2 in itertools.product(range(1,5), range(5,9)):
             ticDat.pt3[f1, f2] = {}

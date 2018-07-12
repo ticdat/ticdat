@@ -562,4 +562,18 @@ class PanDatFactory(object):
             remove_rows = self._find_foreign_key_failure_rows(pan_dat)
 
         return pan_dat
-    # NEED find_duplicates since that we don't step on duplicates during reading
+    def find_duplicates(self, pan_dat):
+        """
+        Find the duplicated rows based on the primary key fields.
+        :return: A dictionary whose keys are the table names and whose values are duplicated rows.
+        """
+        msg  = []
+        verify(self.good_pan_dat_object(pan_dat, msg.append),
+               "pan_dat not a good object for this factory : %s"%"\n".join(msg))
+        rtn = {}
+        for t in self.all_tables:
+            if self.primary_key_fields.get(t):
+                dups = getattr(pan_dat, t).duplicated(list(self.primary_key_fields[t]), keep=False)
+                if dups.any():
+                    rtn[t] = getattr(pan_dat, t)[list(dups)]
+        return rtn
