@@ -4,7 +4,7 @@ from ticdat.utils import DataFrame, numericish, ForeignKey, ForeignKeyMapping
 import ticdat.utils as utils
 from ticdat.testing.ticdattestutils import fail_to_debugger, flagged_as_run_alone, netflowPandasData
 from ticdat.testing.ticdattestutils import netflowSchema, copy_to_pandas_with_reset, dietSchema, netflowData
-from ticdat.testing.ticdattestutils import addNetflowForeignKeys
+from ticdat.testing.ticdattestutils import addNetflowForeignKeys, sillyMeSchema
 from ticdat.ticdatfactory import TicDatFactory
 import itertools
 from math import isnan
@@ -403,6 +403,23 @@ class TestUtils(unittest.TestCase):
         self.assertFalse(pdf.find_foreign_key_failures(panDat))
         self.assertTrue({t:len(getattr(panDat, t)) for t in tdf.all_tables} == orig_lens)
 
+    def testFindDups(self):
+        pdf = PanDatFactory(**sillyMeSchema())
+        tdf = TicDatFactory(**{k:[[],list(pkfs)+list(dfs)] for k, (pkfs, dfs) in sillyMeSchema().items()})
+        rows = [(1, 2, 3, 4), (1, 20, 30, 40), (10, 20, 30, 40)]
+        ticDat = tdf.TicDat(**{t:rows for t in tdf.all_tables})
+        panDat = pdf.copy_pan_dat(copy_to_pandas_with_reset(tdf, ticDat))
+        dups = pdf.find_duplicates(panDat)
+        self.assertTrue(set(dups) == {'a'} and set(dups['a']['aField']) == {1})
+        dups = pdf.find_duplicates(panDat, as_table=False)
+        self.assertTrue(set(dups) == {'a'} and dups['a'].value_counts()[True] == 2)
+        rows = [(1, 2, 3, 4), (1, 20, 30, 40), (10, 20, 30, 40), (1, 2, 3, 40)]
+        ticDat = tdf.TicDat(**{t:rows for t in tdf.all_tables})
+        panDat = pdf.copy_pan_dat(copy_to_pandas_with_reset(tdf, ticDat))
+        dups = pdf.find_duplicates(panDat)
+        self.assertTrue(set(dups) == {'a', 'b'} and set(dups['a']['aField']) == {1})
+        dups = pdf.find_duplicates(panDat, as_table=False)
+        self.assertTrue({k:v.value_counts()[True] for k,v in dups.items()} == {'a':3, 'b':2})
 
 # Run the tests.
 if __name__ == "__main__":

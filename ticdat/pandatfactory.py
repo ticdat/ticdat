@@ -512,6 +512,8 @@ class PanDatFactory(object):
                  The values are DataFrames that contain the subset of native table rows that fail to find
                  foreign table matching defined by the associated returned key.
         """
+        # note - the as_table argument is messy here because I'm applying an index to a copy of the table
+        # as a result, we provide the remove_foreign_key_failures companion function
         rtn = {}
         for fk, rows in self._find_foreign_key_failure_rows(pan_dat).items():
             native, foreign, mappings, card = fk
