@@ -441,16 +441,19 @@ class PanDatFactory(object):
         from ticdat import TicDatFactory
         tdf = TicDatFactory(**self.schema())
         return tdf._same_data(self.copy_to_tic_dat(obj1), self.copy_to_tic_dat(obj2), epsilon=epsilon)
-    def find_data_type_failures(self, pan_dat):
+    def find_data_type_failures(self, pan_dat, as_table=True):
         """
         Finds the data type failures for a pandat object
         :param pan_dat: pandat object
+        :param as_table: as_table boolean : if truthy then the values of the return dictionary will be the
+               data type failure rows themselves. Otherwise will return the boolean Series that indicates
+               which rows have data type failures.
         :return: A dictionary constructed as follow:
                  The keys are namedTuples with members "table", "field". Each (table,field) pair
                  has data values that are inconsistent with its data type. (table, field) pairs
                  with no data type at all are never part of the returned dictionary.
                  The values are DataFrames that contain the subset of rows that exhibit data failures
-                 for this specific table, field pair.
+                 for this specific table, field pair (or the boolean Series that identifies these rows).
         """
         msg = []
         verify(self.good_pan_dat_object(pan_dat, msg.append),
@@ -465,20 +468,23 @@ class PanDatFactory(object):
                     data = row[field]
                     # pandas turns None into nan
                     return not data_type.valid_data(None if safe_apply(isnan)(data) else data)
-                bad_table = _table[_table.apply(bad_row, axis=1)]
-                if len(bad_table):
-                    rtn[TableField(table, field)] = bad_table.copy()
+                where_bad_rows = _table.apply(bad_row, axis=1)
+                if where_bad_rows.any():
+                    rtn[TableField(table, field)] = _table[where_bad_rows].copy() if as_table else where_bad_rows
         return rtn
-    def find_data_row_failures(self, pan_dat):
+    def find_data_row_failures(self, pan_dat, as_table=True):
         """
         Finds the data row failures for a ticdat object
         :param pan_dat: a pandat object
+        :param as_table: as_table boolean : if truthy then the values of the return dictionary will be the
+               predicate failure rows themselves. Otherwise will return the boolean Series that indicates
+               which rows have predicate failures.
         :return: A dictionary constructed as follow:
 
                  The keys are namedTuples with members "table", "predicate_name".
 
                  The values are DataFrames that contain the subset of rows that exhibit data failures
-                 for this specific table, predicate pair.
+                 for this specific table, predicate pair (or the Series that identifies these rows).
         """
         msg = []
         verify(self.good_pan_dat_object(pan_dat, msg.append),
@@ -489,9 +495,9 @@ class PanDatFactory(object):
             for pn, p in row_predicates.items():
                 _table = getattr(pan_dat, tbl)
                 bad_row = lambda row: not p(row)
-                bad_table = _table[_table.apply(bad_row, axis=1)]
-                if len(bad_table):
-                    rtn[TPN(tbl, pn)] = bad_table.copy()
+                where_bad_rows =_table.apply(bad_row, axis=1)
+                if where_bad_rows.any():
+                    rtn[TPN(tbl, pn)] = _table[where_bad_rows].copy() if as_table else where_bad_rows
         return rtn
     def find_foreign_key_failures(self, pan_dat):
         """
@@ -544,7 +550,7 @@ class PanDatFactory(object):
             if bad_rows:
                 rtn[fk] = list(child.apply(lambda row: row[magic_field*2] in bad_rows, axis=1))
         return rtn
-    def remove_foreign_keys_failures(self, pan_dat):
+    def remove_foreign_key_failures(self, pan_dat):
         """
         Removes foreign key failures (i.e. child records with no parent table record)
         :param pan_dat: pandat object (will be side-effected)
@@ -562,10 +568,15 @@ class PanDatFactory(object):
             remove_rows = self._find_foreign_key_failure_rows(pan_dat)
 
         return pan_dat
-    def find_duplicates(self, pan_dat):
+    def find_duplicates(self, pan_dat, as_table=True):
         """
         Find the duplicated rows based on the primary key fields.
-        :return: A dictionary whose keys are the table names and whose values are duplicated rows.
+        :param pan_dat: pandat object
+        :param as_table: as_table boolean : if truthy then the values of the return dictionary will be the
+               duplicated rows themselves. Otherwise will return the boolean Series that indicates which rows
+               are duplicated rows.
+        :return: A dictionary whose keys are the table names and whose values are duplicated rows (or the
+                 Series that identifies these rows)
         """
         msg  = []
         verify(self.good_pan_dat_object(pan_dat, msg.append),
@@ -575,5 +586,5 @@ class PanDatFactory(object):
             if self.primary_key_fields.get(t):
                 dups = getattr(pan_dat, t).duplicated(list(self.primary_key_fields[t]), keep=False)
                 if dups.any():
-                    rtn[t] = getattr(pan_dat, t)[list(dups)]
+                    rtn[t] = getattr(pan_dat, t)[list(dups)] if as_table else dups
         return rtn

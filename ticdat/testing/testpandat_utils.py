@@ -74,6 +74,9 @@ class TestUtils(unittest.TestCase):
                              for v in failed['nutritionQuantities', 'qty'].T.to_dict().values()}) ==
                             {('b', '1'), ('a', '2'), ('a', '1'), ('b', '2')})
 
+        failed = pdf.find_data_type_failures(pandat, as_table=False)
+        self.assertTrue(4 == failed['nutritionQuantities', 'qty'].value_counts()[True])
+
         tdf = TicDatFactory(**netflowSchema())
         tdf.enable_foreign_key_links()
         addNetflowForeignKeys(tdf)
@@ -130,6 +133,8 @@ class TestUtils(unittest.TestCase):
                              for v in failed['nutritionQuantities', 'qty'].T.to_dict().values()}) ==
                             {('b', '1'), ('a', '2'), ('a', '1'), ('b', '2')})
         self.assertTrue(set(failed['categories', 'minmax']["name"]) == {'2'})
+        failed = pdf.find_data_row_failures(pandat, as_table=False)
+        self.assertTrue(4 == failed['nutritionQuantities', 'qty'].value_counts()[True])
 
         tdf = TicDatFactory(**netflowSchema())
         tdf.enable_foreign_key_links()
@@ -192,7 +197,7 @@ class TestUtils(unittest.TestCase):
         self.assertTrue({tuple(k)[:2]:len(v) for k,v in fk_fails.items()} ==
                         {('position_constraints', 'innings'): 2, ('position_constraints', 'positions'): 2,
                          ('position_constraints', 'roster'): 1})
-        input_schema.remove_foreign_keys_failures(new_pan_dat)
+        input_schema.remove_foreign_key_failures(new_pan_dat)
         self.assertFalse(input_schema.find_foreign_key_failures(new_pan_dat))
         self.assertTrue(input_schema._same_data(orig_pan_dat, new_pan_dat))
 
@@ -210,7 +215,7 @@ class TestUtils(unittest.TestCase):
         new_pan_dat = input_schema.copy_pan_dat(copy_to_pandas_with_reset(tdf, dat))
         fk_fails = input_schema.find_foreign_key_failures(new_pan_dat)
         self.assertTrue({tuple(k)[:2]:len(v) for k,v in fk_fails.items()} == {('table_two', 'table_one'): 1})
-        input_schema.remove_foreign_keys_failures(new_pan_dat)
+        input_schema.remove_foreign_key_failures(new_pan_dat)
         self.assertFalse(input_schema.find_foreign_key_failures(new_pan_dat))
         self.assertTrue(input_schema._same_data(orig_pan_dat, new_pan_dat))
 
@@ -234,7 +239,7 @@ class TestUtils(unittest.TestCase):
         new_pan_dat = input_schema.copy_pan_dat(copy_to_pandas_with_reset(tdf, dat))
         fk_fails = input_schema.find_foreign_key_failures(new_pan_dat)
         self.assertTrue(len(fk_fails) == 3)
-        input_schema.remove_foreign_keys_failures(new_pan_dat)
+        input_schema.remove_foreign_key_failures(new_pan_dat)
         self.assertFalse(input_schema.find_foreign_key_failures(new_pan_dat))
         self.assertTrue(input_schema._same_data(orig_pan_dat, new_pan_dat))
 
@@ -252,7 +257,7 @@ class TestUtils(unittest.TestCase):
         dat.child_three.append([1,2,4])
         new_pan_dat = input_schema.copy_pan_dat(copy_to_pandas_with_reset(tdf, dat))
         self.assertTrue(len(input_schema.find_foreign_key_failures(new_pan_dat)) == 3)
-        input_schema.remove_foreign_keys_failures(new_pan_dat)
+        input_schema.remove_foreign_key_failures(new_pan_dat)
         self.assertFalse(input_schema.find_foreign_key_failures(new_pan_dat))
         self.assertTrue(input_schema._same_data(orig_pan_dat, new_pan_dat))
 
@@ -329,7 +334,7 @@ class TestUtils(unittest.TestCase):
 
 
             for bad in [badDat1, badDat2]:
-                bad_pan = pdf.remove_foreign_keys_failures(pan_dat_(bad))
+                bad_pan = pdf.remove_foreign_key_failures(pan_dat_(bad))
                 self.assertFalse(pdf.find_foreign_key_failures(bad_pan))
                 self.assertTrue(pdf._same_data(bad_pan, pan_dat_(goodDat)))
 
@@ -381,7 +386,7 @@ class TestUtils(unittest.TestCase):
         panDat = pan_dat_(ticDat)
         fails1 = pdf.find_foreign_key_failures(panDat)
         self.assertTrue(fails1)
-        pdf.remove_foreign_keys_failures(panDat)
+        pdf.remove_foreign_key_failures(panDat)
         self.assertFalse(pdf.find_foreign_key_failures(panDat))
         self.assertTrue(pdf._same_data(panDat, pan_dat_(origDat)))
 
@@ -394,7 +399,7 @@ class TestUtils(unittest.TestCase):
         panDat = pan_dat_(ticDat)
         fails2 = pdf.find_foreign_key_failures(panDat)
         self.assertTrue(set(fails1) != set(fails2) and set(fails1).issubset(fails2))
-        pdf.remove_foreign_keys_failures(panDat)
+        pdf.remove_foreign_key_failures(panDat)
         self.assertFalse(pdf.find_foreign_key_failures(panDat))
         self.assertTrue({t:len(getattr(panDat, t)) for t in tdf.all_tables} == orig_lens)
 
