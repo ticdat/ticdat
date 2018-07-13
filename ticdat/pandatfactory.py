@@ -6,12 +6,11 @@ PEP8
 import ticdat.utils as utils
 from ticdat.utils import ForeignKey, ForeignKeyMapping, TypeDictionary, verify, dictish
 from ticdat.utils import lupish, deep_freeze, containerish, FrozenDict, safe_apply
+import ticdat.pandatio as pandatio
 from itertools import count
 from math import isnan
 import collections as clt
 pd, DataFrame = utils.pd, utils.DataFrame # if pandas not installed will be falsey
-
-
 
 class PanDatFactory(object):
     """
@@ -383,6 +382,7 @@ class PanDatFactory(object):
                 verify(not missing_fields,
                        "The following are (table, field) pairs missing from the data.\n%s"%missing_fields)
         self.PanDat = PanDat
+        self.xls = pandatio.XlsPanFactory(self)
 
     def good_pan_dat_object(self, data_obj, bad_message_handler = lambda x : None):
         """
