@@ -312,7 +312,7 @@ class TestUtils(unittest.TestCase):
 
 
             def pan_dat_(_):
-                rtn =  pdf.copy_pan_dat(copy_to_pandas_with_reset(tdf, _))
+                rtn = pdf.copy_pan_dat(copy_to_pandas_with_reset(tdf, _))
                 self.assertFalse(pdf.find_duplicates(rtn))
                 return rtn
             fk, fkm = ForeignKey, ForeignKeyMapping
@@ -424,7 +424,7 @@ class TestUtils(unittest.TestCase):
 # Run the tests.
 if __name__ == "__main__":
     if not DataFrame :
-        print("!!!!!!!!!FAILING PANDAS UNIT TESTS DUE TO FAILURE TO LOAD PANDAS LIBRARIES!!!!!!!!")
+        print("!!!!!!!!!FAILING pandat utils UNIT TESTS DUE TO FAILURE TO LOAD PANDAS LIBRARIES!!!!!!!!")
     else:
         TestUtils.canRun = True
     unittest.main()

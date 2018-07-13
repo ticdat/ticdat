@@ -95,12 +95,12 @@ def fail_to_debugger(cls) :
               This routine is intended for **temporary** decorating of a unittest class
               for debugging/troubleshooting.
     """
-    def _failToDebugger(x) :
+    def _falseTriggersDebugger(x) :
         if not (x) :
             import ipdb; ipdb.set_trace()
             assert(x)
-    cls.assertTrue = lambda s,x : _failToDebugger(x)
-    cls.assertFalse = lambda s,x : _failToDebugger(not x)
+    cls.assertTrue = lambda self, *args : _falseTriggersDebugger(args[0])
+    cls.assertFalse = lambda self, *args : _falseTriggersDebugger(not args[0])
     cls.failToDebugger = True
     unittest.main = lambda : _runSuite(cls)
     return cls

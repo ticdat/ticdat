@@ -27,6 +27,10 @@ import inspect
 def acceptable_default(v) :
     return numericish(v) or stringish(v) or (v is None)
 
+def all_fields(tpdf, tbl):
+    assert tbl in tpdf.all_tables
+    return tpdf.primary_key_fields.get(tbl, ()) + tpdf.data_fields.get(tbl, ())
+
 # can I get away with ordering this consistently with the function? hopefully I can!
 class TypeDictionary(namedtuple("TypeDictionary",
                     ("number_allowed", "inclusive_min", "inclusive_max", "min",

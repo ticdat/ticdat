@@ -3,7 +3,7 @@ try:
 except:
     xlrd=None
 import os
-from ticdat.utils import freezable_factory, verify, case_space_to_pretty, pd, TicDatError, FrozenDict
+from ticdat.utils import freezable_factory, verify, case_space_to_pretty, pd, TicDatError, FrozenDict, all_fields
 from itertools import product
 from collections import defaultdict
 
@@ -44,12 +44,19 @@ class XlsPanFactory(freezable_factory(object, "_isFrozen")) :
         for t, s in self._get_sheet_names(xls_file_path).items():
             tbl = self._read_sheet(xls_file_path, s)
             if tbl is not None:
-                rtn[t] = t
+                rtn[t] = tbl
+        missing_tables = {t for t in self.pan_dat_factory.all_tables if t not in rtn}
+        if missing_tables:
+            print ("The following table names could not be found in the %s file.\n%s\n"%
+                   (xls_file_path,"\n".join(missing_tables)))
+        missing_fields = {(t, f) for t in rtn for f in all_fields(self.pan_dat_factory, t)
+                          if f not in rtn[t].columns}
+        verify(not missing_fields, "The following are (table, field) pairs missing from the %s file.\n%s"%
+               (xls_file_path, missing_fields))
         rtn = self.pan_dat_factory.PanDat(**rtn)
-        # actually just use assert good_pan_dat_object, manually check for the presence of fields for tables
-        # to get a better message
         msg = []
-        verify(self.pan_dat_factory.good_pan_dat_object(rtn, msg.append), msg)
+        assert self.pan_dat_factory.good_pan_dat_object(rtn, msg.append), str(msg)
+        return rtn
     def _read_sheet(self, xls_file_path, sheet):
         verify(pd, "pandas not installed")
         if xlrd:
@@ -72,11 +79,7 @@ class XlsPanFactory(freezable_factory(object, "_isFrozen")) :
         duplicated_sheets = tuple(_t for _t,_s in sheets.items() if len(_s) > 1)
         verify(not duplicated_sheets, "The following sheet names were duplicated : " +
                ",".join(duplicated_sheets))
-        sheets = FrozenDict({k:v[0] for k,v in sheets.items() })
-        missing_tables = {t for t in self.pan_dat_factory.all_tables if t not in sheets}
-        if missing_tables:
-            print ("The following table names could not be found in the %s file.\n%s\n"%
-                   (xls_file_path,"\n".join(missing_tables)))
+        sheets = FrozenDict({k:v[0].name for k,v in sheets.items() })
         return sheets
     def write_file(self, pan_dat, file_path, allow_overwrite = False, case_space_sheet_names = False):
         """
