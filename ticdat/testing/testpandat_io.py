@@ -6,6 +6,7 @@ from ticdat.testing.ticdattestutils import fail_to_debugger, flagged_as_run_alon
 from ticdat.testing.ticdattestutils import netflowSchema, copy_to_pandas_with_reset, dietSchema, spacesData
 from ticdat.testing.ticdattestutils import makeCleanDir, netflowData, dietData
 from ticdat.ticdatfactory import TicDatFactory
+import ticdat.pandatio as pandatio
 import itertools
 import shutil
 import os
@@ -100,6 +101,7 @@ class TestIO(unittest.TestCase):
     def testSqlSpacey(self):
         if not self.can_run:
             return
+        self.assertTrue(pandatio.sql, "this unit test requires SQLite installed")
 
         tdf = TicDatFactory(**spacesSchema())
         pdf = PanDatFactory(**spacesSchema())
@@ -126,6 +128,42 @@ class TestIO(unittest.TestCase):
         pdf.sql.write_file(panDat, filePath, case_space_table_names=True)
         panDat2 = pdf.sql.create_pan_dat(filePath)
         self.assertTrue(pdf._same_data(panDat, panDat2))
+
+    def testSqlSpaceyTwo(self):
+        if not self.can_run:
+            return
+        self.assertTrue(pandatio.sql, "this unit test requires SQLite installed")
+
+        tdf = TicDatFactory(**spacesSchema())
+        pdf = PanDatFactory(**spacesSchema())
+        ticDat = tdf.TicDat(**{
+        "a_table" : {1 : [1, 2, "3"],
+                     22.2 : (12, 0.12, "something"),
+                     0.23 : (11, 12, "thirt")},
+        "b_table" : {(1, 2, "foo") : 1, (1012.22, 4, "0012") : 12},
+        "c_table" : (("this", 2, 3, 4), ("that", 102.212, 3, 5.5),
+                      ("another",5, 12.5, 24) )
+        })
+        panDat = pan_dat_maker(spacesSchema(), ticDat)
+        ext = ".db"
+        filePath = os.path.join(_scratchDir, "spaces_2%s" % ext)
+        with pandatio.sql.connect(filePath) as con:
+            pdf.sql.write_file(panDat, db_file_path=None, con=con, case_space_table_names=True)
+        with pandatio.sql.connect(filePath) as con:
+            panDat2 = pdf.sql.create_pan_dat(db_file_path=None, con=con)
+        self.assertTrue(pdf._same_data(panDat, panDat2))
+
+        tdf = TicDatFactory(**netflowSchema())
+        pdf = PanDatFactory(**netflowSchema())
+        ticDat = tdf.freeze_me(tdf.TicDat(**{t:getattr(netflowData(),t) for t in tdf.primary_key_fields}))
+        panDat = pan_dat_maker(netflowSchema(), ticDat)
+        filePath = os.path.join(_scratchDir, "spaces_2_2%s" % ext)
+        with pandatio.sql.connect(filePath) as con:
+            pdf.sql.write_file(panDat, db_file_path="", con=con, case_space_table_names=True)
+        with pandatio.sql.connect(filePath) as con:
+            panDat2 = pdf.sql.create_pan_dat(None, con)
+        self.assertTrue(pdf._same_data(panDat, panDat2))
+
 
 
 _scratchDir = TestIO.__name__ + "_scratch"

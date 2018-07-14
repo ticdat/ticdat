@@ -20,6 +20,14 @@ def _sql_con(dbFile):
 def _brackets(l) :
     return ["[%s]"%_ for _ in l]
 
+class _DummyContextManager(object):
+    def __init__(self, *args, **kwargs):
+        pass
+    def __enter__(self, *execinfo) :
+        return self
+    def __exit__(self, *excinfo) :
+        pass
+
 class SqlPanFactory(freezable_factory(object, "_isFrozen")) :
     """
     Primary class for reading/writing SQLite files with panDat objects.
@@ -34,22 +42,29 @@ class SqlPanFactory(freezable_factory(object, "_isFrozen")) :
         """
         self.pan_dat_factory = pan_dat_factory
         self._isFrozen = True
-    def create_pan_dat(self, db_file_path):
+    def create_pan_dat(self, db_file_path, con=None):
         """
         Create a PanDat object from a SQLite database file
-        :param db_file_path: A SQLite DB File.
+        :param db_file_path: A SQLite DB File. Set to falsey if using con argument
+        :param con: sqlalchemy.engine.Engine or sqlite3.Connection.
+                    Set to falsey if using db_file_path argument.
         :return: a PanDat object populated by the matching tables.
         caveats: Missing tables and missing fields throw an Exception.
                  Table names are matched with case-space insensitivity, but spaces
                  are respected for field names.
                  (ticdat supports whitespace in field names but not table names).
         """
-        verify(os.path.exists(db_file_path) and not os.path.isdir(db_file_path),
-               "%s not a file path"%db_file_path)
+        verify(bool(db_file_path) != bool(con),
+               "use either the con argument or the db_file_path argument but not both")
+        if db_file_path:
+            verify(os.path.exists(db_file_path) and not os.path.isdir(db_file_path),
+                   "%s not a file path"%db_file_path)
         rtn = {}
-        for t, s in self._get_table_names(db_file_path).items():
-            with _sql_con(db_file_path) as con:
-                rtn[t] = pd.read_sql(sql="Select * from [%s]"%s, con=con)
+        con_maker = lambda: _sql_con(db_file_path) if db_file_path else _DummyContextManager(con)
+        with con_maker() as _:
+            con_ = con or _
+            for t, s in self._get_table_names(con_).items():
+                rtn[t] = pd.read_sql(sql="Select * from [%s]"%s, con=con_)
         missing_fields = {(t, f) for t in rtn for f in all_fields(self.pan_dat_factory, t)
                           if f not in rtn[t].columns}
         verify(not missing_fields, "The following are (table, field) pairs missing from the %s file.\n%s"%
@@ -58,28 +73,28 @@ class SqlPanFactory(freezable_factory(object, "_isFrozen")) :
         msg = []
         assert self.pan_dat_factory.good_pan_dat_object(rtn, msg.append), str(msg)
         return rtn
-    def _get_table_names(self, db_file_path):
+    def _get_table_names(self, con):
         rtn = {}
-        with _sql_con(db_file_path) as con:
-            def try_name(name):
-                try :
-                    con.execute("Select * from [%s]"%name)
-                except :
-                    return False
-                return True
-            for table in self.pan_dat_factory.all_tables:
-                rtn[table] = [t for t in all_underscore_replacements(table) if try_name(t)]
-                verify(len(rtn[table]) >= 1, "Unable to recognize table %s in SQLite file %s"%
-                                  (table, db_file_path))
-                verify(len(rtn[table]) <= 1, "Duplicate tables found for table %s in SQLite file %s"%
-                                  (table, db_file_path))
-                rtn[table] = rtn[table][0]
+        def try_name(name):
+            try :
+                con.execute("Select * from [%s]"%name)
+            except :
+                return False
+            return True
+        for table in self.pan_dat_factory.all_tables:
+            rtn[table] = [t for t in all_underscore_replacements(table) if try_name(t)]
+            verify(len(rtn[table]) >= 1, "Unable to recognize table %s" % table)
+            verify(len(rtn[table]) <= 1, "Multiple possible tables found for table %s" % table)
+            rtn[table] = rtn[table][0]
         return rtn
-    def write_file(self, pan_dat, file_path, if_exists='replace', case_space_table_names=False):
+    def write_file(self, pan_dat, db_file_path, con=None, if_exists='replace', case_space_table_names=False):
         """
         write the panDat data to an excel file
         :param pan_dat: the PanDat object to write
-        :param file_path: The file path of the excel file to create
+        :param db_file_path: The file path of the SQLite file to create.
+                             Set to falsey if using con argument.
+        :param con: sqlalchemy.engine.Engine or sqlite3.Connection.
+                    Set to falsey if using db_file_path argument
         :param if_exists: ‘fail’, ‘replace’ or ‘append’. How to behave if the table already exists
         :param case_space_table_names: boolean - make best guesses how to add spaces and upper case
                                           characters to table names
@@ -89,21 +104,24 @@ class SqlPanFactory(freezable_factory(object, "_isFrozen")) :
                  is written and tested as part of TicDatFactory, and thus this shortcoming could be
                  easily rectified if need be).
         """
-        # note - pandas has an unfortunate tendency to push types into SQLlite columns. This can result in
+        # note - pandas has an unfortunate tendency to push types into SQLite columns. This can result in
         # writing-reading round trips converting your numbers to text if they are mixed type columns.
-        # Can address this more fully if it turns into a problem.
-        verify(pd, "pandas not installed")
+        verify(bool(db_file_path) != bool(con),
+               "use either the con argument or the db_file_path argument but not both")
         msg = []
         verify(self.pan_dat_factory.good_pan_dat_object(pan_dat, msg.append),
                "pan_dat not a good object for this factory : %s"%"\n".join(msg))
-        verify(not os.path.isdir(file_path), "A directory is not a valid SQLLite file path")
+        if db_file_path:
+            verify(not os.path.isdir(db_file_path), "A directory is not a valid SQLLite file path")
         case_space_table_names = case_space_table_names and \
                                  len(set(self.pan_dat_factory.all_tables)) == \
                                  len(set(map(case_space_to_pretty, self.pan_dat_factory.all_tables)))
-        with _sql_con(file_path) as con:
+        con_maker = lambda: _sql_con(db_file_path) if db_file_path else _DummyContextManager(con)
+        with con_maker() as _:
+            con_ = con or _
             for t in self.pan_dat_factory.all_tables:
                 getattr(pan_dat, t).to_sql(name=case_space_to_pretty(t) if case_space_table_names else t,
-                                           con=con, if_exists=if_exists, index=False)
+                                           con=con_, if_exists=if_exists, index=False)
 
 class XlsPanFactory(freezable_factory(object, "_isFrozen")) :
     """
@@ -173,7 +191,6 @@ class XlsPanFactory(freezable_factory(object, "_isFrozen")) :
         :return:
         caveats: The row names (index) isn't written.
         """
-        verify(pd, "pandas not installed")
         msg = []
         verify(self.pan_dat_factory.good_pan_dat_object(pan_dat, msg.append),
                "pan_dat not a good object for this factory : %s"%"\n".join(msg))
