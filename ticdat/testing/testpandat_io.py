@@ -103,7 +103,14 @@ class TestIO(unittest.TestCase):
 
         tdf = TicDatFactory(**spacesSchema())
         pdf = PanDatFactory(**spacesSchema())
-        ticDat = tdf.TicDat(**spacesData())
+        ticDat = tdf.TicDat(**{
+        "a_table" : {1 : [1, 2, "3"],
+                     22.2 : (12, 0.12, "something"),
+                     0.23 : (11, 12, "thirt")},
+        "b_table" : {(1, 2, "foo") : 1, (1012.22, 4, "0012") : 12},
+        "c_table" : (("this", 2, 3, 4), ("that", 102.212, 3, 5.5),
+                      ("another",5, 12.5, 24) )
+        })
         panDat = pan_dat_maker(spacesSchema(), ticDat)
         ext = ".db"
         filePath = os.path.join(_scratchDir, "spaces_2%s" % ext)

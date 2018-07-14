@@ -17,6 +17,9 @@ def _sql_con(dbFile):
     con = sql.connect(dbFile)
     return con
 
+def _brackets(l) :
+    return ["[%s]"%_ for _ in l]
+
 class SqlPanFactory(freezable_factory(object, "_isFrozen")) :
     """
     Primary class for reading/writing SQLite files with panDat objects.
@@ -86,6 +89,9 @@ class SqlPanFactory(freezable_factory(object, "_isFrozen")) :
                  is written and tested as part of TicDatFactory, and thus this shortcoming could be
                  easily rectified if need be).
         """
+        # note - pandas has an unfortunate tendency to push types into SQLlite columns. This can result in
+        # writing-reading round trips converting your numbers to text if they are mixed type columns.
+        # Can address this more fully if it turns into a problem.
         verify(pd, "pandas not installed")
         msg = []
         verify(self.pan_dat_factory.good_pan_dat_object(pan_dat, msg.append),
