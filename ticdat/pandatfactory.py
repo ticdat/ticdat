@@ -376,6 +376,8 @@ class PanDatFactory(object):
                     tbl = safe_apply(DataFrame)(init_tables[t])
                     verify(isinstance(tbl, DataFrame), "Failed to provide a valid DataFrame for %s"%t)
                     setattr(self, t, tbl.copy())
+                for t in set(superself.all_tables).difference(init_tables):
+                    setattr(self, t, DataFrame({f:[] for f in utils.all_fields(superself, t)}))
                 missing_fields = {(t, f) for t in superself.all_tables for f in
                                   superself.primary_key_fields.get(t, ()) + superself.data_fields.get(t, ())
                                   if f not in getattr(self, t).columns}
@@ -383,6 +385,7 @@ class PanDatFactory(object):
                        "The following are (table, field) pairs missing from the data.\n%s"%missing_fields)
         self.PanDat = PanDat
         self.xls = pandatio.XlsPanFactory(self)
+        self.sql = pandatio.SqlPanFactory(self)
 
     def good_pan_dat_object(self, data_obj, bad_message_handler = lambda x : None):
         """

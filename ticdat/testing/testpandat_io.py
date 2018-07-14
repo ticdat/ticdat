@@ -6,7 +6,6 @@ from ticdat.testing.ticdattestutils import fail_to_debugger, flagged_as_run_alon
 from ticdat.testing.ticdattestutils import netflowSchema, copy_to_pandas_with_reset, dietSchema, spacesData
 from ticdat.testing.ticdattestutils import makeCleanDir, netflowData, dietData
 from ticdat.ticdatfactory import TicDatFactory
-from ticdat.pandatio import xlrd
 import itertools
 import shutil
 import os
@@ -42,7 +41,7 @@ class TestIO(unittest.TestCase):
         panDat = pan_dat_maker(dietSchema(), ticDat)
         filePath = os.path.join(_scratchDir, "diet.xlsx")
         pdf.xls.write_file(panDat, filePath)
-        xlsPanDat = pdf.xls.create_tic_dat(filePath)
+        xlsPanDat = pdf.xls.create_pan_dat(filePath)
         self.assertTrue(pdf._same_data(panDat, xlsPanDat))
 
         tdf = TicDatFactory(**netflowSchema())
@@ -51,13 +50,13 @@ class TestIO(unittest.TestCase):
         panDat = pan_dat_maker(netflowSchema(), ticDat)
         filePath = os.path.join(_scratchDir, "netflow.xlsx")
         pdf.xls.write_file(panDat, filePath)
-        panDat2 = pdf.xls.create_tic_dat(filePath)
+        panDat2 = pdf.xls.create_pan_dat(filePath)
         self.assertTrue(pdf._same_data(panDat, panDat2))
 
     def testXlsSpacey(self):
         if not self.can_run:
             return
-        self.assertTrue(xlrd, "need xlrd for this test")
+
         tdf = TicDatFactory(**spacesSchema())
         pdf = PanDatFactory(**spacesSchema())
         ticDat = tdf.TicDat(**spacesData())
@@ -65,7 +64,7 @@ class TestIO(unittest.TestCase):
         ext = ".xlsx"
         filePath = os.path.join(_scratchDir, "spaces_2%s" % ext)
         pdf.xls.write_file(panDat, filePath, case_space_sheet_names=True)
-        panDat2 = pdf.xls.create_tic_dat(filePath)
+        panDat2 = pdf.xls.create_pan_dat(filePath)
         self.assertTrue(pdf._same_data(panDat, panDat2))
 
         tdf = TicDatFactory(**netflowSchema())
@@ -74,8 +73,53 @@ class TestIO(unittest.TestCase):
         panDat = pan_dat_maker(netflowSchema(), ticDat)
         filePath = os.path.join(_scratchDir, "spaces_2_2%s" % ext)
         pdf.xls.write_file(panDat, filePath, case_space_sheet_names=True)
-        panDat2 = pdf.xls.create_tic_dat(filePath)
+        panDat2 = pdf.xls.create_pan_dat(filePath)
         self.assertTrue(pdf._same_data(panDat, panDat2))
+
+    def testSqlSimple(self):
+        if not self.can_run:
+            return
+        tdf = TicDatFactory(**dietSchema())
+        pdf = PanDatFactory(**dietSchema())
+        ticDat = tdf.freeze_me(tdf.TicDat(**{t:getattr(dietData(),t) for t in tdf.primary_key_fields}))
+        panDat = pan_dat_maker(dietSchema(), ticDat)
+        filePath = os.path.join(_scratchDir, "diet.db")
+        pdf.sql.write_file(panDat, filePath)
+        sqlPanDat = pdf.sql.create_pan_dat(filePath)
+        self.assertTrue(pdf._same_data(panDat, sqlPanDat))
+
+        tdf = TicDatFactory(**netflowSchema())
+        pdf = PanDatFactory(**netflowSchema())
+        ticDat = tdf.freeze_me(tdf.TicDat(**{t:getattr(netflowData(),t) for t in tdf.primary_key_fields}))
+        panDat = pan_dat_maker(netflowSchema(), ticDat)
+        filePath = os.path.join(_scratchDir, "netflow.db")
+        pdf.sql.write_file(panDat, filePath)
+        panDat2 = pdf.sql.create_pan_dat(filePath)
+        self.assertTrue(pdf._same_data(panDat, panDat2))
+
+    def testSqlSpacey(self):
+        if not self.can_run:
+            return
+
+        tdf = TicDatFactory(**spacesSchema())
+        pdf = PanDatFactory(**spacesSchema())
+        ticDat = tdf.TicDat(**spacesData())
+        panDat = pan_dat_maker(spacesSchema(), ticDat)
+        ext = ".db"
+        filePath = os.path.join(_scratchDir, "spaces_2%s" % ext)
+        pdf.sql.write_file(panDat, filePath, case_space_table_names=True)
+        panDat2 = pdf.sql.create_pan_dat(filePath)
+        self.assertTrue(pdf._same_data(panDat, panDat2))
+
+        tdf = TicDatFactory(**netflowSchema())
+        pdf = PanDatFactory(**netflowSchema())
+        ticDat = tdf.freeze_me(tdf.TicDat(**{t:getattr(netflowData(),t) for t in tdf.primary_key_fields}))
+        panDat = pan_dat_maker(netflowSchema(), ticDat)
+        filePath = os.path.join(_scratchDir, "spaces_2_2%s" % ext)
+        pdf.sql.write_file(panDat, filePath, case_space_table_names=True)
+        panDat2 = pdf.sql.create_pan_dat(filePath)
+        self.assertTrue(pdf._same_data(panDat, panDat2))
+
 
 _scratchDir = TestIO.__name__ + "_scratch"
 
