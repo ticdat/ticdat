@@ -28,9 +28,84 @@ class _DummyContextManager(object):
     def __exit__(self, *excinfo) :
         pass
 
-class SqlPanFactory(freezable_factory(object, "_isFrozen")) :
+class CsvPanFactory(freezable_factory(object, "_isFrozen")):
     """
-    Primary class for reading/writing SQLite files with panDat objects.
+    Primary class for reading/writing csv files with panDat objects.
+    """
+    def __init__(self, pan_dat_factory):
+        """
+        Don't create this object explicitly. A CsvPanFactory will
+        automatically be associated with the csv attribute of the parent
+        PanDatFactory.
+        :param pan_dat_factory:
+        :return:
+        """
+        self.pan_dat_factory = pan_dat_factory
+        self._isFrozen = True
+    def create_pan_dat(self, dir_path, fill_missing_fields=False, **kwargs):
+        """
+        Create a PanDat object from a SQLite database file
+        :param db_file_path: the directory containing the .csv files.
+        :param fill_missing_fields: boolean. If truthy, missing fields will be filled in
+                                    with their default value. Otherwise, missing fields
+                                    throw an Exception.
+        :param kwargs: additional named arguments to pass to pandas.read_csv
+        :return: a PanDat object populated by the matching tables.
+        caveats: Missing tables always throw an Exception.
+                 Table names are matched with case-space insensitivity, but spaces
+                 are respected for field names.
+                 (ticdat supports whitespace in field names but not table names).
+        """
+        verify(os.path.isdir(dir_path), "%s not a directory path"%dir_path)
+        rtn = {t: pd.read_csv(f, **kwargs) for t,f in self._get_table_names(dir_path).items()}
+        missing_fields = {(t, f) for t in rtn for f in all_fields(self.pan_dat_factory, t)
+                          if f not in rtn[t].columns}
+        if fill_missing_fields:
+            for t,f in missing_fields:
+                rtn[t][f] = self.pan_dat_factory.default_values[t][f]
+        verify(fill_missing_fields or not missing_fields,
+               "The following (table, file_name, field) triplets are missing fields.\n%s" %
+               [(t, os.path.basename(rtn[t]), f) for t,f in missing_fields])
+        rtn = self.pan_dat_factory.PanDat(**rtn)
+        msg = []
+        assert self.pan_dat_factory.good_pan_dat_object(rtn, msg.append), str(msg)
+        return rtn
+    def _get_table_names(self, dir_path):
+        rtn = {}
+        for table in self.pan_dat_factory.all_tables:
+            rtn[table] = [path for f in os.listdir(dir_path) for path in [os.path.join(dir_path, f)]
+                          if os.path.isfile(path) and
+                          f.lower().replace(" ", "_") == "%s.csv"%table.lower()]
+            verify(len(rtn[table]) >= 1, "Unable to recognize table %s" % table)
+            verify(len(rtn[table]) <= 1, "Multiple possible csv files found for table %s" % table)
+            rtn[table] = rtn[table][0]
+        return rtn
+    def write_directory(self, pan_dat, dir_path, case_space_table_names=False, **kwargs):
+        """
+        write the panDat data to a collection of csv files
+        :param pan_dat: the PanDat object to write
+        :param dir_path: the directory in which to write the csv files
+                             Set to falsey if using con argument.
+        :param case_space_table_names: boolean - make best guesses how to add spaces and upper case
+                                       characters to table names
+        :param kwargs: additional named arguments to pass to pandas.to_csv
+        :return:
+        caveats: The row names (index) isn't written. The default pandas schema generation is used,
+                 and thus foreign key relationships aren't written. (The code to generate foreign keys
+                 is written and tested as part of TicDatFactory, and thus this shortcoming could be
+                 easily rectified if need be).
+        """
+        # note - pandas has an unfortunate tendency to push types into SQLite columns. This can result in
+        # writing-reading round trips converting your numbers to text if they are mixed type columns.
+        verify(not os.path.isfile(dir_path), "A file is not a valid directory path")
+        msg = []
+        verify(self.pan_dat_factory.good_pan_dat_object(pan_dat, msg.append),
+               "pan_dat not a good object for this factory : %s"%"\n".join(msg))
+        verify(False, "fill me in!!")
+
+class SqlPanFactory(freezable_factory(object, "_isFrozen")):
+    """
+    Primary class for reading/writing SQLite files (and sqlalchemy.engine.Engine objects) with panDat objects.
     """
     def __init__(self, pan_dat_factory):
         """
@@ -129,7 +204,7 @@ class SqlPanFactory(freezable_factory(object, "_isFrozen")) :
                 getattr(pan_dat, t).to_sql(name=case_space_to_pretty(t) if case_space_table_names else t,
                                            con=con_, if_exists=if_exists, index=False)
 
-class XlsPanFactory(freezable_factory(object, "_isFrozen")) :
+class XlsPanFactory(freezable_factory(object, "_isFrozen")):
     """
     Primary class for reading/writing Excel files with panDat objects.
     """
@@ -191,14 +266,12 @@ class XlsPanFactory(freezable_factory(object, "_isFrozen")) :
                ",".join(duplicated_sheets))
         sheets = FrozenDict({k:v[0] for k,v in sheets.items()})
         return sheets
-    def write_file(self, pan_dat, file_path, allow_overwrite = False, case_space_sheet_names = False):
+    def write_file(self, pan_dat, file_path, case_space_sheet_names=False):
         """
         write the panDat data to an excel file
         :param pan_dat: the PanDat object to write
         :param file_path: The file path of the excel file to create
-        :param allow_overwrite: boolean - are we allowed to overwrite an
-                                existing file?
-              case_space_sheet_names: boolean - make best guesses how to add spaces and upper case
+        :param case_space_sheet_names: boolean - make best guesses how to add spaces and upper case
                                       characters to sheet names
         :return:
         caveats: The row names (index) isn't written.
@@ -207,8 +280,6 @@ class XlsPanFactory(freezable_factory(object, "_isFrozen")) :
         verify(self.pan_dat_factory.good_pan_dat_object(pan_dat, msg.append),
                "pan_dat not a good object for this factory : %s"%"\n".join(msg))
         verify(not os.path.isdir(file_path), "A directory is not a valid xls file path")
-        verify(allow_overwrite or not os.path.exists(file_path),
-               "The %s path exists and overwrite is not allowed"%file_path)
         case_space_sheet_names = case_space_sheet_names and \
                                  len(set(self.pan_dat_factory.all_tables)) == \
                                  len(set(map(case_space_to_pretty, self.pan_dat_factory.all_tables)))
