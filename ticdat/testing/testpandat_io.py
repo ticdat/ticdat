@@ -2,7 +2,7 @@ import unittest
 from ticdat.pandatfactory import PanDatFactory
 from ticdat.utils import DataFrame, numericish, ForeignKey, ForeignKeyMapping
 import ticdat.utils as utils
-from ticdat.testing.ticdattestutils import fail_to_debugger, flagged_as_run_alone, spacesSchema
+from ticdat.testing.ticdattestutils import fail_to_debugger, flagged_as_run_alone, spacesSchema, firesException
 from ticdat.testing.ticdattestutils import netflowSchema, copy_to_pandas_with_reset, dietSchema, spacesData
 from ticdat.testing.ticdattestutils import makeCleanDir, netflowData, dietData
 from ticdat.ticdatfactory import TicDatFactory
@@ -33,6 +33,11 @@ class TestIO(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         shutil.rmtree(_scratchDir)
+    def firesException(self, f):
+        e = firesException(f)
+        if e :
+            self.assertTrue("TicDatError" in e.__class__.__name__)
+            return str(e)
     def testXlsSimple(self):
         if not self.can_run:
             return
@@ -76,6 +81,47 @@ class TestIO(unittest.TestCase):
         pdf.xls.write_file(panDat, filePath, case_space_sheet_names=True)
         panDat2 = pdf.xls.create_pan_dat(filePath)
         self.assertTrue(pdf._same_data(panDat, panDat2))
+
+    def testDefaultAdd(self):
+        if not self.can_run:
+            return
+        tdf = TicDatFactory(**dietSchema())
+        pdf = PanDatFactory(**dietSchema())
+        ticDat = tdf.freeze_me(tdf.TicDat(**{t:getattr(dietData(),t) for t in tdf.primary_key_fields}))
+        panDat = pan_dat_maker(dietSchema(), ticDat)
+        xlsFilePath = os.path.join(_scratchDir, "diet_add.xlsx")
+        pdf.xls.write_file(panDat, xlsFilePath)
+        sqlFilePath = os.path.join(_scratchDir, "diet_add.sql")
+        pdf.sql.write_file(panDat, sqlFilePath)
+
+
+        pdf2 = PanDatFactory(**{k:[p,d] if k!="foods" else [p, list(d)+["extra"]] for k,(p,d) in dietSchema().items()})
+        ex = self.firesException(lambda : pdf2.xls.create_pan_dat(xlsFilePath))
+        self.assertTrue("missing" in ex and "extra" in ex)
+        ex = self.firesException(lambda : pdf2.sql.create_pan_dat(sqlFilePath))
+        self.assertTrue("missing" in ex and "extra" in ex)
+
+        panDat2 = pdf2.sql.create_pan_dat(sqlFilePath, fill_missing_fields=True)
+        self.assertTrue(set(panDat2.foods["extra"]) == {0})
+        panDat2.foods.drop("extra", axis=1, inplace=True)
+        self.assertTrue(pdf._same_data(panDat, panDat2))
+
+        panDat2 = pdf2.xls.create_pan_dat(xlsFilePath, fill_missing_fields=True)
+        self.assertTrue(set(panDat2.foods["extra"]) == {0})
+        panDat2.foods.drop("extra", axis=1, inplace=True)
+        self.assertTrue(pdf._same_data(panDat, panDat2))
+
+        pdf3 = PanDatFactory(**pdf2.schema())
+        pdf3.set_default_value("foods", "extra", 13)
+        panDat3 = pdf3.sql.create_pan_dat(sqlFilePath, fill_missing_fields=True)
+        self.assertTrue(set(panDat3.foods["extra"]) == {13})
+        panDat3.foods.drop("extra", axis=1, inplace=True)
+        self.assertTrue(pdf._same_data(panDat, panDat3))
+
+        panDat3 = pdf3.xls.create_pan_dat(xlsFilePath, fill_missing_fields=True)
+        self.assertTrue(set(panDat3.foods["extra"]) == {13})
+        panDat3.foods.drop("extra", axis=1, inplace=True)
+        self.assertTrue(pdf._same_data(panDat, panDat3))
 
     def testSqlSimple(self):
         if not self.can_run:

@@ -42,14 +42,17 @@ class SqlPanFactory(freezable_factory(object, "_isFrozen")) :
         """
         self.pan_dat_factory = pan_dat_factory
         self._isFrozen = True
-    def create_pan_dat(self, db_file_path, con=None):
+    def create_pan_dat(self, db_file_path, con=None, fill_missing_fields=False):
         """
         Create a PanDat object from a SQLite database file
         :param db_file_path: A SQLite DB File. Set to falsey if using con argument
         :param con: sqlalchemy.engine.Engine or sqlite3.Connection.
                     Set to falsey if using db_file_path argument.
+        :param fill_missing_fields: boolean. If truthy, missing fields will be filled in
+                                    with their default value. Otherwise, missing fields
+                                    throw an Exception.
         :return: a PanDat object populated by the matching tables.
-        caveats: Missing tables and missing fields throw an Exception.
+        caveats: Missing tables always throw an Exception.
                  Table names are matched with case-space insensitivity, but spaces
                  are respected for field names.
                  (ticdat supports whitespace in field names but not table names).
@@ -67,8 +70,11 @@ class SqlPanFactory(freezable_factory(object, "_isFrozen")) :
                 rtn[t] = pd.read_sql(sql="Select * from [%s]"%s, con=con_)
         missing_fields = {(t, f) for t in rtn for f in all_fields(self.pan_dat_factory, t)
                           if f not in rtn[t].columns}
-        verify(not missing_fields, "The following are (table, field) pairs missing from the %s file.\n%s"%
-               (db_file_path, missing_fields))
+        if fill_missing_fields:
+            for t,f in missing_fields:
+                rtn[t][f] = self.pan_dat_factory.default_values[t][f]
+        verify(fill_missing_fields or not missing_fields,
+               "The following are (table, field) pairs missing from the %s file.\n%s" % (db_file_path, missing_fields))
         rtn = self.pan_dat_factory.PanDat(**rtn)
         msg = []
         assert self.pan_dat_factory.good_pan_dat_object(rtn, msg.append), str(msg)
@@ -138,14 +144,17 @@ class XlsPanFactory(freezable_factory(object, "_isFrozen")) :
         self.pan_dat_factory = pan_dat_factory
         self._isFrozen = True
 
-    def create_pan_dat(self, xls_file_path):
+    def create_pan_dat(self, xls_file_path, fill_missing_fields=False):
         """
         Create a PanDat object from an Excel file
         :param xls_file_path: An Excel file containing sheets whose names match
                               the table names in the schema.
+        :param fill_missing_fields: boolean. If truthy, missing fields will be filled in
+                                    with their default value. Otherwise, missing fields
+                                    throw an Exception.
         :return: a PanDat object populated by the matching sheets.
         caveats: Missing sheets resolve to an empty table, but missing fields
-                 on matching sheets throw an Exception.
+                 on matching sheets throw an Exception (unless fill_missing_fields is falsey).
                  Table names are matched to sheets with with case-space insensitivity, but spaces and
                  case are respected for field names.
                  (ticdat supports whitespace in field names but not table names).
@@ -159,8 +168,11 @@ class XlsPanFactory(freezable_factory(object, "_isFrozen")) :
                    (xls_file_path,"\n".join(missing_tables)))
         missing_fields = {(t, f) for t in rtn for f in all_fields(self.pan_dat_factory, t)
                           if f not in rtn[t].columns}
-        verify(not missing_fields, "The following are (table, field) pairs missing from the %s file.\n%s"%
-               (xls_file_path, missing_fields))
+        if fill_missing_fields:
+            for t,f in missing_fields:
+                rtn[t][f] = self.pan_dat_factory.default_values[t][f]
+        verify(fill_missing_fields or not missing_fields,
+               "The following are (table, field) pairs missing from the %s file.\n%s" % (xls_file_path, missing_fields))
         rtn = self.pan_dat_factory.PanDat(**rtn)
         msg = []
         assert self.pan_dat_factory.good_pan_dat_object(rtn, msg.append), str(msg)
