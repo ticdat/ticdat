@@ -35,7 +35,7 @@ class TestIO(unittest.TestCase):
         shutil.rmtree(_scratchDir)
     def firesException(self, f):
         e = firesException(f)
-        if e :
+        if e:
             self.assertTrue("TicDatError" in e.__class__.__name__)
             return str(e)
     def testXlsSimple(self):
@@ -93,12 +93,15 @@ class TestIO(unittest.TestCase):
         pdf.xls.write_file(panDat, xlsFilePath)
         sqlFilePath = os.path.join(_scratchDir, "diet_add.sql")
         pdf.sql.write_file(panDat, sqlFilePath)
-
+        csvDirPath = os.path.join(_scratchDir, "diet_add_csv")
+        pdf.csv.write_directory(panDat, csvDirPath, case_space_table_names=True)
 
         pdf2 = PanDatFactory(**{k:[p,d] if k!="foods" else [p, list(d)+["extra"]] for k,(p,d) in dietSchema().items()})
         ex = self.firesException(lambda : pdf2.xls.create_pan_dat(xlsFilePath))
         self.assertTrue("missing" in ex and "extra" in ex)
         ex = self.firesException(lambda : pdf2.sql.create_pan_dat(sqlFilePath))
+        self.assertTrue("missing" in ex and "extra" in ex)
+        ex = self.firesException(lambda : pdf2.csv.create_pan_dat(csvDirPath))
         self.assertTrue("missing" in ex and "extra" in ex)
 
         panDat2 = pdf2.sql.create_pan_dat(sqlFilePath, fill_missing_fields=True)
@@ -111,6 +114,11 @@ class TestIO(unittest.TestCase):
         panDat2.foods.drop("extra", axis=1, inplace=True)
         self.assertTrue(pdf._same_data(panDat, panDat2))
 
+        panDat2 = pdf2.csv.create_pan_dat(csvDirPath, fill_missing_fields=True)
+        self.assertTrue(set(panDat2.foods["extra"]) == {0})
+        panDat2.foods.drop("extra", axis=1, inplace=True)
+        self.assertTrue(pdf._same_data(panDat, panDat2))
+
         pdf3 = PanDatFactory(**pdf2.schema())
         pdf3.set_default_value("foods", "extra", 13)
         panDat3 = pdf3.sql.create_pan_dat(sqlFilePath, fill_missing_fields=True)
@@ -119,6 +127,11 @@ class TestIO(unittest.TestCase):
         self.assertTrue(pdf._same_data(panDat, panDat3))
 
         panDat3 = pdf3.xls.create_pan_dat(xlsFilePath, fill_missing_fields=True)
+        self.assertTrue(set(panDat3.foods["extra"]) == {13})
+        panDat3.foods.drop("extra", axis=1, inplace=True)
+        self.assertTrue(pdf._same_data(panDat, panDat3))
+
+        panDat3 = pdf3.csv.create_pan_dat(csvDirPath, fill_missing_fields=True)
         self.assertTrue(set(panDat3.foods["extra"]) == {13})
         panDat3.foods.drop("extra", axis=1, inplace=True)
         self.assertTrue(pdf._same_data(panDat, panDat3))
@@ -210,7 +223,67 @@ class TestIO(unittest.TestCase):
             panDat2 = pdf.sql.create_pan_dat(None, con)
         self.assertTrue(pdf._same_data(panDat, panDat2))
 
+    def testCsvSimple(self):
+        if not self.can_run:
+            return
+        tdf = TicDatFactory(**dietSchema())
+        pdf = PanDatFactory(**dietSchema())
+        ticDat = tdf.freeze_me(tdf.TicDat(**{t:getattr(dietData(),t) for t in tdf.primary_key_fields}))
+        panDat = pan_dat_maker(dietSchema(), ticDat)
+        dirPath = os.path.join(_scratchDir, "diet_csv")
+        pdf.csv.write_directory(panDat, dirPath)
+        panDat2 = pdf.csv.create_pan_dat(dirPath)
+        self.assertTrue(pdf._same_data(panDat, panDat2))
 
+        tdf = TicDatFactory(**netflowSchema())
+        pdf = PanDatFactory(**netflowSchema())
+        ticDat = tdf.freeze_me(tdf.TicDat(**{t:getattr(netflowData(),t) for t in tdf.primary_key_fields}))
+        panDat = pan_dat_maker(netflowSchema(), ticDat)
+        dirPath = os.path.join(_scratchDir, "netflow_csv")
+        pdf.csv.write_directory(panDat, dirPath)
+        panDat2 = pdf.csv.create_pan_dat(dirPath)
+        self.assertTrue(pdf._same_data(panDat, panDat2))
+
+        tdf = TicDatFactory(**dietSchema())
+        pdf = PanDatFactory(**dietSchema())
+        ticDat = tdf.freeze_me(tdf.TicDat(**{t:getattr(dietData(),t) for t in tdf.primary_key_fields}))
+        panDat = pan_dat_maker(dietSchema(), ticDat)
+        dirPath = os.path.join(_scratchDir, "diet_csv")
+        pdf.csv.write_directory(panDat, dirPath, decimal=",")
+        panDat2 = pdf.csv.create_pan_dat(dirPath)
+        self.assertFalse(pdf._same_data(panDat, panDat2))
+        panDat2 = pdf.csv.create_pan_dat(dirPath, decimal=",")
+        self.assertTrue(pdf._same_data(panDat, panDat2))
+
+    def testCsvSpacey(self):
+        if not self.can_run:
+            return
+        self.assertTrue(pandatio.sql, "this unit test requires SQLite installed")
+
+        tdf = TicDatFactory(**spacesSchema())
+        pdf = PanDatFactory(**spacesSchema())
+        ticDat = tdf.TicDat(**{
+        "a_table" : {1 : [1, 2, "3"],
+                     22.2 : (12, 0.12, "something"),
+                     0.23 : (11, 12, "thirt")},
+        "b_table" : {(1, 2, "foo") : 1, (1012.22, 4, "0012") : 12},
+        "c_table" : (("this", 2, 3, 4), ("that", 102.212, 3, 5.5),
+                      ("another",5, 12.5, 24) )
+        })
+        panDat = pan_dat_maker(spacesSchema(), ticDat)
+        dirPath = os.path.join(_scratchDir, "spaces_2_csv")
+        pdf.csv.write_directory(panDat, dirPath, case_space_table_names=True)
+        panDat2 = pdf.csv.create_pan_dat(dirPath)
+        self.assertTrue(pdf._same_data(panDat, panDat2))
+
+        tdf = TicDatFactory(**netflowSchema())
+        pdf = PanDatFactory(**netflowSchema())
+        ticDat = tdf.freeze_me(tdf.TicDat(**{t:getattr(netflowData(),t) for t in tdf.primary_key_fields}))
+        panDat = pan_dat_maker(netflowSchema(), ticDat)
+        dirPath = os.path.join(_scratchDir, "spaces_2_2_csv")
+        pdf.csv.write_directory(panDat, dirPath, case_space_table_names=True, sep=":")
+        panDat2 = pdf.csv.create_pan_dat(dirPath, sep=":")
+        self.assertTrue(pdf._same_data(panDat, panDat2))
 
 _scratchDir = TestIO.__name__ + "_scratch"
 

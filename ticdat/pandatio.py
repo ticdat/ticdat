@@ -57,7 +57,8 @@ class CsvPanFactory(freezable_factory(object, "_isFrozen")):
                  (ticdat supports whitespace in field names but not table names).
         """
         verify(os.path.isdir(dir_path), "%s not a directory path"%dir_path)
-        rtn = {t: pd.read_csv(f, **kwargs) for t,f in self._get_table_names(dir_path).items()}
+        tbl_names = self._get_table_names(dir_path)
+        rtn = {t: pd.read_csv(f, **kwargs) for t,f in tbl_names.items()}
         missing_fields = {(t, f) for t in rtn for f in all_fields(self.pan_dat_factory, t)
                           if f not in rtn[t].columns}
         if fill_missing_fields:
@@ -65,7 +66,7 @@ class CsvPanFactory(freezable_factory(object, "_isFrozen")):
                 rtn[t][f] = self.pan_dat_factory.default_values[t][f]
         verify(fill_missing_fields or not missing_fields,
                "The following (table, file_name, field) triplets are missing fields.\n%s" %
-               [(t, os.path.basename(rtn[t]), f) for t,f in missing_fields])
+               [(t, os.path.basename(tbl_names[t]), f) for t,f in missing_fields])
         rtn = self.pan_dat_factory.PanDat(**rtn)
         msg = []
         assert self.pan_dat_factory.good_pan_dat_object(rtn, msg.append), str(msg)
@@ -90,10 +91,7 @@ class CsvPanFactory(freezable_factory(object, "_isFrozen")):
                                        characters to table names
         :param kwargs: additional named arguments to pass to pandas.to_csv
         :return:
-        caveats: The row names (index) isn't written. The default pandas schema generation is used,
-                 and thus foreign key relationships aren't written. (The code to generate foreign keys
-                 is written and tested as part of TicDatFactory, and thus this shortcoming could be
-                 easily rectified if need be).
+        caveats: The row names (index) isn't written (unless kwargs indicates it should be).
         """
         # note - pandas has an unfortunate tendency to push types into SQLite columns. This can result in
         # writing-reading round trips converting your numbers to text if they are mixed type columns.
@@ -101,7 +99,15 @@ class CsvPanFactory(freezable_factory(object, "_isFrozen")):
         msg = []
         verify(self.pan_dat_factory.good_pan_dat_object(pan_dat, msg.append),
                "pan_dat not a good object for this factory : %s"%"\n".join(msg))
-        verify(False, "fill me in!!")
+        kwargs["index"] = kwargs.get("index", False)
+        case_space_table_names = case_space_table_names and \
+                                 len(set(self.pan_dat_factory.all_tables)) == \
+                                 len(set(map(case_space_to_pretty, self.pan_dat_factory.all_tables)))
+        if not os.path.isdir(dir_path) :
+            os.mkdir(dir_path)
+        for t in self.pan_dat_factory.all_tables :
+            f = os.path.join(dir_path, (case_space_to_pretty(t) if case_space_table_names else t) + ".csv")
+            getattr(pan_dat, t).to_csv(f, **kwargs)
 
 class SqlPanFactory(freezable_factory(object, "_isFrozen")):
     """

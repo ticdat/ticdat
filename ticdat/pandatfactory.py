@@ -386,6 +386,7 @@ class PanDatFactory(object):
         self.PanDat = PanDat
         self.xls = pandatio.XlsPanFactory(self)
         self.sql = pandatio.SqlPanFactory(self)
+        self.csv = pandatio.CsvPanFactory(self)
 
     def good_pan_dat_object(self, data_obj, bad_message_handler = lambda x : None):
         """
