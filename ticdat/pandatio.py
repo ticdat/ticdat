@@ -3,10 +3,11 @@ try:
     import sqlite3 as sql
 except:
     sql = None
+import json
 
 import os
 from ticdat.utils import freezable_factory, verify, case_space_to_pretty, pd, TicDatError, FrozenDict, all_fields
-from ticdat.utils import all_underscore_replacements
+from ticdat.utils import all_underscore_replacements, stringish, dictish
 from itertools import product
 from collections import defaultdict
 
@@ -27,6 +28,99 @@ class _DummyContextManager(object):
         return self
     def __exit__(self, *excinfo) :
         pass
+
+class JsonPanFactory(freezable_factory(object, "_isFrozen")):
+    """
+    Primary class for reading/writing json data with panDat objects.
+    """
+    def __init__(self, pan_dat_factory):
+        """
+        Don't create this object explicitly. A JsonPanFactory will
+        automatically be associated with the json attribute of the parent
+        PanDatFactory.
+        :param pan_dat_factory:
+        :return:
+        """
+        self.pan_dat_factory = pan_dat_factory
+        self._isFrozen = True
+    def create_pan_dat(self, path_or_buf, fill_missing_fields=False, orient='split', **kwargs):
+        """
+        Create a PanDat object from a SQLite database file
+        :param path_or_buf:  a valid JSON string or file-like
+        :param fill_missing_fields: boolean. If truthy, missing fields will be filled in
+                                    with their default value. Otherwise, missing fields
+                                    throw an Exception.
+        :param orient: Indication of expected JSON string format. See pandas.read_json for more details.
+        :param kwargs: additional named arguments to pass to pandas.read_json
+        :return: a PanDat object populated by the matching tables.
+        caveats: Missing tables always throw an Exception.
+                 Table names are matched with case-space insensitivity, but spaces
+                 are respected for field names.
+                 (ticdat supports whitespace in field names but not table names).
+                 Default orient
+        """
+        if os.path.exists(path_or_buf):
+            verify(os.path.isfile(path_or_buf), "%s appears to be a directory and not a file." % path_or_buf)
+            with open(path_or_buf, "r") as f:
+                loaded_dict = json.load(f)
+        else:
+            verify(stringish(path_or_buf), "%s isn't a string" % path_or_buf)
+            loaded_dict = json.loads(path_or_buf)
+        verify(dictish(loaded_dict), "path_or_buf to json.load as a dict")
+        verify(all(map(dictish, loaded_dict.values())),
+               "the json.load result doesn't resolve to a dictionary whose values are themselves dictionaries")
+
+        tbl_names = self._get_table_names(loaded_dict)
+        verify("orient" not in kwargs, "orient should be passed as a non-kwargs argument")
+        rtn = {t: pd.read_json(json.dumps(f), orient=orient, **kwargs) for t,f in tbl_names.items()}
+        missing_fields = {(t, f) for t in rtn for f in all_fields(self.pan_dat_factory, t)
+                          if f not in rtn[t].columns}
+        if fill_missing_fields:
+            for t,f in missing_fields:
+                rtn[t][f] = self.pan_dat_factory.default_values[t][f]
+        verify(fill_missing_fields or not missing_fields,
+               "The following (table, field) pairs are missing fields.\n%s" % [(t, f) for t,f in missing_fields])
+        rtn = self.pan_dat_factory.PanDat(**rtn)
+        msg = []
+        assert self.pan_dat_factory.good_pan_dat_object(rtn, msg.append), str(msg)
+        return rtn
+    def _get_table_names(self, loaded_dict):
+        rtn = {}
+        for table in self.pan_dat_factory.all_tables:
+            rtn[table] = [c for c in loaded_dict if c.lower().replace(" ", "_") == table.lower()]
+            verify(len(rtn[table]) >= 1, "Unable to recognize table %s" % table)
+            verify(len(rtn[table]) <= 1, "Multiple dictionary key choices found for table %s" % table)
+            rtn[table] = rtn[table][0]
+        return rtn
+    def write_file(self, pan_dat, json_file_path, case_space_table_names=False, orient='split', **kwargs):
+        """
+        write the panDat data to a collection of csv files
+        :param pan_dat: the PanDat object to write
+        :param json_file_path: the json file into which the data is to be written. If falsey, will return a
+                               JSON  string
+        :param case_space_table_names: boolean - make best guesses how to add spaces and upper case
+                                       characters to table names
+        :param orient: Indication of expected JSON string format. See pandas.to_json for more details.
+        :param kwargs: additional named arguments to pass to pandas.to_json
+        :return:
+        caveats: The row names (index) isn't written (unless kwargs indicates it should be).
+        """
+        msg = []
+        verify(self.pan_dat_factory.good_pan_dat_object(pan_dat, msg.append),
+               "pan_dat not a good object for this factory : %s"%"\n".join(msg))
+        verify("orient" not in kwargs, "orient should be passed as a non-kwargs argument")
+        kwargs["index"] = kwargs.get("index", False)
+        case_space_table_names = case_space_table_names and \
+                                 len(set(self.pan_dat_factory.all_tables)) == \
+                                 len(set(map(case_space_to_pretty, self.pan_dat_factory.all_tables)))
+        rtn = {case_space_to_pretty(t) if case_space_table_names else t:
+               json.loads(getattr(pan_dat, t).to_json(path_or_buf=None, orient=orient, **kwargs))
+               for t in self.pan_dat_factory.all_tables}
+        if json_file_path:
+            with open(json_file_path, "w") as f:
+                json.dump(rtn, f)
+        else:
+            return json.dumps(rtn)
 
 class CsvPanFactory(freezable_factory(object, "_isFrozen")):
     """
@@ -93,8 +187,6 @@ class CsvPanFactory(freezable_factory(object, "_isFrozen")):
         :return:
         caveats: The row names (index) isn't written (unless kwargs indicates it should be).
         """
-        # note - pandas has an unfortunate tendency to push types into SQLite columns. This can result in
-        # writing-reading round trips converting your numbers to text if they are mixed type columns.
         verify(not os.path.isfile(dir_path), "A file is not a valid directory path")
         msg = []
         verify(self.pan_dat_factory.good_pan_dat_object(pan_dat, msg.append),
