@@ -305,6 +305,8 @@ class TestIO(unittest.TestCase):
         pdf.json.write_file(panDat, filePath)
         panDat2 = pdf.json.create_pan_dat(filePath)
         self.assertTrue(pdf._same_data(panDat, panDat2, epsilon=1e-5))
+        panDat3 = pdf.json.create_pan_dat(pdf.json.write_file(panDat, ""))
+        self.assertTrue(pdf._same_data(panDat, panDat3))
 
         tdf = TicDatFactory(**dietSchema())
         pdf = PanDatFactory(**dietSchema())
@@ -316,6 +318,8 @@ class TestIO(unittest.TestCase):
         self.assertTrue(firesException(lambda : pdf.json.create_pan_dat(filePath)))
         panDat2 = pdf.json.create_pan_dat(filePath, orient='columns')
         self.assertTrue(pdf._same_data(panDat, panDat2, epsilon=1e-5))
+        panDat3 = pdf.json.create_pan_dat(pdf.json.write_file(panDat, ""))
+        self.assertTrue(pdf._same_data(panDat, panDat3, epsilon=1e-5))
 
     def testJsonSpacey(self):
         if not self.can_run:
@@ -323,20 +327,16 @@ class TestIO(unittest.TestCase):
 
         tdf = TicDatFactory(**spacesSchema())
         pdf = PanDatFactory(**spacesSchema())
-        ticDat = tdf.TicDat(**{
-        "a_table" : {1 : [1, 2, "3"],
-                     22.2 : (12, 0.12, "something"),
-                     0.23 : (11, 12, "thirt")},
-        "b_table" : {(1, 2, "foo") : 1, (1012.22, 4, "0012") : 12},
-        "c_table" : (("this", 2, 3, 4), ("that", 102.212, 3, 5.5),
-                      ("another",5, 12.5, 24) )
-        })
+        ticDat = tdf.TicDat(**spacesData())
         panDat = pan_dat_maker(spacesSchema(), ticDat)
         ext = ".json"
         filePath = os.path.join(_scratchDir, "spaces_2%s" % ext)
         pdf.json.write_file(panDat, filePath, case_space_table_names=True)
         panDat2 = pdf.json.create_pan_dat(filePath)
         self.assertTrue(pdf._same_data(panDat, panDat2))
+        panDat3 = pdf.json.create_pan_dat(pdf.json.write_file(panDat, "", case_space_table_names=True))
+        self.assertTrue(pdf._same_data(panDat, panDat3))
+
 
         tdf = TicDatFactory(**netflowSchema())
         pdf = PanDatFactory(**netflowSchema())
@@ -346,6 +346,8 @@ class TestIO(unittest.TestCase):
         pdf.json.write_file(panDat, filePath, case_space_table_names=True)
         panDat2 = pdf.json.create_pan_dat(filePath)
         self.assertTrue(pdf._same_data(panDat, panDat2))
+        panDat3 = pdf.json.create_pan_dat(pdf.json.write_file(panDat, "", case_space_table_names=True))
+        self.assertTrue(pdf._same_data(panDat, panDat3))
 
 _scratchDir = TestIO.__name__ + "_scratch"
 
