@@ -120,6 +120,8 @@ class JsonPanFactory(freezable_factory(object, "_isFrozen")):
 
         if self._modern_pandas:
             kwargs["index"] = kwargs.get("index", False)
+        else:
+            kwargs.pop("index", None)
         case_space_table_names = case_space_table_names and \
                                  len(set(self.pan_dat_factory.all_tables)) == \
                                  len(set(map(case_space_to_pretty, self.pan_dat_factory.all_tables)))
