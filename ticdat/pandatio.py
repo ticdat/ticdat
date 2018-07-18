@@ -10,6 +10,7 @@ from ticdat.utils import freezable_factory, verify, case_space_to_pretty, pd, Ti
 from ticdat.utils import all_underscore_replacements, stringish, dictish
 from itertools import product
 from collections import defaultdict
+import inspect
 
 _longest_sheet = 30 # seems to be an Excel limit with pandas
 
@@ -42,6 +43,9 @@ class JsonPanFactory(freezable_factory(object, "_isFrozen")):
         :return:
         """
         self.pan_dat_factory = pan_dat_factory
+        to_json_args = inspect.getargspec(pd.DataFrame.to_json).args
+        assert "orient" in to_json_args
+        self._modern_pandas = "index" in to_json_args
         self._isFrozen = True
     def create_pan_dat(self, path_or_buf, fill_missing_fields=False, orient='split', **kwargs):
         """
@@ -57,7 +61,7 @@ class JsonPanFactory(freezable_factory(object, "_isFrozen")):
                  Table names are matched with case-space insensitivity, but spaces
                  are respected for field names.
                  (ticdat supports whitespace in field names but not table names).
-                 Default orient
+                 +- infinity will be converted to "inf", "-inf" strings
         """
         if os.path.exists(path_or_buf):
             verify(os.path.isfile(path_or_buf), "%s appears to be a directory and not a file." % path_or_buf)
@@ -72,7 +76,7 @@ class JsonPanFactory(freezable_factory(object, "_isFrozen")):
 
         tbl_names = self._get_table_names(loaded_dict)
         verify("orient" not in kwargs, "orient should be passed as a non-kwargs argument")
-        rtn = {t: pd.read_json(json.dumps(f), orient=orient, **kwargs) for t,f in tbl_names.items()}
+        rtn = {t: pd.read_json(json.dumps(loaded_dict[f]), orient=orient, **kwargs) for t,f in tbl_names.items()}
         missing_fields = {(t, f) for t in rtn for f in all_fields(self.pan_dat_factory, t)
                           if f not in rtn[t].columns}
         if fill_missing_fields:
@@ -80,6 +84,9 @@ class JsonPanFactory(freezable_factory(object, "_isFrozen")):
                 rtn[t][f] = self.pan_dat_factory.default_values[t][f]
         verify(fill_missing_fields or not missing_fields,
                "The following (table, field) pairs are missing fields.\n%s" % [(t, f) for t,f in missing_fields])
+        for v in rtn.values():
+            v.replace("inf", float("inf"), inplace=True)
+            v.replace("-inf", -float("inf"), inplace=True)
         rtn = self.pan_dat_factory.PanDat(**rtn)
         msg = []
         assert self.pan_dat_factory.good_pan_dat_object(rtn, msg.append), str(msg)
@@ -104,18 +111,23 @@ class JsonPanFactory(freezable_factory(object, "_isFrozen")):
         :param kwargs: additional named arguments to pass to pandas.to_json
         :return:
         caveats: The row names (index) isn't written (unless kwargs indicates it should be).
+                 +-float("inf") will be converted to "inf", "-inf"
         """
         msg = []
         verify(self.pan_dat_factory.good_pan_dat_object(pan_dat, msg.append),
                "pan_dat not a good object for this factory : %s"%"\n".join(msg))
         verify("orient" not in kwargs, "orient should be passed as a non-kwargs argument")
-        kwargs["index"] = kwargs.get("index", False)
+
+        if self._modern_pandas:
+            kwargs["index"] = kwargs.get("index", False)
         case_space_table_names = case_space_table_names and \
                                  len(set(self.pan_dat_factory.all_tables)) == \
                                  len(set(map(case_space_to_pretty, self.pan_dat_factory.all_tables)))
-        rtn = {case_space_to_pretty(t) if case_space_table_names else t:
-               json.loads(getattr(pan_dat, t).to_json(path_or_buf=None, orient=orient, **kwargs))
-               for t in self.pan_dat_factory.all_tables}
+        rtn = {}
+        for t in self.pan_dat_factory.all_tables:
+            df = getattr(pan_dat, t).replace(float("inf"), "inf").replace(-float("inf"), "-inf")
+            k = case_space_to_pretty(t) if case_space_table_names else t
+            rtn[k] = json.loads(df.to_json(path_or_buf=None, orient=orient, **kwargs))
         if json_file_path:
             with open(json_file_path, "w") as f:
                 json.dump(rtn, f)

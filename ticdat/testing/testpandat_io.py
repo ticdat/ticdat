@@ -285,6 +285,38 @@ class TestIO(unittest.TestCase):
         panDat2 = pdf.csv.create_pan_dat(dirPath, sep=":")
         self.assertTrue(pdf._same_data(panDat, panDat2))
 
+    def testJsonSimple(self):
+        if not self.can_run:
+            return
+        tdf = TicDatFactory(**dietSchema())
+        pdf = PanDatFactory(**dietSchema())
+        ticDat = tdf.freeze_me(tdf.TicDat(**{t:getattr(dietData(),t) for t in tdf.primary_key_fields}))
+        panDat = pan_dat_maker(dietSchema(), ticDat)
+        filePath = os.path.join(_scratchDir, "diet.json")
+        pdf.json.write_file(panDat, filePath)
+        panDat2 = pdf.json.create_pan_dat(filePath)
+        self.assertTrue(pdf._same_data(panDat, panDat2))
+
+        tdf = TicDatFactory(**netflowSchema())
+        pdf = PanDatFactory(**netflowSchema())
+        ticDat = tdf.freeze_me(tdf.TicDat(**{t:getattr(netflowData(),t) for t in tdf.primary_key_fields}))
+        panDat = pan_dat_maker(netflowSchema(), ticDat)
+        filePath = os.path.join(_scratchDir, "netflow.json")
+        pdf.json.write_file(panDat, filePath)
+        panDat2 = pdf.json.create_pan_dat(filePath)
+        self.assertTrue(pdf._same_data(panDat, panDat2))
+
+        tdf = TicDatFactory(**dietSchema())
+        pdf = PanDatFactory(**dietSchema())
+        ticDat = tdf.freeze_me(tdf.TicDat(**{t:getattr(dietData(),t) for t in tdf.primary_key_fields}))
+        panDat = pan_dat_maker(dietSchema(), ticDat)
+        filePath = os.path.join(_scratchDir, "diet.json")
+        pdf.json.write_file(panDat, filePath, orient='columns')
+        panDat2 = pdf.json.create_pan_dat(filePath)
+        self.assertFalse(pdf._same_data(panDat, panDat2))
+        panDat2 = pdf.json.create_pan_dat(filePath, orient='columns')
+        self.assertTrue(pdf._same_data(panDat, panDat2))
+
 _scratchDir = TestIO.__name__ + "_scratch"
 
 # Run the tests.
