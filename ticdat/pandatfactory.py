@@ -5,7 +5,7 @@ PEP8
 
 import ticdat.utils as utils
 from ticdat.utils import ForeignKey, ForeignKeyMapping, TypeDictionary, verify, dictish
-from ticdat.utils import lupish, deep_freeze, containerish, FrozenDict, safe_apply
+from ticdat.utils import lupish, deep_freeze, containerish, FrozenDict, safe_apply, stringish
 import ticdat.pandatio as pandatio
 from itertools import count
 from math import isnan
@@ -374,6 +374,8 @@ class PanDatFactory(object):
                 for t in init_tables :
                     verify(t in superself.all_tables, "Unexpected table name %s"%t)
                     tbl = safe_apply(DataFrame)(init_tables[t])
+                    if tbl is None and dictish(init_tables[t]) and all(map(stringish, init_tables[t])):
+                        tbl = safe_apply(DataFrame)(**init_tables[t])
                     verify(isinstance(tbl, DataFrame), "Failed to provide a valid DataFrame for %s"%t)
                     setattr(self, t, tbl.copy())
                 for t in set(superself.all_tables).difference(init_tables):

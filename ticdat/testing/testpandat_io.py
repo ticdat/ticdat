@@ -10,6 +10,7 @@ import ticdat.pandatio as pandatio
 import itertools
 import shutil
 import os
+import json
 
 def _deep_anonymize(x)  :
     if not hasattr(x, "__contains__") or utils.stringish(x):
@@ -103,6 +104,8 @@ class TestIO(unittest.TestCase):
         self.assertTrue("missing" in ex and "extra" in ex)
         ex = self.firesException(lambda : pdf2.csv.create_pan_dat(csvDirPath))
         self.assertTrue("missing" in ex and "extra" in ex)
+        ex = self.firesException(lambda : pdf2.json.create_pan_dat(pdf.json.write_file(panDat, "")))
+        self.assertTrue("missing" in ex and "extra" in ex)
 
         panDat2 = pdf2.sql.create_pan_dat(sqlFilePath, fill_missing_fields=True)
         self.assertTrue(set(panDat2.foods["extra"]) == {0})
@@ -118,6 +121,11 @@ class TestIO(unittest.TestCase):
         self.assertTrue(set(panDat2.foods["extra"]) == {0})
         panDat2.foods.drop("extra", axis=1, inplace=True)
         self.assertTrue(pdf._same_data(panDat, panDat2))
+
+        panDat2 = pdf2.json.create_pan_dat(pdf.json.write_file(panDat, ""), fill_missing_fields=True)
+        self.assertTrue(set(panDat2.foods["extra"]) == {0})
+        panDat2.foods.drop("extra", axis=1, inplace=True)
+        self.assertTrue(pdf._same_data(panDat, panDat2, epsilon=1e-5))
 
         pdf3 = PanDatFactory(**pdf2.schema())
         pdf3.set_default_value("foods", "extra", 13)
@@ -135,6 +143,12 @@ class TestIO(unittest.TestCase):
         self.assertTrue(set(panDat3.foods["extra"]) == {13})
         panDat3.foods.drop("extra", axis=1, inplace=True)
         self.assertTrue(pdf._same_data(panDat, panDat3))
+
+        panDat3 = pdf3.json.create_pan_dat(pdf.json.write_file(panDat, ""), fill_missing_fields=True)
+        self.assertTrue(set(panDat3.foods["extra"]) == {13})
+        panDat3.foods.drop("extra", axis=1, inplace=True)
+        self.assertTrue(pdf._same_data(panDat, panDat3, epsilon=1e-5))
+
 
     def testSqlSimple(self):
         if not self.can_run:
@@ -307,6 +321,10 @@ class TestIO(unittest.TestCase):
         self.assertTrue(pdf._same_data(panDat, panDat2, epsilon=1e-5))
         panDat3 = pdf.json.create_pan_dat(pdf.json.write_file(panDat, ""))
         self.assertTrue(pdf._same_data(panDat, panDat3))
+        dicted = json.loads(pdf.json.write_file(panDat, ""))
+        panDat4 = pdf.PanDat(**dicted)
+        self.assertTrue(pdf._same_data(panDat, panDat4))
+
 
         tdf = TicDatFactory(**dietSchema())
         pdf = PanDatFactory(**dietSchema())
@@ -318,8 +336,11 @@ class TestIO(unittest.TestCase):
         self.assertTrue(firesException(lambda : pdf.json.create_pan_dat(filePath)))
         panDat2 = pdf.json.create_pan_dat(filePath, orient='columns')
         self.assertTrue(pdf._same_data(panDat, panDat2, epsilon=1e-5))
-        panDat3 = pdf.json.create_pan_dat(pdf.json.write_file(panDat, ""))
+        panDat3 = pdf.json.create_pan_dat(pdf.json.write_file(panDat, "", orient='columns'), orient="columns")
         self.assertTrue(pdf._same_data(panDat, panDat3, epsilon=1e-5))
+        dicted = json.loads(pdf.json.write_file(panDat, "", orient='columns'))
+        panDat4 = pdf.PanDat(**dicted)
+        self.assertTrue(pdf._same_data(panDat, panDat4, epsilon=1e-5))
 
     def testJsonSpacey(self):
         if not self.can_run:
@@ -348,6 +369,10 @@ class TestIO(unittest.TestCase):
         self.assertTrue(pdf._same_data(panDat, panDat2))
         panDat3 = pdf.json.create_pan_dat(pdf.json.write_file(panDat, "", case_space_table_names=True))
         self.assertTrue(pdf._same_data(panDat, panDat3))
+
+        dicted = json.loads(pdf.json.write_file(panDat, "", orient='columns'))
+        panDat4 = pdf.PanDat(**dicted)
+        self.assertTrue(pdf._same_data(panDat, panDat4, epsilon=1e-5))
 
 _scratchDir = TestIO.__name__ + "_scratch"
 
