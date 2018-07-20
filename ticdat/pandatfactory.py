@@ -269,7 +269,7 @@ class PanDatFactory(object):
         return utils.FrozenDict({k:frozenset(v) for k,v in rtn.items()})
     def _all_fields(self, table):
         assert table in self.all_tables
-        return set(self.primary_key_fields.get(table, ())).union(self.data_fields.get(table, ()))
+        return tuple(_ for _ in self.primary_key_fields.get(table, ()) + self.data_fields.get(table, ()))
     def add_foreign_key(self, native_table, foreign_table, mappings):
         """
         Adds a foreign key relationship to the schema.  Adding a foreign key doesn't block
@@ -380,11 +380,18 @@ class PanDatFactory(object):
                     setattr(self, t, tbl.copy())
                 for t in set(superself.all_tables).difference(init_tables):
                     setattr(self, t, DataFrame({f:[] for f in utils.all_fields(superself, t)}))
-                missing_fields = {(t, f) for t in superself.all_tables for f in
-                                  superself.primary_key_fields.get(t, ()) + superself.data_fields.get(t, ())
+                missing_fields = {(t, f) for t in superself.all_tables for f in superself._all_fields(t)
                                   if f not in getattr(self, t).columns}
                 verify(not missing_fields,
                        "The following are (table, field) pairs missing from the data.\n%s"%missing_fields)
+                for t in superself.all_tables:
+                    af = list(superself._all_fields(t))
+                    df = getattr(self, t)
+                    if list(df.columns)[:len(af)] != af:
+                        extra_cols = [_ for _ in list(df.columns) if _ not in af]
+                        setattr(self, t, df[af + extra_cols])
+                        assert list(getattr(self, t)) == af + extra_cols
+
         self.PanDat = PanDat
         self.xls = pandatio.XlsPanFactory(self)
         self.sql = pandatio.SqlPanFactory(self)

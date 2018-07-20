@@ -4,7 +4,7 @@ from ticdat.utils import DataFrame, numericish, ForeignKey, ForeignKeyMapping
 import ticdat.utils as utils
 from ticdat.testing.ticdattestutils import fail_to_debugger, flagged_as_run_alone, netflowPandasData
 from ticdat.testing.ticdattestutils import netflowSchema, copy_to_pandas_with_reset, dietSchema, netflowData
-from ticdat.testing.ticdattestutils import addNetflowForeignKeys, sillyMeSchema
+from ticdat.testing.ticdattestutils import addNetflowForeignKeys, sillyMeSchema, dietData, pan_dat_maker
 from ticdat.ticdatfactory import TicDatFactory
 import itertools
 from math import isnan
@@ -420,6 +420,31 @@ class TestUtils(unittest.TestCase):
         self.assertTrue(set(dups) == {'a', 'b'} and set(dups['a']['aField']) == {1})
         dups = pdf.find_duplicates(panDat, as_table=False)
         self.assertTrue({k:v.value_counts()[True] for k,v in dups.items()} == {'a':3, 'b':2})
+
+    def testDictConstructions(self):
+        tdf = TicDatFactory(**dietSchema())
+        pdf = PanDatFactory(**dietSchema())
+        ticDat = tdf.freeze_me(tdf.TicDat(**{t:getattr(dietData(),t) for t in tdf.primary_key_fields}))
+        panDat = pan_dat_maker(dietSchema(), ticDat)
+        panDat2 = pdf.PanDat(**{t:getattr(panDat, t).to_dict() for t in pdf.all_tables})
+        panDat3 = pdf.PanDat(**{t:getattr(panDat, t).to_dict(orient="list") for t in pdf.all_tables})
+        self.assertTrue(all(pdf._same_data(panDat, _) for _ in [panDat2, panDat3]))
+        panDat.foods["extra"] = 12
+        panDat4 = pdf.PanDat(**{t:getattr(panDat, t).to_dict(orient="list") for t in pdf.all_tables})
+        self.assertTrue(pdf._same_data(panDat, panDat4))
+        self.assertTrue(set(panDat4.foods["extra"]) == {12})
+
+        tdf = TicDatFactory(**netflowSchema())
+        pdf = PanDatFactory(**netflowSchema())
+        ticDat = tdf.freeze_me(tdf.TicDat(**{t:getattr(netflowData(),t) for t in tdf.primary_key_fields}))
+        panDat = pan_dat_maker(netflowSchema(), ticDat)
+        panDat2 = pdf.PanDat(**{t:getattr(panDat, t).to_dict() for t in pdf.all_tables})
+        panDat3 = pdf.PanDat(**{t:getattr(panDat, t).to_dict(orient="records") for t in pdf.all_tables})
+        self.assertTrue(all(pdf._same_data(panDat, _) for _ in [panDat2, panDat3]))
+        panDat.cost["extra"] = "boger"
+        panDat4 = pdf.PanDat(**{t:getattr(panDat, t).to_dict(orient="list") for t in pdf.all_tables})
+        self.assertTrue(pdf._same_data(panDat, panDat4))
+        self.assertTrue(set(panDat4.cost["extra"]) == {"boger"})
 
 # Run the tests.
 if __name__ == "__main__":

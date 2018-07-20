@@ -3,7 +3,7 @@ from ticdat.pandatfactory import PanDatFactory
 from ticdat.utils import DataFrame, numericish, ForeignKey, ForeignKeyMapping
 import ticdat.utils as utils
 from ticdat.testing.ticdattestutils import fail_to_debugger, flagged_as_run_alone, spacesSchema, firesException
-from ticdat.testing.ticdattestutils import netflowSchema, copy_to_pandas_with_reset, dietSchema, spacesData
+from ticdat.testing.ticdattestutils import netflowSchema, pan_dat_maker, dietSchema, spacesData
 from ticdat.testing.ticdattestutils import makeCleanDir, netflowData, dietData
 from ticdat.ticdatfactory import TicDatFactory
 import ticdat.pandatio as pandatio
@@ -18,11 +18,6 @@ def _deep_anonymize(x)  :
     if utils.dictish(x) :
         return {_deep_anonymize(k):_deep_anonymize(v) for k,v in x.items()}
     return list(map(_deep_anonymize,x))
-
-def pan_dat_maker(schema, tic_dat):
-    tdf = TicDatFactory(**schema)
-    pdf = PanDatFactory(**schema)
-    return pdf.copy_pan_dat(copy_to_pandas_with_reset(tdf, tic_dat))
 
 #uncomment decorator to drop into debugger for assertTrue, assertFalse failures
 #@fail_to_debugger

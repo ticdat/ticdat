@@ -5,7 +5,7 @@ import itertools
 import fnmatch
 from ticdat.utils import dictish, containerish, verify
 import unittest
-from ticdat import TicDatFactory, Model, Slicer
+from ticdat import TicDatFactory, Model, Slicer, PanDatFactory
 
 __codeFile = []
 def _codeFile() :
@@ -573,3 +573,7 @@ def nearlySame(*args, **kwargs) :
     return all (_nearlySame(x[0], x[1], epsilon) for x in
                 itertools.combinations(args, 2))
 
+def pan_dat_maker(schema, tic_dat):
+    tdf = TicDatFactory(**schema)
+    pdf = PanDatFactory(**schema)
+    return pdf.copy_pan_dat(copy_to_pandas_with_reset(tdf, tic_dat))
