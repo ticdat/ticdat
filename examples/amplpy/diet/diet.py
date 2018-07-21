@@ -64,7 +64,7 @@ def solve(dat):
     :return: a good ticdat for the solution_schema, or None
     """
     assert input_schema.good_pan_dat_object(dat)
-    assert input_schema.find_duplicates(dat)
+    assert not input_schema.find_duplicates(dat)
     assert not input_schema.find_foreign_key_failures(dat)
     assert not input_schema.find_data_type_failures(dat)
     assert not input_schema.find_data_row_failures(dat)
