@@ -99,7 +99,8 @@ class JsonPanFactory(freezable_factory(object, "_isFrozen")):
             verify(len(rtn[table]) <= 1, "Multiple dictionary key choices found for table %s" % table)
             rtn[table] = rtn[table][0]
         return rtn
-    def write_file(self, pan_dat, json_file_path, case_space_table_names=False, orient='split', **kwargs):
+    def write_file(self, pan_dat, json_file_path, case_space_table_names=False, orient='split',
+                   indent=None, sort_keys=False, **kwargs):
         """
         write the panDat data to a collection of csv files
         :param pan_dat: the PanDat object to write
@@ -108,6 +109,8 @@ class JsonPanFactory(freezable_factory(object, "_isFrozen")):
         :param case_space_table_names: boolean - make best guesses how to add spaces and upper case
                                        characters to table names
         :param orient: Indication of expected JSON string format. See pandas.to_json for more details.
+        :param indent: None. See json.dumps
+        :param sort_keys: See json.dumps
         :param kwargs: additional named arguments to pass to pandas.to_json
         :return:
         caveats: The row names (index) isn't written (unless kwargs indicates it should be).
@@ -132,9 +135,9 @@ class JsonPanFactory(freezable_factory(object, "_isFrozen")):
             rtn[k] = json.loads(df.to_json(path_or_buf=None, orient=orient, **kwargs))
         if json_file_path:
             with open(json_file_path, "w") as f:
-                json.dump(rtn, f)
+                json.dump(rtn, f, indent=indent, sort_keys=sort_keys)
         else:
-            return json.dumps(rtn)
+            return json.dumps(rtn, indent=indent, sort_keys=sort_keys)
 
 class CsvPanFactory(freezable_factory(object, "_isFrozen")):
     """

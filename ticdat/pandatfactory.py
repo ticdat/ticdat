@@ -10,6 +10,10 @@ import ticdat.pandatio as pandatio
 from itertools import count
 from math import isnan
 import collections as clt
+try:
+    import amplpy
+except:
+    amplpy = None
 pd, DataFrame = utils.pd, utils.DataFrame # if pandas not installed will be falsey
 
 class PanDatFactory(object):
@@ -604,3 +608,66 @@ class PanDatFactory(object):
                 if dups.any():
                     rtn[t] = getattr(pan_dat, t)[list(dups)] if as_table else dups
         return rtn
+    def copy_to_ampl(self, pan_dat, field_renamings = None, excluded_tables = None):
+        """
+        copies the pan_dat object into a new pan_dat object populated with amplpy.DataFrame objects
+        performs a deep copy
+        :param pan_dat: a PanDat object
+        :param field_renamings: dict or None. If fields are to be renamed in the copy, then
+                                a mapping from (table_name, field_name) -> new_field_name
+                                If a data field is to be omitted, then new_field can be falsey
+                                table_name cannot refer to an excluded table. (see below)
+        :param excluded_tables: If truthy, a list of tables to be excluded from the copy.
+                                Tables without primary key fields are always excluded.
+        :return: a deep copy of the tic_dat argument into amplpy.DataFrames
+        """
+        verify(amplpy, "amplpy needs to be installed in order to enable AMPL functionality")
+        msg  = []
+        verify(self.good_pan_dat_object(pan_dat, msg.append),
+               "pan_dat not a good object for this factory : %s"%"\n".join(msg))
+        verify(not excluded_tables or (containerish(excluded_tables) and
+                                       set(excluded_tables).issubset(self.all_tables)),
+               "bad excluded_tables argument")
+        copy_tables = {t for t in self.all_tables if self.primary_key_fields[t]}.\
+                      difference(excluded_tables or [])
+        field_renamings = field_renamings or {}
+        verify(dictish(field_renamings) and
+               all(containerish(k) and len(k) == 2 and k[0] in copy_tables and
+                   k[1] in self.primary_key_fields[k[0]] + self.data_fields[k[0]] and
+                   ((not bool(v) and k[1] in self.data_fields[k[0]]) or utils.stringish(v))
+                   for k,v in field_renamings.items()), "invalid field_renamings argument")
+        class AmplPanDat(object):
+            def __repr__(self):
+                return "td:" + tuple(copy_tables).__repr__()
+        rtn = AmplPanDat()
+        for t in copy_tables:
+            rename = lambda f : field_renamings.get((t, f), f)
+            df_ampl = amplpy.DataFrame(index=tuple(map(rename, self.primary_key_fields[t])))
+            for f in self.primary_key_fields[t]:
+                df_ampl.setColumn(rename(f), list(getattr(pan_dat, t)[f]))
+            for f in self.data_fields[t]:
+                if rename(f):
+                    df_ampl.addColumn(rename(f), list(getattr(pan_dat, t)[f]))
+            setattr(rtn, t, df_ampl)
+        return rtn
+    def set_ampl_data(self, ampl_dat, ampl, table_to_set_name = None):
+        """
+        performs bulk setData on the AMPL-esque first argument.
+        :param ampl_dat: an AmplTicDat object created by calling copy_to_ampl
+        :param ampl: an amplpy.AMPL object
+        :param table_to_set_name: a mapping of table_name to ampl set name
+        :return:
+        """
+        verify(all(a.startswith("_") or a in self.all_tables for a in dir(ampl_dat)),
+               "bad ticdat argument")
+        verify(hasattr(ampl, "setData"), "bad ampl argument")
+        table_to_set_name = table_to_set_name or {}
+        verify(dictish(table_to_set_name) and all(hasattr(ampl_dat, k) and
+                   utils.stringish(v) for k,v in table_to_set_name.items()),
+               "bad table_to_set_name argument")
+        for t in set(self.all_tables).intersection(dir(ampl_dat)):
+            try:
+                ampl.setData(getattr(ampl_dat, t), *([table_to_set_name[t]]
+                                                if t in table_to_set_name else []))
+            except:
+                raise utils.TicDatError(t + " cannot be passed as an argument to AMPL.setData()")
