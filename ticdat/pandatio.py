@@ -100,7 +100,7 @@ class JsonPanFactory(freezable_factory(object, "_isFrozen")):
             rtn[table] = rtn[table][0]
         return rtn
     def write_file(self, pan_dat, json_file_path, case_space_table_names=False, orient='split',
-                   indent=None, sort_keys=False, **kwargs):
+                   index=False, indent=None, sort_keys=False, **kwargs):
         """
         write the panDat data to a collection of csv files
         :param pan_dat: the PanDat object to write
@@ -109,22 +109,21 @@ class JsonPanFactory(freezable_factory(object, "_isFrozen")):
         :param case_space_table_names: boolean - make best guesses how to add spaces and upper case
                                        characters to table names
         :param orient: Indication of expected JSON string format. See pandas.to_json for more details.
+        :param index: boolean - whether or not to write the index.
         :param indent: None. See json.dumps
         :param sort_keys: See json.dumps
         :param kwargs: additional named arguments to pass to pandas.to_json
         :return:
-        caveats: The row names (index) isn't written (unless kwargs indicates it should be).
-                 +-float("inf") will be converted to "inf", "-inf"
+        caveats:  +-float("inf") will be converted to "inf", "-inf"
         """
         msg = []
         verify(self.pan_dat_factory.good_pan_dat_object(pan_dat, msg.append),
                "pan_dat not a good object for this factory : %s"%"\n".join(msg))
         verify("orient" not in kwargs, "orient should be passed as a non-kwargs argument")
+        verify("index" not in kwargs, "index should be passed as a non-kwargs argument")
 
         if self._modern_pandas:
-            kwargs["index"] = kwargs.get("index", False)
-        else:
-            kwargs.pop("index", None)
+            kwargs["index"] = index
         case_space_table_names = case_space_table_names and \
                                  len(set(self.pan_dat_factory.all_tables)) == \
                                  len(set(map(case_space_to_pretty, self.pan_dat_factory.all_tables)))
@@ -133,6 +132,8 @@ class JsonPanFactory(freezable_factory(object, "_isFrozen")):
             df = getattr(pan_dat, t).replace(float("inf"), "inf").replace(-float("inf"), "-inf")
             k = case_space_to_pretty(t) if case_space_table_names else t
             rtn[k] = json.loads(df.to_json(path_or_buf=None, orient=orient, **kwargs))
+            if orient == 'split' and not index:
+                rtn[k].pop("index")
         if json_file_path:
             with open(json_file_path, "w") as f:
                 json.dump(rtn, f, indent=indent, sort_keys=sort_keys)
@@ -192,7 +193,7 @@ class CsvPanFactory(freezable_factory(object, "_isFrozen")):
             verify(len(rtn[table]) <= 1, "Multiple possible csv files found for table %s" % table)
             rtn[table] = rtn[table][0]
         return rtn
-    def write_directory(self, pan_dat, dir_path, case_space_table_names=False, **kwargs):
+    def write_directory(self, pan_dat, dir_path, case_space_table_names=False, index=False, **kwargs):
         """
         write the panDat data to a collection of csv files
         :param pan_dat: the PanDat object to write
@@ -200,6 +201,7 @@ class CsvPanFactory(freezable_factory(object, "_isFrozen")):
                              Set to falsey if using con argument.
         :param case_space_table_names: boolean - make best guesses how to add spaces and upper case
                                        characters to table names
+        :param index: boolean - whether or not to write the index.
         :param kwargs: additional named arguments to pass to pandas.to_csv
         :return:
         caveats: The row names (index) isn't written (unless kwargs indicates it should be).
@@ -208,7 +210,8 @@ class CsvPanFactory(freezable_factory(object, "_isFrozen")):
         msg = []
         verify(self.pan_dat_factory.good_pan_dat_object(pan_dat, msg.append),
                "pan_dat not a good object for this factory : %s"%"\n".join(msg))
-        kwargs["index"] = kwargs.get("index", False)
+        verify("index" not in kwargs, "index should be passed as a non-kwargs argument")
+        kwargs["index"] = index
         case_space_table_names = case_space_table_names and \
                                  len(set(self.pan_dat_factory.all_tables)) == \
                                  len(set(map(case_space_to_pretty, self.pan_dat_factory.all_tables)))
