@@ -123,7 +123,8 @@ class JsonPanFactory(freezable_factory(object, "_isFrozen")):
         verify("index" not in kwargs, "index should be passed as a non-kwargs argument")
 
         if self._modern_pandas:
-            kwargs["index"] = index
+            # FYI - pandas Exception: ValueError: 'index=False' is only valid when 'orient' is 'split' or 'table'
+            kwargs["index"] = index if orient in ("split", "table") else True
         case_space_table_names = case_space_table_names and \
                                  len(set(self.pan_dat_factory.all_tables)) == \
                                  len(set(map(case_space_to_pretty, self.pan_dat_factory.all_tables)))
@@ -133,7 +134,7 @@ class JsonPanFactory(freezable_factory(object, "_isFrozen")):
             k = case_space_to_pretty(t) if case_space_table_names else t
             rtn[k] = json.loads(df.to_json(path_or_buf=None, orient=orient, **kwargs))
             if orient == 'split' and not index:
-                rtn[k].pop("index")
+                rtn[k].pop("index", None)
         if json_file_path:
             with open(json_file_path, "w") as f:
                 json.dump(rtn, f, indent=indent, sort_keys=sort_keys)
