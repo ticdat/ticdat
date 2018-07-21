@@ -55,12 +55,12 @@ class PanDatFactory(object):
         create a PanDatFactory complete with default values, data types, and foreign keys
         :param full_schema: a dictionary consistent with the data returned by a call to schema()
                             with include_ancillary_info = True
-        :return: a TicDatFactory reflecting the tables, fields, default values, data types,
+        :return: a PanDatFactory reflecting the tables, fields, default values, data types,
                  and foreign keys consistent with the full_schema argument
         """
         verify(dictish(full_schema) and set(full_schema) == {"tables_fields", "foreign_keys",
                                                              "default_values", "data_types"},
-               "full_schema should be the result of calling schema(True) for some TicDatFactory")
+               "full_schema should be the result of calling schema(True) for some PanDatFactory")
         fks = full_schema["foreign_keys"]
         verify( (not fks) or (lupish(fks) and all(lupish(_) and len(_) >= 3 for _ in fks)),
                 "foreign_keys entry poorly formed")
@@ -84,8 +84,8 @@ class PanDatFactory(object):
         return rtn
     def clone(self):
         """
-        clones the TicDatFactory
-        :return: a clone of the TicDatFactory
+        clones the PanDatFactory
+        :return: a clone of the PanDatFactory
         """
         rtn = PanDatFactory.create_from_full_schema(self.schema(include_ancillary_info=True))
         for tbl, row_predicates in self._data_row_predicates.items():
@@ -183,7 +183,7 @@ class PanDatFactory(object):
         :return:
         """
         verify(not self._has_been_used,
-               "The data row predicates can't be changed after a TicDatFactory has been used.")
+               "The data row predicates can't be changed after a PanDatFactory has been used.")
         verify(table in self.all_tables, "Unrecognized table name %s"%table)
 
         if predicate is None:
@@ -205,7 +205,7 @@ class PanDatFactory(object):
         :return:
         """
         verify(not self._has_been_used,
-               "The default values can't be changed after a TicDatFactory has been used.")
+               "The default values can't be changed after a PanDatFactory has been used.")
         verify(table in self.all_tables, "Unrecognized table name %s"%table)
         verify(field in self.data_fields[table] + self.primary_key_fields[table],
                "%s does not refer to a field for %s"%(field, table))
@@ -223,7 +223,7 @@ class PanDatFactory(object):
         :return:
         """
         verify(not self._has_been_used,
-               "The default values can't be changed after a TicDatFactory has been used.")
+               "The default values can't be changed after a PanDatFactory has been used.")
         for k,v in tableDefaults.items():
             verify(k in self.all_tables, "Unrecognized table name %s"%k)
             verify(dictish(v) and set(v).issubset(self.data_fields[k] + self.primary_key_fields[k]),
@@ -239,7 +239,7 @@ class PanDatFactory(object):
                              If omitted, all foreign keys are cleared.
         """
         verify(not self._has_been_used,
-               "The foreign keys can't be changed after a TicDatFactory has been used.")
+               "The foreign keys can't be changed after a PanDatFactory has been used.")
         verify(native_table is None or native_table in self.all_tables,
                "If provided, native_table should specify a table.")
         deleteme = []
@@ -671,3 +671,30 @@ class PanDatFactory(object):
                                                 if t in table_to_set_name else []))
             except:
                 raise utils.TicDatError(t + " cannot be passed as an argument to AMPL.setData()")
+    def copy_from_ampl_variables(self, ampl_variables):
+        """
+        copies the solution results from ampl_variables into a new PanDat object
+        :param ampl_variables: a dict mapping from (table_name, field_name) -> amplpy.variable.Variable
+                               (amplpy.variable.Variable is the type object returned by
+                                AMPL.getVariable)
+                                table_name should refer to a table in the schema that has
+                                primary key fields.
+                                field_name can refer to a data field for table_name, or it
+                                can be falsey. If the latter, then AMPL variables that
+                                pass the filter (see below) will simply populate the primary key
+                                of the table_name.
+                                Note that by default, only non-zero data is copied over.
+                                If you want to override this filter, then instead of mapping to
+                                amplpy.variable.Variable you should map to a
+                                (amplpy.variable.Variable, filter) where filter accepts a data value
+                                and returns a boolean.
+        :return: a deep copy of the ampl_variables into a PanDat object
+        """
+        # note that the possibility for multiple table_names with different field_names can make
+        # for a messy join problem. The easiest solution here is to just use the TicDatFactory logic
+        from ticdat import TicDatFactory
+        tdf = TicDatFactory.create_from_full_schema(self.schema(include_ancillary_info=True))
+        _rtn = tdf.copy_from_ampl_variables(ampl_variables)
+        _rtn = tdf.copy_to_pandas(_rtn, drop_pk_columns=False)
+        rtn = self.PanDat(**{t:getattr(_rtn, t) for t in self.all_tables})
+        return rtn

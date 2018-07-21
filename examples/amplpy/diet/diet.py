@@ -100,10 +100,9 @@ def solve(dat):
     ampl.solve()
 
     if ampl.getValue("solve_result") != "infeasible":
-        sln = solution_schema.PanDat()
-        # sln = solution_schema.copy_from_ampl_variables(
-        #     {("buy_food", "Quantity"):ampl.getVariable("Buy"),
-        #     ("consume_nutrition", "Quantity"):ampl.getVariable("Consume")})
+        sln = solution_schema.copy_from_ampl_variables(
+            {("buy_food", "Quantity"):ampl.getVariable("Buy"),
+            ("consume_nutrition", "Quantity"):ampl.getVariable("Consume")})
         sln.parameters.loc[0] = ['Total Cost', ampl.getObjective('Total_Cost').value()]
 
         return sln
