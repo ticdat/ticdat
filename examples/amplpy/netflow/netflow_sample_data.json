@@ -1,0 +1,217 @@
+{
+    "arcs": {
+        "columns": [
+            "Source", 
+            "Destination", 
+            "Capacity"
+        ], 
+        "data": [
+            [
+                "Denver", 
+                "Boston", 
+                120.0
+            ], 
+            [
+                "Denver", 
+                "New York", 
+                120.0
+            ], 
+            [
+                "Denver", 
+                "Seattle", 
+                120.0
+            ], 
+            [
+                "Detroit", 
+                "Boston", 
+                100.0
+            ], 
+            [
+                "Detroit", 
+                "New York", 
+                80.0
+            ], 
+            [
+                "Detroit", 
+                "Seattle", 
+                120.0
+            ]
+        ]
+    }, 
+    "commodities": {
+        "columns": [
+            "Name"
+        ], 
+        "data": [
+            [
+                "Pencils"
+            ], 
+            [
+                "Pens"
+            ]
+        ]
+    }, 
+    "cost": {
+        "columns": [
+            "Commodity", 
+            "Source", 
+            "Destination", 
+            "Cost"
+        ], 
+        "data": [
+            [
+                "Pencils", 
+                "Denver", 
+                "Boston", 
+                40
+            ], 
+            [
+                "Pencils", 
+                "Denver", 
+                "New York", 
+                40
+            ], 
+            [
+                "Pencils", 
+                "Denver", 
+                "Seattle", 
+                30
+            ], 
+            [
+                "Pencils", 
+                "Detroit", 
+                "Boston", 
+                10
+            ], 
+            [
+                "Pencils", 
+                "Detroit", 
+                "New York", 
+                20
+            ], 
+            [
+                "Pencils", 
+                "Detroit", 
+                "Seattle", 
+                60
+            ], 
+            [
+                "Pens", 
+                "Denver", 
+                "Boston", 
+                60
+            ], 
+            [
+                "Pens", 
+                "Denver", 
+                "New York", 
+                70
+            ], 
+            [
+                "Pens", 
+                "Denver", 
+                "Seattle", 
+                30
+            ], 
+            [
+                "Pens", 
+                "Detroit", 
+                "Boston", 
+                20
+            ], 
+            [
+                "Pens", 
+                "Detroit", 
+                "New York", 
+                20
+            ], 
+            [
+                "Pens", 
+                "Detroit", 
+                "Seattle", 
+                80
+            ]
+        ]
+    }, 
+    "inflow": {
+        "columns": [
+            "Commodity", 
+            "Node", 
+            "Quantity"
+        ], 
+        "data": [
+            [
+                "Pencils", 
+                "Boston", 
+                -50
+            ], 
+            [
+                "Pencils", 
+                "Denver", 
+                60
+            ], 
+            [
+                "Pencils", 
+                "Detroit", 
+                50
+            ], 
+            [
+                "Pencils", 
+                "New York", 
+                -50
+            ], 
+            [
+                "Pencils", 
+                "Seattle", 
+                -10
+            ], 
+            [
+                "Pens", 
+                "Boston", 
+                -40
+            ], 
+            [
+                "Pens", 
+                "Denver", 
+                40
+            ], 
+            [
+                "Pens", 
+                "Detroit", 
+                60
+            ], 
+            [
+                "Pens", 
+                "New York", 
+                -30
+            ], 
+            [
+                "Pens", 
+                "Seattle", 
+                -30
+            ]
+        ]
+    }, 
+    "nodes": {
+        "columns": [
+            "Name"
+        ], 
+        "data": [
+            [
+                "Boston"
+            ], 
+            [
+                "Denver"
+            ], 
+            [
+                "Detroit"
+            ], 
+            [
+                "New York"
+            ], 
+            [
+                "Seattle"
+            ]
+        ]
+    }
+}
