@@ -4,33 +4,31 @@
 # ampl.macosx64.tgz (which I had placed in an ampl directory and then opened to create
 # another ampl directory).
 
-# these are the unit tests for the older style ticdat code. testpandat_ampl.py exercises the
-# currently recommended approach
+# these are the unit tests for the newer style AMPL-ticdat code (I.e. using PanDatFactory).
 
 import os
 import sys
-from ticdat.ticdatfactory import TicDatFactory, amplpy
+from ticdat import PanDatFactory, TicDatFactory
 import ticdat.utils as utils
-from ticdat.testing.ticdattestutils import nearlySame, firesException, fail_to_debugger
+from ticdat.testing.ticdattestutils import nearlySame, firesException, fail_to_debugger, pan_dat_maker
 import unittest
 from itertools import product
 from collections import defaultdict
+try:
+    import amplpy
+except:
+    amplpy = None
 
-def _nearly_same_dat(tdf, dat1, dat2):
-    def _same_table(t1, t2):
-        if not set(t1) == set(t2):
-            return False
-        for k in t1:
-            for f in t1[k]:
-                if not nearlySame(t1[k][f], t2[k][f]):
-                    return False
-        return True
-    return all(_same_table(getattr(dat1, t), getattr(dat2, t)) for t in tdf.all_tables)
 
 # using the diet/netlfow flavors consistent with the examples instead of the older ones in
 # ticdat.testing.ticdattestutils
 
-# the diet_mod is hacked from the example code to get exercise more amplpy behaviors
+def _pan_dat_maker_from_dict(schema, tic_dat_dict):
+    tdf = TicDatFactory(**schema)
+    tic_dat = tdf.TicDat(**tic_dat_dict)
+    return pan_dat_maker(schema, tic_dat)
+
+# the diet_mod is hacked from the example code to exercise more amplpy behaviors
 _diet_mod = """
     set CAT;
     set FOOD;
@@ -51,11 +49,13 @@ _diet_mod = """
     subject to Diet {i in CAT}:
        Consume[i] =  sum {j in FOOD} (amt[j,i] + other_amt[j,i]) * Buy[j];
     """
-_diet_input_tdf = TicDatFactory (
+_diet_input_pdf = PanDatFactory (
     categories = [["Name"],["Min Nutrition", "Max Nutrition"]],
     foods  = [["Name"],["Cost"]],
     nutrition_quantities = [["Food", "Category"], ["Quantity", "Other Quantity"]])
-_diet_dat = _diet_input_tdf.TicDat(**{'categories': {
+_diet_pan_dat_from_dict = lambda pd_dict : _pan_dat_maker_from_dict(_diet_input_pdf.schema(), pd_dict)
+_diet_dat = _pan_dat_maker_from_dict(_diet_input_pdf.schema(),
+{'categories': {
   u'calories': {'Max Nutrition': 2200.0, 'Min Nutrition': 1800},
   u'fat': {'Max Nutrition': 65.0, 'Min Nutrition': 0},
   u'protein': {'Max Nutrition': float('inf'), 'Min Nutrition': 91},
@@ -105,11 +105,12 @@ _diet_dat = _diet_input_tdf.TicDat(**{'categories': {
   (u'salad', u'fat'): {'Quantity': 12},
   (u'salad', u'protein'): {'Quantity': 31},
   (u'salad', u'sodium'): {'Quantity': 1230}}})
-_diet_sln_tdf = TicDatFactory(
+_diet_sln_pdf = PanDatFactory(
     parameters = [["Key"],["Value"]],
     buy_food = [["Food"],["Quantity"]],
     consume_nutrition = [["Category"],["Quantity"]])
-_diet_sln_ticdat = _diet_sln_tdf.TicDat(**{'buy_food': {
+_diet_sln_ticdat = _pan_dat_maker_from_dict(_diet_sln_pdf.schema(),
+{'buy_food': {
   u'hamburger': {'Quantity': 0.604513888889},
   u'ice cream': {'Quantity': 2.59131944444},
   u'milk': {'Quantity': 6.97013888889}},
@@ -135,14 +136,14 @@ _netflow_mod = """
     subject to Conservation {h in COMMODITIES, j in NODES}:
        sum {(i,j) in ARCS} Flow[h,i,j] + inflow[h,j] = sum {(j,i) in ARCS} Flow[h,j,i];
 """
-_netflow_input_tdf = TicDatFactory(
+_netflow_input_pdf = PanDatFactory(
     commodities=[["Name"], []],
     nodes=[["Name"], []],
     arcs=[["Source", "Destination"], ["Capacity"]],
     cost=[["Commodity", "Source", "Destination"], ["Cost"]],
     inflow=[["Commodity", "Node"], ["Quantity"]]
 )
-_netflow_dat = _netflow_input_tdf.TicDat(**
+_netflow_dat = _pan_dat_maker_from_dict(_netflow_input_pdf.schema(),
 {'arcs': {(u'Denver', u'Boston'): {'Capacity': 120.0},
   (u'Denver', u'New York'): {'Capacity': 120.0},
   (u'Denver', u'Seattle'): {'Capacity': 120.0},
@@ -179,10 +180,11 @@ _netflow_dat = _netflow_input_tdf.TicDat(**
   u'Seattle': {}}})
 
 
-_netflow_sln_tdf = TicDatFactory(
+_netflow_sln_pdf = PanDatFactory(
         flow = [["Commodity", "Source", "Destination"], ["Quantity"]],
         parameters = [["Key"],["Value"]])
-_netflow_sln_ticdat = _netflow_sln_tdf.TicDat(**{'flow': {
+_netflow_sln_ticdat = _pan_dat_maker_from_dict(_netflow_sln_pdf.schema(),
+{'flow': {
   (u'Pencils', u'Denver', u'New York'): {'Quantity': 50},
   (u'Pencils', u'Denver', u'Seattle'): {'Quantity': 10},
   (u'Pencils', u'Detroit', u'Boston'): {'Quantity': 50},
@@ -193,34 +195,34 @@ _netflow_sln_ticdat = _netflow_sln_tdf.TicDat(**{'flow': {
  'parameters': {u'Total Cost': {'Value': 5500}}}
 )
 
-_metro_input_tdf = TicDatFactory (
+_metro_input_pdf = PanDatFactory(
     parameters=[["Key"], ["Value"]],
     load_amounts=[["Amount"],[]],
     number_of_one_way_trips=[["Number"],[]],
     amount_leftover=[["Amount"], []])
-_metro_dat = _metro_input_tdf.TicDat(**
+_metro_dat = _pan_dat_maker_from_dict(_metro_input_pdf.schema(),
 {
   "amount_leftover": [[0.0],[0.25],[2],[3],[4],[1.25],[1.0],[8.5],[1.75],[0.75],[1.5],[0.5]],
   "load_amounts": [[2.25],[1], [3], [5], [4.5], [40], [10], [20]],
   "number_of_one_way_trips": [[2], [4], [6], [8], [10], [12], [14], [16], [18], [20]],
   "parameters": [["Amount Leftover Constraint", "Equality"]]}
 )
-_metro_solution_tdf = TicDatFactory(
+_metro_solution_pdf = PanDatFactory(
     load_amount_details=[["Number One Way Trips", "Amount Leftover", "Load Amount"],
                            ["Number Of Visits"]],
     load_amount_summary=[["Number One Way Trips", "Amount Leftover"],["Number Of Visits"]])
 
 def _metro_solve(dat, sln_read_method = "amplToDict", excluded_tables=
-                 frozenset(_metro_input_tdf.all_tables).difference({"load_amounts"})):
+                 frozenset(_metro_input_pdf.all_tables).difference({"load_amounts"})):
     assert sln_read_method in ["amplToDict", "ticdat"]
-    input_schema = _metro_input_tdf
+    input_schema = _metro_input_pdf
     ampl_format = utils.ampl_format
     AMPL = amplpy.AMPL
     default_parameters = {"One Way Price": 2.25, "Amount Leftover Constraint": "Upper Bound"}
     assert input_schema.good_tic_dat_object(dat)
     full_parameters = dict(default_parameters, **{k:v["Value"] for k,v in dat.parameters.items()})
 
-    sln = _metro_solution_tdf.TicDat() # create an empty solution
+    sln = _metro_solution_pdf.TicDat() # create an empty solution
 
     ampl_dat = input_schema.copy_to_ampl(dat, excluded_tables=excluded_tables)
     # solve a distinct MIP for each pair of (# of one-way-trips, amount leftover)
@@ -315,7 +317,7 @@ class TestAmpl(unittest.TestCase):
  (20, 1.0): 3, (20, 1.25): 4, (20, 1.5): 4, (20, 1.75): 3, (20, 2): 4, (20, 3): 3, (20, 4): 3, (20, 8.5): 4})
 
 
-            dat = _metro_input_tdf.copy_tic_dat(_metro_dat)
+            dat = _metro_input_pdf.copy_tic_dat(_metro_dat)
             dat.parameters.pop("Amount Leftover Constraint")
 
             sln = _metro_solve(dat, sln_read_method)
@@ -338,11 +340,11 @@ class TestAmpl(unittest.TestCase):
  (20, 1.0): 2, (20, 1.25): 2, (20, 1.5): 2, (20, 1.75): 2, (20, 2): 2, (20, 3): 2, (20, 4): 2, (20, 8.5): 2})
 
             ex = self.firesException(lambda : _metro_solve(dat, excluded_tables=[]))
-            self.assertTrue(any(_ in str(ex) for _ in set(_metro_input_tdf.all_tables).difference({"load_amounts"})))
+            self.assertTrue(any(_ in str(ex) for _ in set(_metro_input_pdf.all_tables).difference({"load_amounts"})))
 
 
     def test_diet_amplpy(self):
-        dat = _diet_input_tdf.copy_to_ampl(_diet_dat, field_renamings={("foods", "Cost"): "cost",
+        dat = _diet_input_pdf.copy_to_ampl(_diet_dat, field_renamings={("foods", "Cost"): "cost",
                 ("categories", "Min Nutrition"): "n_min", ("categories", "Max Nutrition"): "n_max",
                 ("nutrition_quantities", "Quantity"): "amt",
                 ("nutrition_quantities", "Other Quantity"): "other_amt"})
@@ -350,37 +352,37 @@ class TestAmpl(unittest.TestCase):
         ampl = amplpy.AMPL()
         ampl.setOption('solver', 'gurobi')
         ampl.eval(_diet_mod)
-        _diet_input_tdf.set_ampl_data(dat, ampl, {"categories": "CAT", "foods": "FOOD"})
+        _diet_input_pdf.set_ampl_data(dat, ampl, {"categories": "CAT", "foods": "FOOD"})
         ampl.solve()
 
-        sln = _diet_sln_tdf.copy_from_ampl_variables(
+        sln = _diet_sln_pdf.copy_from_ampl_variables(
             {("buy_food", "Quantity"):ampl.getVariable("Buy"),
             ("consume_nutrition", "Quantity"):ampl.getVariable("Consume")})
         sln.parameters['Total Cost'] = ampl.getObjective('Total_Cost').value()
 
-        diet_dat_two = _diet_input_tdf.copy_tic_dat(_diet_dat)
+        diet_dat_two = _diet_input_pdf.copy_tic_dat(_diet_dat)
         for r in diet_dat_two.nutrition_quantities.values():
             r["Quantity"], r["Other Quantity"] = [0.5 * r["Quantity"]] * 2
 
-        dat = _diet_input_tdf.copy_to_ampl(diet_dat_two, field_renamings={("foods", "Cost"): "cost",
+        dat = _diet_input_pdf.copy_to_ampl(diet_dat_two, field_renamings={("foods", "Cost"): "cost",
                 ("categories", "Min Nutrition"): "n_min", ("categories", "Max Nutrition"): "n_max",
                 ("nutrition_quantities", "Quantity"): "amt",
                 ("nutrition_quantities", "Other Quantity"): "other_amt"})
         ampl = amplpy.AMPL()
         ampl.setOption('solver', 'gurobi')
         ampl.eval(_diet_mod)
-        _diet_input_tdf.set_ampl_data(dat, ampl, {"categories": "CAT", "foods": "FOOD"})
+        _diet_input_pdf.set_ampl_data(dat, ampl, {"categories": "CAT", "foods": "FOOD"})
         ampl.solve()
         self.assertTrue("solved" == ampl.getValue("solve_result"))
 
-        sln = _diet_sln_tdf.copy_from_ampl_variables(
+        sln = _diet_sln_pdf.copy_from_ampl_variables(
             {("buy_food", "Quantity"):ampl.getVariable("Buy"),
             ("consume_nutrition", "Quantity"):ampl.getVariable("Consume")})
         sln.parameters['Total Cost'] = ampl.getObjective('Total_Cost').value()
 
-        self.assertTrue(_nearly_same_dat(_diet_sln_tdf, sln, _diet_sln_ticdat))
+        self.assertTrue(_nearly_same_dat(_diet_sln_pdf, sln, _diet_sln_ticdat))
 
-        dat = _diet_input_tdf.copy_to_ampl(_diet_dat, {("foods", "Cost"): "cost",
+        dat = _diet_input_pdf.copy_to_ampl(_diet_dat, {("foods", "Cost"): "cost",
                 ("categories", "Min Nutrition"): "", ("categories", "Max Nutrition"): "n_max"},
                 ["nutrition_quantities"])
         self.assertFalse(hasattr(dat, "nutrition_quantities"))
@@ -397,62 +399,62 @@ class TestAmpl(unittest.TestCase):
         self.assertTrue(sln_2.consume_nutrition and set(sln_2.consume_nutrition) ==
                         {k for k,v in sln.consume_nutrition.items() if v["Quantity"] < 100})
 
-        diet_dat_two = _diet_input_tdf.copy_tic_dat(_diet_dat)
+        diet_dat_two = _diet_input_pdf.copy_tic_dat(_diet_dat)
         diet_dat_two.categories["calories"] = [0,200]
-        dat = _diet_input_tdf.copy_to_ampl(diet_dat_two, field_renamings={("foods", "Cost"): "cost",
+        dat = _diet_input_pdf.copy_to_ampl(diet_dat_two, field_renamings={("foods", "Cost"): "cost",
                 ("categories", "Min Nutrition"): "n_min", ("categories", "Max Nutrition"): "n_max",
                 ("nutrition_quantities", "Quantity"): "amt",
                 ("nutrition_quantities", "Other Quantity"): "other_amt"})
         ampl = amplpy.AMPL()
         ampl.setOption('solver', 'gurobi')
         ampl.eval(_diet_mod)
-        _diet_input_tdf.set_ampl_data(dat, ampl, {"categories": "CAT", "foods": "FOOD"})
+        _diet_input_pdf.set_ampl_data(dat, ampl, {"categories": "CAT", "foods": "FOOD"})
         ampl.solve()
         self.assertTrue("infeasible" == ampl.getValue("solve_result"))
 
-        diet_dat_two = _diet_input_tdf.copy_tic_dat(_diet_dat)
+        diet_dat_two = _diet_input_pdf.copy_tic_dat(_diet_dat)
         for v in diet_dat_two.categories.values():
             v["Max Nutrition"] = float("inf")
         diet_dat_two.foods["hamburger"] = -1
-        dat = _diet_input_tdf.copy_to_ampl(diet_dat_two, field_renamings={("foods", "Cost"): "cost",
+        dat = _diet_input_pdf.copy_to_ampl(diet_dat_two, field_renamings={("foods", "Cost"): "cost",
                 ("categories", "Min Nutrition"): "n_min", ("categories", "Max Nutrition"): "n_max",
                 ("nutrition_quantities", "Quantity"): "amt",
                 ("nutrition_quantities", "Other Quantity"): "other_amt"})
         ampl = amplpy.AMPL()
         ampl.setOption('solver', 'gurobi')
         ampl.eval(_diet_mod)
-        _diet_input_tdf.set_ampl_data(dat, ampl, {"categories": "CAT", "foods": "FOOD"})
+        _diet_input_pdf.set_ampl_data(dat, ampl, {"categories": "CAT", "foods": "FOOD"})
         ampl.solve()
         self.assertTrue("unbounded" == ampl.getValue("solve_result"))
 
     def test_netflow_amplpy(self):
-        dat = _netflow_input_tdf.copy_to_ampl(_netflow_dat, field_renamings={("arcs", "Capacity"): "capacity",
+        dat = _netflow_input_pdf.copy_to_ampl(_netflow_dat, field_renamings={("arcs", "Capacity"): "capacity",
             ("cost", "Cost"): "cost", ("inflow", "Quantity"): "inflow"})
         ampl = amplpy.AMPL()
         ampl.setOption('solver', 'gurobi')
         ampl.eval(_netflow_mod)
-        _netflow_input_tdf.set_ampl_data(dat, ampl, {"nodes": "NODES", "arcs": "ARCS",
+        _netflow_input_pdf.set_ampl_data(dat, ampl, {"nodes": "NODES", "arcs": "ARCS",
                                            "commodities": "COMMODITIES"})
         ampl.solve()
 
-        sln = _netflow_sln_tdf.copy_from_ampl_variables(
+        sln = _netflow_sln_pdf.copy_from_ampl_variables(
             {('flow' ,'Quantity'):ampl.getVariable("Flow")})
         sln.parameters["Total Cost"] = ampl.getObjective('TotalCost').value()
 
-        self.assertTrue(_nearly_same_dat(_netflow_sln_tdf, sln, _netflow_sln_ticdat))
+        self.assertTrue(_nearly_same_dat(_netflow_sln_pdf, sln, _netflow_sln_ticdat))
 
-        sln2 = _netflow_sln_tdf.copy_from_ampl_variables(
+        sln2 = _netflow_sln_pdf.copy_from_ampl_variables(
             {('flow' ,'Quantity'):(ampl.getVariable("Flow"), lambda v : v>30)})
-        sln3 = _netflow_sln_tdf.copy_from_ampl_variables(
+        sln3 = _netflow_sln_pdf.copy_from_ampl_variables(
             {('flow' ,'Quantity'):(ampl.getVariable("Flow"), lambda v : 0<v<=30)})
         sln2.parameters["Total Cost"] = sln3.parameters["Total Cost"] = sln.parameters["Total Cost"]
 
         self.assertTrue(sln2.flow and sln3.flow)
-        self.assertFalse(_nearly_same_dat(_netflow_sln_tdf, sln, sln2))
-        self.assertFalse(_nearly_same_dat(_netflow_sln_tdf, sln, sln3))
+        self.assertFalse(_nearly_same_dat(_netflow_sln_pdf, sln, sln2))
+        self.assertFalse(_nearly_same_dat(_netflow_sln_pdf, sln, sln3))
         for k,v in sln3.flow.items():
             sln2.flow[k] = v
-        self.assertTrue(_nearly_same_dat(_netflow_sln_tdf, sln, sln2))
+        self.assertTrue(_nearly_same_dat(_netflow_sln_pdf, sln, sln2))
 
 if __name__ == "__main__":
     if not amplpy:
