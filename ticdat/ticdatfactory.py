@@ -928,6 +928,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
             verify(len(df.columns) == 1, "unexpected number of data columns found for ampl_variable" +
                                          "object " + str((t,f)))
             df.rename(columns={next(iter(df.columns)):f or "ticdat_dummy"}, inplace=True)
+            df = df[df.apply(lambda row: filter_(row[f or "ticdat_dummy"]), axis=1)]
             if len(self.primary_key_fields[t]) == 1:
                 df.index.rename(self.primary_key_fields[t][0], inplace=True)
             else:
@@ -936,13 +937,12 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
             if f:
                 tic_dat = self.TicDat(**{t:df})
                 for k,r in getattr(tic_dat, t).items():
-                    if filter_(r[f]):
-                        getattr(rtn, t)[k][f] = r[f]
+                    getattr(rtn, t)[k][f] = r[f]
             else:
                 tic_dat = TicDatFactory(**{t:[self.primary_key_fields[t],
                                               ["ticdat_dummy"]]}).TicDat(**{t:df})
                 for k,r in getattr(tic_dat, t).items():
-                    if filter_(r["ticdat_dummy"]) and k not in getattr(rtn, t):
+                    if k not in getattr(rtn, t):
                         getattr(rtn, t)[k] = {}
         return rtn
     def copy_to_ampl(self, tic_dat, field_renamings = None, excluded_tables = None):
