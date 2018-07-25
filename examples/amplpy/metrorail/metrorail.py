@@ -118,7 +118,7 @@ def solve(dat):
             # store the results if and only if the model is feasible
             av = ampl.getVariable("Num_Visits").getValues()
             if av.toDict():
-                df = ampl.getVariable("Num_Visits").getValues().toPandas().reset_index()
+                df = av.toPandas().reset_index()
                 df.rename(columns = {df.columns[0]: "Load Amount", df.columns[1]: "Number Of Visits"}, inplace=True)
                 df["Number One Way Trips"] = number_trips
                 df["Amount Leftover"] = amount_leftover

@@ -458,30 +458,3 @@ if __name__ == "__main__":
     if not amplpy:
         print("!!!testampl.py is going to fail because amplpy is not installed!!!")
     unittest.main()
-
-def convert_to_dicts_that_can_be_turned_into_DataFrames(tdf, dat, field_renamings = None):
-    '''
-    utility routine to help de-ticdat-ify small examples so that they can then be passed to
-    amplpy team in a more easily understood notebook example with hard coded data.
-    the inner dicts returned below can each be passed as an argument to pandas.DataFrame, and from there
-    the `set_ampl_data` logic can be broken out explicitly
-    :param tdf: a TicDatFactory
-    :param dat: a TicDat object created by tdf
-    :param field_renamings: the same argument used by copy_to_ampl
-    :return:
-    '''
-    assert utils.dictish(field_renamings) and \
-       all(utils.containerish(k) and len(k) == 2 and k[0] in tdf.all_tables and
-           k[1] in tdf.primary_key_fields[k[0]] + tdf.data_fields[k[0]] and
-           utils.stringish(v) and v not in tdf.primary_key_fields[k[0]] + tdf.data_fields[k[0]]
-           for k,v in field_renamings.items()), "invalid field_renamings argument"
-    dat = tdf.copy_to_pandas(dat, drop_pk_columns=False)
-    def do_renames(t, df):
-        for f in tdf.primary_key_fields[t] + tdf.data_fields[t]:
-            if (t,f) in (field_renamings or []):
-                df[field_renamings[t,f]] = df[f]
-                df.drop(f, axis=1, inplace = True)
-        return df
-    rtn=  {t: do_renames(t, getattr(dat, t).reset_index(drop=True)).to_dict()
-            for t in tdf.all_tables}
-    return rtn
