@@ -225,45 +225,42 @@ def _metro_solve(dat, excluded_tables=
         if k in set(dat.parameters["Parameter"]):
             full_parameters[k] = dat.parameters[dat.parameters["Parameter"] == k]["Value"][0]
 
+    ampl_dat = input_schema.copy_to_ampl(dat, excluded_tables=excluded_tables)
+    ampl = AMPL()
+    ampl.setOption('solver', 'gurobi')
+    ampl.eval("""
+    param amount_leftover_lb >= 0;
+    param amount_leftover_ub >= amount_leftover_lb;
+    param one_way_price >= 0;
+    param number_trips >= 0;
+    set LOAD_AMTS;
+    var Num_Visits {LOAD_AMTS} integer >= 0;
+    var Amt_Leftover >= amount_leftover_lb, <= amount_leftover_ub;
+    minimize Total_Visits:
+       sum {la in LOAD_AMTS} Num_Visits[la];
+    subj to Set_Amt_Leftover:
+       Amt_Leftover = sum {la in LOAD_AMTS} la * Num_Visits[la] - one_way_price * number_trips;""")
+    input_schema.set_ampl_data(ampl_dat, ampl, {"load_amounts": "LOAD_AMTS"})
+
     load_amount_details = pd.DataFrame(columns=['Number One Way Trips', 'Amount Leftover', 'Load Amount',
                                              'Number Of Visits'])
-    ampl_dat = input_schema.copy_to_ampl(dat, excluded_tables=excluded_tables)
     # solve a distinct MIP for each pair of (# of one-way-trips, amount leftover)
     for number_trips, amount_leftover in product(list(dat.number_of_one_way_trips["Number"]),
                                                  list(dat.amount_leftover["Amount"])):
-        ampl = AMPL()
-        ampl.setOption('solver', 'gurobi')
-        ampl.eval("""
-        param amount_leftover_lb >= 0;
-        param amount_leftover_ub >= amount_leftover_lb;
-        param one_way_price >= 0;
-        param number_trips >= 0;
-        set LOAD_AMTS;
-        var Num_Visits {LOAD_AMTS} integer >= 0;
-        var Amt_Leftover >= amount_leftover_lb, <= amount_leftover_ub;
-        minimize Total_Visits:
-           sum {la in LOAD_AMTS} Num_Visits[la];
-        subj to Set_Amt_Leftover:
-           Amt_Leftover = sum {la in LOAD_AMTS} la * Num_Visits[la] - one_way_price * number_trips;""")
 
         ampl.param['amount_leftover_lb'] = amount_leftover \
             if full_parameters["Amount Leftover Constraint"] == "Equality" else 0
         ampl.param['amount_leftover_ub'] = amount_leftover
         ampl.param['number_trips'] = number_trips
         ampl.param['one_way_price'] = full_parameters["One Way Price"]
-        input_schema.set_ampl_data(ampl_dat, ampl, {"load_amounts": "LOAD_AMTS"})
 
         ampl.solve()
-
         if ampl.getValue("solve_result") != "infeasible":
-            # store the results if and only if the model is feasible
-            av = ampl.getVariable("Num_Visits").getValues()
-            if av.toDict():
-                df = av.toPandas().reset_index()
-                df.rename(columns = {df.columns[0]: "Load Amount", df.columns[1]: "Number Of Visits"}, inplace=True)
-                df["Number One Way Trips"] = number_trips
-                df["Amount Leftover"] = amount_leftover
-                load_amount_details = load_amount_details.append(df[df["Number Of Visits"] > 0])
+            df = ampl.getVariable("Num_Visits").getValues().toPandas().reset_index()
+            df.rename(columns = {df.columns[0]: "Load Amount", df.columns[1]: "Number Of Visits"}, inplace=True)
+            df["Number One Way Trips"] = number_trips
+            df["Amount Leftover"] = amount_leftover
+            load_amount_details = load_amount_details.append(df[df["Number Of Visits"] > 0])
 
     load_amount_details.sort_values(by=["Number One Way Trips", "Amount Leftover", "Load Amount"], inplace=True)
     load_amount_summary = pd.DataFrame(columns=['Number One Way Trips', 'Amount Leftover', 'Number Of Visits'])

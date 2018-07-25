@@ -9,9 +9,9 @@
 #
 # Provides command line interface via ticdat.standard_main
 # For example, typing
-#   python netflow.py -i netflow_sample_data.sql -o netflow_solution.sql
-# will read from the model stored in netflow_sample_data.sql
-# and write the solution to netflow_solution.sql
+#   python netflow.py -i netflow_sample_data.json -o netflow_solution.json
+# will read from the model stored in netflow_sample_data.json
+# and write the solution to netflow_solution.json
 
 from ticdat import PanDatFactory, standard_main
 from amplpy import AMPL
@@ -57,18 +57,19 @@ solution_schema = PanDatFactory(
 def solve(dat):
     """
     core solving routine
-    :param dat: a good ticdat for the input_schema
-    :return: a good ticdat for the solution_schema, or None
+    :param dat: a good pandat for the input_schema
+    :return: a good pandat for the solution_schema, or None
     """
     assert input_schema.good_pan_dat_object(dat)
     assert not input_schema.find_duplicates(dat)
     assert not input_schema.find_foreign_key_failures(dat)
     assert not input_schema.find_data_type_failures(dat)
 
-    # copy the data over to amplpy.DataFrame objects, renaming the data fields as needed
+    # copy the tables to amplpy.DataFrame objects, renaming the data fields as needed
     dat = input_schema.copy_to_ampl(dat, field_renamings={("arcs", "Capacity"): "capacity",
             ("cost", "Cost"): "cost", ("inflow", "Quantity"): "inflow"})
 
+    # build the AMPL math model
     # for instructional purposes, the following code anticipates extreme sparsity and doesn't generate
     # conservation of flow records unless they are really needed
     ampl = AMPL()
@@ -96,20 +97,24 @@ def solve(dat):
        sum {(h,j,i) in SHIPMENT_OPTIONS} Flow[h,j,i];
     """)
 
+    # load the amplpy.DataFrame objects into the AMPL model, explicitly identifying how to populate the AMPL sets
     input_schema.set_ampl_data(dat, ampl, {"nodes": "NODES", "arcs": "ARCS",
                                            "commodities": "COMMODITIES", "cost":"SHIPMENT_OPTIONS",
                                             "inflow":"INFLOW_INDEX"})
-    ampl.solve()
 
+    # solve and recover the solution if feasible
+    ampl.solve()
     if ampl.getValue("solve_result") != "infeasible":
+        # solution tables are populated by mapping solution (table, field) to AMPL variable
         sln = solution_schema.copy_from_ampl_variables(
             {('flow' ,'Quantity'):ampl.getVariable("Flow")})
+        # append the solution KPI results to the solution parameters table
         sln.parameters.loc[0] = ['Total Cost', ampl.getObjective('TotalCost').value()]
         return sln
 # ---------------------------------------------------------------------------------
 
 # ------------------------ provide stand-alone functionality ----------------------
-# when run from the command line, will read/write json/xls/csv/db/sql/mdb files
+# when run from the command line, will read/write xls/csv/json/db files
 if __name__ == "__main__":
     standard_main(input_schema, solution_schema, solve)
 # ---------------------------------------------------------------------------------

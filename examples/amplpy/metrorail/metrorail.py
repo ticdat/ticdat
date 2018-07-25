@@ -83,9 +83,26 @@ def solve(dat):
         if k in set(dat.parameters["Parameter"]):
             full_parameters[k] = dat.parameters[dat.parameters["Parameter"] == k]["Value"][0]
 
-     # copy the tables to amplpy.DataFrame objects, renaming the data fields as needed
+     # copy the Load Amounts table to an amplpy.DataFrame object
     ampl_dat = input_schema.copy_to_ampl(dat, excluded_tables=
                    set(input_schema.all_tables).difference({"load_amounts"}))
+    # build the AMPL math model
+    ampl = AMPL()
+    ampl.setOption('solver', 'gurobi')
+    ampl.eval("""
+    param amount_leftover_lb >= 0;
+    param amount_leftover_ub >= amount_leftover_lb;
+    param one_way_price >= 0;
+    param number_trips >= 0;
+    set LOAD_AMTS;
+    var Num_Visits {LOAD_AMTS} integer >= 0;
+    var Amt_Leftover >= amount_leftover_lb, <= amount_leftover_ub;
+    minimize Total_Visits:
+       sum {la in LOAD_AMTS} Num_Visits[la];
+    subj to Set_Amt_Leftover:
+       Amt_Leftover = sum {la in LOAD_AMTS} la * Num_Visits[la] - one_way_price * number_trips;""")
+    # populate the LOAD_AMTS set with the Load Amounts table
+    input_schema.set_ampl_data(ampl_dat, ampl, {"load_amounts": "LOAD_AMTS"})
 
     # we will build the Load Amount Details report sub-problem by sub-problem
     load_amount_details = DataFrame(columns=['Number One Way Trips', 'Amount Leftover', 'Load Amount',
@@ -94,43 +111,25 @@ def solve(dat):
     for number_trips, amount_leftover in product(list(dat.number_of_one_way_trips["Number"]),
                                                  list(dat.amount_leftover["Amount"])):
 
-        # build the AMPL math model
-        ampl = AMPL()
-        ampl.setOption('solver', 'gurobi')
-        ampl.eval("""
-        param amount_leftover_lb >= 0;
-        param amount_leftover_ub >= amount_leftover_lb;
-        param one_way_price >= 0;
-        param number_trips >= 0;
-        set LOAD_AMTS;
-        var Num_Visits {LOAD_AMTS} integer >= 0;
-        var Amt_Leftover >= amount_leftover_lb, <= amount_leftover_ub;
-        minimize Total_Visits:
-           sum {la in LOAD_AMTS} Num_Visits[la];
-        subj to Set_Amt_Leftover:
-           Amt_Leftover = sum {la in LOAD_AMTS} la * Num_Visits[la] - one_way_price * number_trips;""")
-
         # set the appropriate parameters for this sub-problem
         ampl.param['amount_leftover_lb'] = amount_leftover \
             if full_parameters["Amount Leftover Constraint"] == "Equality" else 0
         ampl.param['amount_leftover_ub'] = amount_leftover
         ampl.param['number_trips'] = number_trips
         ampl.param['one_way_price'] = full_parameters["One Way Price"]
-        # load the amplpy.DataFrame objects into the AMPL model, explicitly identifying how to populate the AMPL sets
-        input_schema.set_ampl_data(ampl_dat, ampl, {"load_amounts": "LOAD_AMTS"})
 
         # solve and recover the solution if feasible
         ampl.solve()
         if ampl.getValue("solve_result") != "infeasible":
-            # store the results if and only if the model is feasible
-            av = ampl.getVariable("Num_Visits").getValues()
-            if av.toDict(): # right here
-                df = av.toPandas().reset_index()
-                df.rename(columns = {df.columns[0]: "Load Amount", df.columns[1]: "Number Of Visits"}, inplace=True)
-                df["Number One Way Trips"] = number_trips
-                df["Amount Leftover"] = amount_leftover
-                load_amount_details = load_amount_details.append(df[df["Number Of Visits"] > 0])
+            # convert the Num_Visits AMPL variable into a pandas.DataFrame that can be appended
+            # to the load_amount_details report
+            df = ampl.getVariable("Num_Visits").getValues().toPandas().reset_index()
+            df.rename(columns = {df.columns[0]: "Load Amount", df.columns[1]: "Number Of Visits"}, inplace=True)
+            df["Number One Way Trips"] = number_trips
+            df["Amount Leftover"] = amount_leftover
+            load_amount_details = load_amount_details.append(df[df["Number Of Visits"] > 0])
 
+    # pandas has amazing convenience routines for sorting and sub-totaling
     load_amount_details.sort_values(by=["Number One Way Trips", "Amount Leftover", "Load Amount"], inplace=True)
     load_amount_summary = DataFrame(columns=['Number One Way Trips', 'Amount Leftover', 'Number Of Visits'])
     if len(load_amount_details):

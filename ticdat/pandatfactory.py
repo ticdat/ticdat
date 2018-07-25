@@ -659,7 +659,7 @@ class PanDatFactory(object):
         :return:
         """
         verify(all(a.startswith("_") or a in self.all_tables for a in dir(ampl_dat)),
-               "bad ticdat argument")
+               "bad ampl_dat argument")
         verify(hasattr(ampl, "setData"), "bad ampl argument")
         table_to_set_name = table_to_set_name or {}
         verify(dictish(table_to_set_name) and all(hasattr(ampl_dat, k) and
