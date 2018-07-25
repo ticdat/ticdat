@@ -13,7 +13,6 @@
 # to solution_data.xlsx.
 #
 
-# diet_ampl.py doesn't require a separate .mod file. Instead, we use amplpy.AMPL
 from amplpy import AMPL
 from ticdat import PanDatFactory, standard_main
 
@@ -60,8 +59,8 @@ solution_schema = PanDatFactory(
 def solve(dat):
     """
     core solving routine
-    :param dat: a good ticdat for the input_schema
-    :return: a good ticdat for the solution_schema, or None
+    :param dat: a good pandat for the input_schema
+    :return: a good pandat for the solution_schema, or None
     """
     assert input_schema.good_pan_dat_object(dat)
     assert not input_schema.find_duplicates(dat)
@@ -69,11 +68,14 @@ def solve(dat):
     assert not input_schema.find_data_type_failures(dat)
     assert not input_schema.find_data_row_failures(dat)
 
-    # copy the data over to amplpy.DataFrame objects, renaming the data fields as needed
-    dat = input_schema.copy_to_ampl(dat, field_renamings={("foods", "Cost"): "cost",
-            ("categories", "Min Nutrition"): "n_min", ("categories", "Max Nutrition"): "n_max",
+    # copy the tables to amplpy.DataFrame objects, renaming the data fields as needed
+    dat = input_schema.copy_to_ampl(dat, field_renamings={
+            ("foods", "Cost"): "cost",
+            ("categories", "Min Nutrition"): "n_min",
+            ("categories", "Max Nutrition"): "n_max",
             ("nutrition_quantities", "Quantity"): "amt"})
 
+    # build the AMPL math model
     ampl = AMPL()
     ampl.setOption('solver', 'gurobi')
     ampl.eval("""
@@ -96,20 +98,24 @@ def solve(dat):
        Consume[i] =  sum {j in FOOD} amt[j,i] * Buy[j];
     """)
 
+    # load the amplpy.DataFrame objects into the AMPL model, explicitly identifying how to populate the AMPL sets
     input_schema.set_ampl_data(dat, ampl, {"categories": "CAT", "foods": "FOOD"})
-    ampl.solve()
 
+    # solve and recover the solution if feasible
+    ampl.solve()
     if ampl.getValue("solve_result") != "infeasible":
+        # solution tables are populated by mapping solution (table, field) to AMPL variable
         sln = solution_schema.copy_from_ampl_variables(
-            {("buy_food", "Quantity"):ampl.getVariable("Buy"),
-            ("consume_nutrition", "Quantity"):ampl.getVariable("Consume")})
+            {("buy_food", "Quantity"): ampl.getVariable("Buy"),
+            ("consume_nutrition", "Quantity"): ampl.getVariable("Consume")})
+        # append the solution KPI results to the solution parameters table
         sln.parameters.loc[0] = ['Total Cost', ampl.getObjective('Total_Cost').value()]
 
         return sln
 # ---------------------------------------------------------------------------------
 
 # ------------------------ provide stand-alone functionality ----------------------
-# when run from the command line, will read/write xls/csv/db/sql/mdb files;
+# when run from the command line, will read/write xls/csv/json/db files;
 if __name__ == "__main__":
     standard_main(input_schema, solution_schema, solve)
 # ---------------------------------------------------------------------------------

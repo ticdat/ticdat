@@ -1,6 +1,7 @@
 #
 # Models Tallys Yunes Metrorail tickets problem.
 # https://orbythebeach.wordpress.com/2018/03/01/buying-metrorail-tickets-in-miami/
+# https://www.linkedin.com/pulse/miami-metrorail-meets-python-peter-cacioppi/
 #
 # Implement core functionality needed to achieve modularity.
 # 1. Define the input data schema

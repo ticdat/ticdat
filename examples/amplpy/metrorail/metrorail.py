@@ -1,6 +1,7 @@
 #
 # Models Tallys Yunes Metrorail tickets problem.
 # https://orbythebeach.wordpress.com/2018/03/01/buying-metrorail-tickets-in-miami/
+# https://www.linkedin.com/pulse/miami-metrorail-meets-python-peter-cacioppi/
 #
 # Implement core functionality needed to achieve modularity.
 # 1. Define the input data schema
@@ -68,8 +69,8 @@ solution_schema = PanDatFactory(
 def solve(dat):
     """
     core solving routine
-    :param dat: a good ticdat for the input_schema
-    :return: a good ticdat for the solution_schema, or None
+    :param dat: a good pandat for the input_schema
+    :return: a good pandat for the solution_schema, or None
     """
     assert input_schema.good_pan_dat_object(dat)
     assert not input_schema.find_duplicates(dat)
@@ -82,14 +83,18 @@ def solve(dat):
         if k in set(dat.parameters["Parameter"]):
             full_parameters[k] = dat.parameters[dat.parameters["Parameter"] == k]["Value"][0]
 
+     # copy the tables to amplpy.DataFrame objects, renaming the data fields as needed
     ampl_dat = input_schema.copy_to_ampl(dat, excluded_tables=
                    set(input_schema.all_tables).difference({"load_amounts"}))
+
+    # we will build the Load Amount Details report sub-problem by sub-problem
     load_amount_details = DataFrame(columns=['Number One Way Trips', 'Amount Leftover', 'Load Amount',
                                              'Number Of Visits'])
     # solve a distinct MIP for each pair of (# of one-way-trips, amount leftover)
     for number_trips, amount_leftover in product(list(dat.number_of_one_way_trips["Number"]),
                                                  list(dat.amount_leftover["Amount"])):
 
+        # build the AMPL math model
         ampl = AMPL()
         ampl.setOption('solver', 'gurobi')
         ampl.eval("""
@@ -105,19 +110,21 @@ def solve(dat):
         subj to Set_Amt_Leftover:
            Amt_Leftover = sum {la in LOAD_AMTS} la * Num_Visits[la] - one_way_price * number_trips;""")
 
+        # set the appropriate parameters for this sub-problem
         ampl.param['amount_leftover_lb'] = amount_leftover \
             if full_parameters["Amount Leftover Constraint"] == "Equality" else 0
         ampl.param['amount_leftover_ub'] = amount_leftover
         ampl.param['number_trips'] = number_trips
         ampl.param['one_way_price'] = full_parameters["One Way Price"]
+        # load the amplpy.DataFrame objects into the AMPL model, explicitly identifying how to populate the AMPL sets
         input_schema.set_ampl_data(ampl_dat, ampl, {"load_amounts": "LOAD_AMTS"})
 
+        # solve and recover the solution if feasible
         ampl.solve()
-
         if ampl.getValue("solve_result") != "infeasible":
             # store the results if and only if the model is feasible
             av = ampl.getVariable("Num_Visits").getValues()
-            if av.toDict():
+            if av.toDict(): # right here
                 df = av.toPandas().reset_index()
                 df.rename(columns = {df.columns[0]: "Load Amount", df.columns[1]: "Number Of Visits"}, inplace=True)
                 df["Number One Way Trips"] = number_trips
@@ -137,7 +144,7 @@ def solve(dat):
 # ---------------------------------------------------------------------------------
 
 # ------------------------ provide stand-alone functionality ----------------------
-# when run from the command line, will read/write json/xls/csv/db/sql/mdb files
+# when run from the command line, will read/write json/xls/csv/db files
 if __name__ == "__main__":
     standard_main(input_schema, solution_schema, solve)
 # ---------------------------------------------------------------------------------
