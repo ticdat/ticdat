@@ -1424,7 +1424,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
         checks to see if a given table contains a denormalized sub-table
         indexed by pk_fields with data fields data_fields
         :param tic_dat: a ticdat object
-        :param _table: The name of the table to study.
+        :param table: The name of the table to study.
         :param sub_table_pk_fields: The pk_fields of the sub-table. Needs to be fields
                                     (but not necc primary key fields) of the table.
         :param sub_table_data_fields: The data fields of the sub-table. Needs to be fields
