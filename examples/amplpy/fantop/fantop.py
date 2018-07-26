@@ -78,10 +78,10 @@ def solve(dat):
     # compute the Expected Draft Position column
     # for our purposes, its fine to assume all those drafted by someone else are drafted
     # prior to any players drafted by me
-    dat.players["_temp_sort_column"] = dat.players.apply(
-                                        lambda row: {"Un-drafted":row["Average Draft Position"],
-                                                     "Drafted By Me":-1, "Drafted By Someone Else":-2}
-                                        [row["Draft Status"]],  axis=1)
+    dat.players["_temp_sort_column"] = dat.players.apply(axis=1, func=lambda row:
+                                                    {"Un-drafted": row["Average Draft Position"],
+                                                     "Drafted By Me": -1, "Drafted By Someone Else": -2}
+                                                    [row["Draft Status"]])
     dat.players.sort_values(by="_temp_sort_column", inplace=True)
     dat.players.reset_index(drop=True, inplace=True) # get rid of the index that has become scrambled
     dat.players.reset_index(drop=False, inplace=True) # turn the sequential index into a column
