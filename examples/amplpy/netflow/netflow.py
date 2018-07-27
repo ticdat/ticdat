@@ -15,7 +15,6 @@
 
 from ticdat import PanDatFactory, standard_main
 from amplpy import AMPL
-from itertools import product
 
 # ------------------------ define the input schema --------------------------------
 input_schema = PanDatFactory (

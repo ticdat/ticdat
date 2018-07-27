@@ -17,10 +17,7 @@
 # before solving to prevent strange errors or garbage-in, garbage-out problems.
 
 from ticdat import PanDatFactory, standard_main
-
-
-# this version of the file uses Gurobi
-import gurobipy as gu
+from amplpy import AMPL
 
 # ------------------------ define the input schema --------------------------------
 input_schema = PanDatFactory(
@@ -73,7 +70,6 @@ def solve(dat):
     assert not input_schema.find_duplicates(dat)
     assert not input_schema.find_foreign_key_failures(dat)
     assert not input_schema.find_data_type_failures(dat)
-
 
     # compute the Expected Draft Position column
     # for our purposes, its fine to assume all those drafted by someone else are drafted

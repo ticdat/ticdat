@@ -617,6 +617,9 @@ class PanDatFactory(object):
                                 a mapping from (table_name, field_name) -> new_field_name
                                 If a data field is to be omitted, then new_field can be falsey
                                 table_name cannot refer to an excluded table. (see below)
+                                field_name doesn't have to refer to a field to an element of
+                                self.data_fields[t], but it doesn't have to refer to a column in
+                                the pan_dat.table_name DataFrame
         :param excluded_tables: If truthy, a list of tables to be excluded from the copy.
                                 Tables without primary key fields are always excluded.
         :return: a deep copy of the tic_dat argument into amplpy.DataFrames
@@ -633,8 +636,8 @@ class PanDatFactory(object):
         field_renamings = field_renamings or {}
         verify(dictish(field_renamings) and
                all(containerish(k) and len(k) == 2 and k[0] in copy_tables and
-                   k[1] in self.primary_key_fields[k[0]] + self.data_fields[k[0]] and
-                   ((not bool(v) and k[1] in self.data_fields[k[0]]) or utils.stringish(v))
+                   k[1] in getattr(pan_dat, k[0]).columns and
+                   (utils.stringish(v) or (not bool(v) and k[1] not in self.primary_key_fields[k[0]]))
                    for k,v in field_renamings.items()), "invalid field_renamings argument")
         class AmplPanDat(object):
             def __repr__(self):
@@ -645,7 +648,7 @@ class PanDatFactory(object):
             df_ampl = amplpy.DataFrame(index=tuple(map(rename, self.primary_key_fields[t])))
             for f in self.primary_key_fields[t]:
                 df_ampl.setColumn(rename(f), list(getattr(pan_dat, t)[f]))
-            for f in self.data_fields[t]:
+            for f in {f for _t,f in field_renamings if _t == t}.union(self.data_fields[t]):
                 if rename(f):
                     df_ampl.addColumn(rename(f), list(getattr(pan_dat, t)[f]))
             setattr(rtn, t, df_ampl)

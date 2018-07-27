@@ -367,6 +367,24 @@ class TestAmpl(unittest.TestCase):
             ("consume_nutrition", "Quantity"):ampl.getVariable("Consume")})
         sln.parameters.loc[0] = ['Total Cost', ampl.getObjective('Total_Cost').value()]
 
+        _missing_field_pdf = PanDatFactory(**{t:[pks, (["Max Nutrition"] if t == "categories" else dfs)]
+                                              for t,(pks, dfs) in _diet_input_pdf.schema().items()})
+        dat = _missing_field_pdf.copy_to_ampl(_diet_dat, field_renamings={("foods", "Cost"): "cost",
+                ("categories", "Min Nutrition"): "n_min", ("categories", "Max Nutrition"): "n_max",
+                ("nutrition_quantities", "Quantity"): "amt",
+                ("nutrition_quantities", "Other Quantity"): "other_amt"})
+        self.assertTrue({"n_min", "n_max"}.issubset(dat.categories.toPandas().columns))
+        ampl = amplpy.AMPL()
+        ampl.setOption('solver', 'gurobi')
+        ampl.eval(_diet_mod)
+        _diet_input_pdf.set_ampl_data(dat, ampl, {"categories": "CAT", "foods": "FOOD"})
+        ampl.solve()
+        sln_2 = _diet_sln_pdf.copy_from_ampl_variables(
+            {("buy_food", "Quantity"):ampl.getVariable("Buy"),
+            ("consume_nutrition", "Quantity"):ampl.getVariable("Consume")})
+        sln_2.parameters.loc[0] = ['Total Cost', ampl.getObjective('Total_Cost').value()]
+        self.assertTrue(_diet_sln_pdf._same_data(sln, sln_2))
+
         diet_dat_two = _diet_input_pdf.copy_to_tic_dat(_diet_dat)
         for r in diet_dat_two.nutrition_quantities.values():
             r["Quantity"], r["Other Quantity"] = [0.5 * r["Quantity"]] * 2
