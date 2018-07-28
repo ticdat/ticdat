@@ -1,0 +1,486 @@
+{
+    "my_draft_positions": {
+        "columns": [
+            "Draft Position"
+        ], 
+        "data": [
+            [
+                1
+            ], 
+            [
+                4
+            ], 
+            [
+                7
+            ], 
+            [
+                9
+            ], 
+            [
+                10
+            ], 
+            [
+                12
+            ], 
+            [
+                15
+            ], 
+            [
+                17
+            ], 
+            [
+                18
+            ], 
+            [
+                20
+            ], 
+            [
+                23
+            ], 
+            [
+                25
+            ], 
+            [
+                26
+            ], 
+            [
+                28
+            ], 
+            [
+                31
+            ], 
+            [
+                34
+            ]
+        ]
+    }, 
+    "parameters": {
+        "columns": [
+            "Parameter", 
+            "Value"
+        ], 
+        "data": [
+            [
+                "Reserve Weight", 
+                0.9
+            ], 
+            [
+                "Starter Weight", 
+                1.2
+            ]
+        ]
+    }, 
+    "players": {
+        "columns": [
+            "Player Name", 
+            "Position", 
+            "Average Draft Position", 
+            "Expected Points", 
+            "Draft Status"
+        ], 
+        "data": [
+            [
+                "A.J. Derby", 
+                "TE", 
+                150.99, 
+                0.0, 
+                "Un-drafted"
+            ], 
+            [
+                "A.J. Green", 
+                "WR", 
+                12.28, 
+                179.95, 
+                "Un-drafted"
+            ], 
+            [
+                "A.J. Jenkins", 
+                "WR", 
+                150.99, 
+                0.0, 
+                "Un-drafted"
+            ], 
+            [
+                "AJ McCarron", 
+                "QB", 
+                160.47, 
+                11.48, 
+                "Un-drafted"
+            ], 
+            [
+                "Aaron Burbridge", 
+                "WR", 
+                189.44, 
+                2.38, 
+                "Un-drafted"
+            ], 
+            [
+                "Aaron Dobson", 
+                "WR", 
+                160.49, 
+                0.0, 
+                "Un-drafted"
+            ], 
+            [
+                "Aaron Murray", 
+                "QB", 
+                160.5, 
+                5.12, 
+                "Un-drafted"
+            ], 
+            [
+                "Aaron Ripkowski", 
+                "RB", 
+                160.49, 
+                9.94, 
+                "Un-drafted"
+            ], 
+            [
+                "Aaron Rodgers", 
+                "QB", 
+                25.35, 
+                310.48, 
+                "Un-drafted"
+            ], 
+            [
+                "Adam Humphries", 
+                "WR", 
+                160.49, 
+                22.78, 
+                "Un-drafted"
+            ], 
+            [
+                "Adam Thielen", 
+                "WR", 
+                150.98, 
+                12.58, 
+                "Un-drafted"
+            ], 
+            [
+                "Adam Vinatieri", 
+                "K", 
+                164.16, 
+                114.07, 
+                "Un-drafted"
+            ], 
+            [
+                "Adrian Peterson", 
+                "RB", 
+                6.64, 
+                208.98, 
+                "Un-drafted"
+            ], 
+            [
+                "Adrien Robinson", 
+                "TE", 
+                150.99, 
+                0.0, 
+                "Un-drafted"
+            ], 
+            [
+                "Ahmad Bradshaw", 
+                "RB", 
+                160.48, 
+                0.0, 
+                "Un-drafted"
+            ], 
+            [
+                "Akeem Hunt", 
+                "RB", 
+                150.99, 
+                2.59, 
+                "Un-drafted"
+            ], 
+            [
+                "Albert Wilson", 
+                "WR", 
+                160.47, 
+                64.14, 
+                "Un-drafted"
+            ], 
+            [
+                "Aldrick Robinson", 
+                "WR", 
+                151.0, 
+                0.0, 
+                "Un-drafted"
+            ], 
+            [
+                "Alex Collins", 
+                "RB", 
+                168.08, 
+                11.92, 
+                "Un-drafted"
+            ], 
+            [
+                "Alex Henery", 
+                "K", 
+                160.48, 
+                0.0, 
+                "Un-drafted"
+            ], 
+            [
+                "Alex Smith", 
+                "TE", 
+                160.49, 
+                0.0, 
+                "Un-drafted"
+            ], 
+            [
+                "Alfred Blue", 
+                "RB", 
+                180.59, 
+                45.83, 
+                "Un-drafted"
+            ], 
+            [
+                "Alfred Morris", 
+                "RB", 
+                157.95, 
+                43.68, 
+                "Un-drafted"
+            ], 
+            [
+                "Allen Hurns", 
+                "WR", 
+                76.03, 
+                125.74, 
+                "Un-drafted"
+            ], 
+            [
+                "Allen Robinson", 
+                "WR", 
+                15.65, 
+                175.54, 
+                "Un-drafted"
+            ], 
+            [
+                "Alonzo Harris", 
+                "RB", 
+                150.99, 
+                0.0, 
+                "Un-drafted"
+            ], 
+            [
+                "Ameer Abdullah", 
+                "RB", 
+                83.61, 
+                136.88, 
+                "Un-drafted"
+            ], 
+            [
+                "Andre Ellington", 
+                "RB", 
+                190.2, 
+                48.86, 
+                "Un-drafted"
+            ], 
+            [
+                "Andrew Franks", 
+                "K", 
+                160.43, 
+                95.96, 
+                "Un-drafted"
+            ], 
+            [
+                "Andrew Luck", 
+                "QB", 
+                42.38, 
+                280.28, 
+                "Un-drafted"
+            ], 
+            [
+                "Andrew Quarless", 
+                "TE", 
+                160.49, 
+                11.65, 
+                "Un-drafted"
+            ], 
+            [
+                "Andy Dalton", 
+                "QB", 
+                123.29, 
+                244.46, 
+                "Un-drafted"
+            ], 
+            [
+                "Anthony Fasano", 
+                "TE", 
+                160.49, 
+                28.73, 
+                "Un-drafted"
+            ], 
+            [
+                "Anthony McCoy", 
+                "TE", 
+                160.5, 
+                0.0, 
+                "Un-drafted"
+            ], 
+            [
+                "Antonio Gates", 
+                "TE", 
+                125.56, 
+                103.19, 
+                "Un-drafted"
+            ], 
+            [
+                "Asante Cleveland", 
+                "TE", 
+                150.99, 
+                2.4, 
+                "Un-drafted"
+            ], 
+            [
+                "Austin Davis", 
+                "QB", 
+                160.49, 
+                5.19, 
+                "Un-drafted"
+            ], 
+            [
+                "Austin Hooper", 
+                "TE", 
+                170.1, 
+                33.85, 
+                "Un-drafted"
+            ], 
+            [
+                "Austin Seferian-Jenkins", 
+                "TE", 
+                148.51, 
+                60.04, 
+                "Un-drafted"
+            ], 
+            [
+                "B.J. Daniels", 
+                "QB", 
+                150.99, 
+                0.0, 
+                "Un-drafted"
+            ], 
+            [
+                "Ben Roethlisberger", 
+                "QB", 
+                54.74, 
+                261.83, 
+                "Un-drafted"
+            ], 
+            [
+                "Billy Cundiff", 
+                "K", 
+                150.96, 
+                0.0, 
+                "Un-drafted"
+            ], 
+            [
+                "Blaine Gabbert", 
+                "QB", 
+                175.11, 
+                155.06, 
+                "Un-drafted"
+            ], 
+            [
+                "Blair Walsh", 
+                "K", 
+                172.1, 
+                131.3, 
+                "Un-drafted"
+            ], 
+            [
+                "Blake Bortles", 
+                "QB", 
+                80.94, 
+                253.0, 
+                "Un-drafted"
+            ], 
+            [
+                "Brandon McManus", 
+                "K", 
+                166.41, 
+                131.84, 
+                "Un-drafted"
+            ], 
+            [
+                "Cairo Santos", 
+                "K", 
+                182.56, 
+                128.74, 
+                "Un-drafted"
+            ], 
+            [
+                "Caleb Sturgis", 
+                "K", 
+                160.41, 
+                82.65, 
+                "Un-drafted"
+            ], 
+            [
+                "Carey Spear", 
+                "K", 
+                150.96, 
+                0.0, 
+                "Un-drafted"
+            ], 
+            [
+                "Chandler Catanzaro", 
+                "K", 
+                155.65, 
+                125.81, 
+                "Un-drafted"
+            ]
+        ]
+    }, 
+    "roster_requirements": {
+        "columns": [
+            "Position", 
+            "Min Num Starters", 
+            "Max Num Starters", 
+            "Min Num Reserve", 
+            "Max Num Reserve", 
+            "Flex Status"
+        ], 
+        "data": [
+            [
+                "K", 
+                1, 
+                1, 
+                0, 
+                0, 
+                "Flex Ineligible"
+            ], 
+            [
+                "QB", 
+                1, 
+                1, 
+                1, 
+                2, 
+                "Flex Ineligible"
+            ], 
+            [
+                "RB", 
+                2, 
+                3, 
+                1, 
+                3, 
+                "Flex Ineligible"
+            ], 
+            [
+                "TE", 
+                1, 
+                1, 
+                0, 
+                1, 
+                "Flex Ineligible"
+            ], 
+            [
+                "WR", 
+                2, 
+                3, 
+                2, 
+                4, 
+                "Flex Ineligible"
+            ]
+        ]
+    }
+}

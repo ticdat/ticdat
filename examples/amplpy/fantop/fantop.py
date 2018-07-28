@@ -85,8 +85,20 @@ def solve(dat):
     dat.players.drop(["index", "_temp_sort_column"], inplace=True, axis=1)
     assert list(dat.players["Expected Draft Position"]) == list(range(1, len(dat.players)+1))
 
-    # need to start thinking about AMPL logic right here
-
+    ampl = AMPL()
+    ampl.setOption('solver', 'gurobi')
+    ampl.eval("""
+    set PLAYERS;
+    param draft_status{PLAYERS} symbolic;
+    var Starters {p in PLAYERS: draft_status[p] <> 'Drafted By Someone Else'};
+    var Reserves {p in PLAYERS: draft_status[p] <> 'Drafted By Someone Else'};
+    """)
+    ampl.eval("""
+    subject to Already_Drafted_By_Me {p in PLAYERS: draft_status[p] = 'Drafted By Me'}:
+        Starters[p] + Reserves[p] = 1;
+    subject to Cant_Draft_Twice {p in PLAYERS: draft_status[p] = 'Un-drafted'}:
+        Starters[p] + Reserves[p] <= 1;
+    """)
     already_drafted_by_me = {player_name for player_name,row in dat.players.items() if
                             row["Draft Status"] == "Drafted By Me"}
     can_be_drafted_by_me = {player_name for player_name,row in dat.players.items() if
