@@ -94,15 +94,21 @@ def solve(dat):
     var Reserves {p in PLAYERS: draft_status[p] <> 'Drafted By Someone Else'};
     """)
     ampl.eval("""
+    set MY_DRAFT_POSITIONS ordered;
+    """)
+    ampl.eval("""
     subject to Already_Drafted_By_Me {p in PLAYERS: draft_status[p] = 'Drafted By Me'}:
         Starters[p] + Reserves[p] = 1;
     subject to Cant_Draft_Twice {p in PLAYERS: draft_status[p] = 'Un-drafted'}:
         Starters[p] + Reserves[p] <= 1;
     """)
-    already_drafted_by_me = {player_name for player_name,row in dat.players.items() if
-                            row["Draft Status"] == "Drafted By Me"}
-    can_be_drafted_by_me = {player_name for player_name,row in dat.players.items() if
-                            row["Draft Status"] != "Drafted By Someone Else"}
+
+    ampl_dat = input_schema.copy_to_ampl(dat,
+        excluded_tables={"parameters", "roster_requirements"},
+        field_renamings={("players", "Expected Draft Position"): "",  ("players", "Position"): "",
+                         ("players", 'Average Draft Position'): "", ("players", 'Expected Points'): "",
+                         ("players", 'Draft Status'): "draft_status"})
+    input_schema.set_ampl_data(ampl_dat, ampl, {"players":"PLAYERS", "my_draft_positions":"MY_DRAFT_POSITIONS"})
 
     m = gu.Model('fantop', env=gurobi_env())
     my_starters = {player_name:m.addVar(vtype=gu.GRB.BINARY, name="starter_%s"%player_name)

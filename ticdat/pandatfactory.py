@@ -634,11 +634,12 @@ class PanDatFactory(object):
         copy_tables = {t for t in self.all_tables if self.primary_key_fields[t]}.\
                       difference(excluded_tables or [])
         field_renamings = field_renamings or {}
-        verify(dictish(field_renamings) and
-               all(containerish(k) and len(k) == 2 and k[0] in copy_tables and
+        verify(dictish(field_renamings), "invalid field_renamings argument")
+        for k,v in field_renamings.items():
+            verify(containerish(k) and len(k) == 2 and k[0] in copy_tables and
                    k[1] in getattr(pan_dat, k[0]).columns and
-                   (utils.stringish(v) or (not bool(v) and k[1] not in self.primary_key_fields[k[0]]))
-                   for k,v in field_renamings.items()), "invalid field_renamings argument")
+                   ((v and utils.stringish(v)) or (not bool(v) and k[1] not in self.primary_key_fields[k[0]])),
+                   "invalid field_renamings argument %s:%s"%(k,v))
         class AmplPanDat(object):
             def __repr__(self):
                 return "td:" + tuple(copy_tables).__repr__()

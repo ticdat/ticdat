@@ -971,7 +971,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
         verify(dictish(field_renamings) and
                all(containerish(k) and len(k) == 2 and k[0] in copy_tables and
                    k[1] in self.primary_key_fields[k[0]] + self.data_fields[k[0]] and
-                   ((not bool(v) and k[1] in self.data_fields[k[0]]) or utils.stringish(v))
+                   ((not bool(v) and k[1] in self.data_fields[k[0]]) or (v and utils.stringish(v)))
                    for k,v in field_renamings.items()), "invalid field_renamings argument")
         class AmplTicDat(object):
             def __repr__(self):
