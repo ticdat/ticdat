@@ -90,8 +90,9 @@ def solve(dat):
     ampl.eval("""
     set PLAYERS;
     param draft_status{PLAYERS} symbolic;
-    var Starters {p in PLAYERS: draft_status[p] <> 'Drafted By Someone Else'};
-    var Reserves {p in PLAYERS: draft_status[p] <> 'Drafted By Someone Else'};
+    param expected_draft_position{PLAYERS} >=1;
+    var Starters {p in PLAYERS: draft_status[p] <> 'Drafted By Someone Else'} binary;
+    var Reserves {p in PLAYERS: draft_status[p] <> 'Drafted By Someone Else'} binary;
     """)
     ampl.eval("""
     set MY_DRAFT_POSITIONS ordered;
@@ -102,10 +103,24 @@ def solve(dat):
     subject to Cant_Draft_Twice {p in PLAYERS: draft_status[p] = 'Un-drafted'}:
         Starters[p] + Reserves[p] <= 1;
     """)
-
+    ampl.eval("""
+    subject to At_Most_X_Can_Be_Ahead_Of_Y {d in MY_DRAFT_POSITIONS}:
+        sum{p in PLAYERS: draft_status[p] <> 'Drafted By Someone Else' and
+            expected_draft_position[p] < d}(Starters[p] + Reserves[p]) <=
+        ord(d, MY_DRAFT_POSITIONS) - 1;
+    """)
+    ampl.eval("""
+    var My_Draft_Size >= card({p in PLAYERS: draft_status[p] = 'Drafted By Me'}),
+                      <= card(MY_DRAFT_POSITIONS);
+    subject to Set_My_Draft_Size:
+    sum{p in PLAYERS: draft_status[p] <> 'Drafted By Someone Else'}(Starters[p] + Reserves[p]) =
+        My_Draft_Size;
+    """)
+    # ROSTER REQUIREMENTS, MIN/MAX NEXT
     ampl_dat = input_schema.copy_to_ampl(dat,
         excluded_tables={"parameters", "roster_requirements"},
-        field_renamings={("players", "Expected Draft Position"): "",  ("players", "Position"): "",
+        field_renamings={("players", "Expected Draft Position"): "expected_draft_position",
+                         ("players", "Position"): "",
                          ("players", 'Average Draft Position'): "", ("players", 'Expected Points'): "",
                          ("players", 'Draft Status'): "draft_status"})
     input_schema.set_ampl_data(ampl_dat, ampl, {"players":"PLAYERS", "my_draft_positions":"MY_DRAFT_POSITIONS"})
