@@ -90,6 +90,7 @@ def solve(dat):
     ampl.eval("""
     set PLAYERS;
     param draft_status{PLAYERS} symbolic;
+    param position{PLAYERS} symbolic;
     param expected_draft_position{PLAYERS} >=1;
     var Starters {p in PLAYERS: draft_status[p] <> 'Drafted By Someone Else'} binary;
     var Reserves {p in PLAYERS: draft_status[p] <> 'Drafted By Someone Else'} binary;
@@ -124,10 +125,24 @@ def solve(dat):
     param max_number_reserve{p in POSITIONS} >= min_number_reserve[p];
     param flex_status{POSITIONS} symbolic;
     """)
+    ampl.eval("""
+    subject to Min_Number_Starters{p in POSITIONS}:
+        sum{pl in PLAYERS: position[pl] = p and draft_status[pl] <> 'Drafted By Someone Else'}Starters[pl]
+        >= min_number_starters[p];
+    subject to Max_Number_Starters{p in POSITIONS}:
+        sum{pl in PLAYERS: position[pl] = p and draft_status[pl] <> 'Drafted By Someone Else'}Starters[pl]
+        <= max_number_starters[p];
+    subject to Min_Number_Reserve{p in POSITIONS}:
+        sum{pl in PLAYERS: position[pl] = p and draft_status[pl] <> 'Drafted By Someone Else'}Reserves[pl]
+        >= min_number_reserve[p];
+    subject to Max_Number_Reserve{p in POSITIONS}:
+        sum{pl in PLAYERS: position[pl] = p and draft_status[pl] <> 'Drafted By Someone Else'}Reserves[pl]
+        <= max_number_reserve[p];
+    """)
     ampl_dat = input_schema.copy_to_ampl(dat,
         excluded_tables={"parameters"},
         field_renamings={("players", "Expected Draft Position"): "expected_draft_position",
-                         ("players", "Position"): "",
+                         ("players", "Position"): "position",
                          ("players", 'Average Draft Position'): "", ("players", 'Expected Points'): "",
                          ("players", 'Draft Status'): "draft_status",
                          ("roster_requirements", 'Min Num Starters'): 'min_number_starters',
@@ -138,6 +153,7 @@ def solve(dat):
                          })
     input_schema.set_ampl_data(ampl_dat, ampl, {"players":"PLAYERS", "my_draft_positions":"MY_DRAFT_POSITIONS",
                                                 "roster_requirements": "POSITIONS"})
+    # "Maximum Number of Flex Starters" next
 
     m = gu.Model('fantop', env=gurobi_env())
     my_starters = {player_name:m.addVar(vtype=gu.GRB.BINARY, name="starter_%s"%player_name)
