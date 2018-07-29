@@ -116,14 +116,28 @@ def solve(dat):
     sum{p in PLAYERS: draft_status[p] <> 'Drafted By Someone Else'}(Starters[p] + Reserves[p]) =
         My_Draft_Size;
     """)
-    # ROSTER REQUIREMENTS, MIN/MAX NEXT
+    ampl.eval("""
+    set POSITIONS;
+    param min_number_starters{POSITIONS} >= 0;
+    param max_number_starters{p in POSITIONS} >= min_number_starters[p];
+    param min_number_reserve{POSITIONS} >= 0;
+    param max_number_reserve{p in POSITIONS} >= min_number_reserve[p];
+    param flex_status{POSITIONS} symbolic;
+    """)
     ampl_dat = input_schema.copy_to_ampl(dat,
-        excluded_tables={"parameters", "roster_requirements"},
+        excluded_tables={"parameters"},
         field_renamings={("players", "Expected Draft Position"): "expected_draft_position",
                          ("players", "Position"): "",
                          ("players", 'Average Draft Position'): "", ("players", 'Expected Points'): "",
-                         ("players", 'Draft Status'): "draft_status"})
-    input_schema.set_ampl_data(ampl_dat, ampl, {"players":"PLAYERS", "my_draft_positions":"MY_DRAFT_POSITIONS"})
+                         ("players", 'Draft Status'): "draft_status",
+                         ("roster_requirements", 'Min Num Starters'): 'min_number_starters',
+                         ("roster_requirements", 'Max Num Starters'): 'max_number_starters',
+                         ("roster_requirements", 'Min Num Reserve'): 'min_number_reserve',
+                         ("roster_requirements", 'Max Num Reserve'): 'max_number_reserve',
+                         ("roster_requirements", 'Flex Status'): 'flex_status',
+                         })
+    input_schema.set_ampl_data(ampl_dat, ampl, {"players":"PLAYERS", "my_draft_positions":"MY_DRAFT_POSITIONS",
+                                                "roster_requirements": "POSITIONS"})
 
     m = gu.Model('fantop', env=gurobi_env())
     my_starters = {player_name:m.addVar(vtype=gu.GRB.BINARY, name="starter_%s"%player_name)
