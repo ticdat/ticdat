@@ -94,6 +94,7 @@ def solve(dat):
     param draft_status{PLAYERS} symbolic;
     param position{PLAYERS} symbolic;
     param expected_draft_position{PLAYERS} >=1;
+    param expected_points{PLAYERS} >= 0;
     set DRAFTABLE_PLAYERS within PLAYERS = {p in PLAYERS : draft_status[p] <> 'Drafted By Someone Else'};
     var Starters {DRAFTABLE_PLAYERS} binary;
     var Reserves {DRAFTABLE_PLAYERS} binary;
@@ -143,11 +144,19 @@ def solve(dat):
         sum{p in DRAFTABLE_PLAYERS: flex_status[position[p]] = 'Flex Eligible'}Starters[p]
         <= max_number_of_flex_starters;
     """)
+    ampl.eval("""
+    param starter_weight >=0;
+    param reserve_weight >= 0;
+    maximize Total_Expected_Points:
+       sum{p in DRAFTABLE_PLAYERS}(expected_points[p] *
+                                  (starter_weight * Starters[p] + reserve_weight * Reserves[p]));
+    """)
     ampl_dat = input_schema.copy_to_ampl(dat,
         excluded_tables={"parameters"},
         field_renamings={("players", "Expected Draft Position"): "expected_draft_position",
                          ("players", "Position"): "position",
-                         ("players", 'Average Draft Position'): "", ("players", 'Expected Points'): "",
+                         ("players", 'Average Draft Position'): "",
+                         ("players", 'Expected Points'): "expected_points",
                          ("players", 'Draft Status'): "draft_status",
                          ("roster_requirements", 'Min Num Starters'): 'min_number_starters',
                          ("roster_requirements", 'Max Num Starters'): 'max_number_starters',
@@ -159,7 +168,10 @@ def solve(dat):
                                                 "roster_requirements": "POSITIONS"})
     ampl.param['max_number_of_flex_starters'] = parameters.get('Maximum Number of Flex Starters',
                                                 len(dat.my_draft_positions))
-    # "Maximum Number of Flex Starters" next
+    ampl.param['starter_weight'] = parameters.get('Starter Weight', 1.)
+    ampl.param['reserve_weight'] = parameters.get('Reserve Weight', 1.)
+
+    # solve and recover solutions next
 
     m = gu.Model('fantop', env=gurobi_env())
     my_starters = {player_name:m.addVar(vtype=gu.GRB.BINARY, name="starter_%s"%player_name)
