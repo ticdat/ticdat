@@ -71,6 +71,8 @@ def solve(dat):
     assert not input_schema.find_foreign_key_failures(dat)
     assert not input_schema.find_data_type_failures(dat)
 
+    parameters = {k:v for k,v in dat.parameters.itertuples(index=False)}
+
     # compute the Expected Draft Position column
     # for our purposes, its fine to assume all those drafted by someone else are drafted
     # prior to any players drafted by me
@@ -92,8 +94,9 @@ def solve(dat):
     param draft_status{PLAYERS} symbolic;
     param position{PLAYERS} symbolic;
     param expected_draft_position{PLAYERS} >=1;
-    var Starters {p in PLAYERS: draft_status[p] <> 'Drafted By Someone Else'} binary;
-    var Reserves {p in PLAYERS: draft_status[p] <> 'Drafted By Someone Else'} binary;
+    set DRAFTABLE_PLAYERS within PLAYERS = {p in PLAYERS : draft_status[p] <> 'Drafted By Someone Else'};
+    var Starters {DRAFTABLE_PLAYERS} binary;
+    var Reserves {DRAFTABLE_PLAYERS} binary;
     """)
     ampl.eval("""
     set MY_DRAFT_POSITIONS ordered;
@@ -106,8 +109,7 @@ def solve(dat):
     """)
     ampl.eval("""
     subject to At_Most_X_Can_Be_Ahead_Of_Y {d in MY_DRAFT_POSITIONS}:
-        sum{p in PLAYERS: draft_status[p] <> 'Drafted By Someone Else' and
-            expected_draft_position[p] < d}(Starters[p] + Reserves[p]) <=
+        sum{p in DRAFTABLE_PLAYERS: expected_draft_position[p] < d}(Starters[p] + Reserves[p]) <=
         ord(d, MY_DRAFT_POSITIONS) - 1;
     """)
     ampl.eval("""
@@ -127,17 +129,19 @@ def solve(dat):
     """)
     ampl.eval("""
     subject to Min_Number_Starters{p in POSITIONS}:
-        sum{pl in PLAYERS: position[pl] = p and draft_status[pl] <> 'Drafted By Someone Else'}Starters[pl]
-        >= min_number_starters[p];
+        sum{pl in DRAFTABLE_PLAYERS: position[pl] = p}Starters[pl] >= min_number_starters[p];
     subject to Max_Number_Starters{p in POSITIONS}:
-        sum{pl in PLAYERS: position[pl] = p and draft_status[pl] <> 'Drafted By Someone Else'}Starters[pl]
-        <= max_number_starters[p];
+        sum{pl in DRAFTABLE_PLAYERS: position[pl] = p}Starters[pl] <= max_number_starters[p];
     subject to Min_Number_Reserve{p in POSITIONS}:
-        sum{pl in PLAYERS: position[pl] = p and draft_status[pl] <> 'Drafted By Someone Else'}Reserves[pl]
-        >= min_number_reserve[p];
+        sum{pl in DRAFTABLE_PLAYERS: position[pl] = p}Reserves[pl]>= min_number_reserve[p];
     subject to Max_Number_Reserve{p in POSITIONS}:
-        sum{pl in PLAYERS: position[pl] = p and draft_status[pl] <> 'Drafted By Someone Else'}Reserves[pl]
-        <= max_number_reserve[p];
+        sum{pl in DRAFTABLE_PLAYERS: position[pl] = p}Reserves[pl] <= max_number_reserve[p];
+    """)
+    ampl.eval("""
+    param max_number_of_flex_starters>=0;
+    subject to Max_Number_Flex_Starters:
+        sum{p in DRAFTABLE_PLAYERS: flex_status[position[p]] = 'Flex Eligible'}Starters[p]
+        <= max_number_of_flex_starters;
     """)
     ampl_dat = input_schema.copy_to_ampl(dat,
         excluded_tables={"parameters"},
@@ -153,6 +157,8 @@ def solve(dat):
                          })
     input_schema.set_ampl_data(ampl_dat, ampl, {"players":"PLAYERS", "my_draft_positions":"MY_DRAFT_POSITIONS",
                                                 "roster_requirements": "POSITIONS"})
+    ampl.param['max_number_of_flex_starters'] = parameters.get('Maximum Number of Flex Starters',
+                                                len(dat.my_draft_positions))
     # "Maximum Number of Flex Starters" next
 
     m = gu.Model('fantop', env=gurobi_env())

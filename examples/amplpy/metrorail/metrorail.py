@@ -79,9 +79,8 @@ def solve(dat):
     assert not input_schema.find_data_row_failures(dat)
     # use default parameters, unless they are overridden by user-supplied parameters
     full_parameters = dict(default_parameters)
-    for k in default_parameters:
-        if k in set(dat.parameters["Parameter"]):
-            full_parameters[k] = dat.parameters[dat.parameters["Parameter"] == k]["Value"][0]
+    for k,v in dat.parameters.itertuples(index=False):
+        full_parameters[k] = v
 
      # copy the Load Amounts table to an amplpy.DataFrame object
     ampl_dat = input_schema.copy_to_ampl(dat, excluded_tables=

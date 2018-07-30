@@ -221,9 +221,8 @@ def _metro_solve(dat, excluded_tables=
     default_parameters = {"One Way Price": 2.25, "Amount Leftover Constraint": "Upper Bound"}
     assert input_schema.good_pan_dat_object(dat)
     full_parameters = dict(default_parameters)
-    for k in default_parameters:
-        if k in set(dat.parameters["Parameter"]):
-            full_parameters[k] = dat.parameters[dat.parameters["Parameter"] == k]["Value"][0]
+    for k,v in dat.parameters.itertuples(index=False):
+        full_parameters[k] = v
 
     ampl_dat = input_schema.copy_to_ampl(dat, excluded_tables=excluded_tables)
     ampl = AMPL()
