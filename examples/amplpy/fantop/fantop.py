@@ -76,10 +76,9 @@ def solve(dat):
     # compute the Expected Draft Position column
     # for our purposes, its fine to assume all those drafted by someone else are drafted
     # prior to any players drafted by me
-    def temp_sort_function(row):
-        return {"Un-drafted": row["Average Draft Position"],
-                "Drafted By Me": -1, "Drafted By Someone Else": -2}[row["Draft Status"]]
-    dat.players["_temp_sort_column"] = dat.players.apply(axis=1, func=temp_sort_function)
+    dat.players["_temp_sort_column"] = dat.players["Average Draft Position"]
+    dat.players.loc[dat.players["Draft Status"] == "Drafted By Someone Else", "_temp_sort_column"] = -2
+    dat.players.loc[dat.players["Draft Status"] == "Drafted By Me", "_temp_sort_column"] = -1
     dat.players.sort_values(by="_temp_sort_column", inplace=True)
     dat.players.reset_index(drop=True, inplace=True) # get rid of the index that has become scrambled
     dat.players.reset_index(drop=False, inplace=True) # turn the sequential index into a column
@@ -172,14 +171,14 @@ def solve(dat):
         return
 
     def selected_players(df, starter_or_reserve):
-        assert len(df.columns) == 1
+        assert len(df.columns) == 1 # df.columns[0] is the name of the column that holds the solution variable result
         # only capture those rows where the solution variable is nearly 1
-        df = df[df.apply(lambda row: abs(row[df.columns[0]] - 1) < 0.0001, axis=1)]
+        df = df[(df[df.columns[0]] - 1).abs() < 0.00001]
         df = df.join(dat.players.set_index('Player Name'))
         df.reset_index(inplace=True)
         df.rename(columns={df.columns[0]: "Player Name"}, inplace=True)
-        df["Planned Or Actual"] = df.apply(lambda row: "Planned" if row["Draft Status"] == "Un-drafted" else "Actual",
-                                           axis=1)
+        df["Planned Or Actual"] = "Planned"
+        df.loc[df["Draft Status"] == "Un-drafted", "Planned Or Actual"] = "Actual"
         df["Starter Or Reserve"] = starter_or_reserve
         return df[["Player Name", "Position", "Planned Or Actual", "Starter Or Reserve", "Expected Draft Position"]]
 
