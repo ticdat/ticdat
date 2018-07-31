@@ -64,10 +64,6 @@ def solve(dat):
     assert not input_schema.find_foreign_key_failures(dat)
     assert not input_schema.find_data_type_failures(dat)
 
-    # copy the tables to amplpy.DataFrame objects, renaming the data fields as needed
-    dat = input_schema.copy_to_ampl(dat, field_renamings={("arcs", "Capacity"): "capacity",
-            ("cost", "Cost"): "cost", ("inflow", "Quantity"): "inflow"})
-
     # build the AMPL math model
     # for instructional purposes, the following code anticipates extreme sparsity and doesn't generate
     # conservation of flow records unless they are really needed
@@ -95,12 +91,13 @@ def solve(dat):
        (if (h,j) in INFLOW_INDEX then inflow[h,j]) =
        sum {(h,j,i) in SHIPMENT_OPTIONS} Flow[h,j,i];
     """)
-
+    # copy the tables to amplpy.DataFrame objects, renaming the data fields as needed
+    dat = input_schema.copy_to_ampl(dat, field_renamings={("arcs", "Capacity"): "capacity",
+            ("cost", "Cost"): "cost", ("inflow", "Quantity"): "inflow"})
     # load the amplpy.DataFrame objects into the AMPL model, explicitly identifying how to populate the AMPL sets
     input_schema.set_ampl_data(dat, ampl, {"nodes": "NODES", "arcs": "ARCS",
                                            "commodities": "COMMODITIES", "cost":"SHIPMENT_OPTIONS",
                                             "inflow":"INFLOW_INDEX"})
-
     # solve and recover the solution if feasible
     ampl.solve()
     if ampl.getValue("solve_result") != "infeasible":

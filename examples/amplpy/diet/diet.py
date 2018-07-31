@@ -68,13 +68,6 @@ def solve(dat):
     assert not input_schema.find_data_type_failures(dat)
     assert not input_schema.find_data_row_failures(dat)
 
-    # copy the tables to amplpy.DataFrame objects, renaming the data fields as needed
-    dat = input_schema.copy_to_ampl(dat, field_renamings={
-            ("foods", "Cost"): "cost",
-            ("categories", "Min Nutrition"): "n_min",
-            ("categories", "Max Nutrition"): "n_max",
-            ("nutrition_quantities", "Quantity"): "amt"})
-
     # build the AMPL math model
     ampl = AMPL()
     ampl.setOption('solver', 'gurobi')
@@ -97,7 +90,12 @@ def solve(dat):
     subject to Diet {i in CAT}:
        Consume[i] =  sum {j in FOOD} amt[j,i] * Buy[j];
     """)
-
+    # copy the tables to amplpy.DataFrame objects, renaming the data fields as needed
+    dat = input_schema.copy_to_ampl(dat, field_renamings={
+            ("foods", "Cost"): "cost",
+            ("categories", "Min Nutrition"): "n_min",
+            ("categories", "Max Nutrition"): "n_max",
+            ("nutrition_quantities", "Quantity"): "amt"})
     # load the amplpy.DataFrame objects into the AMPL model, explicitly identifying how to populate the AMPL sets
     input_schema.set_ampl_data(dat, ampl, {"categories": "CAT", "foods": "FOOD"})
 

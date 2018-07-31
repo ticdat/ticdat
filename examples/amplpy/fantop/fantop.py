@@ -73,7 +73,6 @@ def solve(dat):
 
     parameters = {k:v for k,v in dat.parameters.itertuples(index=False)}
 
-    # compute the Expected Draft Position column
     # for our purposes, its fine to assume all those drafted by someone else are drafted
     # prior to any players drafted by me
     dat.players["_temp_sort_column"] = dat.players["Average Draft Position"]
@@ -93,13 +92,6 @@ def solve(dat):
     param starter_weight >=0;
     param reserve_weight >= 0;
 
-    set PLAYERS;
-    param draft_status{PLAYERS} symbolic;
-    param position{PLAYERS} symbolic;
-    param expected_draft_position{PLAYERS} >=1;
-    param expected_points{PLAYERS} >= 0;
-    set DRAFTABLE_PLAYERS within PLAYERS = {p in PLAYERS : draft_status[p] <> 'Drafted By Someone Else'};
-
     set MY_DRAFT_POSITIONS ordered;
 
     set POSITIONS;
@@ -107,7 +99,14 @@ def solve(dat):
     param max_number_starters{p in POSITIONS} >= min_number_starters[p];
     param min_number_reserve{POSITIONS} >= 0;
     param max_number_reserve{p in POSITIONS} >= min_number_reserve[p];
-    param flex_status{POSITIONS} symbolic;
+    param flex_status{POSITIONS} symbolic within {'Flex Eligible', 'Flex Ineligible'};
+
+    set PLAYERS;
+    param draft_status{PLAYERS} symbolic within {'Un-drafted', 'Drafted By Me',  'Drafted By Someone Else'} ;
+    param position{PLAYERS} symbolic within {POSITIONS};
+    param expected_draft_position{PLAYERS} >=1;
+    param expected_points{PLAYERS} >= 0;
+    set DRAFTABLE_PLAYERS within PLAYERS = {p in PLAYERS : draft_status[p] <> 'Drafted By Someone Else'};
 
     var Starters {DRAFTABLE_PLAYERS} binary;
     var Reserves {DRAFTABLE_PLAYERS} binary;
@@ -144,11 +143,12 @@ def solve(dat):
         sum{p in DRAFTABLE_PLAYERS}(expected_points[p] *
                                   (starter_weight * Starters[p] + reserve_weight * Reserves[p]));
     """)
+    # copy the tables to amplpy.DataFrame objects, renaming the data fields as needed
     ampl_dat = input_schema.copy_to_ampl(dat,
-        excluded_tables={"parameters"},
+        excluded_tables={"parameters"}, # this table isn't passed directly to AMPL
         field_renamings={("players", "Expected Draft Position"): "expected_draft_position",
                          ("players", "Position"): "position",
-                         ("players", 'Average Draft Position'): "",
+                         ("players", 'Average Draft Position'): "", # this column isn't passed to AMPL
                          ("players", 'Expected Points'): "expected_points",
                          ("players", 'Draft Status'): "draft_status",
                          ("roster_requirements", 'Min Num Starters'): 'min_number_starters',
@@ -177,8 +177,8 @@ def solve(dat):
         df = df.join(dat.players.set_index('Player Name'))
         df.reset_index(inplace=True)
         df.rename(columns={df.columns[0]: "Player Name"}, inplace=True)
-        df["Planned Or Actual"] = "Planned"
-        df.loc[df["Draft Status"] == "Un-drafted", "Planned Or Actual"] = "Actual"
+        df["Planned Or Actual"] = "Actual"
+        df.loc[df["Draft Status"] == "Un-drafted", "Planned Or Actual"] = "Planned"
         df["Starter Or Reserve"] = starter_or_reserve
         return df[["Player Name", "Position", "Planned Or Actual", "Starter Or Reserve", "Expected Draft Position"]]
 
