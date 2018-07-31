@@ -167,8 +167,8 @@ def solve(dat):
         sln.my_draft[player_name]["Starter Or Reserve"] = \
             "Starter" if almostone(my_starters[player_name]) else "Reserve"
     sln.parameters["Total Yield"] = draft_yield
-    sln.parameters["Feasible"] = len(sln.my_draft) == len(dat.my_draft_positions)
-
+    sln.parameters["Draft Performed"] = "Complete" if len(sln.my_draft) == len(dat.my_draft_positions) \
+                                         else "Partial"
     return sln
 # ---------------------------------------------------------------------------------
 
