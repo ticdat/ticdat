@@ -97,10 +97,11 @@ def solve(dat):
        sum {la in LOAD_AMTS} Num_Visits[la];
     subj to Set_Amt_Leftover:
        Amt_Leftover = sum {la in LOAD_AMTS} la * Num_Visits[la] - one_way_price * number_trips;""")
-    # populate the LOAD_AMTS set with the Load Amounts table
+   
      # copy the Load Amounts table to an amplpy.DataFrame object
     ampl_dat = input_schema.copy_to_ampl(dat, excluded_tables=
                    set(input_schema.all_tables).difference({"load_amounts"}))
+    # populate the LOAD_AMTS set with the Load Amounts table
     input_schema.set_ampl_data(ampl_dat, ampl, {"load_amounts": "LOAD_AMTS"})
 
     # we will build the Load Amount Details report sub-problem by sub-problem
