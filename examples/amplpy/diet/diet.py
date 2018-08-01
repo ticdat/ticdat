@@ -1,5 +1,6 @@
-#!/usr/bin/python
-
+#
+# Solve the standard diet problem using amplpy.
+#
 # Implement core functionality needed to achieve modularity.
 # 1. Define the input data schema
 # 2. Define the output data schema

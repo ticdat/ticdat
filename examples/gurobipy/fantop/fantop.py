@@ -57,6 +57,11 @@ input_schema.set_data_type("roster_requirements", "Flex Status", number_allowed 
                           strings_allowed = ["Flex Eligible", "Flex Ineligible"])
 input_schema.set_data_type("my_draft_positions", "Draft Position", min=0, max=float("inf"),
                           inclusive_min = False, inclusive_max = False, must_be_int = True)
+
+input_schema.add_data_row_predicate("roster_requirements",
+    predicate=lambda row : row["Max Num Starters"] >= row["Min Num Starters"])
+input_schema.add_data_row_predicate("roster_requirements",
+    predicate=lambda row : row["Max Num Reserve"] >= row["Min Num Reserve"])
 # ---------------------------------------------------------------------------------
 
 
@@ -72,6 +77,7 @@ def solve(dat):
     assert input_schema.good_tic_dat_object(dat)
     assert not input_schema.find_foreign_key_failures(dat)
     assert not input_schema.find_data_type_failures(dat)
+    assert not input_schema.find_data_row_failures(dat)
 
     expected_draft_position = {}
     # for our purposes, its fine to assume all those drafted by someone else are drafted

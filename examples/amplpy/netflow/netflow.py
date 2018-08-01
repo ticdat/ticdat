@@ -1,5 +1,5 @@
 #
-# Solve a multi-commodity flow problem as python package.
+# Solve a multi-commodity flow problem using amplpy.
 #
 # Implement core functionality needed to achieve modularity.
 # 1. Define the input data schema
@@ -12,6 +12,9 @@
 #   python netflow.py -i netflow_sample_data.json -o netflow_solution.json
 # will read from the model stored in netflow_sample_data.json
 # and write the solution to netflow_solution.json
+#
+# This version of the netflow example takes extra precautions to avoid generating
+# unneeded constraints. See the simplest_examples directory for a simpler version of this model.
 
 from ticdat import PanDatFactory, standard_main
 from amplpy import AMPL
