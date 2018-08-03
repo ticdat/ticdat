@@ -94,10 +94,27 @@ def solve(dat):
         ampl.param["maxSlack"] = totalSlack
         ampl.solve()
         if ampl.getValue("solve_result") != "infeasible":
-            
-            print ("**\n%s\n**"%str(
-                (ampl.getValue("Total_slack"), ampl.getValue("Total_payments"), ampl.getValue("solve_result"))))
+            totalPayments = ampl.getValue("Total_payments")
+            ampl.eval("""
+            param maxTotalPayments;
+            subject to MaximumTotalPayments: totPayments <= maxTotalPayments;
 
+            var avgShifts;
+            var diffShifts{Workers};
+            subject to avgShiftsC: card(Workers)*avgShifts==sum{w in Workers} totShifts[w];
+            subject to Diff{w in Workers}: diffShifts[w]==totShifts[w]-avgShifts;
+
+            minimize Total_Imbalance: sum{w in Workers}diffShifts[w] * diffShifts[w];
+            objective Total_Imbalance;
+            """)
+            ampl.param["maxTotalPayments"] = totalPayments
+            ampl.solve()
+            if ampl.getValue("solve_result") != "infeasible":
+                sln = solution_schema.PanDat()
+                sln.parameters.loc[0] = ['Total Slack', ampl.getValue("Total_slack")]
+                sln.parameters.loc[1] = ['Total Payments', ampl.getValue("Total_payments")]
+                sln.parameters.loc[2] = ['Variance of Total Shifts', ampl.getValue("Total_Imbalance/card(Workers)")]
+                return sln
 
 
 
