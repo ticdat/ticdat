@@ -110,7 +110,11 @@ def solve(dat):
             ampl.param["maxTotalPayments"] = totalPayments
             ampl.solve()
             if ampl.getValue("solve_result") != "infeasible":
-                sln = solution_schema.PanDat()
+                sln = solution_schema.copy_from_ampl_variables(
+                        {('assignments' ,''): (ampl.getVariable("x"), lambda x: abs(x-1)< 0.00001),
+                         ('slacks', 'Slack'): ampl.getVariable("slack"),
+                         ('total_shifts', 'Total Number Of Shifts'): ampl.getVariable("totShifts")
+                        })
                 sln.parameters.loc[0] = ['Total Slack', ampl.getValue("Total_slack")]
                 sln.parameters.loc[1] = ['Total Payments', ampl.getValue("Total_payments")]
                 sln.parameters.loc[2] = ['Variance of Total Shifts', ampl.getValue("Total_Imbalance/card(Workers)")]

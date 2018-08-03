@@ -700,5 +700,7 @@ class PanDatFactory(object):
         tdf = TicDatFactory.create_from_full_schema(self.schema(include_ancillary_info=True))
         _rtn = tdf.copy_from_ampl_variables(ampl_variables)
         _rtn = tdf.copy_to_pandas(_rtn, drop_pk_columns=False)
+        for t in self.all_tables:
+            getattr(_rtn, t).reset_index(drop=True, inplace=True)
         rtn = self.PanDat(**{t:getattr(_rtn, t) for t in self.all_tables})
         return rtn
