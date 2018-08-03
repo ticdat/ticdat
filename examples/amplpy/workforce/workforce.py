@@ -81,6 +81,25 @@ def solve(dat):
 
     ampl.solve()
 
+    if ampl.getValue("solve_result") != "infeasible":
+        totalSlack = ampl.getValue("totSlack")
+        ampl.eval("""
+        param maxSlack;
+        subject to MaximumSlack: totSlack <= maxSlack;
+        var totPayments;
+        subject to TotalPayments: totPayments = sum{(w,s) in Availability}x[w,s]*Pay[w];
+        minimize Total_payments: totPayments;
+        objective Total_payments;
+        """)
+        ampl.param["maxSlack"] = totalSlack
+        ampl.solve()
+        if ampl.getValue("solve_result") != "infeasible":
+            
+            print ("**\n%s\n**"%str(
+                (ampl.getValue("Total_slack"), ampl.getValue("Total_payments"), ampl.getValue("solve_result"))))
+
+
+
 
 # ---------------------------------------------------------------------------------
 
