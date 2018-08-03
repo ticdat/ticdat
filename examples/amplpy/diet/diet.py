@@ -9,7 +9,7 @@
 #
 # Provides command line interface via ticdat.standard_main
 # For example, typing
-#   python diet_ampl.py -i input_data.xlsx -o solution_data.xlsx
+#   python diet.py -i input_data.xlsx -o solution_data.xlsx
 # will read from a model stored in the file input_data.xlsx and write the solution
 # to solution_data.xlsx.
 #

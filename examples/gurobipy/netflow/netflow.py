@@ -21,11 +21,11 @@ from ticdat import TicDatFactory, standard_main, Slicer, gurobi_env
 
 # ------------------------ define the input schema --------------------------------
 input_schema = TicDatFactory (
-     commodities = [["Name"],[]],
-     nodes  = [["Name"],[]],
-     arcs = [["Source", "Destination"],["Capacity"]],
-     cost = [["Commodity", "Source", "Destination"], ["Cost"]],
-     inflow = [["Commodity", "Node"],["Quantity"]]
+     commodities=[["Name"], []],
+     nodes=[["Name"], []],
+     arcs=[["Source", "Destination"], ["Capacity"]],
+     cost=[["Commodity", "Source", "Destination"], ["Cost"]],
+     inflow=[["Commodity", "Node"], ["Quantity"]]
 )
 
 # Define the foreign key relationships
@@ -51,8 +51,8 @@ input_schema.set_default_value("arcs", "Capacity", float("inf"))
 
 # ------------------------ define the output schema -------------------------------
 solution_schema = TicDatFactory(
-        flow = [["Commodity", "Source", "Destination"], ["Quantity"]],
-        parameters = [["Parameter"],["Value"]])
+        flow=[["Commodity", "Source", "Destination"], ["Quantity"]],
+        parameters=[["Parameter"], ["Value"]])
 # ---------------------------------------------------------------------------------
 
 # ------------------------ solving section-----------------------------------------
