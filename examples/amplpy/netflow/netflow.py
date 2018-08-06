@@ -21,11 +21,11 @@ from amplpy import AMPL
 
 # ------------------------ define the input schema --------------------------------
 input_schema = PanDatFactory (
-     commodities = [["Name"],[]],
-     nodes  = [["Name"],[]],
-     arcs = [["Source", "Destination"],["Capacity"]],
-     cost = [["Commodity", "Source", "Destination"], ["Cost"]],
-     inflow = [["Commodity", "Node"],["Quantity"]]
+     commodities=[["Name"], ["Volume"]],
+     nodes=[["Name"], []],
+     arcs=[["Source", "Destination"] ,["Capacity"]],
+     cost=[["Commodity", "Source", "Destination"], ["Cost"]],
+     inflow=[["Commodity", "Node"], ["Quantity"]]
 )
 
 # Define the foreign key relationships
@@ -38,6 +38,8 @@ input_schema.add_foreign_key("inflow", "commodities", ['Commodity', 'Name'])
 input_schema.add_foreign_key("inflow", "nodes", ['Node', 'Name'])
 
 # Define the data types
+input_schema.set_data_type("commodities", "Volume", min=0, max=float("inf"),
+                           inclusive_min=False, inclusive_max=False)
 input_schema.set_data_type("arcs", "Capacity", min=0, max=float("inf"),
                            inclusive_min=True, inclusive_max=True)
 input_schema.set_data_type("cost", "Cost", min=0, max=float("inf"),
@@ -52,7 +54,7 @@ input_schema.set_default_value("arcs", "Capacity", float("inf"))
 # ------------------------ define the output schema -------------------------------
 solution_schema = PanDatFactory(
         flow = [["Commodity", "Source", "Destination"], ["Quantity"]],
-        parameters = [["Parameter"],["Value"]])
+        parameters = [["Parameter"], ["Value"]])
 # ---------------------------------------------------------------------------------
 
 # ------------------------ solving section-----------------------------------------
@@ -76,6 +78,7 @@ def solve(dat):
     set NODES;
     set ARCS within {i in NODES, j in NODES: i <> j};
     set COMMODITIES;
+    param volume {COMMODITIES} > 0, < Infinity;
     param capacity {ARCS} >= 0;
     set SHIPMENT_OPTIONS within {COMMODITIES,ARCS};
     param cost {SHIPMENT_OPTIONS} > 0;
@@ -85,7 +88,7 @@ def solve(dat):
     minimize TotalCost:
        sum {(h,i,j) in SHIPMENT_OPTIONS} cost[h,i,j] * Flow[h,i,j];
     subject to Capacity {(i,j) in ARCS}:
-       sum {(h,i,j) in SHIPMENT_OPTIONS} Flow[h,i,j] <= capacity[i,j];
+       sum {(h,i,j) in SHIPMENT_OPTIONS} Flow[h,i,j] * volume[h] <= capacity[i,j];
     subject to Conservation {h in COMMODITIES, j in NODES:
          card {(h,i,j) in SHIPMENT_OPTIONS} > 0 or
          card {(h,j,i) in SHIPMENT_OPTIONS} > 0 or
@@ -95,8 +98,8 @@ def solve(dat):
        sum {(h,j,i) in SHIPMENT_OPTIONS} Flow[h,j,i];
     """)
     # copy the tables to amplpy.DataFrame objects, renaming the data fields as needed
-    dat = input_schema.copy_to_ampl(dat, field_renamings={("arcs", "Capacity"): "capacity",
-            ("cost", "Cost"): "cost", ("inflow", "Quantity"): "inflow"})
+    dat = input_schema.copy_to_ampl(dat, field_renamings={("commodities", "Volume"): "volume",
+            ("arcs", "Capacity"): "capacity", ("cost", "Cost"): "cost", ("inflow", "Quantity"): "inflow"})
     # load the amplpy.DataFrame objects into the AMPL model, explicitly identifying how to populate the AMPL sets
     input_schema.set_ampl_data(dat, ampl, {"nodes": "NODES", "arcs": "ARCS",
                                            "commodities": "COMMODITIES", "cost":"SHIPMENT_OPTIONS",

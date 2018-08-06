@@ -72,16 +72,18 @@ def solve(dat):
     subject to TotalShifts{w in Workers}:totShifts[w]==sum{(w,s) in Availability} x[w,s];
     """)
 
+    # copy the tables to amplpy.DataFrame objects, renaming the data fields as needed
     dat = input_schema.copy_to_ampl(dat, field_renamings={
         ("shifts", "Requirement"): "Shift_Require",
         ("workers", "Payment"): "Pay"})
-
-    input_schema.set_ampl_data(dat, ampl, {"workers":"Workers","shifts":"Shifts",
-                                           "availability":"Availability"})
+    # load the amplpy.DataFrame objects into the AMPL model, explicitly identifying how to populate the AMPL sets
+    input_schema.set_ampl_data(dat, ampl, {"workers": "Workers", "shifts": "Shifts",
+                                           "availability": "Availability"})
 
     ampl.solve()
 
     if ampl.getValue("solve_result") != "infeasible":
+        # lexicographical solve 2 - minimize Total Payments while restricting Total Slack to be as small as possible
         totalSlack = ampl.getValue("totSlack")
         ampl.eval("""
         param maxSlack;
@@ -94,6 +96,8 @@ def solve(dat):
         ampl.param["maxSlack"] = totalSlack
         ampl.solve()
         if ampl.getValue("solve_result") != "infeasible":
+            # lexicographical solve 2 - minimize imbalance among workers while restricting
+            # Total Slack and Total Payments to be as small as possible
             totalPayments = ampl.getValue("Total_payments")
             ampl.eval("""
             param maxTotalPayments;

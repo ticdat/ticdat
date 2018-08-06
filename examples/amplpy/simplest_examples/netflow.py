@@ -4,11 +4,11 @@ from ticdat import PanDatFactory, standard_main
 from amplpy import AMPL
 
 input_schema = PanDatFactory (
-     commodities = [["Name"],[]],
-     nodes  = [["Name"],[]],
-     arcs = [["Source", "Destination"],["Capacity"]],
-     cost = [["Commodity", "Source", "Destination"], ["Cost"]],
-     inflow = [["Commodity", "Node"],["Quantity"]]
+     commodities=[["Name"], ["Volume"]],
+     nodes=[["Name"], []],
+     arcs=[["Source", "Destination"] ,["Capacity"]],
+     cost=[["Commodity", "Source", "Destination"], ["Cost"]],
+     inflow=[["Commodity", "Node"], ["Quantity"]]
 )
 
 solution_schema = PanDatFactory(
@@ -23,6 +23,7 @@ def solve(dat):
     set NODES;
     set ARCS within {i in NODES, j in NODES: i <> j};
     set COMMODITIES;
+    param volume {COMMODITIES} > 0, < Infinity;
     param capacity {ARCS} >= 0;
     param cost {COMMODITIES,ARCS} > 0;
     param inflow {COMMODITIES,NODES};
@@ -30,14 +31,14 @@ def solve(dat):
     minimize TotalCost:
        sum {h in COMMODITIES, (i,j) in ARCS} cost[h,i,j] * Flow[h,i,j];
     subject to Capacity {(i,j) in ARCS}:
-       sum {h in COMMODITIES} Flow[h,i,j] <= capacity[i,j];
+       sum {h in COMMODITIES} Flow[h,i,j] * volume[h] <= capacity[i,j];
     subject to Conservation {h in COMMODITIES, j in NODES}:
        sum {(i,j) in ARCS} Flow[h,i,j] + inflow[h,j] = sum {(j,i) in ARCS} Flow[h,j,i];
     """)
 
     # copy the tables to amplpy.DataFrame objects, renaming the data fields as needed
-    dat = input_schema.copy_to_ampl(dat, field_renamings={("arcs", "Capacity"): "capacity",
-            ("cost", "Cost"): "cost", ("inflow", "Quantity"): "inflow"})
+    dat = input_schema.copy_to_ampl(dat, field_renamings={("commodities", "Volume"): "volume",
+            ("arcs", "Capacity"): "capacity", ("cost", "Cost"): "cost", ("inflow", "Quantity"): "inflow"})
 
     # load the amplpy.DataFrame objects into the AMPL model, explicitly identifying how to populate the AMPL sets
     input_schema.set_ampl_data(dat, ampl, {"nodes": "NODES", "arcs": "ARCS",
