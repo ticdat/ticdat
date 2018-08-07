@@ -21,39 +21,40 @@ from amplpy import AMPL
 
 # ------------------------ define the input schema --------------------------------
 input_schema = PanDatFactory(
- parameters = [["Parameter"],["Value"]],
- players = [['Player Name'],
+    parameters=[["Parameter"], ["Value"]],
+    players=[['Player Name'],
             ['Position', 'Average Draft Position', 'Expected Points', 'Draft Status']],
- roster_requirements = [['Position'],
+    roster_requirements=[['Position'],
                        ['Min Num Starters', 'Max Num Starters', 'Min Num Reserve', 'Max Num Reserve',
                         'Flex Status']],
- my_draft_positions = [['Draft Position'],[]]
+    my_draft_positions=[['Draft Position'], []]
 )
 
 # add foreign key constraints (optional, but helps with preventing garbage-in, garbage-out)
 input_schema.add_foreign_key("players", "roster_requirements", ['Position', 'Position'])
 
 # set data types (optional, but helps with preventing garbage-in, garbage-out)
-input_schema.set_data_type("parameters", "Parameter", number_allowed = False,
+input_schema.set_data_type("parameters", "Parameter", number_allowed=False,
                           strings_allowed = ["Starter Weight", "Reserve Weight",
                                              "Maximum Number of Flex Starters"])
 input_schema.set_data_type("parameters", "Value", min=0, max=float("inf"),
-                          inclusive_min = True, inclusive_max = False)
+                          inclusive_min=True, inclusive_max=False)
 input_schema.set_data_type("players", "Average Draft Position", min=0, max=float("inf"),
-                          inclusive_min = False, inclusive_max = False)
+                          inclusive_min=False, inclusive_max=False)
 input_schema.set_data_type("players", "Expected Points", min=-float("inf"), max=float("inf"),
-                          inclusive_min = False, inclusive_max = False)
+                          inclusive_min=False, inclusive_max=False)
 input_schema.set_data_type("players", "Draft Status",
-                          strings_allowed = ["Un-drafted", "Drafted By Me", "Drafted By Someone Else"])
-for fld in ("Min Num Starters",  "Min Num Reserve", "Max Num Reserve"):
+                          strings_allowed= ["Un-drafted", "Drafted By Me", "Drafted By Someone Else"])
+for fld in ("Min Num Starters",  "Min Num Reserve"):
     input_schema.set_data_type("roster_requirements", fld, min=0, max=float("inf"),
-                          inclusive_min = True, inclusive_max = False, must_be_int = True)
-input_schema.set_data_type("roster_requirements", "Max Num Starters", min=0, max=float("inf"),
-                      inclusive_min = False, inclusive_max = True, must_be_int = True)
+                          inclusive_min=True, inclusive_max=False, must_be_int=True)
+for fld in ("Max Num Starters",  "Min Num Reserve", "Max Num Reserve"):
+    input_schema.set_data_type("roster_requirements", fld, min=0, max=float("inf"),
+                      inclusive_min=True, inclusive_max=True, must_be_int=True)
 input_schema.set_data_type("roster_requirements", "Flex Status", number_allowed = False,
-                          strings_allowed = ["Flex Eligible", "Flex Ineligible"])
+                          strings_allowed=["Flex Eligible", "Flex Ineligible"])
 input_schema.set_data_type("my_draft_positions", "Draft Position", min=0, max=float("inf"),
-                          inclusive_min = False, inclusive_max = False, must_be_int = True)
+                          inclusive_min=False, inclusive_max=False, must_be_int=True)
 
 input_schema.add_data_row_predicate("roster_requirements",
     predicate=lambda row : row["Max Num Starters"] >= row["Min Num Starters"])
@@ -64,9 +65,9 @@ input_schema.add_data_row_predicate("roster_requirements",
 
 # ------------------------ define the output schema -------------------------------
 solution_schema = PanDatFactory(
-    parameters = [["Parameter"],["Value"]],
-    my_draft = [['Player Name'], ['Draft Position', 'Position', 'Planned Or Actual',
-                                  'Starter Or Reserve']])
+    parameters=[["Parameter"], ["Value"]],
+    my_draft=[['Player Name'], ['Draft Position', 'Position', 'Planned Or Actual',
+                                'Starter Or Reserve']])
 # ---------------------------------------------------------------------------------
 
 # ------------------------ create a solve function --------------------------------
@@ -101,17 +102,17 @@ def solve(dat):
     set MY_DRAFT_POSITIONS ordered;
 
     set POSITIONS;
-    param min_number_starters{POSITIONS} >= 0;
+    param min_number_starters{POSITIONS} >= 0, < Infinity;
     param max_number_starters{p in POSITIONS} >= min_number_starters[p];
-    param min_number_reserve{POSITIONS} >= 0;
+    param min_number_reserve{POSITIONS} >= 0, < Infinity;
     param max_number_reserve{p in POSITIONS} >= min_number_reserve[p];
     param flex_status{POSITIONS} symbolic within {'Flex Eligible', 'Flex Ineligible'};
 
     set PLAYERS;
     param draft_status{PLAYERS} symbolic within {'Un-drafted', 'Drafted By Me',  'Drafted By Someone Else'} ;
     param position{PLAYERS} symbolic within {POSITIONS};
-    param expected_draft_position{PLAYERS} >=1;
-    param expected_points{PLAYERS} >= 0;
+    param expected_draft_position{PLAYERS} >=1, < Infinity;
+    param expected_points{PLAYERS} > -Infinity, < Infinity;
     set DRAFTABLE_PLAYERS within PLAYERS = {p in PLAYERS : draft_status[p] <> 'Drafted By Someone Else'};
 
     var Starters {DRAFTABLE_PLAYERS} binary;

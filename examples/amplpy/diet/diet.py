@@ -20,9 +20,9 @@ from ticdat import PanDatFactory, standard_main
 # ------------------------ define the input schema --------------------------------
 # There are three input tables, with 4 primary key fields and 4 data fields.
 input_schema = PanDatFactory (
-    categories = [["Name"],["Min Nutrition", "Max Nutrition"]],
-    foods  = [["Name"],["Cost"]],
-    nutrition_quantities = [["Food", "Category"], ["Quantity"]])
+    categories=[["Name"], ["Min Nutrition", "Max Nutrition"]],
+    foods=[["Name"], ["Cost"]],
+    nutrition_quantities=[["Food", "Category"], ["Quantity"]])
 
 # Define the foreign key relationships
 input_schema.add_foreign_key("nutrition_quantities", "foods", ["Food", "Name"])
@@ -51,9 +51,9 @@ input_schema.set_default_value("categories", "Max Nutrition", float("inf"))
 # ------------------------ define the output schema -------------------------------
 # There are three solution tables, with 3 primary key fields and 3 data fields.
 solution_schema = PanDatFactory(
-    parameters = [["Parameter"],["Value"]],
-    buy_food = [["Food"],["Quantity"]],
-    consume_nutrition = [["Category"],["Quantity"]])
+    parameters=[["Parameter"], ["Value"]],
+    buy_food=[["Food"], ["Quantity"]],
+    consume_nutrition=[["Category"], ["Quantity"]])
 # ---------------------------------------------------------------------------------
 
 # ------------------------ create a solve function --------------------------------
@@ -76,12 +76,12 @@ def solve(dat):
     set CAT;
     set FOOD;
 
-    param cost {FOOD} > 0;
+    param cost {FOOD} >= 0, < Infinity;
 
-    param n_min {CAT} >= 0;
+    param n_min {CAT} >= 0, < Infinity;
     param n_max {i in CAT} >= n_min[i];
 
-    param amt {FOOD, CAT} >= 0;
+    param amt {FOOD, CAT} >= 0, < Infinity;
 
     var Buy {j in FOOD} >= 0;
     var Consume {i in CAT } >= n_min [i], <= n_max [i];

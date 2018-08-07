@@ -4,16 +4,17 @@ from ticdat import PanDatFactory, standard_main
 from amplpy import AMPL
 
 input_schema = PanDatFactory (
-     commodities=[["Name"], ["Volume"]],
-     nodes=[["Name"], []],
-     arcs=[["Source", "Destination"] ,["Capacity"]],
-     cost=[["Commodity", "Source", "Destination"], ["Cost"]],
-     inflow=[["Commodity", "Node"], ["Quantity"]]
+    commodities=[["Name"], ["Volume"]],
+    nodes=[["Name"], []],
+    arcs=[["Source", "Destination"] ,["Capacity"]],
+    cost=[["Commodity", "Source", "Destination"], ["Cost"]],
+    inflow=[["Commodity", "Node"], ["Quantity"]]
 )
 
 solution_schema = PanDatFactory(
-        flow = [["Commodity", "Source", "Destination"], ["Quantity"]],
-        parameters = [["Parameter"],["Value"]])
+    flow=[["Commodity", "Source", "Destination"], ["Quantity"]],
+    parameters=[["Parameter"],["Value"]])
+
 def solve(dat):
     ampl = AMPL()
     ampl.setOption('solver', 'gurobi')
@@ -25,8 +26,8 @@ def solve(dat):
     set COMMODITIES;
     param volume {COMMODITIES} > 0, < Infinity;
     param capacity {ARCS} >= 0;
-    param cost {COMMODITIES,ARCS} > 0;
-    param inflow {COMMODITIES,NODES};
+    param cost {COMMODITIES,ARCS} >= 0, < Infinity;
+    param inflow {COMMODITIES,NODES} > -Infinity, < Infinity;
     var Flow {COMMODITIES,ARCS} >= 0;
     minimize TotalCost:
        sum {h in COMMODITIES, (i,j) in ARCS} cost[h,i,j] * Flow[h,i,j];

@@ -21,11 +21,11 @@ from amplpy import AMPL
 
 # ------------------------ define the input schema --------------------------------
 input_schema = PanDatFactory (
-     commodities=[["Name"], ["Volume"]],
-     nodes=[["Name"], []],
-     arcs=[["Source", "Destination"] ,["Capacity"]],
-     cost=[["Commodity", "Source", "Destination"], ["Cost"]],
-     inflow=[["Commodity", "Node"], ["Quantity"]]
+    commodities=[["Name"], ["Volume"]],
+    nodes=[["Name"], []],
+    arcs=[["Source", "Destination"] ,["Capacity"]],
+    cost=[["Commodity", "Source", "Destination"], ["Cost"]],
+    inflow=[["Commodity", "Node"], ["Quantity"]]
 )
 
 # Define the foreign key relationships
@@ -53,8 +53,8 @@ input_schema.set_default_value("arcs", "Capacity", float("inf"))
 
 # ------------------------ define the output schema -------------------------------
 solution_schema = PanDatFactory(
-        flow = [["Commodity", "Source", "Destination"], ["Quantity"]],
-        parameters = [["Parameter"], ["Value"]])
+    flow = [["Commodity", "Source", "Destination"], ["Quantity"]],
+    parameters = [["Parameter"], ["Value"]])
 # ---------------------------------------------------------------------------------
 
 # ------------------------ solving section-----------------------------------------
@@ -81,9 +81,9 @@ def solve(dat):
     param volume {COMMODITIES} > 0, < Infinity;
     param capacity {ARCS} >= 0;
     set SHIPMENT_OPTIONS within {COMMODITIES,ARCS};
-    param cost {SHIPMENT_OPTIONS} > 0;
+    param cost {SHIPMENT_OPTIONS} >= 0, < Infinity;
     set INFLOW_INDEX within {COMMODITIES,NODES};
-    param inflow {INFLOW_INDEX};
+    param inflow {INFLOW_INDEX} > -Infinity, < Infinity;
     var Flow {SHIPMENT_OPTIONS} >= 0;
     minimize TotalCost:
        sum {(h,i,j) in SHIPMENT_OPTIONS} cost[h,i,j] * Flow[h,i,j];

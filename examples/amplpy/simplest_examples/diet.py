@@ -4,15 +4,15 @@ from amplpy import AMPL
 from ticdat import PanDatFactory, standard_main
 
 input_schema = PanDatFactory (
-    categories = [["Name"],["Min Nutrition", "Max Nutrition"]],
-    foods  = [["Name"],["Cost"]],
-    nutrition_quantities = [["Food", "Category"], ["Quantity"]])
+    categories=[["Name"],["Min Nutrition", "Max Nutrition"]],
+    foods=[["Name"], ["Cost"]],
+    nutrition_quantities=[["Food", "Category"], ["Quantity"]])
 
 # There are three solution tables, with 3 primary key fields and 3 data fields.
 solution_schema = PanDatFactory(
-    parameters = [["Parameter"],["Value"]],
-    buy_food = [["Food"],["Quantity"]],
-    consume_nutrition = [["Category"],["Quantity"]])
+    parameters=[["Parameter"], ["Value"]],
+    buy_food=[["Food"], ["Quantity"]],
+    consume_nutrition=[["Category"], ["Quantity"]])
 
 def solve(dat):
     # build the AMPL math model
@@ -22,12 +22,12 @@ def solve(dat):
     set CAT;
     set FOOD;
 
-    param cost {FOOD} > 0;
+    param cost {FOOD} > 0, < Infinity;
 
-    param n_min {CAT} >= 0;
+    param n_min {CAT} >= 0, < Infinity;
     param n_max {i in CAT} >= n_min[i];
 
-    param amt {FOOD, CAT} >= 0;
+    param amt {FOOD, CAT} >= 0, < Infinity;
 
     var Buy {j in FOOD} >= 0;
     var Consume {i in CAT } >= n_min [i], <= n_max [i];

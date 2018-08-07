@@ -86,10 +86,10 @@ def solve(dat):
     ampl = AMPL()
     ampl.setOption('solver', 'gurobi')
     ampl.eval("""
-    param amount_leftover_lb >= 0;
+    param amount_leftover_lb >= 0, < Infinity;
     param amount_leftover_ub >= amount_leftover_lb;
-    param one_way_price >= 0;
-    param number_trips >= 0;
+    param one_way_price >= 0, < Infinity;
+    param number_trips >= 0, < Infinity;
     set LOAD_AMTS;
     var Num_Visits {LOAD_AMTS} integer >= 0;
     var Amt_Leftover >= amount_leftover_lb, <= amount_leftover_ub;
