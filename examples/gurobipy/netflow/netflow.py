@@ -21,11 +21,11 @@ from ticdat import TicDatFactory, standard_main, Slicer, gurobi_env
 
 # ------------------------ define the input schema --------------------------------
 input_schema = TicDatFactory (
-     commodities=[["Name"], []],
-     nodes=[["Name"], []],
-     arcs=[["Source", "Destination"], ["Capacity"]],
-     cost=[["Commodity", "Source", "Destination"], ["Cost"]],
-     inflow=[["Commodity", "Node"], ["Quantity"]]
+    commodities=[["Name"], ["Volume"]],
+    nodes=[["Name"], []],
+    arcs=[["Source", "Destination"], ["Capacity"]],
+    cost=[["Commodity", "Source", "Destination"], ["Cost"]],
+    inflow=[["Commodity", "Node"], ["Quantity"]]
 )
 
 # Define the foreign key relationships
@@ -38,6 +38,8 @@ input_schema.add_foreign_key("inflow", "commodities", ['Commodity', 'Name'])
 input_schema.add_foreign_key("inflow", "nodes", ['Node', 'Name'])
 
 # Define the data types
+input_schema.set_data_type("commodities", "Volume", min=0, max=float("inf"),
+                           inclusive_min=False, inclusive_max=False)
 input_schema.set_data_type("arcs", "Capacity", min=0, max=float("inf"),
                            inclusive_min=True, inclusive_max=True)
 input_schema.set_data_type("cost", "Cost", min=0, max=float("inf"),
@@ -75,7 +77,8 @@ def solve(dat):
 
     # Arc Capacity constraints
     for i,j in dat.arcs:
-        mdl.addConstr(gu.quicksum(flow[h_i_j] for h_i_j in flowslice.slice('*',i, j))
+        mdl.addConstr(gu.quicksum(flow[_h, _i, _j] * dat.commodities[_h]["Volume"]
+                                  for _h, _i, _j in flowslice.slice('*', i, j))
                       <= dat.arcs[i,j]["Capacity"],
                       name='cap_%s_%s' % (i, j))
 

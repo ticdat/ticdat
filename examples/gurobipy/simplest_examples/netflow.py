@@ -4,11 +4,11 @@ import gurobipy as gu
 from ticdat import TicDatFactory, standard_main, Slicer, gurobi_env
 
 input_schema = TicDatFactory (
-     commodities = [["Name"],[]],
-     nodes  = [["Name"],[]],
-     arcs = [["Source", "Destination"],["Capacity"]],
-     cost = [["Commodity", "Source", "Destination"], ["Cost"]],
-     inflow = [["Commodity", "Node"],["Quantity"]]
+     commodities=[["Name"],["Volume"]],
+     nodes =[["Name"],[]],
+     arcs=[["Source", "Destination"],["Capacity"]],
+     cost=[["Commodity", "Source", "Destination"], ["Cost"]],
+     inflow=[["Commodity", "Node"],["Quantity"]]
 )
 
 solution_schema = TicDatFactory(
@@ -26,7 +26,8 @@ def solve(dat):
 
     # Arc Capacity constraints
     for i,j in dat.arcs:
-        mdl.addConstr(gu.quicksum(flow[h_i_j] for h_i_j in flowslice.slice('*',i, j))
+        mdl.addConstr(gu.quicksum(flow[_h, _i, _j] * dat.commodities[_h]["Volume"]
+                                  for _h, _i, _j in flowslice.slice('*', i, j))
                       <= dat.arcs[i,j]["Capacity"],
                       name='cap_%s_%s' % (i, j))
 
