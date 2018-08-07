@@ -380,8 +380,14 @@ class PanDatFactory(object):
                     tbl = safe_apply(DataFrame)(init_tables[t])
                     if tbl is None and dictish(init_tables[t]) and all(map(stringish, init_tables[t])):
                         tbl = safe_apply(DataFrame)(**init_tables[t])
-                    verify(isinstance(tbl, DataFrame), "Failed to provide a valid DataFrame for %s"%t)
+                    verify(isinstance(tbl, DataFrame),
+                           "Failed to provide a valid DataFrame or DataFrame construction argument for %s"%t)
                     setattr(self, t, tbl.copy())
+                    df = getattr(self, t)
+                    if list(df.columns) == list(range(len(df.columns))) and \
+                       len(df.columns) >= len(superself._all_fields(t)):
+                        df.rename(columns={f1:f2 for f1, f2 in zip(df.columns, superself._all_fields(t))},
+                                  inplace=True)
                 for t in set(superself.all_tables).difference(init_tables):
                     setattr(self, t, DataFrame({f:[] for f in utils.all_fields(superself, t)}))
                 missing_fields = {(t, f) for t in superself.all_tables for f in superself._all_fields(t)

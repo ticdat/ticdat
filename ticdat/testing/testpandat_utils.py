@@ -428,7 +428,10 @@ class TestUtils(unittest.TestCase):
         panDat = pan_dat_maker(dietSchema(), ticDat)
         panDat2 = pdf.PanDat(**{t:getattr(panDat, t).to_dict() for t in pdf.all_tables})
         panDat3 = pdf.PanDat(**{t:getattr(panDat, t).to_dict(orient="list") for t in pdf.all_tables})
-        self.assertTrue(all(pdf._same_data(panDat, _) for _ in [panDat2, panDat3]))
+        panDat3_1 = pdf.PanDat(**{t:list(map(list, getattr(panDat, t).itertuples(index=False)))
+                                  for t in pdf.all_tables})
+
+        self.assertTrue(all(pdf._same_data(panDat, _) for _ in [panDat2, panDat3, panDat3_1]))
         panDat.foods["extra"] = 12
         panDat4 = pdf.PanDat(**{t:getattr(panDat, t).to_dict(orient="list") for t in pdf.all_tables})
         self.assertTrue(pdf._same_data(panDat, panDat4))
