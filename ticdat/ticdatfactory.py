@@ -1072,11 +1072,12 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
         verify(self.good_tic_dat_object(tic_dat, msg.append),
                "tic_dat not a good object for this factory : %s"%"\n".join(msg))
         return freeze_me(tic_dat)
-    def find_foreign_key_failures(self, tic_dat):
+    def find_foreign_key_failures(self, tic_dat, verbosity="High"):
         """
         Finds the foreign key failures for a ticdat object
         :param tic_dat: ticdat object
-        :return: A dictionary constructed as follow:
+        :param verbosity: either "High" or "Low"
+        :return: A dictionary constructed as follow (for verbosity = 'High'):
                  The keys are namedTuples with members "native_table", "foreign_table",
                  "mapping", "cardinality".
                  The key data matches the arguments to add_foreign_key that constructed the
@@ -1089,7 +1090,10 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
                  can't find a foreign key match, and thus generate a foreign key failure.
                  native_pks tells you which native table rows will be removed if you call
                  remove_foreign_keys_failures().
+                 For verbosity = 'Low' a simpler return object is created that doesn't use namedtuples
+                 and omits the foreign key cardinality.
         """
+        verify(verbosity in ["High", "Low"], "verbosity needs to be either 'High' or 'Low'")
         msg  = []
         verify(self.good_tic_dat_object(tic_dat, msg.append),
                "tic_dat not a good object for this factory : %s"%"\n".join(msg))
@@ -1142,7 +1146,10 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
         assert set(rtn_pks) == set(rtn_values)
         RtnType = namedtuple("ForeignKeyFailures", ("native_values", "native_pks"))
 
-        return {k:RtnType(tuple(rtn_values[k]), tuple(rtn_pks[k])) for k in rtn_pks}
+        rtn = {k:RtnType(tuple(rtn_values[k]), tuple(rtn_pks[k])) for k in rtn_pks}
+        if verbosity == "Low":
+            rtn = {tuple(k[:2]) + (tuple(k[2]),): tuple(v) for k,v in rtn.items()}
+        return rtn
 
     def remove_foreign_keys_failures(self, tic_dat, propagate=True):
         """

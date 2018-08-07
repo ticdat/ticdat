@@ -75,7 +75,9 @@ class TestUtils(unittest.TestCase):
 
         dat.position_constraints["no", "no", "no"] = dat.position_constraints[1, 2, 3] = {}
         fk_fails = input_schema.find_foreign_key_failures(input_schema.copy_tic_dat(dat, freeze_it=True))
-        self.assertTrue({(1, 'no'), (2, 'no'), ('no',)} ==  {_.native_values for _ in fk_fails.values()})
+        fk_fails_2 = input_schema.find_foreign_key_failures(dat, verbosity="Low")
+        self.assertTrue({(1, 'no'), (2, 'no'), ('no',)} == {_.native_values for _ in fk_fails.values()} ==
+                        {_[0] for _ in fk_fails_2.values()})
         input_schema.remove_foreign_keys_failures(dat)
         self.assertTrue(input_schema._same_data(dat, orig_dat) and not input_schema.find_foreign_key_failures(dat))
 
@@ -515,6 +517,10 @@ class TestUtils(unittest.TestCase):
             fk, fkm = ForeignKey, ForeignKeyMapping
             self.assertTrue(tdf.find_foreign_key_failures(badDat1) == tdf.find_foreign_key_failures(badDat2) ==
                             {fk('production', 'lines', fkm('line', 'name'), 'many-to-one'):
+                                 (('notaline',), (('notaline', 'widgets'),))})
+            self.assertTrue(tdf.find_foreign_key_failures(badDat1, verbosity="Low") ==
+                            tdf.find_foreign_key_failures(badDat2, verbosity="Low") ==
+                            {('production', 'lines', ('line', 'name')):
                                  (('notaline',), (('notaline', 'widgets'),))})
             badDat1.lines["notaline"]["plant"] = badDat2.lines["notaline"]["plant"] = "notnewark"
             self.assertTrue(tdf.find_foreign_key_failures(badDat1) == tdf.find_foreign_key_failures(badDat2) ==
