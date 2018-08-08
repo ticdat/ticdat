@@ -45,6 +45,10 @@ class TestIO(unittest.TestCase):
         pdf.xls.write_file(panDat, filePath)
         xlsPanDat = pdf.xls.create_pan_dat(filePath)
         self.assertTrue(pdf._same_data(panDat, xlsPanDat))
+        pdf2 = PanDatFactory(**{t:'*' for t in pdf.all_tables})
+        pdf2.xls.write_file(panDat, filePath)
+        xlsPanDat = pdf2.xls.create_pan_dat(filePath)
+        self.assertTrue(pdf._same_data(panDat, xlsPanDat))
 
         tdf = TicDatFactory(**netflowSchema())
         pdf = PanDatFactory(**netflowSchema())
@@ -54,6 +58,9 @@ class TestIO(unittest.TestCase):
         pdf.xls.write_file(panDat, filePath)
         panDat2 = pdf.xls.create_pan_dat(filePath)
         self.assertTrue(pdf._same_data(panDat, panDat2))
+        pdf2 = PanDatFactory(**{t:'*' for t in pdf.all_tables})
+        xlsPanDat = pdf2.xls.create_pan_dat(filePath)
+        self.assertTrue(pdf._same_data(panDat, xlsPanDat))
 
     def testXlsSpacey(self):
         if not self.can_run:
@@ -156,6 +163,11 @@ class TestIO(unittest.TestCase):
         pdf.sql.write_file(panDat, filePath)
         sqlPanDat = pdf.sql.create_pan_dat(filePath)
         self.assertTrue(pdf._same_data(panDat, sqlPanDat))
+        pdf2 = PanDatFactory(**{t:'*' for t in pdf.all_tables})
+        pdf2.sql.write_file(panDat, filePath)
+        sqlPanDat = pdf2.sql.create_pan_dat(filePath)
+        self.assertTrue(pdf._same_data(panDat, sqlPanDat))
+
 
         tdf = TicDatFactory(**netflowSchema())
         pdf = PanDatFactory(**netflowSchema())
@@ -165,6 +177,9 @@ class TestIO(unittest.TestCase):
         pdf.sql.write_file(panDat, filePath)
         panDat2 = pdf.sql.create_pan_dat(filePath)
         self.assertTrue(pdf._same_data(panDat, panDat2))
+        pdf2 = PanDatFactory(**{t:'*' for t in pdf.all_tables})
+        sqlPanDat = pdf2.sql.create_pan_dat(filePath)
+        self.assertTrue(pdf._same_data(panDat, sqlPanDat))
 
     def testSqlSpacey(self):
         if not self.can_run:
@@ -243,6 +258,10 @@ class TestIO(unittest.TestCase):
         pdf.csv.write_directory(panDat, dirPath)
         panDat2 = pdf.csv.create_pan_dat(dirPath)
         self.assertTrue(pdf._same_data(panDat, panDat2))
+        pdf2 = PanDatFactory(**{t:'*' for t in pdf.all_tables})
+        panDat2 = pdf2.csv.create_pan_dat(dirPath)
+        self.assertTrue(pdf._same_data(panDat, panDat2))
+
 
         tdf = TicDatFactory(**netflowSchema())
         pdf = PanDatFactory(**netflowSchema())
@@ -251,6 +270,10 @@ class TestIO(unittest.TestCase):
         dirPath = os.path.join(_scratchDir, "netflow_csv")
         pdf.csv.write_directory(panDat, dirPath)
         panDat2 = pdf.csv.create_pan_dat(dirPath)
+        self.assertTrue(pdf._same_data(panDat, panDat2))
+        pdf2 = PanDatFactory(**{t:'*' for t in pdf.all_tables})
+        pdf2.csv.write_directory(panDat, dirPath)
+        panDat2 = pdf2.csv.create_pan_dat(dirPath)
         self.assertTrue(pdf._same_data(panDat, panDat2))
 
         tdf = TicDatFactory(**dietSchema())
@@ -305,6 +328,10 @@ class TestIO(unittest.TestCase):
         pdf.json.write_file(panDat, filePath)
         panDat2 = pdf.json.create_pan_dat(filePath)
         self.assertTrue(pdf._same_data(panDat, panDat2, epsilon=1e-5))
+        pdf2 = PanDatFactory(**{t:'*' for t in pdf.all_tables})
+        pdf2.json.write_file(panDat, filePath)
+        panDat2 = pdf2.json.create_pan_dat(filePath)
+        self.assertTrue(pdf._same_data(panDat, panDat2, epsilon=1e-5))
 
         tdf = TicDatFactory(**netflowSchema())
         pdf = PanDatFactory(**netflowSchema())
@@ -319,6 +346,9 @@ class TestIO(unittest.TestCase):
         dicted = json.loads(pdf.json.write_file(panDat, ""))
         panDat4 = pdf.PanDat(**dicted)
         self.assertTrue(pdf._same_data(panDat, panDat4))
+        pdf2 = PanDatFactory(**{t:'*' for t in pdf.all_tables})
+        panDat5 = pdf2.PanDat(**dicted)
+        self.assertTrue(pdf._same_data(panDat, panDat5))
 
 
         tdf = TicDatFactory(**dietSchema())
