@@ -18,10 +18,11 @@ pd, DataFrame = utils.pd, utils.DataFrame # if pandas not installed will be fals
 
 class PanDatFactory(object):
     """
-    Creates simple schema shin functionality for defining schemas with pandas.DataFrame objects.
-    This class is constructed with a schema, and can be used to generate PanDat objects,
-    or to write PanDat objects to different file types. Analytical code that uses PanDat objects can be used,
-    without change, on different data sources.
+     Defines a schema for a collection of pandas.DataFrame objects.
+     This class is constructed with a schema, and can be used to generate PanDat objects,
+     or to write PanDat objects to different file types. Analytical code that uses PanDat objects can be used,
+     without change, on different data sources. A PanDat object is itself a collection of DataFrames that
+     conform to a predefined schema.
     """
     @property
     def primary_key_fields(self):
@@ -473,7 +474,7 @@ class PanDatFactory(object):
                data type failure rows themselves. Otherwise will return the boolean Series that indicates
                which rows have data type failures.
         :return: A dictionary constructed as follow:
-                 The keys are namedTuples with members "table", "field". Each (table,field) pair
+                 The keys are namedtuples with members "table", "field". Each (table,field) pair
                  has data values that are inconsistent with its data type. (table, field) pairs
                  with no data type at all are never part of the returned dictionary.
                  The values are DataFrames that contain the subset of rows that exhibit data failures
@@ -505,7 +506,7 @@ class PanDatFactory(object):
                which rows have predicate failures.
         :return: A dictionary constructed as follow:
 
-                 The keys are namedTuples with members "table", "predicate_name".
+                 The keys are namedtuples with members "table", "predicate_name".
 
                  The values are DataFrames that contain the subset of rows that exhibit data failures
                  for this specific table, predicate pair (or the Series that identifies these rows).
@@ -529,13 +530,16 @@ class PanDatFactory(object):
         :param pan_dat: pandat object
         :param verbosity: either "High" or "Low"
         :return: A dictionary constructed as follow:
-                 The keys are namedTuples with members "native_table", "foreign_table",
+                 The keys are namedtuples with members "native_table", "foreign_table",
                  "mapping", "cardinality".
                  The key data matches the arguments to add_foreign_key that constructed the
                  foreign key (with "cardinality" being deduced from the overall schema).
 
                  The values are DataFrames that contain the subset of native table rows that fail to find
                  foreign table matching defined by the associated returned key.
+
+                 For verbosity = 'Low' a simpler return object is created that doesn't use namedtuples
+                 and omits the foreign key cardinality.
         """
         # note - the as_table argument is messy here because I'm applying an index to a copy of the table
         # as a result, we provide the remove_foreign_key_failures companion function

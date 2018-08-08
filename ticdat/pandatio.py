@@ -61,7 +61,7 @@ class JsonPanFactory(freezable_factory(object, "_isFrozen")):
                  Table names are matched with case-space insensitivity, but spaces
                  are respected for field names.
                  (ticdat supports whitespace in field names but not table names).
-                 +- infinity will be converted to "inf", "-inf" strings
+                 +- "inf", "-inf" strings will be converted to +-float("inf")
         """
         if os.path.exists(path_or_buf):
             verify(os.path.isfile(path_or_buf), "%s appears to be a directory and not a file." % path_or_buf)

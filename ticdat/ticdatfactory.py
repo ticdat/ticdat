@@ -1078,11 +1078,11 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
         :param tic_dat: ticdat object
         :param verbosity: either "High" or "Low"
         :return: A dictionary constructed as follow (for verbosity = 'High'):
-                 The keys are namedTuples with members "native_table", "foreign_table",
+                 The keys are namedtuples with members "native_table", "foreign_table",
                  "mapping", "cardinality".
                  The key data matches the arguments to add_foreign_key that constructed the
                  foreign key (with "cardinality" being deduced from the overall schema).
-                 The values are namedTuples with the following members.
+                 The values are namedtuples with the following members.
                  --> native_values - the values of the native fields that failed to match
                  --> native_pks - the primary key entries of the native table rows
                                   corresponding to the native_values.
@@ -1189,11 +1189,11 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
         :param tic_dat: ticdat object
         :return: A dictionary constructed as follow:
 
-                 The keys are namedTuples with members "table", "field". Each (table,field) pair
+                 The keys are namedtuples with members "table", "field". Each (table,field) pair
                  has data values that are inconsistent with its data type. (table, field) pairs
                  with no data type at all are never part of the returned dictionary.
 
-                 The values of the returned dictionary are namedTuples with the following attributes.
+                 The values of the returned dictionary are namedtuples with the following attributes.
                  --> bad_values - the distinct values for the (table, field) pair that are inconsistent
                                   with the data type for (table, field).
                  --> pks - the distinct primary key entries of the table containing the bad_values
@@ -1282,7 +1282,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
         :param tic_dat: ticdat object
         :return: A dictionary constructed as follow:
 
-                 The keys are namedTuples with members "table", "predicate_name".
+                 The keys are namedtuples with members "table", "predicate_name".
 
                  The values of the returned dictionary are tuples indicating which rows
                  failed the predicate test. For tables with a primary key this tuple will
