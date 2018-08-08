@@ -523,10 +523,11 @@ class PanDatFactory(object):
                 if where_bad_rows.any():
                     rtn[TPN(tbl, pn)] = _table[where_bad_rows].copy() if as_table else where_bad_rows
         return rtn
-    def find_foreign_key_failures(self, pan_dat):
+    def find_foreign_key_failures(self, pan_dat, verbosity="High"):
         """
         Finds the foreign key failures for a pandat object
         :param pan_dat: pandat object
+        :param verbosity: either "High" or "Low"
         :return: A dictionary constructed as follow:
                  The keys are namedTuples with members "native_table", "foreign_table",
                  "mapping", "cardinality".
@@ -538,10 +539,13 @@ class PanDatFactory(object):
         """
         # note - the as_table argument is messy here because I'm applying an index to a copy of the table
         # as a result, we provide the remove_foreign_key_failures companion function
+        verify(verbosity in ["High", "Low"], "verbosity needs to be either 'High' or 'Low'")
         rtn = {}
         for fk, rows in self._find_foreign_key_failure_rows(pan_dat).items():
             native, foreign, mappings, card = fk
             rtn[fk] = getattr(pan_dat, native)[rows]
+        if verbosity == "Low":
+            rtn = {tuple(k[:2]) + (tuple(k[2]),): v for k,v in rtn.items()}
         return rtn
     def _find_foreign_key_failure_rows(self, pan_dat):
         msg  = []
