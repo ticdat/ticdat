@@ -194,9 +194,12 @@ class TestUtils(unittest.TestCase):
         new_pan_dat = input_schema.copy_pan_dat(copy_to_pandas_with_reset(tdf, dat))
         self.assertFalse(input_schema._same_data(orig_pan_dat, new_pan_dat))
         fk_fails = input_schema.find_foreign_key_failures(new_pan_dat)
-        self.assertTrue({tuple(k)[:2]:len(v) for k,v in fk_fails.items()} ==
-                        {('position_constraints', 'innings'): 2, ('position_constraints', 'positions'): 2,
-                         ('position_constraints', 'roster'): 1})
+        fk_fails_2 = input_schema.find_foreign_key_failures(new_pan_dat, verbosity="Low")
+        self.assertTrue({tuple(k)[:2] + (tuple(k[2]),): len(v) for k,v in fk_fails.items()} ==
+                        {k:len(v) for k,v in fk_fails_2.items()} ==
+                        {('position_constraints', 'innings', ("Inning Group", "Inning Group")): 2,
+                         ('position_constraints', 'positions', ("Position Group", "Position Group")): 2,
+                         ('position_constraints', 'roster', ("Grade", "Grade")): 1})
         input_schema.remove_foreign_key_failures(new_pan_dat)
         self.assertFalse(input_schema.find_foreign_key_failures(new_pan_dat))
         self.assertTrue(input_schema._same_data(orig_pan_dat, new_pan_dat))
@@ -321,6 +324,9 @@ class TestUtils(unittest.TestCase):
 
             self.assertTrue(set(fk_fails1) == set(fk_fails2) ==
                             {fk('production', 'lines', fkm('line', 'name'), 'many-to-one')})
+            self.assertTrue(set(pdf.find_foreign_key_failures(pan_dat_(badDat1), verbosity="Low")) ==
+                            set(pdf.find_foreign_key_failures(pan_dat_(badDat2), verbosity="Low")) ==
+                             {('production', 'lines', ('line', 'name'))})
             for row_fails in [next(iter(_.values())) for _ in [fk_fails1, fk_fails2]]:
                 self.assertTrue(set(row_fails["line"]) == {"notaline"} and set(row_fails["product"]) == {"widgets"})
 
