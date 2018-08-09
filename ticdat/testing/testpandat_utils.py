@@ -45,6 +45,11 @@ class TestUtils(unittest.TestCase):
         dat4.cost["cost"] += 1
         self.assertFalse(pdf._same_data(dat, dat4))
 
+        pdf2 = PanDatFactory(**{t:'*' for t in pdf.all_tables})
+        dat5 = pdf2.copy_pan_dat(dat)
+        self.assertTrue(pdf._same_data(dat, dat5))
+        self.assertTrue(pdf2._same_data(dat, dat5))
+
     def testDataTypes(self):
         if not self.canRun:
             return
@@ -118,23 +123,27 @@ class TestUtils(unittest.TestCase):
 
         self.assertFalse(pdf.find_data_row_failures(pandat))
 
-        pdf = PanDatFactory(**dietSchema())
-        pdf.add_data_row_predicate("foods", lambda row: numericish(row["cost"]) and not isnan(row["cost"]), "cost")
-        good_qty = lambda qty :  numericish(qty) and 5 < qty <= 12
-        pdf.add_data_row_predicate("nutritionQuantities", lambda row: good_qty(row["qty"]), "qty")
-        pdf.add_data_row_predicate("categories",
-                                   lambda row: all(map(numericish, [row["minNutrition"], row["maxNutrition"]]))
-                                               and row["maxNutrition"] >= row["minNutrition"],
-                                   "minmax")
-        failed = pdf.find_data_row_failures(pandat)
-        self.assertTrue(set(failed) == {('foods', 'cost'), ('nutritionQuantities', 'qty'), ('categories', 'minmax')})
-        self.assertTrue(set(failed['foods', 'cost']["name"]) == {'b'})
-        self.assertTrue(set({(v["food"], v["category"])
-                             for v in failed['nutritionQuantities', 'qty'].T.to_dict().values()}) ==
-                            {('b', '1'), ('a', '2'), ('a', '1'), ('b', '2')})
-        self.assertTrue(set(failed['categories', 'minmax']["name"]) == {'2'})
-        failed = pdf.find_data_row_failures(pandat, as_table=False)
-        self.assertTrue(4 == failed['nutritionQuantities', 'qty'].value_counts()[True])
+
+        def perform_predicate_checks(sch):
+            pdf = PanDatFactory(**sch)
+            pdf.add_data_row_predicate("foods", lambda row: numericish(row["cost"]) and not isnan(row["cost"]), "cost")
+            good_qty = lambda qty :  numericish(qty) and 5 < qty <= 12
+            pdf.add_data_row_predicate("nutritionQuantities", lambda row: good_qty(row["qty"]), "qty")
+            pdf.add_data_row_predicate("categories",
+                                       lambda row: all(map(numericish, [row["minNutrition"], row["maxNutrition"]]))
+                                                   and row["maxNutrition"] >= row["minNutrition"],
+                                       "minmax")
+            failed = pdf.find_data_row_failures(pandat)
+            self.assertTrue(set(failed) == {('foods', 'cost'), ('nutritionQuantities', 'qty'), ('categories', 'minmax')})
+            self.assertTrue(set(failed['foods', 'cost']["name"]) == {'b'})
+            self.assertTrue(set({(v["food"], v["category"])
+                                 for v in failed['nutritionQuantities', 'qty'].T.to_dict().values()}) ==
+                                {('b', '1'), ('a', '2'), ('a', '1'), ('b', '2')})
+            self.assertTrue(set(failed['categories', 'minmax']["name"]) == {'2'})
+            failed = pdf.find_data_row_failures(pandat, as_table=False)
+            self.assertTrue(4 == failed['nutritionQuantities', 'qty'].value_counts()[True])
+        perform_predicate_checks(dietSchema())
+        perform_predicate_checks({t:'*' for t in dietSchema()})
 
         tdf = TicDatFactory(**netflowSchema())
         tdf.enable_foreign_key_links()
