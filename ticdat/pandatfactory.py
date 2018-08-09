@@ -470,7 +470,7 @@ class PanDatFactory(object):
         """
         Finds the data type failures for a pandat object
         :param pan_dat: pandat object
-        :param as_table: as_table boolean : if truthy then the values of the return dictionary will be the
+        :param as_table: boolean - if truthy then the values of the return dictionary will be the
                data type failure rows themselves. Otherwise will return the boolean Series that indicates
                which rows have data type failures.
         :return: A dictionary constructed as follow:
@@ -501,7 +501,7 @@ class PanDatFactory(object):
         """
         Finds the data row failures for a ticdat object
         :param pan_dat: a pandat object
-        :param as_table: as_table boolean : if truthy then the values of the return dictionary will be the
+        :param as_table: boolean - if truthy then the values of the return dictionary will be the
                predicate failure rows themselves. Otherwise will return the boolean Series that indicates
                which rows have predicate failures.
         :return: A dictionary constructed as follow:
