@@ -19,6 +19,39 @@ def _deep_anonymize(x)  :
         return {_deep_anonymize(k):_deep_anonymize(v) for k,v in x.items()}
     return list(map(_deep_anonymize,x))
 
+def hack_name(s):
+    rtn = list(s)
+    for i in range(len(s)):
+        if s[i] == "_":
+            rtn[i] = " "
+        elif i%3==0:
+            if s[i].lower() == s[i]:
+                rtn[i] = s[i].upper()
+            else:
+                rtn[i] = s[i].lower()
+    return "".join(rtn)
+
+def create_inputset_mock(tdf, dat, hack_table_names=False, includeActiveEnabled = True):
+    tdf.good_tic_dat_object(dat)
+    temp_dat = tdf.copy_to_pandas(dat, drop_pk_columns=False)
+    replaced_name = {t:hack_name(t) if hack_table_names else t for t in tdf.all_tables}
+    original_name = {v:k for k,v in replaced_name.items()}
+    if includeActiveEnabled:
+        class RtnObject(object):
+            schema = {replaced_name[t]:"not needed for mock object" for t in tdf.all_tables}
+            def getTable(self, t, includeActive=False):
+                rtn = getattr(temp_dat, original_name[t]).reset_index(drop=True)
+                if includeActive:
+                    rtn["_active"] = True
+                return rtn
+    else:
+        class RtnObject(object):
+            schema = {replaced_name[t]:"not needed for mock object" for t in tdf.all_tables}
+            def getTable(self, t):
+                rtn = getattr(temp_dat, original_name[t]).reset_index(drop=True)
+                return rtn
+    return RtnObject()
+
 #uncomment decorator to drop into debugger for assertTrue, assertFalse failures
 #@fail_to_debugger
 class TestIO(unittest.TestCase):
@@ -398,6 +431,21 @@ class TestIO(unittest.TestCase):
         dicted = json.loads(pdf.json.write_file(panDat, "", orient='columns'))
         panDat4 = pdf.PanDat(**dicted)
         self.assertTrue(pdf._same_data(panDat, panDat4, epsilon=1e-5))
+
+
+    def testMissingOpalyticsTable(self):
+        if not self.can_run:
+            return
+        tdf = TicDatFactory(**dietSchema())
+        ticDat = tdf.freeze_me(tdf.copy_tic_dat(dietData()))
+        inputset = create_inputset_mock(tdf, ticDat)
+
+        pdf = PanDatFactory(**(dict(dietSchema(), missing_table=[["a"],["b"]])))
+        panDat = pdf.opalytics.create_pan_dat(inputset)
+        ticDat2 = pdf.copy_to_tic_dat(panDat)
+        self.assertTrue(tdf._same_data(ticDat, ticDat2))
+        self.assertFalse(ticDat2.missing_table)
+
 
 _scratchDir = TestIO.__name__ + "_scratch"
 

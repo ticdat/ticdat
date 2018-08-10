@@ -29,10 +29,13 @@ _longest_sheet = 30
 
 class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
     """
-    Primary class for reading/writing Excel files with ticDat objects.
+    Primary class for reading/writing Excel files with TicDat objects.
     Your system will need the xlrd package to read .xls and .xlsx files,
     the xlwt package to write .xls files, and the xlsxwriter package to
     write .xlsx files.
+    Don't create this object explicitly. A XlsTicDatFactory will
+    automatically be associated with the xls attribute of the parent
+    TicDatFactory.
     """
     def __init__(self, tic_dat_factory):
         """

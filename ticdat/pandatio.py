@@ -30,9 +30,98 @@ class _DummyContextManager(object):
     def __exit__(self, *excinfo) :
         pass
 
+class OpalyticsPanFactory(freezable_factory(object, "_isFrozen")) :
+    """
+    Primary class for reading PanDat objects from the Opalytics Cloud Platform
+    Not expected to used outside of Opalytics Cloud hosted notebooks.
+    Don't create this object explicitly. An OpalyticsPanFactory will
+    automatically be associated with the opalytics attribute of the parent
+    PanDatFactory.
+    """
+    def __init__(self, pan_dat_factory):
+        """
+        Don't create this object explicitly. A JsonPanFactory will
+        automatically be associated with the json attribute of the parent
+        PanDatFactory.
+        :param pan_dat_factory:
+        :return:
+        """
+        self.pan_dat_factory = pan_dat_factory
+        self._isFrozen = True
+    def _find_table_matchings(self, inputset):
+        rtn = defaultdict(list)
+        for t,x in product(self.pan_dat_factory.all_tables, inputset.schema):
+            if stringish(x) and t.lower() == x.lower().replace(" ", "_"):
+                rtn[t].append(x)
+        return rtn
+    def _good_inputset(self, inputset, message_writer = lambda x : x):
+        if not hasattr(inputset, "schema") and dictish(inputset.schema):
+            message_writer("Failed to find dictish schema attribute")
+            return False
+        if not hasattr(inputset, "getTable") and callable(inputset.getTable):
+            message_writer("Failed to find calleable getTable attribute")
+            return False
+        table_matchings = self._find_table_matchings(inputset)
+        badly_matched = {t for t,v in table_matchings.items() if len(v) != 1}
+        if badly_matched:
+            message_writer("Following tables could not be uniquely resolved in inputset.schema\n%s"%
+                           badly_matched)
+            return False
+        return True
+    def create_pan_dat(self, inputset, raw_data=False, freeze_it=False):
+        """
+        Create a PanDat object from an opalytics inputset
+        :param inputset: An opalytics inputset consistent with this PanDatFactory
+        :param raw_data: boolean. should data cleaning be skipped? On the Opalytics Cloud Platform
+                         cleaned data will be passed to instant apps. Data cleaning involves
+                         removing data type failures, data row predicate failures, foreign key
+                         failures, duplicated rows and deactivated records.
+        :return: a PanDat object populated by the tables as they are rendered by inputset
+        """
+        message = []
+        verify(self._good_inputset(inputset, message.append),
+               "inputset is inconsistent with this PanDatFactory : %s"%(message or [None])[0])
+        for t in self.pan_dat_factory.all_tables:
+            all_fields = set(self.pan_dat_factory.primary_key_fields[t]).\
+                         union(self.pan_dat_factory.data_fields[t])
+            verify("_active" not in all_fields, "Table %s has a field named '_active'.\n" +
+                   "This conflicts with internal data processing.\n" +
+                   " Don't use '_active' for in your PanDatFactory definition if you want to use this reader.")
+
+        tms = {k:v[0] for k,v in self._find_table_matchings(inputset).items()}
+        ia = {}
+        if "includeActive" in inspect.getargspec(inputset.getTable)[0]:
+            ia = {"includeActive": not raw_data}
+        rtn = self.pan_dat_factory.PanDat(**{t:inputset.getTable(tms[t]) for t in tms})
+        for t in self.pan_dat_factory.all_tables:
+            df = getattr(rtn, t)
+            if "_active" in df.columns:
+                df = df[df["_active"]].drop('_active', axis=1)
+                setattr(rtn, t, df)
+        if not raw_data:
+            def removing():
+                removal_occured = set()
+                for (t,_), brs in list(self.pan_dat_factory.find_data_type_failures(rtn, as_table=False).items()) + \
+                                  list(self.pan_dat_factory.find_data_row_failures(rtn, as_table=False).items()) + \
+                                  [((t, None), brs) for t,brs in
+                                   self.pan_dat_factory.find_duplicates(rtn, as_table=False).items()]:
+                    if t not in removal_occured:
+                        removal_occured.add(t)
+                        setattr(rtn, t, getattr(rtn, t)[[not _ for _ in brs]])
+                fkfs = self.pan_dat_factory.find_foreign_key_failures(rtn)
+                if fkfs:
+                    self.pan_dat_factory.remove_foreign_keys_failures(rtn)
+                return removal_occured or fkfs
+            while removing():
+                pass
+        return rtn
+
 class JsonPanFactory(freezable_factory(object, "_isFrozen")):
     """
-    Primary class for reading/writing json data with panDat objects.
+    Primary class for reading/writing json data with PanDat objects.
+    Don't create this object explicitly. A JsonPanFactory will
+    automatically be associated with the json attribute of the parent
+    PanDatFactory.
     """
     def __init__(self, pan_dat_factory):
         """
@@ -102,7 +191,7 @@ class JsonPanFactory(freezable_factory(object, "_isFrozen")):
     def write_file(self, pan_dat, json_file_path, case_space_table_names=False, orient='split',
                    index=False, indent=None, sort_keys=False, **kwargs):
         """
-        write the panDat data to a collection of csv files
+        write the PanDat data to a collection of csv files
         :param pan_dat: the PanDat object to write
         :param json_file_path: the json file into which the data is to be written. If falsey, will return a
                                JSON  string
@@ -143,7 +232,10 @@ class JsonPanFactory(freezable_factory(object, "_isFrozen")):
 
 class CsvPanFactory(freezable_factory(object, "_isFrozen")):
     """
-    Primary class for reading/writing csv files with panDat objects.
+    Primary class for reading/writing csv files with PanDat objects.
+    Don't create this object explicitly. A CsvPanFactory will
+    automatically be associated with the csv attribute of the parent
+    PanDatFactory.
     """
     def __init__(self, pan_dat_factory):
         """
@@ -196,7 +288,7 @@ class CsvPanFactory(freezable_factory(object, "_isFrozen")):
         return rtn
     def write_directory(self, pan_dat, dir_path, case_space_table_names=False, index=False, **kwargs):
         """
-        write the panDat data to a collection of csv files
+        write the PanDat data to a collection of csv files
         :param pan_dat: the PanDat object to write
         :param dir_path: the directory in which to write the csv files
                              Set to falsey if using con argument.
@@ -224,7 +316,11 @@ class CsvPanFactory(freezable_factory(object, "_isFrozen")):
 
 class SqlPanFactory(freezable_factory(object, "_isFrozen")):
     """
-    Primary class for reading/writing SQLite files (and sqlalchemy.engine.Engine objects) with panDat objects.
+    Primary class for reading/writing SQLite files
+    (and sqlalchemy.engine.Engine objects) with PanDat objects.
+    Don't create this object explicitly. A SqlPanFactory will
+    automatically be associated with the sql attribute of the parent
+    PanDatFactory.
     """
     def __init__(self, pan_dat_factory):
         """
@@ -289,7 +385,7 @@ class SqlPanFactory(freezable_factory(object, "_isFrozen")):
         return rtn
     def write_file(self, pan_dat, db_file_path, con=None, if_exists='replace', case_space_table_names=False):
         """
-        write the panDat data to an excel file
+        write the PanDat data to an excel file
         :param pan_dat: the PanDat object to write
         :param db_file_path: The file path of the SQLite file to create.
                              Set to falsey if using con argument.
@@ -300,10 +396,10 @@ class SqlPanFactory(freezable_factory(object, "_isFrozen")):
                                           characters to table names
         :return:
         caveats: The row names (index) isn't written. The default pandas schema generation is used,
-                 and thus foreign key relationships aren't written. (The code to generate foreign keys
-                 is written and tested as part of TicDatFactory, and thus this shortcoming could be
-                 easily rectified if need be).
+                 and thus foreign key relationships aren't written.
         """
+        # The code to generate foreign keys is written and tested as part of TicDatFactory, and
+        # thus this shortcoming could be easily rectified if need be).
         # note - pandas has an unfortunate tendency to push types into SQLite columns. This can result in
         # writing-reading round trips converting your numbers to text if they are mixed type columns.
         verify(bool(db_file_path) != bool(con),
@@ -326,6 +422,8 @@ class SqlPanFactory(freezable_factory(object, "_isFrozen")):
 class XlsPanFactory(freezable_factory(object, "_isFrozen")):
     """
     Primary class for reading/writing Excel files with panDat objects.
+    Don't create this object explicitly. A XlsPanFactory will automatically be associated
+    with the xls attribute of the parent PanDatFactory.
     """
     def __init__(self, pan_dat_factory):
         """

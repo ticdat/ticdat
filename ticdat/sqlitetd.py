@@ -60,8 +60,11 @@ def _brackets(l) :
 
 class SQLiteTicFactory(freezable_factory(object, "_isFrozen")) :
     """
-    Primary class for reading/writing SQLite files with ticDat objects.
+    Primary class for reading/writing SQLite files with TicDat objects.
     You need the sqlite3 package to be installed to use it.
+    Don't create this object explicitly. A SQLiteTicFactory will
+    automatically be associated with the sql attribute of the parent
+    TicDatFactory.
     """
     def __init__(self, tic_dat_factory):
         """

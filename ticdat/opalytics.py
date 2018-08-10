@@ -12,12 +12,15 @@ import inspect
 
 class OpalyticsTicFactory(freezable_factory(object, "_isFrozen")) :
     """
-    Primary class for reading ticDat objects from the Opalytics Cloud Platform
-    Not expected to used outside of Opalytics Cloud hosted notebooks
+    Primary class for reading TicDat objects from the Opalytics Cloud Platform
+    Not expected to used outside of Opalytics Cloud hosted notebooks.
+    Don't create this object explicitly. An OpalyticsTicFactory will
+    automatically be associated with the opalytics attribute of the parent
+    TicDatFactory.
     """
     def __init__(self, tic_dat_factory):
         """
-        Don't call this function explicitly. A OpalyticsTicFactory will
+        Don't call this function explicitly. An OpalyticsTicFactory will
         automatically be associated with the opalytics attribute of the parent
         TicDatFactory.
         :param tic_dat_factory:
@@ -94,6 +97,8 @@ class OpalyticsTicFactory(freezable_factory(object, "_isFrozen")) :
                          failures and deactivated records.
         :param freeze_it: boolean. should the returned object be frozen?
         :return: a TicDat object populated by the tables as they are rendered by inputset
+        caveats: A table present in the TicDatFactory schema but missing from the inputset schema will resolve
+                 to an empty table.
         """
         message = []
         verify(self._good_inputset(inputset, message.append),
@@ -107,12 +112,12 @@ class OpalyticsTicFactory(freezable_factory(object, "_isFrozen")) :
         if "includeActive" in inspect.getargspec(inputset.getTable)[0]:
             ia = {"includeActive": not raw_data}
         tl = lambda t: self._table_as_lists(t, inputset.getTable(tms[t], **ia))
-        rtn = self.tic_dat_factory.TicDat(**{t:tl(t) for t in self.tic_dat_factory.all_tables})
+        rtn = self.tic_dat_factory.TicDat(**{t:tl(t) for t in tms})
         if not raw_data:
             def removing():
                 dtfs = self.tic_dat_factory.find_data_type_failures(rtn)
                 for (t,f),(bvs, pks) in dtfs.items():
-                    if pks is None: # i.e. no primary keys
+                    if not self.tic_dat_factory.primary_key_fields[t]: # i.e. no primary keys
                         for dr in getattr(rtn, t):
                             if dr[f] in bvs:
                                 getattr(rtn, t).remove(dr)

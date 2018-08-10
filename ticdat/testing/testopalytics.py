@@ -66,6 +66,18 @@ class TestOpalytics(unittest.TestCase):
             self.assertTrue("TicDatError" in e.__class__.__name__)
             return str(e)
 
+    def testMissingTable(self):
+        if not self.can_run:
+            return
+        tdf = TicDatFactory(**dietSchema())
+        ticDat = tdf.freeze_me(tdf.copy_tic_dat(dietData()))
+        inputset = create_inputset_mock(tdf, ticDat)
+
+        tdf2 = TicDatFactory(**(dict(dietSchema(), missing_table=[["a"],["b"]])))
+        ticDat2 = tdf2.opalytics.create_tic_dat(inputset)
+        self.assertTrue(tdf._same_data(ticDat, ticDat2))
+        self.assertFalse(ticDat2.missing_table)
+
     def testDiet(self):
         if not self.can_run:
             return

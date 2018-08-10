@@ -41,7 +41,7 @@ def make_json_dict(tdf, tic_dat, verbose=False):
 
 class JsonTicFactory(freezable_factory(object, "_isFrozen")) :
     """
-    Primary class for reading/writing json files with ticDat objects.
+    Primary class for reading/writing json files with TicDat objects.
     You need the json package to be installed to use it.
     """
     def __init__(self, tic_dat_factory):

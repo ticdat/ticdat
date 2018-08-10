@@ -280,7 +280,7 @@ class PanDatFactory(object):
         Adds a foreign key relationship to the schema.  Adding a foreign key doesn't block
         the entry of child records that fail to find a parent match. It does make it easy
         to recognize such records (with find_foreign_key_failures()) and to remove such records
-        (with remove_foreign_keys_failures())
+        (with remove_foreign_key_failures())
         :param native_table: (aka child table). The table with fields that must match some other table.
         :param foreign_table: (aka parent table). The table providing the matching entries.
         :param mappings: For simple foreign keys, a [native_field, foreign_field] pair.
@@ -408,6 +408,7 @@ class PanDatFactory(object):
         self.sql = pandatio.SqlPanFactory(self)
         self.csv = pandatio.CsvPanFactory(self)
         self.json = pandatio.JsonPanFactory(self)
+        self.opalytics = pandatio.OpalyticsPanFactory(self)
 
     def good_pan_dat_object(self, data_obj, bad_message_handler = lambda x : None):
         """

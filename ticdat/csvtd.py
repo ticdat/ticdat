@@ -24,8 +24,10 @@ def _try_float(x) :
 
 class CsvTicFactory(freezable_factory(object, "_isFrozen")) :
     """
-    Primary class for reading/writing csv files with ticDat objects.
+    Primary class for reading/writing csv files with TicDat objects.
     Your system will need the csv package if you want to use this class.
+    Don't create this object explicitly. A CsvTicDatFactory will
+    automatically be associated with the csv attribute of the parent
     """
     def __init__(self, tic_dat_factory):
         """
