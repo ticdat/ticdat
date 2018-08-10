@@ -3,9 +3,9 @@ import ticdat.utils as utils
 from ticdat.ticdatfactory import TicDatFactory
 from ticdat.testing.ticdattestutils import dietData, dietSchema, netflowData, netflowSchema, firesException
 from ticdat.testing.ticdattestutils import sillyMeData, sillyMeSchema, makeCleanDir, fail_to_debugger
-from ticdat.testing.ticdattestutils import makeCleanPath, addNetflowForeignKeys, addDietForeignKeys, flagged_as_run_alone, am_on_windows
+from ticdat.testing.ticdattestutils import makeCleanPath, addNetflowForeignKeys, addDietForeignKeys, flagged_as_run_alone
 from ticdat.testing.ticdattestutils import spacesData, spacesSchema, dietSchemaWeirdCase, dietSchemaWeirdCase2
-from ticdat.testing.ticdattestutils import copyDataDietWeirdCase, copyDataDietWeirdCase2
+from ticdat.testing.ticdattestutils import copyDataDietWeirdCase, copyDataDietWeirdCase2, am_on_windows
 from ticdat.sqlitetd import _can_unit_test, sql
 
 import shutil
@@ -142,7 +142,7 @@ class TestSql(unittest.TestCase):
              (('boger',), (('hot dog', 'boger'),))})
 
         self.assertFalse(tdf._same_data(ticDat, origTicDat))
-        tdf.remove_foreign_keys_failures(ticDat)
+        tdf.remove_foreign_key_failures(ticDat)
         self.assertFalse(tdf.find_foreign_key_failures(ticDat))
         self.assertTrue(tdf._same_data(ticDat, origTicDat))
 

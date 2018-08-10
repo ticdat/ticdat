@@ -140,7 +140,7 @@ class OpalyticsTicFactory(freezable_factory(object, "_isFrozen")) :
 
                 fkfs = self.tic_dat_factory.find_foreign_key_failures(rtn)
                 if fkfs:
-                    self.tic_dat_factory.remove_foreign_keys_failures(rtn)
+                    self.tic_dat_factory.remove_foreign_key_failures(rtn)
                 return dtfs or drfs or fkfs
             while removing():
                 pass

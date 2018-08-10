@@ -508,7 +508,7 @@ class TestIO(unittest.TestCase):
         self.assertFalse(tdf1._same_data(pdf1.copy_to_tic_dat(panDatPurged), ticDat1))
 
         ticDat1.categories.pop("fat")
-        tdf1.remove_foreign_keys_failures(ticDat1)
+        tdf1.remove_foreign_key_failures(ticDat1)
         self.assertTrue(tdf1._same_data(pdf1.copy_to_tic_dat(panDatPurged), ticDat1))
 
     def testDietCleaningOpalyticsTwo(self):
@@ -530,7 +530,7 @@ class TestIO(unittest.TestCase):
 
         ticDat.categories.pop("fat")
         self.assertFalse(tdf._same_data(pdf.copy_to_tic_dat(panDatPurged), ticDat))
-        tdf.remove_foreign_keys_failures(ticDat)
+        tdf.remove_foreign_key_failures(ticDat)
         self.assertTrue(tdf._same_data(pdf.copy_to_tic_dat(panDatPurged), ticDat))
 
     def testDietCleaningOpalytisThree(self):
@@ -553,7 +553,7 @@ class TestIO(unittest.TestCase):
 
         ticDat.categories.pop("fat")
         self.assertFalse(tdf._same_data(pdf.copy_to_tic_dat(panDatPurged), ticDat))
-        tdf.remove_foreign_keys_failures(ticDat)
+        tdf.remove_foreign_key_failures(ticDat)
         self.assertTrue(tdf._same_data(pdf.copy_to_tic_dat(panDatPurged), ticDat))
 
     def testDietCleaningOpalyticsFour(self):
@@ -582,7 +582,7 @@ class TestIO(unittest.TestCase):
         ticDat.categories.pop("protein")
 
         self.assertFalse(tdf._same_data(pdf.copy_to_tic_dat(panDatPurged), ticDat))
-        tdf.remove_foreign_keys_failures(ticDat)
+        tdf.remove_foreign_key_failures(ticDat)
         self.assertTrue(tdf._same_data(pdf.copy_to_tic_dat(panDatPurged), ticDat))
 
     def testSillyCleaningOpalyticsOne(self):

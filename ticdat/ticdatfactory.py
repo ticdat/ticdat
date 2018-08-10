@@ -311,7 +311,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
         Adds a foreign key relationship to the schema.  Adding a foreign key doesn't block
         the entry of child records that fail to find a parent match. It does make it easy
         to recognize such records (with find_foreign_key_failures()) and to remove such records
-        (with remove_foreign_keys_failures())
+        (with remove_foreign_key_failures())
         :param native_table: (aka child table). The table with fields that must match some other table.
         :param foreign_table: (aka parent table). The table providing the matching entries.
         :param mappings: For simple foreign keys, a [native_field, foreign_field] pair.
@@ -1089,7 +1089,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
                  That is to say, native_values tells you which values in the native table
                  can't find a foreign key match, and thus generate a foreign key failure.
                  native_pks tells you which native table rows will be removed if you call
-                 remove_foreign_keys_failures().
+                 remove_foreign_key_failures().
                  For verbosity = 'Low' a simpler return object is created that doesn't use namedtuples
                  and omits the foreign key cardinality.
         """
@@ -1151,7 +1151,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
             rtn = {tuple(k[:2]) + (tuple(k[2]),): tuple(v) for k,v in rtn.items()}
         return rtn
 
-    def remove_foreign_keys_failures(self, tic_dat, propagate=True):
+    def remove_foreign_key_failures(self, tic_dat, propagate=True):
         """
         Removes foreign key failures (i.e. child records with no parent table record)
         :param tic_dat: ticdat object
@@ -1172,7 +1172,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
         for t,row_index in sorted(needs_removal, reverse=True):
             getattr(tic_dat, t).pop(row_index)
         if fk_failures and propagate:
-            return self.remove_foreign_keys_failures(tic_dat)
+            return self.remove_foreign_key_failures(tic_dat)
         return tic_dat
 
     def _get_full_row(self, ticdat, table, pk):

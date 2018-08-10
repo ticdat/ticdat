@@ -127,7 +127,7 @@ class TestOpalytics(unittest.TestCase):
         self.assertFalse(tdf1._same_data(ticDatPurged, ticDat1))
 
         ticDat1.categories.pop("fat")
-        tdf1.remove_foreign_keys_failures(ticDat1)
+        tdf1.remove_foreign_key_failures(ticDat1)
 
         self.assertTrue(tdf1._same_data(ticDatPurged, ticDat1))
 
@@ -146,7 +146,7 @@ class TestOpalytics(unittest.TestCase):
 
         ticDat.categories.pop("fat")
         self.assertFalse(tdf._same_data(ticDatPurged, ticDat))
-        tdf.remove_foreign_keys_failures(ticDat)
+        tdf.remove_foreign_key_failures(ticDat)
         self.assertTrue(tdf._same_data(ticDatPurged, ticDat))
 
     def testDietCleaningThree(self):
@@ -164,7 +164,7 @@ class TestOpalytics(unittest.TestCase):
 
         ticDat.categories.pop("fat")
         self.assertFalse(tdf._same_data(ticDatPurged, ticDat))
-        tdf.remove_foreign_keys_failures(ticDat)
+        tdf.remove_foreign_key_failures(ticDat)
         self.assertTrue(tdf._same_data(ticDatPurged, ticDat))
 
     def testDietCleaningThree_2(self):
@@ -178,7 +178,7 @@ class TestOpalytics(unittest.TestCase):
 
         ticDatPurged = tdf.opalytics.create_tic_dat(input_set, raw_data=False)
         self.assertFalse(tdf._same_data(ticDatPurged, ticDat))
-        tdf.remove_foreign_keys_failures(ticDat)
+        tdf.remove_foreign_key_failures(ticDat)
         self.assertTrue(tdf._same_data(ticDatPurged, ticDat))
 
     def testDietCleaningFour(self):
@@ -200,7 +200,7 @@ class TestOpalytics(unittest.TestCase):
         ticDat.categories.pop("protein")
 
         self.assertFalse(tdf._same_data(ticDatPurged, ticDat))
-        tdf.remove_foreign_keys_failures(ticDat)
+        tdf.remove_foreign_key_failures(ticDat)
         self.assertTrue(tdf._same_data(ticDatPurged, ticDat))
 
     def testSillyCleaningOne(self):
