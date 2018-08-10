@@ -603,10 +603,13 @@ class PanDatFactory(object):
             remove_rows = self._find_foreign_key_failure_rows(pan_dat)
 
         return pan_dat
-    def find_duplicates(self, pan_dat, as_table=True):
+    def find_duplicates(self, pan_dat, keep="first", as_table=True):
         """
         Find the duplicated rows based on the primary key fields.
         :param pan_dat: pandat object
+        :param keep: 'first': Treat all duplicated rows as duplicates except for the first occurrence.
+                     'last': Treat all duplicated rows as duplicates except for the last occurrence.
+                     False: Treat all duplicated rows as duplicates
         :param as_table: as_table boolean : if truthy then the values of the return dictionary will be the
                duplicated rows themselves. Otherwise will return the boolean Series that indicates which rows
                are duplicated rows.
@@ -619,7 +622,7 @@ class PanDatFactory(object):
         rtn = {}
         for t in self.all_tables:
             if self.primary_key_fields.get(t):
-                dups = getattr(pan_dat, t).duplicated(list(self.primary_key_fields[t]), keep=False)
+                dups = getattr(pan_dat, t).duplicated(list(self.primary_key_fields[t]), keep=keep)
                 if dups.any():
                     rtn[t] = getattr(pan_dat, t)[list(dups)] if as_table else dups
         return rtn

@@ -426,14 +426,16 @@ class TestUtils(unittest.TestCase):
         panDat = pdf.copy_pan_dat(copy_to_pandas_with_reset(tdf, ticDat))
         dups = pdf.find_duplicates(panDat)
         self.assertTrue(set(dups) == {'a'} and set(dups['a']['aField']) == {1})
-        dups = pdf.find_duplicates(panDat, as_table=False)
+        dups = pdf.find_duplicates(panDat, as_table=False, keep=False)
         self.assertTrue(set(dups) == {'a'} and dups['a'].value_counts()[True] == 2)
+        dups = pdf.find_duplicates(panDat, as_table=False)
+        self.assertTrue(set(dups) == {'a'} and dups['a'].value_counts()[True] == 1)
         rows = [(1, 2, 3, 4), (1, 20, 30, 40), (10, 20, 30, 40), (1, 2, 3, 40)]
         ticDat = tdf.TicDat(**{t:rows for t in tdf.all_tables})
         panDat = pdf.copy_pan_dat(copy_to_pandas_with_reset(tdf, ticDat))
-        dups = pdf.find_duplicates(panDat)
+        dups = pdf.find_duplicates(panDat, keep=False)
         self.assertTrue(set(dups) == {'a', 'b'} and set(dups['a']['aField']) == {1})
-        dups = pdf.find_duplicates(panDat, as_table=False)
+        dups = pdf.find_duplicates(panDat, as_table=False, keep=False)
         self.assertTrue({k:v.value_counts()[True] for k,v in dups.items()} == {'a':3, 'b':2})
 
     def testDictConstructions(self):
