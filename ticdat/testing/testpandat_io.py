@@ -4,7 +4,8 @@ from ticdat.utils import DataFrame, numericish, ForeignKey, ForeignKeyMapping
 import ticdat.utils as utils
 from ticdat.testing.ticdattestutils import fail_to_debugger, flagged_as_run_alone, spacesSchema, firesException
 from ticdat.testing.ticdattestutils import netflowSchema, pan_dat_maker, dietSchema, spacesData
-from ticdat.testing.ticdattestutils import makeCleanDir, netflowData, dietData
+from ticdat.testing.ticdattestutils import makeCleanDir, netflowData, dietData, addDietForeignKeys
+from ticdat.testing.ticdattestutils import sillyMeData, sillyMeSchema, sillyMeDataTwoTables
 from ticdat.ticdatfactory import TicDatFactory
 import ticdat.pandatio as pandatio
 import itertools
@@ -50,6 +51,20 @@ def create_inputset_mock(tdf, dat, hack_table_names=False, includeActiveEnabled 
             def getTable(self, t):
                 rtn = getattr(temp_dat, original_name[t]).reset_index(drop=True)
                 return rtn
+    return RtnObject()
+
+def create_inputset_mock_with_active_hack(tdf, dat, hack_table_names=False):
+    tdf.good_tic_dat_object(dat)
+    temp_dat = tdf.copy_to_pandas(dat, drop_pk_columns=False)
+    replaced_name = {t:hack_name(t) if hack_table_names else t for t in tdf.all_tables}
+    original_name = {v:k for k,v in replaced_name.items()}
+    class RtnObject(object):
+        schema = {replaced_name[t]:"not needed for mock object" for t in tdf.all_tables}
+        def getTable(self, t, includeActive=False):
+            rtn = getattr(temp_dat, original_name[t]).reset_index(drop=True)
+            if "_active" in rtn.columns and not includeActive:
+                rtn.drop("_active", axis=1, inplace=True)
+            return rtn
     return RtnObject()
 
 #uncomment decorator to drop into debugger for assertTrue, assertFalse failures
@@ -445,6 +460,238 @@ class TestIO(unittest.TestCase):
         ticDat2 = pdf.copy_to_tic_dat(panDat)
         self.assertTrue(tdf._same_data(ticDat, ticDat2))
         self.assertFalse(ticDat2.missing_table)
+
+    def testDietOpalytics(self):
+        if not self.can_run:
+            return
+        for hack, raw_data, activeEnabled in list(itertools.product(*(([True, False],)*3))):
+            tdf = TicDatFactory(**dietSchema())
+            ticDat = tdf.freeze_me(tdf.copy_tic_dat(dietData()))
+            inputset = create_inputset_mock(tdf, ticDat, hack, activeEnabled)
+
+            pdf = PanDatFactory(**dietSchema())
+            panDat = pdf.opalytics.create_pan_dat(inputset)
+            self.assertFalse(pdf.find_duplicates(panDat))
+            ticDat2 = pdf.copy_to_tic_dat(panDat)
+            self.assertTrue(tdf._same_data(ticDat, ticDat2))
+
+
+            tdf2 = TicDatFactory(**{k:[pks, list(dfs) + ["dmy"]] for k,(pks, dfs) in tdf.schema().items()})
+            _dat = tdf2.copy_tic_dat(ticDat)
+            panDat = pdf.opalytics.create_pan_dat(create_inputset_mock(tdf2, _dat, hack))
+
+            self.assertTrue(tdf._same_data(ticDat, pdf.copy_to_tic_dat(panDat)))
+
+            pdf2 = PanDatFactory(**tdf2.schema())
+            ex = self.firesException(lambda: pdf2.opalytics.create_pan_dat(inputset, raw_data=raw_data))
+            self.assertTrue(all(_ in ex for _ in ["(table, field) pairs missing"] +
+                                                  ["'%s', 'dmy'"%_ for _ in pdf2.all_tables]))
+
+    def testDietCleaningOpalytics(self):
+        sch = dietSchema()
+        sch["categories"][-1].append("_active")
+        tdf1 = TicDatFactory(**dietSchema())
+        tdf2 = TicDatFactory(**sch)
+
+        ticDat2 = tdf2.copy_tic_dat(dietData())
+        for v in ticDat2.categories.values():
+            v["_active"] = True
+        ticDat2.categories["fat"]["_active"] = False
+        ticDat1 = tdf1.copy_tic_dat(dietData())
+
+        input_set = create_inputset_mock_with_active_hack(tdf2, ticDat2)
+        pdf1 = PanDatFactory(**tdf1.schema())
+        panDat = pdf1.opalytics.create_pan_dat(input_set, raw_data=True)
+        self.assertTrue(tdf1._same_data(pdf1.copy_to_tic_dat(panDat), ticDat1))
+
+        panDatPurged = pdf1.opalytics.create_pan_dat(input_set)
+        self.assertFalse(tdf1._same_data(pdf1.copy_to_tic_dat(panDatPurged), ticDat1))
+
+        ticDat1.categories.pop("fat")
+        tdf1.remove_foreign_keys_failures(ticDat1)
+        self.assertTrue(tdf1._same_data(pdf1.copy_to_tic_dat(panDatPurged), ticDat1))
+
+    def testDietCleaningOpalyticsTwo(self):
+        tdf = TicDatFactory(**dietSchema())
+        addDietForeignKeys(tdf)
+        tdf.set_data_type("categories", "maxNutrition", min=66, inclusive_max=True)
+        ticDat = tdf.copy_tic_dat(dietData())
+
+        input_set = create_inputset_mock(tdf, ticDat)
+        pdf = PanDatFactory(**dietSchema())
+        addDietForeignKeys(pdf)
+        pdf.set_data_type("categories", "maxNutrition", min=66, inclusive_max=True)
+
+        panDat = pdf.opalytics.create_pan_dat(input_set, raw_data=True)
+        self.assertTrue(tdf._same_data(pdf.copy_to_tic_dat(panDat) , ticDat))
+
+        panDatPurged = pdf.opalytics.create_pan_dat(input_set, raw_data=False)
+        self.assertFalse(tdf._same_data(pdf.copy_to_tic_dat(panDatPurged), ticDat))
+
+        ticDat.categories.pop("fat")
+        self.assertFalse(tdf._same_data(pdf.copy_to_tic_dat(panDatPurged), ticDat))
+        tdf.remove_foreign_keys_failures(ticDat)
+        self.assertTrue(tdf._same_data(pdf.copy_to_tic_dat(panDatPurged), ticDat))
+
+    def testDietCleaningOpalytisThree(self):
+        tdf = TicDatFactory(**dietSchema())
+        tdf.add_data_row_predicate("categories", lambda row : row["maxNutrition"] >= 66)
+        addDietForeignKeys(tdf)
+        ticDat = tdf.copy_tic_dat(dietData())
+
+        pdf = PanDatFactory(**tdf.schema())
+        pdf.add_data_row_predicate("categories", lambda row : row["maxNutrition"] >= 66)
+        addDietForeignKeys(pdf)
+
+        input_set = create_inputset_mock(tdf, ticDat)
+
+        panDat = pdf.opalytics.create_pan_dat(input_set, raw_data=True)
+        self.assertTrue(tdf._same_data(pdf.copy_to_tic_dat(panDat), ticDat))
+
+        panDatPurged = pdf.opalytics.create_pan_dat(input_set, raw_data=False)
+        self.assertFalse(tdf._same_data(pdf.copy_to_tic_dat(panDatPurged), ticDat))
+
+        ticDat.categories.pop("fat")
+        self.assertFalse(tdf._same_data(pdf.copy_to_tic_dat(panDatPurged), ticDat))
+        tdf.remove_foreign_keys_failures(ticDat)
+        self.assertTrue(tdf._same_data(pdf.copy_to_tic_dat(panDatPurged), ticDat))
+
+    def testDietCleaningOpalyticsFour(self):
+        tdf = TicDatFactory(**dietSchema())
+        tdf.add_data_row_predicate("categories", lambda row : row["maxNutrition"] >= 66)
+        tdf.set_data_type("categories", "minNutrition", max=0, inclusive_max=True)
+        addDietForeignKeys(tdf)
+        ticDat = tdf.copy_tic_dat(dietData())
+
+        input_set = create_inputset_mock(tdf, ticDat)
+
+        pdf = PanDatFactory(**tdf.schema())
+        pdf.add_data_row_predicate("categories", lambda row : row["maxNutrition"] >= 66)
+        pdf.set_data_type("categories", "minNutrition", max=0, inclusive_max=True)
+        pdf.add_data_row_predicate("categories", lambda row : row["maxNutrition"] >= 66)
+        addDietForeignKeys(pdf)
+
+        panDat = pdf.opalytics.create_pan_dat(input_set, raw_data=True)
+        self.assertTrue(tdf._same_data(pdf.copy_to_tic_dat(panDat), ticDat))
+
+        panDatPurged = pdf.opalytics.create_pan_dat(input_set, raw_data=False)
+        self.assertFalse(tdf._same_data(pdf.copy_to_tic_dat(panDatPurged), ticDat))
+
+        ticDat.categories.pop("fat")
+        ticDat.categories.pop("calories")
+        ticDat.categories.pop("protein")
+
+        self.assertFalse(tdf._same_data(pdf.copy_to_tic_dat(panDatPurged), ticDat))
+        tdf.remove_foreign_keys_failures(ticDat)
+        self.assertTrue(tdf._same_data(pdf.copy_to_tic_dat(panDatPurged), ticDat))
+
+    def testSillyCleaningOpalyticsOne(self):
+        tdf = TicDatFactory(**sillyMeSchema())
+        tdf.set_data_type("c", "cData4", number_allowed=False, strings_allowed=['d'])
+        ticDat = tdf.TicDat(**sillyMeData())
+
+        input_set = create_inputset_mock(tdf, ticDat)
+
+        pdf = PanDatFactory(**sillyMeSchema())
+        pdf.set_data_type("c", "cData4", number_allowed=False, strings_allowed=['d'])
+
+        panDat = pdf.opalytics.create_pan_dat(input_set, raw_data=True)
+        self.assertTrue(tdf._same_data(pdf.copy_to_tic_dat(panDat), ticDat))
+
+        panDatPurged = pdf.opalytics.create_pan_dat(input_set, raw_data=False)
+        self.assertFalse(tdf._same_data(pdf.copy_to_tic_dat(panDatPurged), ticDat))
+
+        ticDat.c.pop()
+        ticDat.c.pop(0)
+        self.assertTrue(tdf._same_data(pdf.copy_to_tic_dat(panDatPurged), ticDat))
+
+    def testSillyCleaningOpalyticsTwo(self):
+        tdf = TicDatFactory(**sillyMeSchema())
+        tdf.add_data_row_predicate("c", lambda row : row["cData4"] == 'd')
+        ticDat = tdf.TicDat(**sillyMeData())
+
+        input_set = create_inputset_mock(tdf, ticDat)
+
+        pdf = PanDatFactory(**sillyMeSchema())
+        pdf.add_data_row_predicate("c", lambda row : row["cData4"] == 'd')
+
+        panDat = pdf.opalytics.create_pan_dat(input_set, raw_data=True)
+        self.assertTrue(tdf._same_data(pdf.copy_to_tic_dat(panDat), ticDat))
+
+        panDatPurged = pdf.opalytics.create_pan_dat(input_set, raw_data=False)
+        self.assertFalse(tdf._same_data(pdf.copy_to_tic_dat(panDatPurged), ticDat))
+
+        ticDat.c.pop()
+        ticDat.c.pop(0)
+        self.assertTrue(tdf._same_data(pdf.copy_to_tic_dat(panDatPurged), ticDat))
+
+    def testSillyCleaningOpalyticsThree(self):
+        tdf = TicDatFactory(**sillyMeSchema())
+        tdf.add_data_row_predicate("c", lambda row : row["cData4"] != 4)
+        tdf.add_data_row_predicate("c", lambda row : row["cData4"] != 24)
+        ticDat = tdf.TicDat(**sillyMeData())
+
+        input_set = create_inputset_mock(tdf, ticDat)
+
+        pdf = PanDatFactory(**sillyMeSchema())
+        pdf.add_data_row_predicate("c", lambda row : row["cData4"] != 4)
+        pdf.add_data_row_predicate("c", lambda row : row["cData4"] != 24)
+
+        panDat = pdf.opalytics.create_pan_dat(input_set, raw_data=True)
+        self.assertTrue(tdf._same_data(pdf.copy_to_tic_dat(panDat), ticDat))
+
+        panDatPurged = pdf.opalytics.create_pan_dat(input_set, raw_data=False)
+        self.assertFalse(tdf._same_data(pdf.copy_to_tic_dat(panDatPurged), ticDat))
+
+        ticDat.c.pop()
+        ticDat.c.pop(0)
+        self.assertTrue(tdf._same_data(pdf.copy_to_tic_dat(panDatPurged), ticDat))
+
+    def testSillyTwoTablesOpalytics(self):
+        if not self.can_run:
+            return
+        for hack, raw_data in list(itertools.product(*(([True, False],)*2))):
+            tdf = TicDatFactory(**sillyMeSchema())
+            ticDat = tdf.TicDat(**sillyMeData())
+
+            inputset = create_inputset_mock(tdf, ticDat, hack)
+            pdf = PanDatFactory(**tdf.schema())
+            panDat = pdf.opalytics.create_pan_dat(inputset, raw_data=raw_data)
+            self.assertTrue(tdf._same_data(ticDat, pdf.copy_to_tic_dat(panDat)))
+
+            ticDat = tdf.TicDat(**sillyMeDataTwoTables())
+            inputset = create_inputset_mock(tdf, ticDat, hack)
+            pdf = PanDatFactory(**tdf.schema())
+            panDat = pdf.opalytics.create_pan_dat(inputset, raw_data=raw_data)
+            self.assertTrue(tdf._same_data(ticDat, pdf.copy_to_tic_dat(panDat)))
+
+    def testNetflow(self):
+        if not self.can_run:
+            return
+        for hack, raw_data in list(itertools.product(*(([True, False],)*2))):
+            tdf = TicDatFactory(**netflowSchema())
+            ticDat = tdf.copy_tic_dat(netflowData())
+            inputset = create_inputset_mock(tdf, ticDat, hack)
+            pdf = PanDatFactory(**tdf.schema())
+            panDat = pdf.opalytics.create_pan_dat(inputset, raw_data=raw_data)
+            self.assertTrue(tdf._same_data(ticDat, pdf.copy_to_tic_dat(panDat)))
+
+            ticDat.nodes[12] = {}
+            inputset = create_inputset_mock(tdf, ticDat, hack)
+            pdf = PanDatFactory(**tdf.schema())
+            panDat = pdf.opalytics.create_pan_dat(inputset, raw_data=raw_data)
+            self.assertTrue(tdf._same_data(ticDat, pdf.copy_to_tic_dat(panDat)))
+
+    def testSpaces(self):
+        if not self.can_run:
+            return
+        for hack, raw_data in list(itertools.product(*(([True, False],)*2))):
+            tdf = TicDatFactory(**spacesSchema())
+            ticDat = tdf.TicDat(**spacesData())
+            inputset = create_inputset_mock(tdf, ticDat, hack)
+            pdf = PanDatFactory(**tdf.schema())
+            panDat = pdf.opalytics.create_pan_dat(inputset, raw_data=raw_data)
+            self.assertTrue(tdf._same_data(ticDat, pdf.copy_to_tic_dat(panDat)))
 
 
 _scratchDir = TestIO.__name__ + "_scratch"

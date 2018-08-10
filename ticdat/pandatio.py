@@ -92,7 +92,7 @@ class OpalyticsPanFactory(freezable_factory(object, "_isFrozen")) :
         ia = {}
         if "includeActive" in inspect.getargspec(inputset.getTable)[0]:
             ia = {"includeActive": not raw_data}
-        rtn = self.pan_dat_factory.PanDat(**{t:inputset.getTable(tms[t]) for t in tms})
+        rtn = self.pan_dat_factory.PanDat(**{t:inputset.getTable(tms[t], **ia) for t in tms})
         for t in self.pan_dat_factory.all_tables:
             df = getattr(rtn, t)
             if "_active" in df.columns:
@@ -110,7 +110,7 @@ class OpalyticsPanFactory(freezable_factory(object, "_isFrozen")) :
                         setattr(rtn, t, getattr(rtn, t)[[not _ for _ in brs]])
                 fkfs = self.pan_dat_factory.find_foreign_key_failures(rtn)
                 if fkfs:
-                    self.pan_dat_factory.remove_foreign_keys_failures(rtn)
+                    self.pan_dat_factory.remove_foreign_key_failures(rtn)
                 return removal_occured or fkfs
             while removing():
                 pass
