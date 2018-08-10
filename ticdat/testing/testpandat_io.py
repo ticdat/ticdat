@@ -665,7 +665,7 @@ class TestIO(unittest.TestCase):
             panDat = pdf.opalytics.create_pan_dat(inputset, raw_data=raw_data)
             self.assertTrue(tdf._same_data(ticDat, pdf.copy_to_tic_dat(panDat)))
 
-    def testNetflow(self):
+    def testNetflowOpalytics(self):
         if not self.can_run:
             return
         for hack, raw_data in list(itertools.product(*(([True, False],)*2))):
@@ -682,7 +682,7 @@ class TestIO(unittest.TestCase):
             panDat = pdf.opalytics.create_pan_dat(inputset, raw_data=raw_data)
             self.assertTrue(tdf._same_data(ticDat, pdf.copy_to_tic_dat(panDat)))
 
-    def testSpaces(self):
+    def testSpacesOpalytics(self):
         if not self.can_run:
             return
         for hack, raw_data in list(itertools.product(*(([True, False],)*2))):
@@ -692,6 +692,31 @@ class TestIO(unittest.TestCase):
             pdf = PanDatFactory(**tdf.schema())
             panDat = pdf.opalytics.create_pan_dat(inputset, raw_data=raw_data)
             self.assertTrue(tdf._same_data(ticDat, pdf.copy_to_tic_dat(panDat)))
+
+    def testDupsOpalytics(self):
+        if not self.can_run:
+            return
+        for hack in [True, False]:
+            tdf = TicDatFactory(one = [["a"],["b", "c"]],
+                                two = [["a", "b"],["c"]],
+                                three = [["a", "b", "c"],[]])
+            tdf2 = TicDatFactory(**{t:[[],["a", "b", "c"]] for t in tdf.all_tables})
+            td = tdf2.TicDat(**{t:[[1, 2, 1], [1, 2, 2], [2, 1, 3], [2, 2, 3], [1, 2, 2], ["new", 1, 2]]
+                                for t in tdf.all_tables})
+            inputset = create_inputset_mock(tdf2, td, hack)
+            pdf = PanDatFactory(**tdf.schema())
+            panDat = pdf.opalytics.create_pan_dat(inputset, raw_data=True)
+            self.assertTrue(all(len(getattr(panDat, t)) == 6 for t in tdf.all_tables))
+            panDat = pdf.opalytics.create_pan_dat(inputset, raw_data=False)
+            self.assertTrue(all(len(getattr(panDat, t)) < 6 for t in tdf.all_tables))
+            td_1 = tdf.TicDat(**{t:[[1, 2, 1], [1, 2, 2], [2, 1, 3], [2, 2, 3], [1, 2, 2], ["new", 1, 2]]
+                                for t in tdf.all_tables})
+            td_2 = pdf.copy_to_tic_dat(panDat)
+            import opalytils.pjcutils as pjc
+            pjc.memo(td_1, td_2, panDat)
+            self.assertTrue(all(set(getattr(td_1, t)) == set(getattr(td_2, t)) for t in tdf.all_tables))
+
+
 
 
 _scratchDir = TestIO.__name__ + "_scratch"
