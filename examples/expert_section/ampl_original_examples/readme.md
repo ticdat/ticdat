@@ -1,4 +1,8 @@
-Repository for amplpy ticdat examples.
+Repository for amplpy ticdat examples that use `TicDatFactory`.
+
+The `PanDatFactory` examples in examples/ampl demonstrate the recommended best practice.
+
+These examples are being temporarily maintained for legacy reasons.
 
  * diet - standard diet example.
  * netflow - standard multicommodity network flow problems 

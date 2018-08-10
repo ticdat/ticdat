@@ -1,0 +1,68 @@
+site_name: Ticdat
+repo_url: https://github.com/opalytics/opalytics-ticdat
+generate:
+- csvtd.md:
+  - ticdat.csvtd.CsvTicFactory++
+- jsontd.md:
+  - ticdat.jsontd.make_json_dict
+  - ticdat.jsontd.JsonTicFactory++
+- lingo.md:
+  - ticdat.lingo.lingo_run
+  - ticdat.lingo.create_lingo_output_text
+  - ticdat.lingo.create_lingo_text
+  - ticdat.lingo.create_lingo_mod_text
+  - ticdat.lingo.read_lingo_text
+- mdb.md:
+  - ticdat.mdb.MdbTicFactory++
+- model.md:
+  - ticdat.model.Model++
+- opalytics.md:
+  - ticdat.opalytics.OpalyticsTicFactory++
+- opl.md:
+  - ticdat.opl.opl_run
+  - ticdat.opl.create_opl_text
+  - ticdat.opl.create_opl_mod_text
+  - ticdat.opl.create_opl_mod_output_text
+  - ticdat.opl.read_opl_text
+- sqlitetd.md:
+  - ticdat.sqlitetd.SQLiteTicFactory++
+- ticdatfactory.md:
+  - ticdat.ticdatfactory.TicDatFactory++
+  - ticdat.ticdatfactory.freeze_me
+- utils.md:
+  - ticdat.utils.standard_main
+  - ticdat.utils.verify
+  - ticdat.utils.gurobi_env
+  - ticdat.utils.ampl_format
+  - ticdat.utils.find_denormalized_sub_table_failures
+  - ticdat.utils.find_case_space_duplicates
+  - ticdat.utils.Slicer++
+  - ticdat.utils.Sloc++
+  - ticdat.utils.LogFile++
+  - ticdat.utils.Progress++
+- xls.md:
+  - ticdat.xls.XlsTicFactory++
+pages:
+- Home: index.md << ../README.md
+- ticdatfactory.py:
+  - TicDatFactory: ticdatfactory.md
+- csvtd.py:
+  - CsvTicFactory: csvtd.md
+- jsontd.py:
+  - JsonTicFactory: jsontd.md
+- mdb.py:
+  - MdbTicFactory: mdb.md
+- model.py:
+  - Model: model.md
+- opalytics.py:
+  - OpalyticsTicFactory: opalytics.md
+- sqlitetd.py:
+  - SQLiteFactory: sqlitetd.md
+- xls.py:
+  - XlsTicFactory: xls.md
+- opl.py:
+  - OPL: opl.md
+- lingo.py:
+  - Lingo: lingo.md
+- utils.py:
+  - Utilities: utils.md

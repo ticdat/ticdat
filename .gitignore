@@ -16,3 +16,7 @@ gurobi.log
 build
 # setup.py dist directory
 dist
+
+# Doc Files #
+docs/_build
+docs/mkdocs.yml

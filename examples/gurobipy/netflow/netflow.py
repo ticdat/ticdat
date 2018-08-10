@@ -12,17 +12,20 @@
 #   python netflow.py -i netflow_sample_data.sql -o netflow_solution.sql
 # will read from the model stored in netflow_sample_data.sql
 # and write the solution to netflow_solution.sql
+#
+# This version of the netflow example takes extra precautions to avoid generating
+# unneeded constraints. See the simplest_examples directory for a simpler version of this model.
 
 import gurobipy as gu
 from ticdat import TicDatFactory, standard_main, Slicer, gurobi_env
 
 # ------------------------ define the input schema --------------------------------
 input_schema = TicDatFactory (
-     commodities = [["Name"],[]],
-     nodes  = [["Name"],[]],
-     arcs = [["Source", "Destination"],["Capacity"]],
-     cost = [["Commodity", "Source", "Destination"], ["Cost"]],
-     inflow = [["Commodity", "Node"],["Quantity"]]
+    commodities=[["Name"], ["Volume"]],
+    nodes=[["Name"], []],
+    arcs=[["Source", "Destination"], ["Capacity"]],
+    cost=[["Commodity", "Source", "Destination"], ["Cost"]],
+    inflow=[["Commodity", "Node"], ["Quantity"]]
 )
 
 # Define the foreign key relationships
@@ -35,6 +38,8 @@ input_schema.add_foreign_key("inflow", "commodities", ['Commodity', 'Name'])
 input_schema.add_foreign_key("inflow", "nodes", ['Node', 'Name'])
 
 # Define the data types
+input_schema.set_data_type("commodities", "Volume", min=0, max=float("inf"),
+                           inclusive_min=False, inclusive_max=False)
 input_schema.set_data_type("arcs", "Capacity", min=0, max=float("inf"),
                            inclusive_min=True, inclusive_max=True)
 input_schema.set_data_type("cost", "Cost", min=0, max=float("inf"),
@@ -48,8 +53,8 @@ input_schema.set_default_value("arcs", "Capacity", float("inf"))
 
 # ------------------------ define the output schema -------------------------------
 solution_schema = TicDatFactory(
-        flow = [["Commodity", "Source", "Destination"], ["Quantity"]],
-        parameters = [["Parameter"],["Value"]])
+        flow=[["Commodity", "Source", "Destination"], ["Quantity"]],
+        parameters=[["Parameter"], ["Value"]])
 # ---------------------------------------------------------------------------------
 
 # ------------------------ solving section-----------------------------------------
@@ -71,20 +76,21 @@ def solve(dat):
     flowslice = Slicer(flow)
 
     # Arc Capacity constraints
-    for i_,j_ in dat.arcs:
-        mdl.addConstr(gu.quicksum(flow[h,i,j] for h,i,j in flowslice.slice('*',i_, j_))
-                      <= dat.arcs[i_,j_]["Capacity"],
-                      name='cap_%s_%s' % (i_, j_))
+    for i,j in dat.arcs:
+        mdl.addConstr(gu.quicksum(flow[_h, _i, _j] * dat.commodities[_h]["Volume"]
+                                  for _h, _i, _j in flowslice.slice('*', i, j))
+                      <= dat.arcs[i,j]["Capacity"],
+                      name='cap_%s_%s' % (i, j))
 
     # Flow conservation constraints. Constraints are generated only for relevant pairs.
     # So we generate a conservation of flow constraint if there is negative or positive inflow
     # quantity, or at least one inbound flow variable, or at least one outbound flow variable.
-    for h,j in set(k for k,v in dat.inflow.items() if abs(v["Quantity"]) > 0)\
+    for h,j in set((h,i) for (h,i), v in dat.inflow.items() if abs(v["Quantity"]) > 0)\
                .union({(h,i) for h,i,j in flow}, {(h,j) for h,i,j in flow}):
         mdl.addConstr(
-            gu.quicksum(flow[h_,i_,j_] for h_,i_,j_ in flowslice.slice(h,'*',j)) +
+            gu.quicksum(flow[h_i_j] for h_i_j in flowslice.slice(h,'*',j)) +
             dat.inflow.get((h,j), {"Quantity":0})["Quantity"] ==
-            gu.quicksum(flow[h_,j_,i_] for h_,j_,i_ in flowslice.slice(h, j, '*')),
+            gu.quicksum(flow[h_j_i] for h_j_i in flowslice.slice(h, j, '*')),
             name='node_%s_%s' % (h, j))
 
     mdl.setObjective(gu.quicksum(flow * dat.cost[h, i, j]["Cost"]

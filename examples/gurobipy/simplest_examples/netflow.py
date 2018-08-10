@@ -4,11 +4,11 @@ import gurobipy as gu
 from ticdat import TicDatFactory, standard_main, Slicer, gurobi_env
 
 input_schema = TicDatFactory (
-     commodities = [["Name"],[]],
-     nodes  = [["Name"],[]],
-     arcs = [["Source", "Destination"],["Capacity"]],
-     cost = [["Commodity", "Source", "Destination"], ["Cost"]],
-     inflow = [["Commodity", "Node"],["Quantity"]]
+     commodities=[["Name"],["Volume"]],
+     nodes =[["Name"],[]],
+     arcs=[["Source", "Destination"],["Capacity"]],
+     cost=[["Commodity", "Source", "Destination"], ["Cost"]],
+     inflow=[["Commodity", "Node"],["Quantity"]]
 )
 
 solution_schema = TicDatFactory(
@@ -20,27 +20,27 @@ def solve(dat):
 
     mdl = gu.Model("netflow", env=gurobi_env())
 
-    flow = {(h, i, j): mdl.addVar(name='flow_%s_%s_%s' % (h, i, j))
-            for h, i, j in dat.cost if (i,j) in dat.arcs}
+    flow = {(h, i, j): mdl.addVar(name='flow_%s_%s_%s' % (h, i, j)) for h, i, j in dat.cost}
 
     flowslice = Slicer(flow)
 
     # Arc Capacity constraints
-    for i_,j_ in dat.arcs:
-        mdl.addConstr(gu.quicksum(flow[h,i,j] for h,i,j in flowslice.slice('*',i_, j_))
-                      <= dat.arcs[i_,j_]["Capacity"],
-                      name='cap_%s_%s' % (i_, j_))
+    for i,j in dat.arcs:
+        mdl.addConstr(gu.quicksum(flow[_h, _i, _j] * dat.commodities[_h]["Volume"]
+                                  for _h, _i, _j in flowslice.slice('*', i, j))
+                      <= dat.arcs[i,j]["Capacity"],
+                      name='cap_%s_%s' % (i, j))
 
     # Flow conservation constraints. Constraints are generated only for relevant pairs.
     # So we generate a conservation of flow constraint if there is negative or positive inflow
     # quantity, or at least one inbound flow variable, or at least one outbound flow variable.
-    for h,j in set(k for k,v in dat.inflow.items() if abs(v["Quantity"]) > 0)\
-               .union({(h,i) for h,i,j in flow}, {(h,j) for h,i,j in flow}):
-        mdl.addConstr(
-            gu.quicksum(flow[h_,i_,j_] for h_,i_,j_ in flowslice.slice(h,'*',j)) +
-            dat.inflow.get((h,j), {"Quantity":0})["Quantity"] ==
-            gu.quicksum(flow[h_,j_,i_] for h_,j_,i_ in flowslice.slice(h, j, '*')),
-            name='node_%s_%s' % (h, j))
+    for h in dat.commodities:
+        for j in dat.nodes:
+            mdl.addConstr(
+                gu.quicksum(flow[h_i_j] for h_i_j in flowslice.slice(h,'*',j)) +
+                dat.inflow.get((h,j), {"Quantity":0})["Quantity"] ==
+                gu.quicksum(flow[h_j_i] for h_j_i in flowslice.slice(h, j, '*')),
+                name='node_%s_%s' % (h, j))
 
     mdl.setObjective(gu.quicksum(flow * dat.cost[h, i, j]["Cost"]
                                  for (h, i, j), flow in flow.items()),

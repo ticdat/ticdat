@@ -9,6 +9,7 @@ import ticdat
 import getopt
 import sys
 import os
+from collections import namedtuple
 
 try:
     import pandas as pd
@@ -23,14 +24,62 @@ except:
 
 import inspect
 
+def acceptable_default(v) :
+    return numericish(v) or stringish(v) or (v is None)
+
+def all_fields(tpdf, tbl):
+    assert tbl in tpdf.all_tables
+    return tpdf.primary_key_fields.get(tbl, ()) + tpdf.data_fields.get(tbl, ())
+
+# can I get away with ordering this consistently with the function? hopefully I can!
+class TypeDictionary(namedtuple("TypeDictionary",
+                    ("number_allowed", "inclusive_min", "inclusive_max", "min",
+                      "max", "must_be_int", "strings_allowed", "nullable",))):
+    def valid_data(self, data):
+        if numericish(data):
+            if not self.number_allowed:
+                return False
+            if (data < self.min) or (data > self.max):
+                return False
+            if (not self.inclusive_min) and (data == self.min):
+                return False
+            if (not self.inclusive_max) and (data  == self.max):
+                return False
+            if (self.must_be_int) and (safe_apply(int)(data) != data) and \
+               not (data == self.max == float("inf") and self.inclusive_max):
+                return False
+            return True
+        if stringish(data):
+            if self.strings_allowed == "*":
+                return True
+            assert containerish(self.strings_allowed)
+            return data in self.strings_allowed
+        if data is None:
+            return bool(self.nullable)
+        return False
+
+class ForeignKey(namedtuple("ForeignKey", ("native_table", "foreign_table", "mapping", "cardinality"))) :
+    def nativefields(self):
+        return (self.mapping.native_field,) if type(self.mapping) is ForeignKeyMapping \
+                                           else tuple(_.native_field for _ in self.mapping)
+    def foreigntonativemapping(self):
+        if type(self.mapping) is ForeignKeyMapping : # simple field fk
+            return {self.mapping.foreign_field:self.mapping.native_field}
+        else: # compound foreign key
+            return {_.foreign_field:_.native_field for _ in self.mapping}
+    def nativetoforeignmapping(self):
+        return {v:k for k,v in self.foreigntonativemapping().items()}
+
+ForeignKeyMapping = namedtuple("FKMapping", ("native_field", "foreign_field"))
+
 # likely replace this with some sort of sys.platform call that makes a good guess
 development_deployed_environment = False
 
 def standard_main(input_schema, solution_schema, solve):
     """
      provides standardized command line functionality for a ticdat solve engine
-    :param input_schema: a TicDatFactory defining the input schema
-    :param solution_schema: a TicDatFactory defining the output schema
+    :param input_schema: a TicDatFactory or PanDatFactory defining the input schema
+    :param solution_schema: a TicDatFactory or PanDatFactory defining the output schema
     :param solve: a function that takes a input_schema.TicDat object and
                   returns a solution_schema.TicDat object
     :return: None
@@ -38,10 +87,10 @@ def standard_main(input_schema, solution_schema, solve):
     "python engine_file.py --input <input_file_or_dir> --output <output_file_or_dir>
     For the input/output command line arguments.
     --> endings in ".xls" or ".xlsx" imply reading/writing Excel files
-    --> endings in ".mdb" or ".accdb" imply reading/writing Access files
+    --> endings in ".mdb" or ".accdb" imply reading/writing Access files (TicDatFactory only)
     --> ending in ".db" imply reading/writing SQLite database files
     --> ending in ".sql" imply reading/writing SQLite text files rendered in
-        schema-less SQL statements
+        schema-less SQL statements (TicDatFactory only)
     --> ending in ".json" imply reading/writing .json files
     --> otherwise, the assumption is that an input/output directory is being specified,
         which will be used for reading/writing .csv files.
@@ -49,11 +98,74 @@ def standard_main(input_schema, solution_schema, solve):
         model will be stored in a directory containing a series of .csv files)
     Defaults are input.xlsx, output.xlsx
     """
-    verify(all(isinstance(_, ticdat.TicDatFactory) for _ in (input_schema, solution_schema)),
-               "input_schema and solution_schema both need to be TicDatFactory objects")
+    verify(all(isinstance(_, ticdat.TicDatFactory) for _ in (input_schema, solution_schema)) or
+           all(isinstance(_, ticdat.PanDatFactory) for _ in (input_schema, solution_schema)),
+               "input_schema and solution_schema both need to be TicDatFactory (or PanDatFactory) objects")
     verify(callable(solve), "solve needs to be a function")
     _args = inspect.getargspec(solve).args
     verify(_args and len(_args) == 1, "solve needs to take just one argument")
+    if all(isinstance(_, ticdat.TicDatFactory) for _ in (input_schema, solution_schema)):
+        return _standard_main_ticdat(input_schema, solution_schema, solve)
+    return _standard_main_pandat(input_schema, solution_schema, solve)
+
+
+def _standard_main_pandat(input_schema, solution_schema, solve):
+    file_name = sys.argv[0]
+    def usage():
+        print ("python %s --help --input <input file or dir> --output <output file or dir>"%
+               file_name)
+    try:
+        opts, args = getopt.getopt(sys.argv[1:], "hi:o:", ["help", "input=", "output="])
+    except getopt.GetoptError as err:
+        print (str(err))  # will print something like "option -a not recognized"
+        usage()
+        sys.exit(2)
+    input_file, output_file = "input.xlsx", "output.xlsx"
+    for o, a in opts:
+        if o in ("-h", "--help"):
+            usage()
+            sys.exit()
+        elif o in ("-i", "--input"):
+            input_file = a
+        elif o in ("-o", "--output"):
+            output_file = a
+        else:
+            verify(False, "unhandled option")
+    file_or_dir = lambda f :"file" if any(f.endswith(_) for _ in (".json", ".xls", ".xlsx", ".db")) \
+                  else "directory"
+    if not (os.path.exists(input_file)):
+        print("%s is not a valid input file or directory"%input_file)
+    else:
+        print("input %s %s : output %s %s"%(file_or_dir(input_file), input_file,
+                                            file_or_dir(output_file), output_file))
+        dat = None
+        if os.path.isfile(input_file) and file_or_dir(input_file) == "file":
+            if input_file.endswith(".json"):
+                dat = input_schema.json.create_pan_dat(input_file)
+            if input_file.endswith(".xls") or input_file.endswith(".xlsx"):
+                dat = input_schema.xls.create_pan_dat(input_file)
+            if input_file.endswith(".db"):
+                dat = input_schema.sql.create_pan_dat(input_file)
+        elif os.path.isdir(input_file) and file_or_dir(input_file) == "directory":
+            dat = input_schema.csv.create_pan_dat(input_file)
+        verify(dat, "Failed to read from and/or recognize %s"%input_file)
+        sln = solve(dat)
+        if sln:
+            print("%s output %s %s"%("Overwriting" if os.path.exists(output_file) else "Creating",
+                                     file_or_dir(output_file), output_file))
+            if output_file.endswith(".json"):
+                solution_schema.json.write_file(sln, output_file, case_space_table_names=True)
+            elif output_file.endswith(".xls") or output_file.endswith(".xlsx"):
+                solution_schema.xls.write_file(sln, output_file, case_space_sheet_names=True)
+            elif output_file.endswith(".db"):
+                solution_schema.sql.write_file(sln, output_file, case_space_table_names=True)
+            else:
+                solution_schema.csv.write_directory(sln, output_file, case_space_table_names=True)
+        else:
+            print("No solution was created!")
+
+
+def _standard_main_ticdat(input_schema, solution_schema, solve):
     file_name = sys.argv[0]
     def usage():
         print ("python %s --help --input <input file or dir> --output <output file or dir>"%

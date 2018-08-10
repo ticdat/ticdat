@@ -5,7 +5,7 @@ import itertools
 import fnmatch
 from ticdat.utils import dictish, containerish, verify
 import unittest
-from ticdat import TicDatFactory, Model, Slicer
+from ticdat import TicDatFactory, Model, Slicer, PanDatFactory
 
 __codeFile = []
 def _codeFile() :
@@ -95,12 +95,12 @@ def fail_to_debugger(cls) :
               This routine is intended for **temporary** decorating of a unittest class
               for debugging/troubleshooting.
     """
-    def _failToDebugger(x) :
+    def _falseTriggersDebugger(x) :
         if not (x) :
             import ipdb; ipdb.set_trace()
             assert(x)
-    cls.assertTrue = lambda s,x : _failToDebugger(x)
-    cls.assertFalse = lambda s,x : _failToDebugger(not x)
+    cls.assertTrue = lambda self, *args : _falseTriggersDebugger(args[0])
+    cls.assertFalse = lambda self, *args : _falseTriggersDebugger(not args[0])
     cls.failToDebugger = True
     unittest.main = lambda : _runSuite(cls)
     return cls
@@ -301,6 +301,17 @@ def netflowData() :
 ('Pens',    'Seattle'):  -30 }
 
     return dat
+
+def copy_to_pandas_with_reset(tdf, dat):
+    rtn = tdf.copy_to_pandas(dat, drop_pk_columns=False)
+    for t in tdf.all_tables:
+        getattr(rtn, t).reset_index(drop=True, inplace=True)
+    return rtn
+
+def netflowPandasData():
+    tdf = TicDatFactory(**netflowSchema())
+    dat = tdf.copy_tic_dat(netflowData())
+    return copy_to_pandas_with_reset(tdf, dat)
 
 def addNetflowForeignKeys(tdf) :
     tdf.add_foreign_key("arcs", "nodes", [u'source', u'name'])
@@ -562,3 +573,7 @@ def nearlySame(*args, **kwargs) :
     return all (_nearlySame(x[0], x[1], epsilon) for x in
                 itertools.combinations(args, 2))
 
+def pan_dat_maker(schema, tic_dat):
+    tdf = TicDatFactory(**schema)
+    pdf = PanDatFactory(**schema)
+    return pdf.copy_pan_dat(copy_to_pandas_with_reset(tdf, tic_dat))
