@@ -35,10 +35,25 @@ def _keylen(k) :
 
 class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "lingo_prepend", "ampl_prepend"})) :
     """
-    Primary class for ticdat library. This class is constructed with a schema,
-    and can be used to generate TicDat objects, or to write TicDat objects to
-    different file types. Analytical code that uses TicDat objects can be used,
-    without change, on different data sources.
+    Primary class for ticdat library. This class is constructed with a schema.
+    It can be used to generate TicDat objects, to write TicDat objects to
+    different file types, or to perform bulk query operations to diagnose
+    common data integrity failures.
+
+    Analytical code that uses TicDat objects can be used, without change, on different data
+    sources, thus facilitating the "separate model from data" design goal.
+
+    :param init_fields: a mapping of tables to primary key fields and data fields. Each field listing consists
+                        of two sub lists ... first primary keys fields, than data fields.
+
+    ex: TicDatFactory (categories =  [["name"],["minNutrition", "maxNutrition"]],
+                       foods  =  [["name"],["cost"]]
+                       nutritionQuantities = [["food", "category"],["qty"]])
+                       Use '*' instead of a pair of lists for generic tables,
+                       which will render as pandas.DataFrame objects.
+
+    ex: TicDatFactory (typical_table = [["primary key field"],["data field"]],
+                       generic_table = '*')
     """
     @property
     def primary_key_fields(self):
@@ -50,6 +65,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
         """
         :param include_ancillary_info: if True, include all the foreign key, default, and data type information
                                        as well. Otherwise, just return table-fields dictionary
+
         :return: a dictionary with table name mapping to a list of lists
                  defining primary key fields and data fields
                  If include_ancillary_info, this table-fields dictionary is just one entry in a more comprehensive
@@ -69,9 +85,12 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
     @staticmethod
     def create_from_full_schema(full_schema):
         """
+
         create a TicDatFactory complete with default values, data types, and foreign keys
+
         :param full_schema: a dictionary consistent with the data returned by a call to schema()
                             with include_ancillary_info = True
+
         :return: a TicDatFactory reflecting the tables, fields, default values, data types,
                  and foreign keys consistent with the full_schema argument
         """
@@ -116,18 +135,29 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
         sets the data type for a field. By default, fields don't have types. Adding a data type doesn't block
         data of the wrong type from being entered. Data types are useful for recognizing errant data entries
         with find_data_type_failures(). Errant data entries can be replaced with replace_data_type_failures().
+
         :param table: a table in the schema
+
         :param field: a data field for this table
+
         :param number_allowed: boolean does this field allow numbers?
+
         :param inclusive_min: boolean : if number allowed, is the min inclusive?
+
         :param inclusive_max: boolean : if number allowed, is the max inclusive?
+
         :param min: if number allowed, the minimum value
+
         :param max: if number allowed, the maximum value
+
         :param must_be_int: boolean : if number allowed, must the number be integral?
+
         :param strings_allowed: if a collection - then a list of the strings allowed.
                                 The empty collection prohibits strings.
                                 If a "*", then any string is accepted.
+
         :param nullable : boolean : can this value contain null (aka None)
+
         :return:
         """
         verify(not self._has_been_used,
@@ -160,8 +190,11 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
         clears the data type for a field. By default, fields don't have types.  Adding a data type doesn't block
         data of the wrong type from being entered. Data types are useful for recognizing errant data entries.
         If no data type is specified (the default) then no errant data will be recognized.
+
         :param table: table in the schema
+
         :param field:
+
         :return:
         """
         if field not in self._data_types.get(table, ()):
@@ -176,15 +209,19 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
         sophisticated data integrity problems of the sort that can't be easily handled with
         a data type rule. For example, a min_supply column can be verified to be no larger than
         a max_supply column.
+
         :param table: table in the schema
+
         :param predicate: A one argument function that accepts a table row as an argument and returns
                           Truthy if the row is valid and Falsey otherwise. The argument passed to
                           predicate will be a dict that maps field name to data value for all fields
                           (both primary key and data field) in the table.
                           Note - if None is passed as a predicate, then any previously added
                           predicate matching (table, predicate_name) will be removed.
+
         :param predicate_name: The name of the predicate. If omitted, the smallest non-colliding
                                number will be used.
+
         :return:
         """
         verify(not self._has_been_used,
@@ -206,9 +243,13 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
     def set_default_value(self, table, field, default_value):
         """
         sets the default value for a specific field
+
         :param table: a table in the schema
+
         :param field: a field in the table
+
         :param default_value: the default value to apply
+
         :return:
         """
         verify(not self._has_been_used,
@@ -221,11 +262,13 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
     def set_default_values(self, **tableDefaults):
         """
         sets the default values for the fields
+
         :param tableDefaults:
              A dictionary of named arguments. Each argument name (i.e. each key) should be a table name
              Each value should itself be a dictionary mapping data field names to default values
              Ex: tdf.set_default_values(categories = {"minNutrition":0, "maxNutrition":float("inf")},
                          foods = {"cost":0}, nutritionQuantities = {"qty":0})
+
         :return:
         """
         verify(not self._has_been_used,
@@ -242,7 +285,9 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
         sets which tables are to be generator tables. Generator tables are represented as generators
         pulled from the actual data store. This prevents them from being fulled loaded into memory.
         Generator tables are only appropriate for truly massive data tables with no primary key.
-        :param g:
+
+        :param g: An iterable of table name.
+
         :return:
         """
         verify(not self._has_been_used,
@@ -258,6 +303,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
     def clear_foreign_keys(self, native_table = None):
         """
         create a TicDatFactory
+
         :param native_table: optional. The table whose foreign keys should be cleared.
                              If omitted, all foreign keys are cleared.
         """
@@ -303,6 +349,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
                 dat.nutritionQuantities["chicken", "protein"])
         Note that by default, TicDatFactories don't create foreign key links since doing so
         can slow down TicDat creation.
+
         :return:
         """
         self._foreign_key_links_enabled[:] = [True]
@@ -312,11 +359,15 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
         the entry of child records that fail to find a parent match. It does make it easy
         to recognize such records (with find_foreign_key_failures()) and to remove such records
         (with remove_foreign_key_failures())
+
         :param native_table: (aka child table). The table with fields that must match some other table.
+
         :param foreign_table: (aka parent table). The table providing the matching entries.
+
         :param mappings: For simple foreign keys, a [native_field, foreign_field] pair.
                          For compound foreign keys an iterable of [native_field, foreign_field]
                          pairs.
+
         :return:
         """
         verify(not self._has_been_used,
@@ -392,9 +443,13 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
         directly. Instead, the dictionary returned by this function can be pickled.
         For unpickling, first unpickle the pickled dictionary, and then pass it,
         unpacked, to the TicDat constructor.
+
         :param ticdat: a TicDat object whose data is to be returned as a dict
+
         :return: A dictionary that can either be pickled, or unpacked to a
                 TicDat constructor
+
+
         '''
         verify(not self.generator_tables, "as_dict doesn't work with generator tables.")
         rtn = {}
@@ -675,8 +730,11 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
     def good_tic_dat_object(self, data_obj, bad_message_handler = lambda x : None):
         """
         determines if an object can be can be converted to a TicDat data object.
+
         :param data_obj: the object to verify
+
         :param bad_message_handler: a call back function to receive description of any failure message
+
         :return: True if the dataObj can be converted to a TicDat data object. False otherwise.
         """
         rtn = True
@@ -714,10 +772,14 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
     def good_tic_dat_table(self, data_table, table_name, bad_message_handler = lambda x : None) :
         """
         determines if an object can be can be converted to a TicDat data table.
+
         :param dataObj: the object to verify
+
         :param table_name: the name of the table
+
         :param bad_message_handler: a call back function to receive
                description of any failure message
+
         :return: True if the dataObj can be converted to a TicDat
                  data table. False otherwise.
         """
@@ -867,6 +929,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
     def clone(self):
         """
         clones the TicDatFactory
+
         :return: a clone of the TicDatFactory
         """
         rtn = TicDatFactory.create_from_full_schema(self.schema(include_ancillary_info=True))
@@ -880,8 +943,11 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
         """
         copies the tic_dat object into a new tic_dat object
         performs a deep copy
+
         :param tic_dat: a ticdat object
+
         :param freeze_it: boolean. should the returned object be frozen?
+
         :return: a deep copy of the tic_dat argument
         """
         msg  = []
@@ -892,6 +958,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
     def copy_from_ampl_variables(self, ampl_variables):
         """
         copies the solution results from ampl_variables into a new ticdat object
+
         :param ampl_variables: a dict mapping from (table_name, field_name) -> amplpy.variable.Variable
                                (amplpy.variable.Variable is the type object returned by
                                 AMPL.getVariable)
@@ -906,6 +973,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
                                 amplpy.variable.Variable you should map to a
                                 (amplpy.variable.Variable, filter) where filter accepts a data value
                                 and returns a boolean.
+
         :return: a deep copy of the ampl_variables into a ticdat object
         """
         def good_map_onto(v):
@@ -949,13 +1017,17 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
         """
         copies the tic_dat object into a new tic_dat object populated with amplpy.DataFrame objects
         performs a deep copy
+
         :param tic_dat: a ticdat object
+
         :param field_renamings: dict or None. If fields are to be renamed in the copy, then
                                 a mapping from (table_name, field_name) -> new_field_name
                                 If a data field is to be omitted, then new_field can be falsey
                                 table_name cannot refer to an excluded table. (see below)
+
         :param excluded_tables: If truthy, a list of tables to be excluded from the copy.
                                 Tables without primary key fields are always excluded.
+
         :return: a deep copy of the tic_dat argument into amplpy.DataFrames
         """
         verify(amplpy, "amplpy needs to be installed in order to enable AMPL functionality")
@@ -991,8 +1063,11 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
     def set_ampl_data(self, tic_dat, ampl, table_to_set_name = None):
         """
         performs bulk setData on the AMPL first argument.
+
         :param tic_dat: an AmplTicDat object created by calling copy_to_ampl
+
         :param ampl: an amplpy.AMPL object
+
         :param table_to_set_name: a mapping of table_name to ampl set name
         :return:
         """
@@ -1013,13 +1088,17 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
         """
         copies the tic_dat object into a new tic_dat object populated with pandas.DataFrame objects
         performs a deep copy
+
         :param tic_dat: a ticdat object
+
         :param table_restrictions: If truthy, a list of tables to turn into
                                    data frames. Defaults to all tables.
+
         :param drop_pk_columns: boolean or None. should the primary key columns be dropped
                                 from the data frames after they have been incorporated
                                 into the index.
                                 If None, then pk fields will be dropped only for tables with data fields
+
         :return: a deep copy of the tic_dat argument into DataFrames
         """
         verify(DataFrame, "pandas needs to be installed in order to enable pandas functionality")
@@ -1065,7 +1144,9 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
     def freeze_me(self, tic_dat):
         """
         Freezes a ticdat object
+
         :param tic_dat: ticdat object
+
         :return: tic_dat, after it has been frozen
         """
         msg  = []
@@ -1075,23 +1156,33 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
     def find_foreign_key_failures(self, tic_dat, verbosity="High"):
         """
         Finds the foreign key failures for a ticdat object
+
         :param tic_dat: ticdat object
+
         :param verbosity: either "High" or "Low"
+
         :return: A dictionary constructed as follow (for verbosity = 'High'):
-                 The keys are namedtuples with members "native_table", "foreign_table",
-                 "mapping", "cardinality".
-                 The key data matches the arguments to add_foreign_key that constructed the
-                 foreign key (with "cardinality" being deduced from the overall schema).
-                 The values are namedtuples with the following members.
-                 --> native_values - the values of the native fields that failed to match
-                 --> native_pks - the primary key entries of the native table rows
-                                  corresponding to the native_values.
-                 That is to say, native_values tells you which values in the native table
-                 can't find a foreign key match, and thus generate a foreign key failure.
-                 native_pks tells you which native table rows will be removed if you call
-                 remove_foreign_key_failures().
-                 For verbosity = 'Low' a simpler return object is created that doesn't use namedtuples
-                 and omits the foreign key cardinality.
+
+         The keys are namedtuples with members "native_table", "foreign_table",
+         "mapping", "cardinality".
+
+         The key data matches the arguments to add_foreign_key that constructed the
+         foreign key (with "cardinality" being deduced from the overall schema).
+
+         The values are namedtuples with the following members.
+
+         --> native_values - the values of the native fields that failed to match
+
+         --> native_pks - the primary key entries of the native table rows
+                          corresponding to the native_values.
+
+         That is to say, native_values tells you which values in the native table
+         can't find a foreign key match, and thus generate a foreign key failure.
+         native_pks tells you which native table rows will be removed if you call
+         remove_foreign_key_failures().
+
+         For verbosity = 'Low' a simpler return object is created that doesn't use namedtuples
+         and omits the foreign key cardinality.
         """
         verify(verbosity in ["High", "Low"], "verbosity needs to be either 'High' or 'Low'")
         msg  = []
@@ -1154,9 +1245,12 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
     def remove_foreign_key_failures(self, tic_dat, propagate=True):
         """
         Removes foreign key failures (i.e. child records with no parent table record)
+
         :param tic_dat: ticdat object
+
         :param propagate boolean: remove cascading failures? (if removing the child record
                                   results in new failures, should those be removed as well?)
+
         :return: tic_dat, with the foreign key failures removed
         """
         fk_failures = self.find_foreign_key_failures(tic_dat)
@@ -1186,21 +1280,26 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
     def find_data_type_failures(self, tic_dat):
         """
         Finds the data type failures for a ticdat object
+
         :param tic_dat: ticdat object
+
         :return: A dictionary constructed as follow:
 
-                 The keys are namedtuples with members "table", "field". Each (table,field) pair
-                 has data values that are inconsistent with its data type. (table, field) pairs
-                 with no data type at all are never part of the returned dictionary.
+         The keys are namedtuples with members "table", "field". Each (table,field) pair
+         has data values that are inconsistent with its data type. (table, field) pairs
+         with no data type at all are never part of the returned dictionary.
 
-                 The values of the returned dictionary are namedtuples with the following attributes.
-                 --> bad_values - the distinct values for the (table, field) pair that are inconsistent
-                                  with the data type for (table, field).
-                 --> pks - the distinct primary key entries of the table containing the bad_values
-                           data. (will be row index for tables with no primary key)
-                 That is to say, bad_values tells you which values in field are failing the data type check,
-                 and pks tells you which table rows will have their field entry changed if you call
-                 replace_data_type_failures().
+         The values of the returned dictionary are namedtuples with the following attributes.
+
+         --> bad_values - the distinct values for the (table, field) pair that are inconsistent
+                          with the data type for (table, field).
+
+         --> pks - the distinct primary key entries of the table containing the bad_values
+                   data. (will be row index for tables with no primary key)
+
+         That is to say, bad_values tells you which values in field are failing the data type check,
+         and pks tells you which table rows will have their field entry changed if you call
+         replace_data_type_failures().
         """
         msg  = []
         verify(self.good_tic_dat_object(tic_dat, msg.append),
@@ -1231,12 +1330,18 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
 
     def replace_data_type_failures(self, tic_dat, replacement_values = FrozenDict()):
         """
+        Replace the data cells with data type failures with the default value for the appropriate field.
+
         :param tic_dat:
+
         :param replacement_values: a dictionary mapping (table, field) to replacement value.
                the default value will be used for (table, field) pairs not in replacement_values
+
         :return: the tic_dat object with replacements made. The tic_dat object itself will be edited in place.
+
         Replaces any of the data failures found in find_data_type_failures() with the appropriate
         replacement_value.
+
         Note - won't perform primary key replacements.
         """
         msg  = []
@@ -1279,15 +1384,17 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
     def find_data_row_failures(self, tic_dat):
         """
         Finds the data row failures for a ticdat object
+
         :param tic_dat: ticdat object
+
         :return: A dictionary constructed as follow:
 
-                 The keys are namedtuples with members "table", "predicate_name".
+         The keys are namedtuples with members "table", "predicate_name".
 
-                 The values of the returned dictionary are tuples indicating which rows
-                 failed the predicate test. For tables with a primary key this tuple will
-                 contain the primary key value of each failed row. Otherwise, this tuple
-                 will list the positions of the failed rows.
+         The values of the returned dictionary are tuples indicating which rows
+         failed the predicate test. For tables with a primary key this tuple will
+         contain the primary key value of each failed row. Otherwise, this tuple
+         will list the positions of the failed rows.
         """
         msg  = []
         verify(self.good_tic_dat_object(tic_dat, msg.append),
@@ -1312,20 +1419,27 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
                      freeze_it = False) :
         """
         copies the tic_dat object into a new, obfuscated, simplified tic_dat object
+
         :param tic_dat: a ticdat object
+
         :param table_prepends: a dictionary with mapping each table to the prepend it should apply
                                when its entries are renamed.  A valid table prepend must be all caps and
                                not end with I. Should be restricted to entity tables (single field primary
                                that is not a foreign key child)
+
         :param skip_tables: a listing of entity tables whose single field primary key shouldn't be renamed
+
         :param freeze_it: boolean. should the returned copy be frozen?
+
         :return: A named tuple with the following components.
-                 copy : a deep copy of the tic_dat argument, with the single field primary key values
-                        renamed to simple "short capital letters followed by numbers" strings.
-                 renamings : a dictionary matching the new entries to their original (table, primary key value)
-                             this entry can be used to cross reference any diagnostic information gleaned from the
-                             obfusimplified copy to the original names. For example, "P5 has no production"
-                             can easily be recognized as "Product KX12212 has no production".
+
+         copy : a deep copy of the tic_dat argument, with the single field primary key values
+                renamed to simple "short capital letters followed by numbers" strings.
+
+         renamings : a dictionary matching the new entries to their original (table, primary key value)
+                     this entry can be used to cross reference any diagnostic information gleaned from the
+                     obfusimplified copy to the original names. For example, "P5 has no production"
+                     can easily be recognized as "Product KX12212 has no production".
         """
         msg  = []
         verify(self.good_tic_dat_object(tic_dat, msg.append),
@@ -1430,12 +1544,17 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
         """
         checks to see if a given table contains a denormalized sub-table
         indexed by pk_fields with data fields data_fields
+
         :param tic_dat: a ticdat object
+
         :param table: The name of the table to study.
+
         :param sub_table_pk_fields: The pk_fields of the sub-table. Needs to be fields
                                     (but not necc primary key fields) of the table.
+
         :param sub_table_data_fields: The data fields of the sub-table. Needs to be fields
                                      (but not necc data fields) of the table.
+
         :return: A dictionary indexed by the sub_table_pk_fields values in the table
                  that are associated with improperly denormalized table rows. The
                  values of the return dictionary are themselves dictionaries indexed
@@ -1496,7 +1615,9 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
 def freeze_me(x) :
     """
     Freezes a ticdat object
+
     :param x: ticdat object
+
     :return: x, after it has been frozen
     """
     verify(hasattr(x, "_freeze"), "x not a freezeable object")

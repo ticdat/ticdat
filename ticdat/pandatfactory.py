@@ -610,7 +610,7 @@ class PanDatFactory(object):
         :param verbosity: either "High" or "Low"
 
         :return: A dictionary constructed as follows:
-        
+
          The keys are namedtuples with members "native_table", "foreign_table",
          "mapping", "cardinality".
 

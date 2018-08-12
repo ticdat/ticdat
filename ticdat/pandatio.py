@@ -32,8 +32,8 @@ class _DummyContextManager(object):
 
 class OpalyticsPanFactory(freezable_factory(object, "_isFrozen")) :
     """
-    Primary class for reading PanDat objects from the Opalytics Cloud Platform
-    Not expected to used outside of Opalytics Cloud hosted notebooks.
+    Primary class for reading PanDat objects from the Opalytics Cloud Platform.
+    Not expected to be used outside of Opalytics Cloud hosted notebooks.
     Don't create this object explicitly. An OpalyticsPanFactory will
     automatically be associated with the opalytics attribute of the parent
     PanDatFactory.
@@ -71,11 +71,14 @@ class OpalyticsPanFactory(freezable_factory(object, "_isFrozen")) :
     def create_pan_dat(self, inputset, raw_data=False, freeze_it=False):
         """
         Create a PanDat object from an opalytics inputset
+
         :param inputset: An opalytics inputset consistent with this PanDatFactory
+
         :param raw_data: boolean. should data cleaning be skipped? On the Opalytics Cloud Platform
                          cleaned data will be passed to instant apps. Data cleaning involves
                          removing data type failures, data row predicate failures, foreign key
                          failures, duplicated rows and deactivated records.
+
         :return: a PanDat object populated by the tables as they are rendered by inputset
         """
         message = []
@@ -139,13 +142,19 @@ class JsonPanFactory(freezable_factory(object, "_isFrozen")):
     def create_pan_dat(self, path_or_buf, fill_missing_fields=False, orient='split', **kwargs):
         """
         Create a PanDat object from a SQLite database file
+
         :param path_or_buf:  a valid JSON string or file-like
+
         :param fill_missing_fields: boolean. If truthy, missing fields will be filled in
                                     with their default value. Otherwise, missing fields
                                     throw an Exception.
+
         :param orient: Indication of expected JSON string format. See pandas.read_json for more details.
+
         :param kwargs: additional named arguments to pass to pandas.read_json
+
         :return: a PanDat object populated by the matching tables.
+
         caveats: Missing tables always throw an Exception.
                  Table names are matched with case-space insensitivity, but spaces
                  are respected for field names.
@@ -192,17 +201,27 @@ class JsonPanFactory(freezable_factory(object, "_isFrozen")):
                    index=False, indent=None, sort_keys=False, **kwargs):
         """
         write the PanDat data to a collection of csv files
+
         :param pan_dat: the PanDat object to write
+
         :param json_file_path: the json file into which the data is to be written. If falsey, will return a
                                JSON  string
+
         :param case_space_table_names: boolean - make best guesses how to add spaces and upper case
                                        characters to table names
+
         :param orient: Indication of expected JSON string format. See pandas.to_json for more details.
+
         :param index: boolean - whether or not to write the index.
+
         :param indent: None. See json.dumps
+
         :param sort_keys: See json.dumps
+
         :param kwargs: additional named arguments to pass to pandas.to_json
+
         :return:
+
         caveats:  +-float("inf") will be converted to "inf", "-inf"
         """
         msg = []
@@ -242,7 +261,9 @@ class CsvPanFactory(freezable_factory(object, "_isFrozen")):
         Don't create this object explicitly. A CsvPanFactory will
         automatically be associated with the csv attribute of the parent
         PanDatFactory.
+
         :param pan_dat_factory:
+
         :return:
         """
         self.pan_dat_factory = pan_dat_factory
@@ -250,12 +271,17 @@ class CsvPanFactory(freezable_factory(object, "_isFrozen")):
     def create_pan_dat(self, dir_path, fill_missing_fields=False, **kwargs):
         """
         Create a PanDat object from a SQLite database file
+
         :param db_file_path: the directory containing the .csv files.
+
         :param fill_missing_fields: boolean. If truthy, missing fields will be filled in
                                     with their default value. Otherwise, missing fields
                                     throw an Exception.
+
         :param kwargs: additional named arguments to pass to pandas.read_csv
+
         :return: a PanDat object populated by the matching tables.
+
         caveats: Missing tables always throw an Exception.
                  Table names are matched with case-space insensitivity, but spaces
                  are respected for field names.
@@ -289,14 +315,21 @@ class CsvPanFactory(freezable_factory(object, "_isFrozen")):
     def write_directory(self, pan_dat, dir_path, case_space_table_names=False, index=False, **kwargs):
         """
         write the PanDat data to a collection of csv files
+
         :param pan_dat: the PanDat object to write
+
         :param dir_path: the directory in which to write the csv files
                              Set to falsey if using con argument.
+
         :param case_space_table_names: boolean - make best guesses how to add spaces and upper case
                                        characters to table names
+
         :param index: boolean - whether or not to write the index.
+
         :param kwargs: additional named arguments to pass to pandas.to_csv
+
         :return:
+
         caveats: The row names (index) isn't written (unless kwargs indicates it should be).
         """
         verify(not os.path.isfile(dir_path), "A file is not a valid directory path")
@@ -335,13 +368,18 @@ class SqlPanFactory(freezable_factory(object, "_isFrozen")):
     def create_pan_dat(self, db_file_path, con=None, fill_missing_fields=False):
         """
         Create a PanDat object from a SQLite database file
+
         :param db_file_path: A SQLite DB File. Set to falsey if using con argument
+
         :param con: sqlalchemy.engine.Engine or sqlite3.Connection.
                     Set to falsey if using db_file_path argument.
+
         :param fill_missing_fields: boolean. If truthy, missing fields will be filled in
                                     with their default value. Otherwise, missing fields
                                     throw an Exception.
+
         :return: a PanDat object populated by the matching tables.
+
         caveats: Missing tables always throw an Exception.
                  Table names are matched with case-space insensitivity, but spaces
                  are respected for field names.
@@ -385,16 +423,24 @@ class SqlPanFactory(freezable_factory(object, "_isFrozen")):
         return rtn
     def write_file(self, pan_dat, db_file_path, con=None, if_exists='replace', case_space_table_names=False):
         """
+
         write the PanDat data to an excel file
+
         :param pan_dat: the PanDat object to write
+
         :param db_file_path: The file path of the SQLite file to create.
                              Set to falsey if using con argument.
+
         :param con: sqlalchemy.engine.Engine or sqlite3.Connection.
                     Set to falsey if using db_file_path argument
+
         :param if_exists: ‘fail’, ‘replace’ or ‘append’. How to behave if the table already exists
+
         :param case_space_table_names: boolean - make best guesses how to add spaces and upper case
                                           characters to table names
+
         :return:
+
         caveats: The row names (index) isn't written. The default pandas schema generation is used,
                  and thus foreign key relationships aren't written.
         """
@@ -430,7 +476,9 @@ class XlsPanFactory(freezable_factory(object, "_isFrozen")):
         Don't create this object explicitly. A XlsPanFactory will
         automatically be associated with the xls attribute of the parent
         PanDatFactory.
+
         :param pan_dat_factory:
+
         :return:
         """
         self.pan_dat_factory = pan_dat_factory
@@ -439,12 +487,16 @@ class XlsPanFactory(freezable_factory(object, "_isFrozen")):
     def create_pan_dat(self, xls_file_path, fill_missing_fields=False):
         """
         Create a PanDat object from an Excel file
+
         :param xls_file_path: An Excel file containing sheets whose names match
                               the table names in the schema.
+
         :param fill_missing_fields: boolean. If truthy, missing fields will be filled in
                                     with their default value. Otherwise, missing fields
                                     throw an Exception.
+
         :return: a PanDat object populated by the matching sheets.
+
         caveats: Missing sheets resolve to an empty table, but missing fields
                  on matching sheets throw an Exception (unless fill_missing_fields is falsey).
                  Table names are matched to sheets with with case-space insensitivity, but spaces and
@@ -486,11 +538,16 @@ class XlsPanFactory(freezable_factory(object, "_isFrozen")):
     def write_file(self, pan_dat, file_path, case_space_sheet_names=False):
         """
         write the panDat data to an excel file
+
         :param pan_dat: the PanDat object to write
+
         :param file_path: The file path of the excel file to create
+
         :param case_space_sheet_names: boolean - make best guesses how to add spaces and upper case
                                       characters to sheet names
+
         :return:
+
         caveats: The row names (index) isn't written.
         """
         msg = []

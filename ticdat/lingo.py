@@ -14,12 +14,19 @@ def _code_dir():
 def lingo_run(lng_file, input_tdf, input_dat, soln_tdf, infinity=INFINITY, runlingo_path=None):
     """
     solve an optimization problem using an Lingo .lng file
+
     :param lng_file: An Lingo .lng file.
+
     :param input_tdf: A TicDatFactory defining the input schema
+
     :param input_dat: A TicDat object consistent with input_tdf
+
     :param soln_tdf: A TicDatFactory defining the solution variables
+
     :param infinity: A number used to represent infinity in Lingo
+
     :param runlingo_path: A path to the runlingo executable
+
     :return: a TicDat object consistent with soln_tdf, or None if no solution found
     """
     verify(os.path.isfile(lng_file), "lng_file %s is not a valid file."%lng_file)
@@ -136,9 +143,13 @@ def create_lingo_output_text(tdf):
 def create_lingo_text(tdf, tic_dat, infinity=INFINITY):
     """
     Generate a Lingo .ldt string from a TicDat object
+
     :param tdf: A TicDatFactory defining the schema
+
     :param tic_dat: A TicDat object consistent with tdf
+
     :param infinity: A number used to represent infinity in lingo
+
     :return: A string consistent with the Lingo .ldt format
     """
     msg = []
@@ -180,7 +191,9 @@ def create_lingo_text(tdf, tic_dat, infinity=INFINITY):
 def create_lingo_mod_text(tdf):
     """
     Generate a Lingo .lng string from a TicDat object for diagnostic purposes
+
     :param tdf: A TicDatFactory defining the input schema
+
     :return: A string consistent with the Lingo .lng input format
     """
     verify(not find_case_space_duplicates(tdf), "There are case space duplicate field names in the schema.")
@@ -222,8 +235,11 @@ def create_lingo_mod_text(tdf):
 def read_lingo_text(tdf,results_text):
     """
     Read Lingo .ldt strings
+
     :param tdf: A TicDatFactory defining the schema
+
     :param results_text: A list of strings defining Lingo tables
+
     :return: A TicDat object consistent with tdf
     """
 

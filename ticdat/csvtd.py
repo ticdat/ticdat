@@ -34,7 +34,9 @@ class CsvTicFactory(freezable_factory(object, "_isFrozen")) :
         Don't create this object explicitly. A CsvTicDatFactory will
         automatically be associated with the csv attribute of the parent
         TicDatFactory.
+
         :param tic_dat_factory:
+
         :return:
         """
         self.tic_dat_factory = tic_dat_factory
