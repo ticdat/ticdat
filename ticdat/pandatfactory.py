@@ -19,10 +19,31 @@ pd, DataFrame = utils.pd, utils.DataFrame # if pandas not installed will be fals
 class PanDatFactory(object):
     """
      Defines a schema for a collection of pandas.DataFrame objects.
-     This class is constructed with a schema, and can be used to generate PanDat objects,
-     or to write PanDat objects to different file types. Analytical code that uses PanDat objects can be used,
-     without change, on different data sources. A PanDat object is itself a collection of DataFrames that
-     conform to a predefined schema.
+     This class is constructed with a schema. It can be used to generate PanDat objects,
+     to write PanDat objects to different file types, or to perform bulk query operations
+     to diagnose common data integrity failures.
+
+     Analytical code that uses PanDat objects can be used, without change, on different data
+     sources, thus facilitating the "separate model from data" design goal.
+
+     A PanDat object is itself a collection of DataFrames that conform to a predefined schema.
+
+    :param init_fields: a mapping of tables to primary key fields and data fields. Each field listing consists
+                        of two sub lists ... first primary keys fields, than data fields.
+
+        ex:
+
+        ```PanDatFactory (categories =  [["name"],["Min Nutrition", "Max Nutrition"]],
+                           foods  =  [["Name"],["Cost"]]
+                           nutritionQuantities = [["Food", "Category"],["Qty"]])```
+
+        Use '*' instead of a pair of lists for generic tables
+
+        ex:
+
+        ```PanDatFactory (typical_table = [["Primary Key Field"],["Data Field"]],
+                           generic_table = '*')```
+
     """
     @property
     def primary_key_fields(self):
@@ -32,8 +53,11 @@ class PanDatFactory(object):
         return self._data_fields
     def schema(self, include_ancillary_info = False):
         """
+        Return a dictionary that summarizes the schema.
+
         :param include_ancillary_info: if True, include all the foreign key, default, and data type information
                                        as well. Otherwise, just return table-fields dictionary
+
         :return: a dictionary with table name mapping to a list of lists
                  defining primary key fields and data fields
                  If include_ancillary_info, this table-fields dictionary is just one entry in a more comprehensive
@@ -53,9 +77,12 @@ class PanDatFactory(object):
     @staticmethod
     def create_from_full_schema(full_schema):
         """
+
         create a PanDatFactory complete with default values, data types, and foreign keys
+
         :param full_schema: a dictionary consistent with the data returned by a call to schema()
                             with include_ancillary_info = True
+
         :return: a PanDatFactory reflecting the tables, fields, default values, data types,
                  and foreign keys consistent with the full_schema argument
         """
@@ -85,7 +112,9 @@ class PanDatFactory(object):
         return rtn
     def clone(self):
         """
+
         clones the PanDatFactory
+
         :return: a clone of the PanDatFactory
         """
         rtn = PanDatFactory.create_from_full_schema(self.schema(include_ancillary_info=True))
@@ -107,18 +136,28 @@ class PanDatFactory(object):
         sets the data type for a field. By default, fields don't have types. Adding a data type doesn't block
         data of the wrong type from being entered. Data types are useful for recognizing errant data entries
         with find_data_type_failures(). Errant data entries can be replaced with replace_data_type_failures().
+
         :param table: a table in the schema
+
         :param field: a data field for this table
+
         :param number_allowed: boolean does this field allow numbers?
+
         :param inclusive_min: boolean : if number allowed, is the min inclusive?
+
         :param inclusive_max: boolean : if number allowed, is the max inclusive?
+
         :param min: if number allowed, the minimum value
+
         :param max: if number allowed, the maximum value
+
         :param must_be_int: boolean : if number allowed, must the number be integral?
+
         :param strings_allowed: if a collection - then a list of the strings allowed.
                                 The empty collection prohibits strings.
                                 If a "*", then any string is accepted.
         :param nullable : boolean : can this value contain null (aka None aka nan (since pandas treats null as nan))
+
         :return:
         """
         verify(not self._has_been_used,
@@ -152,8 +191,11 @@ class PanDatFactory(object):
         clears the data type for a field. By default, fields don't have types.  Adding a data type doesn't block
         data of the wrong type from being entered. Data types are useful for recognizing errant data entries.
         If no data type is specified (the default) then no errant data will be recognized.
+
         :param table: table in the schema
+
         :param field:
+
         :return:
         """
         if field not in self._data_types.get(table, ()):
@@ -168,19 +210,27 @@ class PanDatFactory(object):
         sophisticated data integrity problems of the sort that can't be easily handled with
         a data type rule. For example, a min_supply column can be verified to be no larger than
         a max_supply column.
+
         !!! NB!!!!
-                   pandas will render None as nan.
-                   Don't check for None in your predicate functions, use math.isnan instead
+
+        **pandas will render None as nan.**
+
+        **Don't check for None in your predicate functions, use math.isnan instead**
+
         !!!!!!!!!!
+
         :param table: table in the schema
+
         :param predicate: A one argument function that accepts a table row as an argument and returns
                           Truthy if the row is valid and Falsey otherwise. The argument passed to
                           predicate will be a dict that maps field name to data value for all fields
                           (both primary key and data field) in the table.
                           Note - if None is passed as a predicate, then any previously added
                           predicate matching (table, predicate_name) will be removed.
+
         :param predicate_name: The name of the predicate. If omitted, the smallest non-colliding
                                number will be used.
+
         :return:
         """
         verify(not self._has_been_used,
@@ -200,9 +250,13 @@ class PanDatFactory(object):
     def set_default_value(self, table, field, default_value):
         """
         sets the default value for a specific field
+
         :param table: a table in the schema
+
         :param field: a field in the table
+
         :param default_value: the default value to apply
+
         :return:
         """
         verify(not self._has_been_used,
@@ -216,11 +270,13 @@ class PanDatFactory(object):
     def set_default_values(self, **tableDefaults):
         """
         sets the default values for the fields
+
         :param tableDefaults:
              A dictionary of named arguments. Each argument name (i.e. each key) should be a table name
              Each value should itself be a dictionary mapping data field names to default values
              Ex: tdf.set_default_values(categories = {"minNutrition":0, "maxNutrition":float("inf")},
                          foods = {"cost":0}, nutritionQuantities = {"qty":0})
+
         :return:
         """
         verify(not self._has_been_used,
@@ -236,6 +292,7 @@ class PanDatFactory(object):
     def clear_foreign_keys(self, native_table = None):
         """
         create a PanDatFactory
+
         :param native_table: optional. The table whose foreign keys should be cleared.
                              If omitted, all foreign keys are cleared.
         """
@@ -281,11 +338,15 @@ class PanDatFactory(object):
         the entry of child records that fail to find a parent match. It does make it easy
         to recognize such records (with find_foreign_key_failures()) and to remove such records
         (with remove_foreign_key_failures())
+
         :param native_table: (aka child table). The table with fields that must match some other table.
+
         :param foreign_table: (aka parent table). The table providing the matching entries.
+
         :param mappings: For simple foreign keys, a [native_field, foreign_field] pair.
                          For compound foreign keys an iterable of [native_field, foreign_field]
                          pairs.
+
         :return:
         """
         verify(not self._has_been_used,
@@ -324,6 +385,7 @@ class PanDatFactory(object):
     def __init__(self, **init_fields):
         """
         create a PanDatFactory
+
         :param init_fields: a mapping of tables to primary key fields
                             and data fields. Each field listing consists
                             of two sub lists ... first primary keys fields,
@@ -413,8 +475,11 @@ class PanDatFactory(object):
     def good_pan_dat_object(self, data_obj, bad_message_handler = lambda x : None):
         """
         determines if an object is a valid PanDat object for this schema
+
         :param data_obj: the object to verify
+
         :param bad_message_handler: a call back function to receive description of any failure message
+
         :return: True if the dataObj can be recognized as a PanDat data object. False otherwise.
         """
         verify(DataFrame and pd, "Need to install pandas")
@@ -436,7 +501,9 @@ class PanDatFactory(object):
         """
         copies the tic_dat object into a new tic_dat object
         performs a deep copy
+
         :param pan_dat: a pandat object
+
         :return: a deep copy of the pan_dat argument
         """
         msg  = []
@@ -447,8 +514,11 @@ class PanDatFactory(object):
         """
         copies the pan_dat object into a new tic_dat object
         performs a deep copy
+
         :param pan_dat: a pandat object
+
         :param freeze_it: boolean. should the returned object be frozen?
+
         :return: a deep copy of the pan_dat argument in tic_dat format
         """
         msg = []
@@ -470,10 +540,13 @@ class PanDatFactory(object):
     def find_data_type_failures(self, pan_dat, as_table=True):
         """
         Finds the data type failures for a pandat object
+
         :param pan_dat: pandat object
+
         :param as_table: boolean - if truthy then the values of the return dictionary will be the
                data type failure rows themselves. Otherwise will return the boolean Series that indicates
                which rows have data type failures.
+
         :return: A dictionary constructed as follow:
                  The keys are namedtuples with members "table", "field". Each (table,field) pair
                  has data values that are inconsistent with its data type. (table, field) pairs
@@ -501,16 +574,19 @@ class PanDatFactory(object):
     def find_data_row_failures(self, pan_dat, as_table=True):
         """
         Finds the data row failures for a ticdat object
+
         :param pan_dat: a pandat object
+
         :param as_table: boolean - if truthy then the values of the return dictionary will be the
                predicate failure rows themselves. Otherwise will return the boolean Series that indicates
                which rows have predicate failures.
-        :return: A dictionary constructed as follow:
 
-                 The keys are namedtuples with members "table", "predicate_name".
+        :return: A dictionary constructed as follows:
 
-                 The values are DataFrames that contain the subset of rows that exhibit data failures
-                 for this specific table, predicate pair (or the Series that identifies these rows).
+        The keys are namedtuples with members "table", "predicate_name".
+
+        The values are DataFrames that contain the subset of rows that exhibit data failures
+        for this specific table, predicate pair (or the Series that identifies these rows).
         """
         msg = []
         verify(self.good_pan_dat_object(pan_dat, msg.append),
@@ -528,19 +604,24 @@ class PanDatFactory(object):
     def find_foreign_key_failures(self, pan_dat, verbosity="High"):
         """
         Finds the foreign key failures for a pandat object
+
         :param pan_dat: pandat object
+
         :param verbosity: either "High" or "Low"
-        :return: A dictionary constructed as follow:
-                 The keys are namedtuples with members "native_table", "foreign_table",
-                 "mapping", "cardinality".
-                 The key data matches the arguments to add_foreign_key that constructed the
-                 foreign key (with "cardinality" being deduced from the overall schema).
 
-                 The values are DataFrames that contain the subset of native table rows that fail to find
-                 foreign table matching defined by the associated returned key.
+        :return: A dictionary constructed as follows:
+        
+         The keys are namedtuples with members "native_table", "foreign_table",
+         "mapping", "cardinality".
 
-                 For verbosity = 'Low' a simpler return object is created that doesn't use namedtuples
-                 and omits the foreign key cardinality.
+         The key data matches the arguments to add_foreign_key that constructed the
+         foreign key (with "cardinality" being deduced from the overall schema).
+
+         The values are DataFrames that contain the subset of native table rows that fail to find
+         foreign table matching defined by the associated returned key.
+
+         For verbosity = 'Low' a simpler return object is created that doesn't use namedtuples
+         and omits the foreign key cardinality.
         """
         # note - the as_table argument is messy here because I'm applying an index to a copy of the table
         # as a result, we provide the remove_foreign_key_failures companion function
@@ -587,8 +668,11 @@ class PanDatFactory(object):
         return rtn
     def remove_foreign_key_failures(self, pan_dat):
         """
+
         Removes foreign key failures (i.e. child records with no parent table record)
+
         :param pan_dat: pandat object (will be side-effected)
+
         :return: pan_dat, with the foreign key failures removed
                  Note that all foreign key removals are cascading. When a child removal results in
                  new foreign key failures, those failures are removed as well.
@@ -606,13 +690,17 @@ class PanDatFactory(object):
     def find_duplicates(self, pan_dat, keep="first", as_table=True):
         """
         Find the duplicated rows based on the primary key fields.
+
         :param pan_dat: pandat object
+
         :param keep: 'first': Treat all duplicated rows as duplicates except for the first occurrence.
                      'last': Treat all duplicated rows as duplicates except for the last occurrence.
                      False: Treat all duplicated rows as duplicates
+
         :param as_table: as_table boolean : if truthy then the values of the return dictionary will be the
                duplicated rows themselves. Otherwise will return the boolean Series that indicates which rows
                are duplicated rows.
+
         :return: A dictionary whose keys are the table names and whose values are duplicated rows (or the
                  Series that identifies these rows)
         """
@@ -630,7 +718,9 @@ class PanDatFactory(object):
         """
         copies the pan_dat object into a new pan_dat object populated with amplpy.DataFrame objects
         performs a deep copy
+
         :param pan_dat: a PanDat object
+
         :param field_renamings: dict or None. If fields are to be renamed in the copy, then
                                 a mapping from (table_name, field_name) -> new_field_name
                                 If a data field is to be omitted, then new_field can be falsey
@@ -638,8 +728,10 @@ class PanDatFactory(object):
                                 field_name doesn't have to refer to a field to an element of
                                 self.data_fields[t], but it doesn't have to refer to a column in
                                 the pan_dat.table_name DataFrame
+
         :param excluded_tables: If truthy, a list of tables to be excluded from the copy.
                                 Tables without primary key fields are always excluded.
+
         :return: a deep copy of the tic_dat argument into amplpy.DataFrames
         """
         verify(amplpy, "amplpy needs to be installed in order to enable AMPL functionality")
@@ -675,9 +767,13 @@ class PanDatFactory(object):
     def set_ampl_data(self, ampl_dat, ampl, table_to_set_name = None):
         """
         performs bulk setData on the AMPL-esque first argument.
+
         :param ampl_dat: an AmplTicDat object created by calling copy_to_ampl
+
         :param ampl: an amplpy.AMPL object
+
         :param table_to_set_name: a mapping of table_name to ampl set name
+
         :return:
         """
         verify(all(a.startswith("_") or a in self.all_tables for a in dir(ampl_dat)),
@@ -696,6 +792,7 @@ class PanDatFactory(object):
     def copy_from_ampl_variables(self, ampl_variables):
         """
         copies the solution results from ampl_variables into a new PanDat object
+
         :param ampl_variables: a dict mapping from (table_name, field_name) -> amplpy.variable.Variable
                                (amplpy.variable.Variable is the type object returned by
                                 AMPL.getVariable)
@@ -710,6 +807,7 @@ class PanDatFactory(object):
                                 amplpy.variable.Variable you should map to a
                                 (amplpy.variable.Variable, filter) where filter accepts a data value
                                 and returns a boolean.
+
         :return: a deep copy of the ampl_variables into a PanDat object
         """
         # note that the possibility for multiple table_names with different field_names can make

@@ -78,24 +78,38 @@ development_deployed_environment = False
 def standard_main(input_schema, solution_schema, solve):
     """
      provides standardized command line functionality for a ticdat solve engine
+
     :param input_schema: a TicDatFactory or PanDatFactory defining the input schema
+
     :param solution_schema: a TicDatFactory or PanDatFactory defining the output schema
+
     :param solve: a function that takes a input_schema.TicDat object and
                   returns a solution_schema.TicDat object
+
     :return: None
+
     Implements a command line signature of
-    "python engine_file.py --input <input_file_or_dir> --output <output_file_or_dir>
+
+    "python engine_file.py --input <input_file_or_dir> --output <output_file_or_dir>"
+
     For the input/output command line arguments.
+
     --> endings in ".xls" or ".xlsx" imply reading/writing Excel files
+
     --> endings in ".mdb" or ".accdb" imply reading/writing Access files (TicDatFactory only)
+
     --> ending in ".db" imply reading/writing SQLite database files
+
     --> ending in ".sql" imply reading/writing SQLite text files rendered in
         schema-less SQL statements (TicDatFactory only)
+
     --> ending in ".json" imply reading/writing .json files
+
     --> otherwise, the assumption is that an input/output directory is being specified,
         which will be used for reading/writing .csv files.
         (Recall that .csv format is implemented as one-csv-file-per-table, so an entire
         model will be stored in a directory containing a series of .csv files)
+
     Defaults are input.xlsx, output.xlsx
     """
     verify(all(isinstance(_, ticdat.TicDatFactory) for _ in (input_schema, solution_schema)) or
@@ -237,6 +251,15 @@ def _standard_main_ticdat(input_schema, solution_schema, solve):
             print("No solution was created!")
 
 def verify(b, msg) :
+    """
+    raise a TicDatError exception if the boolean condition is False
+
+    :param b: boolean condition.
+
+    :param msg: string argument to the TicDatError construction
+
+    :return:
+    """
     if not b :
         raise TicDatError(msg)
 
@@ -251,7 +274,10 @@ def gurobi_env(*args, **kwargs):
     '''
     Return a gurobipy.Env object for use in constructing gurobipy.Model() objects.
     On an ordinary Python installation, this is a pass through to gurobipy.Env()
+    Needed on Opalytics Cloud Platform
+
     :return: A gurobipy.Env object.
+
     '''
     verify(gu, "gurobipy is not installed")
     if drm:
@@ -270,8 +296,11 @@ def ampl_format(mod_str, **kwargs):
     Very similar to str.format, except single braces are left unmolested and double-braces
     are used to identify substitutions. This allows AMPL mod code to be more readable
     to AMPL developers.
+
     :param mod_str: the string that has doubled-braced substitutions entries.
+
     :param kwargs: Named arguments map from substitution-entry label to value.
+
     :return: A copy of mod_str with the substitutions performed.
     """
     verify(stringish(mod_str), "mod_str argument should be a string")
@@ -287,12 +316,16 @@ def find_denormalized_sub_table_failures(table, pk_fields, data_fields):
     """
     checks to see if the table argument contains a denormalized sub-table
     indexed by pk_fields with data fields data_fields
+
     :param table: The table to study. Can either be a pandas DataFrame or a
                   or a container of consistent {field_name:value} dictionaries.
+
     :param pk_fields: The pk_fields of the sub-table. Needs to be fields
                       (but not necc primary key fields) of the table.
+
     :param data_fileds: The data fields of the sub-table. Needs to be fields
                         (but not necc data fields) of the table.
+
     :return: A dictionary indexed by the pk_fields values in the table
              that are associated with improperly denormalized table rows. The
              values of the return dictionary are themselves dictionaries indexed

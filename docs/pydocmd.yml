@@ -1,6 +1,8 @@
 site_name: Ticdat
 repo_url: https://github.com/opalytics/opalytics-ticdat
 generate:
+- pandatfactory.md:
+  - ticdat.pandatfactory.PanDatFactory++
 - csvtd.md:
   - ticdat.csvtd.CsvTicFactory++
 - jsontd.md:
@@ -35,7 +37,6 @@ generate:
   - ticdat.utils.gurobi_env
   - ticdat.utils.ampl_format
   - ticdat.utils.find_denormalized_sub_table_failures
-  - ticdat.utils.find_case_space_duplicates
   - ticdat.utils.Slicer++
   - ticdat.utils.Sloc++
   - ticdat.utils.LogFile++
@@ -44,6 +45,8 @@ generate:
   - ticdat.xls.XlsTicFactory++
 pages:
 - Home: index.md << ../README.md
+- pandatfactory.py:
+  - PanDatFactory: pandatfactory.md
 - ticdatfactory.py:
   - TicDatFactory: ticdatfactory.md
 - csvtd.py:
@@ -57,7 +60,7 @@ pages:
 - opalytics.py:
   - OpalyticsTicFactory: opalytics.md
 - sqlitetd.py:
-  - SQLiteFactory: sqlitetd.md
+  - SQLiteTicFactory: sqlitetd.md
 - xls.py:
   - XlsTicFactory: xls.md
 - opl.py:
