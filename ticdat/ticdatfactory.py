@@ -444,13 +444,14 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
         For unpickling, first unpickle the pickled dictionary, and then pass it,
         unpacked, to the TicDat constructor.
 
+        Note that this function will be removed in a future release. Use schema instead.
+
         :param ticdat: a TicDat object whose data is to be returned as a dict
 
         :return: A dictionary that can either be pickled, or unpacked to a
                 TicDat constructor
-
-
         '''
+        print ("Please use schema instead of as_dict")
         verify(not self.generator_tables, "as_dict doesn't work with generator tables.")
         rtn = {}
         dict_tables = {t for t,pk in self.primary_key_fields.items() if pk}

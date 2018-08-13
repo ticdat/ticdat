@@ -274,8 +274,11 @@ class PanDatFactory(object):
         :param tableDefaults:
              A dictionary of named arguments. Each argument name (i.e. each key) should be a table name
              Each value should itself be a dictionary mapping data field names to default values
-             Ex: tdf.set_default_values(categories = {"minNutrition":0, "maxNutrition":float("inf")},
-                         foods = {"cost":0}, nutritionQuantities = {"qty":0})
+
+        Ex:
+
+        ```tdf.set_default_values(categories = {"minNutrition":0, "maxNutrition":float("inf")},
+                         foods = {"cost":0}, nutritionQuantities = {"qty":0})```
 
         :return:
         """
@@ -510,7 +513,7 @@ class PanDatFactory(object):
         verify(self.good_pan_dat_object(pan_dat, msg.append),
                "pan_dat not a good object for this factory : %s"%"\n".join(msg))
         return self.PanDat(**{t:getattr(pan_dat, t) for t in self.all_tables})
-    def copy_to_tic_dat(self, pan_dat, freeze_it = False):
+    def copy_to_tic_dat(self, pan_dat, freeze_it=False):
         """
         copies the pan_dat object into a new tic_dat object
         performs a deep copy
@@ -524,19 +527,35 @@ class PanDatFactory(object):
         msg = []
         verify(self.good_pan_dat_object(pan_dat, msg.append),
                "pan_dat not a good object for this factory : %s"%"\n".join(msg))
+        rtn = self._copy_to_tic_dat(pan_dat)
         from ticdat import TicDatFactory
         tdf = TicDatFactory(**self.schema())
+        return tdf.freeze_me(rtn) if freeze_it else rtn
+    def _copy_to_tic_dat(self, pan_dat, keep_generics_as_df=True):
+        sch = self.schema()
+        if not keep_generics_as_df:
+            for t in self.generic_tables:
+                sch[t] = [[], list(getattr(pan_dat, t).columns)]
+        from ticdat import TicDatFactory
+        tdf = TicDatFactory(**sch)
         def df(t):
             rtn = getattr(pan_dat, t)
             if self.primary_key_fields.get(t, ()):
                 return rtn.set_index(list(self.primary_key_fields[t]), drop=False)
+            if t in self.generic_tables and not keep_generics_as_df:
+                return list(map(list, rtn.itertuples(index=False)))
             return rtn
-        rtn = tdf.TicDat(**{t:df(t) for t in self.all_tables})
-        return tdf.freeze_me(rtn) if freeze_it else rtn
+        return tdf.TicDat(**{t: df(t) for t in self.all_tables})
     def _same_data(self, obj1, obj2, epsilon = 0):
         from ticdat import TicDatFactory
-        tdf = TicDatFactory(**self.schema())
-        return tdf._same_data(self.copy_to_tic_dat(obj1), self.copy_to_tic_dat(obj2), epsilon=epsilon)
+        sch = self.schema()
+        for t in self.generic_tables:
+            if set(getattr(obj1, t).columns) != set(getattr(obj2, t).columns):
+                return False
+            sch[t] = [[], list(getattr(obj1, t).columns)]
+        tdf = TicDatFactory(**sch)
+        return tdf._same_data(self._copy_to_tic_dat(obj1, keep_generics_as_df=False),
+                              self._copy_to_tic_dat(obj2, keep_generics_as_df=False), epsilon=epsilon)
     def find_data_type_failures(self, pan_dat, as_table=True):
         """
         Finds the data type failures for a pandat object
