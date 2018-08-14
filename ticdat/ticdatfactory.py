@@ -46,14 +46,17 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
     :param init_fields: a mapping of tables to primary key fields and data fields. Each field listing consists
                         of two sub lists ... first primary keys fields, than data fields.
 
-    ex: TicDatFactory (categories =  [["name"],["minNutrition", "maxNutrition"]],
+    ex:
+    ```TicDatFactory (categories =  [["name"],["minNutrition", "maxNutrition"]],
                        foods  =  [["name"],["cost"]]
-                       nutritionQuantities = [["food", "category"],["qty"]])
-                       Use '*' instead of a pair of lists for generic tables,
+                       nutritionQuantities = [["food", "category"],["qty"]])```
+
+    Use '*' instead of a pair of lists for generic tables,
                        which will render as pandas.DataFrame objects.
 
-    ex: TicDatFactory (typical_table = [["primary key field"],["data field"]],
-                       generic_table = '*')
+    ex:
+    ```TicDatFactory (typical_table = [["primary key field"],["data field"]],
+                       generic_table = '*')```
     """
     @property
     def primary_key_fields(self):
@@ -266,8 +269,10 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
         :param tableDefaults:
              A dictionary of named arguments. Each argument name (i.e. each key) should be a table name
              Each value should itself be a dictionary mapping data field names to default values
-             Ex: tdf.set_default_values(categories = {"minNutrition":0, "maxNutrition":float("inf")},
-                         foods = {"cost":0}, nutritionQuantities = {"qty":0})
+
+        Ex:
+        ```tdf.set_default_values(categories = {"minNutrition":0, "maxNutrition":float("inf")},
+                                  foods = {"cost":0}, nutritionQuantities = {"qty":0})```
 
         :return:
         """

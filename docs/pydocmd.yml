@@ -55,6 +55,7 @@ generate:
 - sqlitetd.md:
   - ticdat.sqlitetd.SQLiteTicFactory++
 - ticdatfactory.md:
+  - ticdat.ticdatfactory.TicDatFactory
   - ticdat.ticdatfactory.TicDatFactory.add_data_row_predicate
   - ticdat.ticdatfactory.TicDatFactory.add_foreign_key
   - ticdat.ticdatfactory.TicDatFactory.clear_data_type
