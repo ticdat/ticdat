@@ -60,8 +60,10 @@ def _brackets(l) :
 
 class SQLiteTicFactory(freezable_factory(object, "_isFrozen")) :
     """
-    Primary class for reading/writing SQLite files with ticDat objects.
-    You need the sqlite3 package to be installed to use it.
+    Primary class for reading/writing SQLite files with TicDat objects.
+    Don't create this object explicitly. A SQLiteTicFactory will
+    automatically be associated with the sql attribute of the parent
+    TicDatFactory. You need the sqlite3 package to be installed to use it.
     """
     def __init__(self, tic_dat_factory):
         """
@@ -82,9 +84,13 @@ class SQLiteTicFactory(freezable_factory(object, "_isFrozen")) :
     def create_tic_dat(self, db_file_path, freeze_it = False):
         """
         Create a TicDat object from a SQLite database file
+
         :param db_file_path: A SQLite db with a consistent schema.
+
         :param freeze_it: boolean. should the returned object be frozen?
+
         :return: a TicDat object populated by the matching tables.
+
         caveats : "inf" and "-inf" (case insensitive) are read as floats
         """
         verify(sql, "sqlite3 needs to be installed to use this subroutine")
@@ -93,9 +99,13 @@ class SQLiteTicFactory(freezable_factory(object, "_isFrozen")) :
                                 freeze_it = False):
         """
         Create a TicDat object from an SQLite sql text file
+
         :param sql_file_path: A text file containing SQLite compatible SQL statements delimited by ;
+
         :param includes_schema: boolean - does the sql_file_path contain schema generating SQL?
+
         :param freeze_it: boolean. should the returned object be frozen?
+
         :return: a TicDat object populated by the db created from the SQL
         """
         verify(sql, "sqlite3 needs to be installed to use this subroutine")
@@ -104,7 +114,9 @@ class SQLiteTicFactory(freezable_factory(object, "_isFrozen")) :
     def find_duplicates(self, db_file_path):
         """
         Find the row counts for duplicated rows.
+
         :param db_file_path: A SQLite db with a consistent schema.
+
         :return: A dictionary whose keys are table names for the primary-ed key tables.
                  Each value of the return dictionary is itself a dictionary.
                  The inner dictionary is keyed by the primary key values encountered in the table,
@@ -282,6 +294,7 @@ class SQLiteTicFactory(freezable_factory(object, "_isFrozen")) :
     def write_db_schema(self, db_file_path):
         """
         :param db_file_path: the file path of the SQLite database to create
+
         :return:
         """
         verify(not self.tic_dat_factory.generic_tables,
@@ -293,10 +306,15 @@ class SQLiteTicFactory(freezable_factory(object, "_isFrozen")) :
     def write_db_data(self, tic_dat, db_file_path, allow_overwrite = False):
         """
         write the ticDat data to an SQLite database file
+
         :param tic_dat: the data object to write
+
         :param db_file_path: the file path of the SQLite database to populate
+
         :param allow_overwrite: boolean - are we allowed to overwrite pre-existing data
+
         :return:
+
         caveats : float("inf"), float("-inf") are written as "inf", "-inf"
         """
         verify(sql, "sqlite3 needs to be installed to use this subroutine")
@@ -324,11 +342,17 @@ class SQLiteTicFactory(freezable_factory(object, "_isFrozen")) :
                        allow_overwrite = False):
         """
         write the sql for the ticDat data to a text file
+
         :param tic_dat: the data object to write
+
         :param sql_file_path: the path of the text file to hold the sql statements for the data
+
         :param include_schema: boolean - should we write the schema sql first?
+
         :param allow_overwrite: boolean - are we allowed to overwrite pre-existing file
+
         :return:
+
         caveats : float("inf"), float("-inf") are written as "inf", "-inf"
         """
         verify(sql, "sqlite3 needs to be installed to use this subroutine")

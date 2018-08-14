@@ -68,8 +68,13 @@ def _brackets(l) :
 
 class MdbTicFactory(freezable_factory(object, "_isFrozen")) :
     """
-    Primary class for reading/writing Access/MDB files with ticDat objects.
-    Your system will need the required pypyodbc package if you want to actually
+    Primary class for reading/writing Access/MDB files with TicDat objects.
+
+    Don't create this object explicitly. A MdbTicDatFactory will
+    automatically be associated with the mdb attribute of the parent
+    TicDatFactory.
+
+    Your system will need the pypyodbc package if you want to actually
     do something with it.
     """
     def __init__(self, tic_dat_factory):
@@ -77,7 +82,9 @@ class MdbTicFactory(freezable_factory(object, "_isFrozen")) :
         Don't create this object explicitly. A MdbTicDatFactory will
         automatically be associated with the mdb attribute of the parent
         TicDatFactory.
+
         :param tic_dat_factory:
+
         :return:
         """
         self.tic_dat_factory = tic_dat_factory
@@ -86,9 +93,13 @@ class MdbTicFactory(freezable_factory(object, "_isFrozen")) :
     def create_tic_dat(self, mdb_file_path, freeze_it = False):
         """
         Create a TicDat object from an Access MDB file
+
         :param mdb_file_path: An Access db with a consistent schema.
+
         :param freeze_it: boolean. should the returned object be frozen?
+
         :return: a TicDat object populated by the matching tables.
+
         caveats : Numbers with absolute values larger than 1e+100 will
                   be read as float("inf") or float("-inf")
         """
@@ -100,7 +111,9 @@ class MdbTicFactory(freezable_factory(object, "_isFrozen")) :
     def find_duplicates(self, mdb_file_path):
         """
         Find the row counts for duplicated rows.
+
         :param mdb_file_path: An Access db with a consistent schema.
+
         :return: A dictionary whose keys are table names for the primary-ed key tables.
                  Each value of the return dictionary is itself a dictionary.
                  The inner dictionary is keyed by the primary key values encountered in the table,
@@ -193,7 +206,10 @@ class MdbTicFactory(freezable_factory(object, "_isFrozen")) :
         return _write_new_file_works
     def write_schema(self, mdb_file_path, **field_types):
         """
+        Populate an Access file with a database schema
+
         :param mdb_file_path: The file path of the mdb database to create
+
         :param field_types: Named arguments are table names. Argument values
                             are mapping of field name to field type.
                             Allowable field types are text, double and int
@@ -244,12 +260,18 @@ class MdbTicFactory(freezable_factory(object, "_isFrozen")) :
     def write_file(self, tic_dat, mdb_file_path, allow_overwrite = False):
         """
         write the ticDat data to an SQLite database file
+
         :param tic_dat: the data object to write
+
         :param mdb_file_path: the file path of the SQLite database to populate
+
         :param allow_overwrite: boolean - are we allowed to overwrite pre-existing data
+
         :return:
+
         caveats : Numbers with absolute values larger than 1e+100 will
                   be written as 1e+100 or -1e+100
+
         NB - thrown Exceptions of the form "Data type mismatch in criteria expression"
              generally result either from Access's inability to store different data
              types in the same field, or from a mismatch between the data object

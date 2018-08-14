@@ -56,7 +56,7 @@ input_schema.set_default_value("arcs", "Capacity", float("inf"))
 # ------------------------ define the output schema -------------------------------
 solution_schema = TicDatFactory(
         flow = [["Commodity", "Source", "Destination"], ["Quantity"]],
-        parameters = [["Key"],["Value"]])
+        parameters = [["Parameter"],["Value"]])
 # ---------------------------------------------------------------------------------
 
 # ------------------------ solving section-----------------------------------------
@@ -70,6 +70,8 @@ def solve(dat):
     assert not input_schema.find_foreign_key_failures(dat)
     assert not input_schema.find_data_type_failures(dat)
 
+    # we're using TicDatFactory instead of PanDatFactory because the former will create data based
+    # indexes on the DataFrame's when calling copy_to_pandas
     dat = input_schema.copy_to_pandas(dat, drop_pk_columns=False)
 
     # Create optimization model

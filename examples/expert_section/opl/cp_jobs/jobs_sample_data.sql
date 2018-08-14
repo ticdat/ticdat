@@ -4,7 +4,7 @@ INSERT INTO [jobs] ([Name],[Machine1],[Durations1],[Machine2],[Durations2]) VALU
 INSERT INTO [jobs] ([Name],[Machine1],[Durations1],[Machine2],[Durations2]) VALUES ('j1','m1',80,'m2',60);
 INSERT INTO [jobs] ([Name],[Machine1],[Durations1],[Machine2],[Durations2]) VALUES ('j2','m2',120,'m3',80);
 INSERT INTO [jobs] ([Name],[Machine1],[Durations1],[Machine2],[Durations2]) VALUES ('j3','m2',80,'m1',60);
-INSERT INTO [parameters] ([Key],[Value]) VALUES ('Load Duration',20);
+INSERT INTO [parameters] ([Parameter],[Value]) VALUES ('Load Duration',20);
 INSERT INTO [machines] ([Name]) VALUES ('m1');
 INSERT INTO [machines] ([Name]) VALUES ('m3');
 INSERT INTO [machines] ([Name]) VALUES ('m2');

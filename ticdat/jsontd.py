@@ -41,7 +41,7 @@ def make_json_dict(tdf, tic_dat, verbose=False):
 
 class JsonTicFactory(freezable_factory(object, "_isFrozen")) :
     """
-    Primary class for reading/writing json files with ticDat objects.
+    Primary class for reading/writing json files with TicDat objects.
     You need the json package to be installed to use it.
     """
     def __init__(self, tic_dat_factory):
@@ -57,10 +57,14 @@ class JsonTicFactory(freezable_factory(object, "_isFrozen")) :
     def create_tic_dat(self, json_file_path, freeze_it = False):
         """
         Create a TicDat object from a json file
+
         :param json_file_path: A json file path. It should encode a dictionary
                                with table names as keys.
+
         :param freeze_it: boolean. should the returned object be frozen?
+
         :return: a TicDat object populated by the matching tables.
+
         caveats: Table names matches are case insensitive and also
                  underscore-space insensitive.
                  Tables that don't find a match are interpreted as an empty table.
@@ -80,8 +84,10 @@ class JsonTicFactory(freezable_factory(object, "_isFrozen")) :
     def find_duplicates(self, json_file_path):
         """
         Find the row counts for duplicated rows.
+
         :param json_file_path: A json file path. It should encode a dictionary
                                with table names as keys.
+
         :return: A dictionary whose keys are table names for the primary-ed key tables.
                  Each value of the return dictionary is itself a dictionary.
                  The inner dictionary is keyed by the primary key values encountered in the table,
@@ -121,12 +127,17 @@ class JsonTicFactory(freezable_factory(object, "_isFrozen")) :
     def write_file(self, tic_dat, json_file_path, allow_overwrite = False, verbose = False):
         """
         write the ticDat data to an excel file
+
         :param tic_dat: the data object to write (typically a TicDat)
+
         :param json_file_path: The file path of the json file to create.
+
         :param allow_overwrite: boolean - are we allowed to overwrite an
                                 existing file?
+
         :param verbose: boolean. Verbose mode writes the data rows as dicts
                         keyed by field name. Otherwise, they are lists.
+
         :return:
         """
         _standard_verify(self.tic_dat_factory)

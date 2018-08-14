@@ -1,37 +1,37 @@
 # ticdat
 
-Go [here](https://github.com/opalytics/opalytics-ticdat/wiki/ticdat-status) for project status and installation instructions.
+Go [here](https://github.com/opalytics/opalytics-ticdat/wiki/ticdat-status) for project status and installation
+instructions.
 
-`ticdat` is an easy-to-use, lightweight, relational, data library. It provides a simple interface for defining a data schema, and a factory class for creating `TicDat` data objects that confirm to this schema.
+`ticdat` is a Python package that provides lightweight, ORM style functionality around either a dict-of-dicts or
+`pandas.DataFrame` representation of tables. It is well suited for defining and validating the input data for complex
+solve engines (i.e. optimization and scheduling-type problems).
 
-It is primarily intended to simplify the process of developing modular mathematical engines that read from one schema and write to another. It provides easy routines for reading and/or writing an entire data set for a range of stand-alone file types (Excel, .csv, Access or SQLite). For Access or SQLite, it can be used as a very condensed representation of the database schema.
+`ticdat` functionality is organized around two classes - `TicDatFactory` and `PanDatFactory`. Both classes define a
+simple database style schema on construction. Data integrity rules can then be added in the form of foreign key
+relationships, data field types (to include numerical ranges and allowed strings) and row predicates
+(functions that check if a given row violates a particular data condition).  The factory classes can then be used to
+construct `TicDat`/`PanDat` objects that contain tables consistent with the defined schema. By design,
+`ticdat`, allows these data objects to violate the data integrity rules while providing convenient bulk query functions
+to determine where those violations occur.
 
-For archiving test suites, `ticdat` is a useful way to convert data instances into .sql or .json text files that can be archived in source code control systems.
+`TicDat` objects (created by a `TicDatFactory`) contain tables in a dict-of-dict format. The outer dictionary maps
+primary key values to data rows. The inner dictionaries are data rows indexed by field names (similar to
+`csv.DictReader/csv.DictWriter`). Tables that do not have primary keys are rendered as a list of data row dictionaries.
 
-When primary keys are specified, each table is a dictionary of dictionaries.
-Otherwise, each table is an enumerable of dictionaries. The inner dictionaries are data rows indexed by field names (as in `csv.DictReader/csv.DictWriter`). 
+`PanDat` objects (created by `PanDatFactory`) render tables as `pandas.DataFrame` objects. The columns in each
+`DataFrame` will contain all of the primary key and data fields that were defined in the `PanDatFactory` schema. The
+`PanDatFactory` code can be thought of as implementing a shim library that organizes `DataFrame` objects into a
+predefined schema, and facilitates rich integrity checks based on schema defined rules.
 
-When foreign keys are specified, they can be used for a variety of purposes.
-  * `find_foreign_key_failures` can find the data rows in child tables that fail to cross reference with their parent table.
-  * `obfusimplify` can be used to cascade entity renaming throughout the data set. This can facilitate troubleshooting by shortening and simplifying entity names. It can also be used to anonymize data sets in order to remove proprietary information.
-  * When `enable_foreign_key_links` is true, links are automatically created between the data rows of the parent table and the matching data rows of the child table.
-    * For example, `dat.foods["bacon"].nutritionQuantities` is an easy way to find all the nutritional properties of bacon. 
-    * Essentially, the option allows `ticdat` to automatically perform the inner joins most common to your data set.
+The `ticdat` example library is focused on two patterns for building optimization engines - using `TicDatFactory` in
+conjunction with `gurobipy` and using `PanDatFactory` in conjunction with `amplpy`. That said, `ticdat` can also be
+used with libraries like `pyomo`, `pulp`, `docplex` and `xpress`. It also has functionality to support the OPL and
+LINGO modeling languages, although the AMPL support is far more mature.
 
-When default values are provided, unfrozen `TicDat` objects will use them during the addition of new rows. In general, unfrozen `TicDat` data tables behave like `defaultdict`s.  There are a variety of other overrides to facilitate the addition of new data rows.
-
-Alternately, `TicDat` data objects can be frozen. This facilitates good software development by insuring that code that is supposed to read from a data set without editing it behaves properly.
-
-Finally, the “dict-of-dicts” representation of a table can be eschewed entirely in favor of `pandas.DataFrame`. In this case,`ticdat` can be used as a shim library that facilitates schema level definitions and query abstraction for `pandas` developers. 
-
-Although `ticdat` was specifically designed with Mixed Integer Programming problems in mind, it can be used for
-rapidly developing a wide variety of mathematical engines. It facilitates creating one definition of your
-input data schema and one solve module, and reusing this same code, unchanged, on data from different
-sources. This "separation of model from data" enables a user to move easily from small, testing data sets to larger, more realistic examples. In addition, [Opalytics Inc](http://www.opalytics.com/) (the developer of  `ticdat`) can support cloud deployments of solve engines that use `ticdat` data objects. The `ticdat` optimization examples presented here can all be deployed as "instant-apps" on the Opalytics Cloud Platform.
+`ticdat`s association with AMPL is particularly strong. The design goals of `ticdat` were inspired by AMPL’s pattern
+of cleanly separating model from data, as well as its ability to thoroughly validate input data prior to solving.
+AMPL Optimization has endorsed `ticdat` as their preferred library for bridging the world’s leading modeling language
+(AMPL) with Python’s most powerful data analysis package (`pandas`).
 
 The `ticdat` library is distributed under the BSD2 open source license.
-
-
-
-
-

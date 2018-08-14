@@ -24,15 +24,19 @@ def _try_float(x) :
 
 class CsvTicFactory(freezable_factory(object, "_isFrozen")) :
     """
-    Primary class for reading/writing csv files with ticDat objects.
+    Primary class for reading/writing csv files with TicDat objects.
     Your system will need the csv package if you want to use this class.
+    Don't create this object explicitly. A CsvTicFactory will
+    automatically be associated with the csv attribute of the parent
     """
     def __init__(self, tic_dat_factory):
         """
         Don't create this object explicitly. A CsvTicDatFactory will
         automatically be associated with the csv attribute of the parent
         TicDatFactory.
+
         :param tic_dat_factory:
+
         :return:
         """
         self.tic_dat_factory = tic_dat_factory
@@ -41,12 +45,18 @@ class CsvTicFactory(freezable_factory(object, "_isFrozen")) :
                        freeze_it = False):
         """
         Create a TicDat object from the csv files in a directory
+
         :param dir_path: the directory containing the .csv files.
+
         :param dialect: the csv dialect. Consult csv documentation for details.
+
         :param headers_present: Boolean. Does the first row of data contain the
                                 column headers?
+
         :param freeze_it: boolean. should the returned object be frozen?
+
         :return: a TicDat object populated by the matching files.
+
         caveats: Missing files resolve to an empty table, but missing fields on
                  matching files throw an Exception.
                  Data field values (but not primary key values) will be coerced
@@ -76,16 +86,21 @@ class CsvTicFactory(freezable_factory(object, "_isFrozen")) :
     def find_duplicates(self, dir_path, dialect='excel', headers_present = True):
         """
         Find the row counts for duplicated rows.
+
         :param dir_path: the directory containing .csv files.
+
         :param dialect: the csv dialect. Consult csv documentation for details.
+
         :param headers_present: Boolean. Does the first row of data contain
                                 the column headers?
+
         :return: A dictionary whose keys are the table names for the primary key tables.
                  Each value of the return dictionary is itself a dictionary.
                  The inner dictionary is keyed by the primary key values encountered
                  in the table, and the value is the count of records in the
                  Excel sheet with this primary key.
                  Row counts smaller than 2 are pruned off, as they aren't duplicates
+
         caveats: Missing files resolve to an empty table, but missing fields (data or primary key) on
                  matching files throw an Exception.
         """
@@ -164,14 +179,21 @@ class CsvTicFactory(freezable_factory(object, "_isFrozen")) :
     def write_directory(self, tic_dat, dir_path, allow_overwrite = False, dialect='excel',
                         write_header = True):
         """
+
         write the ticDat data to a collection of csv files
+
         :param tic_dat: the data object
+
         :param dir_path: the directory in which to write the csv files
+
         :param allow_overwrite: boolean - are we allowed to overwrite existing
                                 files?
+
         :param dialect: the csv dialect. Consult csv documentation for details.
+
         :param write_header: Boolean. Should the header information be written
                              as the first row?
+
         :return:
         """
         verify(csv, "csv needs to be installed to use this subroutine")

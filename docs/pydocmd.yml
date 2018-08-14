@@ -1,0 +1,129 @@
+site_name: Ticdat
+repo_url: https://github.com/opalytics/opalytics-ticdat
+generate:
+- pandatfactory.md:
+  - ticdat.pandatfactory.PanDatFactory
+  - ticdat.pandatfactory.PanDatFactory.add_data_row_predicate
+  - ticdat.pandatfactory.PanDatFactory.add_foreign_key
+  - ticdat.pandatfactory.PanDatFactory.clear_data_type
+  - ticdat.pandatfactory.PanDatFactory.clear_foreign_keys
+  - ticdat.pandatfactory.PanDatFactory.clone
+  - ticdat.pandatfactory.PanDatFactory.copy_from_ampl_variables
+  - ticdat.pandatfactory.PanDatFactory.copy_pan_dat
+  - ticdat.pandatfactory.PanDatFactory.copy_to_ampl
+  - ticdat.pandatfactory.PanDatFactory.create_from_full_schema
+  - ticdat.pandatfactory.PanDatFactory.find_data_row_failures
+  - ticdat.pandatfactory.PanDatFactory.find_data_type_failures
+  - ticdat.pandatfactory.PanDatFactory.find_duplicates
+  - ticdat.pandatfactory.PanDatFactory.find_foreign_key_failures
+  - ticdat.pandatfactory.PanDatFactory.good_pan_dat_object
+  - ticdat.pandatfactory.PanDatFactory.remove_foreign_key_failures
+  - ticdat.pandatfactory.PanDatFactory.schema
+  - ticdat.pandatfactory.PanDatFactory.set_ampl_data
+  - ticdat.pandatfactory.PanDatFactory.set_data_type
+  - ticdat.pandatfactory.PanDatFactory.set_default_value
+  - ticdat.pandatfactory.PanDatFactory.set_default_values
+- pandatio.md:
+  - ticdat.pandatio.CsvPanFactory++
+  - ticdat.pandatio.JsonPanFactory++
+  - ticdat.pandatio.OpalyticsPanFactory++
+  - ticdat.pandatio.SqlPanFactory++
+  - ticdat.pandatio.XlsPanFactory++
+- csvtd.md:
+  - ticdat.csvtd.CsvTicFactory++
+- jsontd.md:
+  - ticdat.jsontd.make_json_dict
+  - ticdat.jsontd.JsonTicFactory++
+- lingo.md:
+  - ticdat.lingo.lingo_run
+  - ticdat.lingo.create_lingo_output_text
+  - ticdat.lingo.create_lingo_text
+  - ticdat.lingo.create_lingo_mod_text
+  - ticdat.lingo.read_lingo_text
+- mdb.md:
+  - ticdat.mdb.MdbTicFactory++
+- model.md:
+  - ticdat.model.Model++
+- opalytics.md:
+  - ticdat.opalytics.OpalyticsTicFactory++
+- opl.md:
+  - ticdat.opl.opl_run
+  - ticdat.opl.create_opl_text
+  - ticdat.opl.create_opl_mod_text
+  - ticdat.opl.create_opl_mod_output_text
+  - ticdat.opl.read_opl_text
+- sqlitetd.md:
+  - ticdat.sqlitetd.SQLiteTicFactory++
+- ticdatfactory.md:
+  - ticdat.ticdatfactory.TicDatFactory.add_data_row_predicate
+  - ticdat.ticdatfactory.TicDatFactory.add_foreign_key
+  - ticdat.ticdatfactory.TicDatFactory.clear_data_type
+  - ticdat.ticdatfactory.TicDatFactory.clear_foreign_keys
+  - ticdat.ticdatfactory.TicDatFactory.clone
+  - ticdat.ticdatfactory.TicDatFactory.copy_from_ampl_variables
+  - ticdat.ticdatfactory.TicDatFactory.copy_tic_dat
+  - ticdat.ticdatfactory.TicDatFactory.copy_to_ampl
+  - ticdat.ticdatfactory.TicDatFactory.copy_to_pandas
+  - ticdat.ticdatfactory.TicDatFactory.create_from_full_schema
+  - ticdat.ticdatfactory.TicDatFactory.enable_foreign_key_links
+  - ticdat.ticdatfactory.TicDatFactory.find_data_row_failures
+  - ticdat.ticdatfactory.TicDatFactory.find_data_type_failures
+  - ticdat.ticdatfactory.TicDatFactory.find_denormalized_sub_table_failures
+  - ticdat.ticdatfactory.TicDatFactory.find_foreign_key_failures
+  - ticdat.ticdatfactory.TicDatFactory.freeze_me
+  - ticdat.ticdatfactory.TicDatFactory.good_tic_dat_object
+  - ticdat.ticdatfactory.TicDatFactory.good_tic_dat_table
+  - ticdat.ticdatfactory.TicDatFactory.obfusimplify
+  - ticdat.ticdatfactory.TicDatFactory.remove_foreign_key_failures
+  - ticdat.ticdatfactory.TicDatFactory.replace_data_type_failures
+  - ticdat.ticdatfactory.TicDatFactory.schema
+  - ticdat.ticdatfactory.TicDatFactory.set_ampl_data
+  - ticdat.ticdatfactory.TicDatFactory.set_data_type
+  - ticdat.ticdatfactory.TicDatFactory.set_default_value
+  - ticdat.ticdatfactory.TicDatFactory.set_default_values
+  - ticdat.ticdatfactory.TicDatFactory.set_generator_tables
+  - ticdat.ticdatfactory.freeze_me
+- utils.md:
+  - ticdat.utils.standard_main
+  - ticdat.utils.verify
+  - ticdat.utils.gurobi_env
+  - ticdat.utils.ampl_format
+  - ticdat.utils.find_denormalized_sub_table_failures
+  - ticdat.utils.Slicer++
+  - ticdat.utils.Sloc++
+  - ticdat.utils.LogFile++
+  - ticdat.utils.Progress++
+- xls.md:
+  - ticdat.xls.XlsTicFactory++
+pages:
+- Home: index.md << ../README.md
+- pandatfactory.py:
+  - PanDatFactory: pandatfactory.md
+- pandatio.py:
+  - CsvPanFactory: pandatio.md
+  - JsonPanFactory: pandatio.md
+  - OpalyticsPanFactory: pandatio.md
+  - SqlPanFactory: pandatio.md
+  - XlsPanFactory: pandatio.md
+- ticdatfactory.py:
+  - TicDatFactory: ticdatfactory.md
+- csvtd.py:
+  - CsvTicFactory: csvtd.md
+- jsontd.py:
+  - JsonTicFactory: jsontd.md
+- mdb.py:
+  - MdbTicFactory: mdb.md
+- opalytics.py:
+  - OpalyticsTicFactory: opalytics.md
+- sqlitetd.py:
+  - SQLiteTicFactory: sqlitetd.md
+- xls.py:
+  - XlsTicFactory: xls.md
+- utils.py:
+  - Utilities: utils.md
+- model.py:
+  - Model: model.md
+- opl.py:
+  - OPL: opl.md
+- lingo.py:
+  - Lingo: lingo.md

@@ -22,7 +22,7 @@ from ticdat import TicDatFactory, standard_main, Model
 
 # ------------------------ define the input schema --------------------------------
 input_schema = TicDatFactory (
- parameters = [["Key"],["Value"]],
+ parameters = [["Parameter"],["Value"]],
  players = [['Player Name'],
             ['Position', 'Average Draft Position', 'Expected Points', 'Draft Status']],
  roster_requirements = [['Position'],
@@ -35,7 +35,7 @@ input_schema = TicDatFactory (
 input_schema.add_foreign_key("players", "roster_requirements", ['Position', 'Position'])
 
 # set data types (optional, but helps with preventing garbage-in, garbage-out)
-input_schema.set_data_type("parameters", "Key", number_allowed = False,
+input_schema.set_data_type("parameters", "Parameter", number_allowed = False,
                           strings_allowed = ["Starter Weight", "Reserve Weight",
                                              "Maximum Number of Flex Starters"])
 input_schema.set_data_type("parameters", "Value", min=0, max=float("inf"),
@@ -60,7 +60,7 @@ input_schema.set_data_type("my_draft_positions", "Draft Position", min=0, max=fl
 
 # ------------------------ define the output schema -------------------------------
 solution_schema = TicDatFactory(
-    parameters = [["Key"],["Value"]],
+    parameters = [["Parameter"],["Value"]],
     my_draft = [['Player Name'], ['Draft Position', 'Position', 'Planned Or Actual',
                                   'Starter Or Reserve']])
 # ---------------------------------------------------------------------------------

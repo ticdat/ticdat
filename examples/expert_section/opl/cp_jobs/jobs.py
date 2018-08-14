@@ -25,12 +25,12 @@ import datetime
 # ------------------------ define the input schema --------------------------------
 # There are three input tables, with 4 primary key fields and 4 data fields.
 input_schema = TicDatFactory (
-    parameters = [["Key"],["Value"]],
+    parameters = [["Parameter"],["Value"]],
     machines = [["Name"],[]],
     jobs = [["Name"],["Machine1","Durations1","Machine2","Durations2"]]
     )
 
-input_schema.set_data_type("parameters", "Key", number_allowed=False, strings_allowed=("Load Duration",))
+input_schema.set_data_type("parameters", "Parameter", number_allowed=False, strings_allowed=("Load Duration",))
 input_schema.set_data_type("parameters", "Value", min=0, max=float("inf"), inclusive_max=False)
 
 input_schema.add_foreign_key("jobs", "machines", ["Machine1", "Name"])

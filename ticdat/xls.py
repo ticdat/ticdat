@@ -29,10 +29,13 @@ _longest_sheet = 30
 
 class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
     """
-    Primary class for reading/writing Excel files with ticDat objects.
+    Primary class for reading/writing Excel files with TicDat objects.
     Your system will need the xlrd package to read .xls and .xlsx files,
     the xlwt package to write .xls files, and the xlsxwriter package to
     write .xlsx files.
+    Don't create this object explicitly. A XlsTicDatFactory will
+    automatically be associated with the xls attribute of the parent
+    TicDatFactory.
     """
     def __init__(self, tic_dat_factory):
         """
@@ -49,16 +52,23 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
                        freeze_it = False):
         """
         Create a TicDat object from an Excel file
+
         :param xls_file_path: An Excel file containing sheets whose names match
                               the table names in the schema.
+
         :param row_offsets: (optional) A mapping from table names to initial
                             number of rows to skip
+
         :param headers_present: Boolean. Does the first row of data contain the
                                 column headers?
+
         :param treat_inf_as_infinity: Boolean. Treat the "inf" string (case insensitive) as
                                                as infinity. Similar for "-inf"
+
         :param freeze_it: boolean. should the returned object be frozen?
+
         :return: a TicDat object populated by the matching sheets.
+
         caveats: Missing sheets resolve to an empty table, but missing fields
                  on matching sheets throw an Exception.
                  Sheet names are considered case insensitive, and white space is replaced
@@ -195,15 +205,20 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
     def find_duplicates(self, xls_file_path, row_offsets={}, headers_present = True):
         """
         Find the row counts for duplicated rows.
+
         :param xls_file_path: An Excel file containing sheets whose names match
                               the table names in the schema (non primary key tables ignored).
+
         :param row_offsets: (optional) A mapping from table names to initial
                             number of rows to skip (non primary key tables ignored)
+
         :param headers_present: Boolean. Does the first row of data contain the
                                 column headers?
+
         caveats: Missing sheets resolve to an empty table, but missing primary fields
                  on matching sheets throw an Exception.
                  Sheet names are considered case insensitive.
+
         :return: A dictionary whose keys are the table names for the primary key tables.
                  Each value of the return dictionary is itself a dictionary.
                  The inner dictionary is keyed by the primary key values encountered
@@ -279,18 +294,23 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
     def write_file(self, tic_dat, file_path, allow_overwrite = False, case_space_sheet_names = False):
         """
         write the ticDat data to an excel file
+
         :param tic_dat: the data object to write (typically a TicDat)
+
         :param file_path: The file path of the excel file to create
                           Needs to end in either ".xls" or ".xlsx"
                           The latter is capable of writing out larger tables,
                           but the former handles infinity seamlessly.
                           If ".xlsx", then be advised that +/- float("inf") will be replaced
                           with "inf"/"-inf"
+
         :param allow_overwrite: boolean - are we allowed to overwrite an
                                 existing file?
               case_space_sheet_names: boolean - make best guesses how to add spaces and upper case
                                       characters to sheet names
+
         :return:
+
         caveats: None may be written out as an empty string. This reflects the behavior of xlwt.
         """
         self._verify_differentiable_sheet_names()

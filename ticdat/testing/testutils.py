@@ -2,7 +2,7 @@ import sys
 import unittest
 import ticdat.utils as utils
 from ticdat import LogFile, Progress
-from ticdat.ticdatfactory import TicDatFactory, _ForeignKey, _ForeignKeyMapping
+from ticdat.ticdatfactory import TicDatFactory, ForeignKey, ForeignKeyMapping
 from ticdat.testing.ticdattestutils import dietData, dietSchema, netflowData, netflowSchema, firesException, memo
 from ticdat.testing.ticdattestutils import sillyMeData, sillyMeSchema, makeCleanDir, fail_to_debugger, flagged_as_run_alone
 from ticdat.testing.ticdattestutils import assertTicDatTablesSame, DEBUG, addNetflowForeignKeys, addDietForeignKeys
@@ -75,8 +75,10 @@ class TestUtils(unittest.TestCase):
 
         dat.position_constraints["no", "no", "no"] = dat.position_constraints[1, 2, 3] = {}
         fk_fails = input_schema.find_foreign_key_failures(input_schema.copy_tic_dat(dat, freeze_it=True))
-        self.assertTrue({(1, 'no'), (2, 'no'), ('no',)} ==  {_.native_values for _ in fk_fails.values()})
-        input_schema.remove_foreign_keys_failures(dat)
+        fk_fails_2 = input_schema.find_foreign_key_failures(dat, verbosity="Low")
+        self.assertTrue({(1, 'no'), (2, 'no'), ('no',)} == {_.native_values for _ in fk_fails.values()} ==
+                        {_[0] for _ in fk_fails_2.values()})
+        input_schema.remove_foreign_key_failures(dat)
         self.assertTrue(input_schema._same_data(dat, orig_dat) and not input_schema.find_foreign_key_failures(dat))
 
         input_schema = TicDatFactory(table_one = [["One", "Two"], []],
@@ -92,7 +94,7 @@ class TestUtils(unittest.TestCase):
         self.assertFalse(input_schema.find_foreign_key_failures(orig_dat))
         dat.table_two[9]=10
         self.assertTrue(input_schema.find_foreign_key_failures(input_schema.copy_tic_dat(dat, freeze_it=True)))
-        input_schema.remove_foreign_keys_failures(dat)
+        input_schema.remove_foreign_key_failures(dat)
         self.assertTrue(input_schema._same_data(dat, orig_dat) and not input_schema.find_foreign_key_failures(dat))
 
 
@@ -113,7 +115,7 @@ class TestUtils(unittest.TestCase):
         dat.child_three.append([1,2,4])
         self.assertTrue(len(input_schema.find_foreign_key_failures(dat)) == 3)
         dat.child_three.pop() # because no PK cannot participate in remove foreign keys
-        input_schema.remove_foreign_keys_failures(dat)
+        input_schema.remove_foreign_key_failures(dat)
         self.assertTrue(input_schema._same_data(dat, orig_dat) and not input_schema.find_foreign_key_failures(dat))
 
         input_schema = TicDatFactory (parent = [["F1", "F2"],["F3"]], child_one = [["F1", "F2", "F3"], []],
@@ -129,7 +131,7 @@ class TestUtils(unittest.TestCase):
         dat.child_three.append([1,2,4])
         self.assertTrue(len(input_schema.find_foreign_key_failures(dat)) == 3)
         dat.child_three.pop() # because no PK cannot participate in remove foreign keys
-        input_schema.remove_foreign_keys_failures(dat)
+        input_schema.remove_foreign_key_failures(dat)
         self.assertTrue(input_schema._same_data(dat, orig_dat) and not input_schema.find_foreign_key_failures(dat))
 
     def testDenormalizedErrors(self):
@@ -387,7 +389,7 @@ class TestUtils(unittest.TestCase):
         tdf = TicDatFactory(**netflowSchema())
         addNetflowForeignKeys(tdf)
         mone, one2one = "many-to-one",  "one-to-one"
-        fk, fkm = _ForeignKey, _ForeignKeyMapping
+        fk, fkm = ForeignKey, ForeignKeyMapping
         self.assertTrue(set(tdf.foreign_keys) ==  {fk("arcs", 'nodes', fkm('source',u'name'), mone),
                             fk("arcs", 'nodes', fkm('destination',u'name'), mone),
                             fk("cost", 'nodes', fkm('source',u'name'), mone),
@@ -512,22 +514,26 @@ class TestUtils(unittest.TestCase):
             badDat1.production["notaline", "widgets"] = [0,1]
             badDat2 = tdf.copy_tic_dat(badDat1)
 
-            fk, fkm = _ForeignKey, _ForeignKeyMapping
+            fk, fkm = ForeignKey, ForeignKeyMapping
             self.assertTrue(tdf.find_foreign_key_failures(badDat1) == tdf.find_foreign_key_failures(badDat2) ==
                             {fk('production', 'lines', fkm('line', 'name'), 'many-to-one'):
+                                 (('notaline',), (('notaline', 'widgets'),))})
+            self.assertTrue(tdf.find_foreign_key_failures(badDat1, verbosity="Low") ==
+                            tdf.find_foreign_key_failures(badDat2, verbosity="Low") ==
+                            {('production', 'lines', ('line', 'name')):
                                  (('notaline',), (('notaline', 'widgets'),))})
             badDat1.lines["notaline"]["plant"] = badDat2.lines["notaline"]["plant"] = "notnewark"
             self.assertTrue(tdf.find_foreign_key_failures(badDat1) == tdf.find_foreign_key_failures(badDat2) ==
                             {fk('lines', 'plants', fkm('plant', 'name'), 'many-to-one'):
                                  (('notnewark',), ('notaline',))})
-            tdf.remove_foreign_keys_failures(badDat1, propagate=False)
-            tdf.remove_foreign_keys_failures(badDat2, propagate=True)
+            tdf.remove_foreign_key_failures(badDat1, propagate=False)
+            tdf.remove_foreign_key_failures(badDat2, propagate=True)
             self.assertTrue(tdf._same_data(badDat2, goodDat) and not tdf.find_foreign_key_failures(badDat2))
             self.assertTrue(tdf.find_foreign_key_failures(badDat1) ==
                     {fk('production', 'lines', fkm('line', 'name'), 'many-to-one'):
                          (('notaline',), (('notaline', 'widgets'),))})
 
-            tdf.remove_foreign_keys_failures(badDat1, propagate=False)
+            tdf.remove_foreign_key_failures(badDat1, propagate=False)
             self.assertTrue(tdf._same_data(badDat1, goodDat) and not tdf.find_foreign_key_failures(badDat1))
 
             _ = len(goodDat.lines)
@@ -588,7 +594,7 @@ class TestUtils(unittest.TestCase):
         ticDat.pt4["nono"]=6.01
         fails1 = tdf.find_foreign_key_failures(ticDat)
         self.assertTrue(fails1)
-        tdf.remove_foreign_keys_failures(ticDat)
+        tdf.remove_foreign_key_failures(ticDat)
         self.assertTrue(tdf._same_data(ticDat, origDat) and not tdf.find_foreign_key_failures(ticDat))
 
         orig_lens = {t:len(getattr(ticDat, t)) for t in tdf.all_tables}
@@ -599,7 +605,7 @@ class TestUtils(unittest.TestCase):
         ticDat.pt5.append((1, "no"))
         fails2 = tdf.find_foreign_key_failures(ticDat)
         self.assertTrue(set(fails1) != set(fails2) and set(fails1).issubset(fails2))
-        tdf.remove_foreign_keys_failures(ticDat)
+        tdf.remove_foreign_key_failures(ticDat)
         self.assertFalse(tdf.find_foreign_key_failures(ticDat))
         self.assertTrue({t:len(getattr(ticDat, t)) for t in tdf.all_tables} == orig_lens)
 
