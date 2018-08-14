@@ -32,7 +32,6 @@ class PanDatFactory(object):
                         of two sub lists ... first primary keys fields, than data fields.
 
         ex:
-
         ```PanDatFactory (categories =  [["name"],["Min Nutrition", "Max Nutrition"]],
                            foods  =  [["Name"],["Cost"]]
                            nutritionQuantities = [["Food", "Category"],["Qty"]])```
@@ -40,7 +39,6 @@ class PanDatFactory(object):
         Use '*' instead of a pair of lists for generic tables
 
         ex:
-
         ```PanDatFactory (typical_table = [["Primary Key Field"],["Data Field"]],
                            generic_table = '*')```
 
