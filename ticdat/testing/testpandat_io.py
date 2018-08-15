@@ -712,8 +712,6 @@ class TestIO(unittest.TestCase):
             td_1 = tdf.TicDat(**{t:[[1, 2, 1], [1, 2, 2], [2, 1, 3], [2, 2, 3], [1, 2, 2], ["new", 1, 2]]
                                 for t in tdf.all_tables})
             td_2 = pdf.copy_to_tic_dat(panDat)
-            import opalytils.pjcutils as pjc
-            pjc.memo(td_1, td_2, panDat)
             self.assertTrue(all(set(getattr(td_1, t)) == set(getattr(td_2, t)) for t in tdf.all_tables))
 
 

@@ -413,7 +413,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
             # this cascades foreign keys downward (i.e. computes implied foreign key relationships)
             curFKs = self._foreign_keys_by_native()
             if not self._complex_fks():
-                for (nativetable, bridgetable), nativebridgemappings in self._foreign_keys.items():
+                for (nativetable, bridgetable), nativebridgemappings in list(self._foreign_keys.items()):
                     for nb_map in nativebridgemappings :
                       for bfk in curFKs.get(bridgetable,()):
                         nativefields = bfk.nativefields()
@@ -449,14 +449,13 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
         For unpickling, first unpickle the pickled dictionary, and then pass it,
         unpacked, to the TicDat constructor.
 
-        Note that this function will be removed in a future release. Use schema instead.
+        (Note that if you want to pickle a TicDatFactory, you can use a similar approach with schema)
 
         :param ticdat: a TicDat object whose data is to be returned as a dict
 
         :return: A dictionary that can either be pickled, or unpacked to a
                 TicDat constructor
         '''
-        print ("Please use schema instead of as_dict")
         verify(not self.generator_tables, "as_dict doesn't work with generator tables.")
         rtn = {}
         dict_tables = {t for t,pk in self.primary_key_fields.items() if pk}
