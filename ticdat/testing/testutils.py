@@ -24,9 +24,9 @@ class TestUtils(unittest.TestCase):
     def _testTdfReproduction(self, tdf):
         def _tdfs_same(tdf, tdf2):
             self.assertTrue(tdf.schema() == tdf2.schema())
-            self.assertTrue(set(tdf.foreign_keys) == set(tdf2.foreign_keys))
             self.assertTrue(tdf.data_types == tdf2.data_types)
             self.assertTrue(tdf.default_values == tdf2.default_values)
+            self.assertTrue(set(tdf.foreign_keys) == set(tdf2.foreign_keys))
         _tdfs_same(tdf, TicDatFactory.create_from_full_schema(tdf.schema(True)))
         _tdfs_same(tdf, TicDatFactory.create_from_full_schema(_deep_anonymize(tdf.schema(True))))
 
@@ -76,8 +76,10 @@ class TestUtils(unittest.TestCase):
         dat.position_constraints["no", "no", "no"] = dat.position_constraints[1, 2, 3] = {}
         fk_fails = input_schema.find_foreign_key_failures(input_schema.copy_tic_dat(dat, freeze_it=True))
         fk_fails_2 = input_schema.find_foreign_key_failures(dat, verbosity="Low")
-        self.assertTrue({(1, 'no'), (2, 'no'), ('no',)} == {_.native_values for _ in fk_fails.values()} ==
-                        {_[0] for _ in fk_fails_2.values()})
+
+        self.assertTrue({(1, 'no'), (2, 'no'), ('no', )} ==
+                        {tuple(sorted(_.native_values, key=str)) for _ in fk_fails.values()} ==
+                        {tuple(sorted(_[0], key=str)) for _ in fk_fails_2.values()})
         input_schema.remove_foreign_key_failures(dat)
         self.assertTrue(input_schema._same_data(dat, orig_dat) and not input_schema.find_foreign_key_failures(dat))
 
@@ -431,11 +433,12 @@ class TestUtils(unittest.TestCase):
         tdf.add_foreign_key("appendageChild", "parentTable", ["ak", "pk"])
         tdf.add_foreign_key("appendageBadChild", "badChild", (("bk2", "bk2"), ("bk1","bk1")))
         fks = tdf.foreign_keys
-        _getfk = lambda t : next(_ for _ in fks if _.native_table == t)
-        self.assertTrue(_getfk("goodChild").cardinality == "many-to-one")
-        self.assertTrue(_getfk("badChild").cardinality == "many-to-one")
-        self.assertTrue(_getfk("appendageChild").cardinality == "one-to-one")
-        self.assertTrue(_getfk("appendageBadChild").cardinality == "one-to-one")
+        def _getfk_cards(t):
+            return {_.cardinality for _ in fks if _.native_table == t}
+        self.assertTrue(_getfk_cards("goodChild") == {"many-to-one"})
+        self.assertTrue(_getfk_cards("appendageChild") == {"one-to-one"})
+        self.assertTrue(_getfk_cards("appendageBadChild") == {"one-to-one"})
+        self.assertTrue(_getfk_cards("badChild") == {"many-to-one", "many-to-many"})
 
         tdf.clear_foreign_keys("appendageBadChild")
         self.assertTrue(tdf.foreign_keys and "appendageBadChild" not in tdf.foreign_keys)
@@ -496,7 +499,12 @@ class TestUtils(unittest.TestCase):
             tdf.add_foreign_key("extraProduction", "production", (("line", "line"), ("product","product")))
             tdf.add_foreign_key("weirdProduction", "production", (("line1", "line"), ("product","product")))
             tdf.add_foreign_key("weirdProduction", "extraProduction", (("line2","line"), ("product","product")))
+
+            # note that the following line fails very inconsistently in Py3. Perhaps 1 out of 10 times, and never
+            # from within ipython, so hard to debug. I suspect it might have something to do with cardinality of
+            # foreign key reporting, which isn't super important. Lets just live with it for now.
             self._testTdfReproduction(tdf)
+
             tdf = clone_me_maybe(tdf)
 
             goodDat = tdf.TicDat()
