@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  
+  <link rel="shortcut icon" href="../img/favicon.ico">
+  <title>PanDatFactory - Ticdat</title>
+  <link href='https://fonts.googleapis.com/css?family=Lato:400,700|Roboto+Slab:400,700|Inconsolata:400,700' rel='stylesheet' type='text/css'>
+
+  <link rel="stylesheet" href="../css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../css/theme_extra.css" type="text/css" />
+  <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/github.min.css">
+  
+  <script>
+    // Current page data
+    var mkdocs_page_name = "PanDatFactory";
+    var mkdocs_page_input_path = "pandatfactory.md";
+    var mkdocs_page_url = null;
+  </script>
+  
+  <script src="../js/jquery-2.1.1.min.js" defer></script>
+  <script src="../js/modernizr-2.8.3.min.js" defer></script>
+  <script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/highlight.min.js"></script>
+  <script>hljs.initHighlightingOnLoad();</script> 
+  
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+      <div class="wy-side-nav-search">
+        <a href=".." class="icon icon-home"> Ticdat</a>
+        <div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+	<ul class="current">
+	  
+          
+            <li class="toctree-l1">
+		
+    <span class="caption-text">Home</span>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <span class="caption-text">pandatfactory.py</span>
+    <ul class="subnav">
+                <li class=" current">
+                    
+    <a class="current" href="./">PanDatFactory</a>
+    <ul class="subnav">
+            
+    </ul>
+                </li>
+    </ul>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <span class="caption-text">pandatio.py</span>
+    <ul class="subnav">
+                <li class="">
+                    
+    <a class="" href="../pandatio/">CsvPanFactory</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../pandatio/">JsonPanFactory</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../pandatio/">OpalyticsPanFactory</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../pandatio/">SqlPanFactory</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../pandatio/">XlsPanFactory</a>
+                </li>
+    </ul>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <span class="caption-text">ticdatfactory.py</span>
+    <ul class="subnav">
+                <li class="">
+                    
+    <a class="" href="../ticdatfactory/">TicDatFactory</a>
+                </li>
+    </ul>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <span class="caption-text">csvtd.py</span>
+    <ul class="subnav">
+                <li class="">
+                    
+    <a class="" href="../csvtd/">CsvTicFactory</a>
+                </li>
+    </ul>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <span class="caption-text">jsontd.py</span>
+    <ul class="subnav">
+                <li class="">
+                    
+    <a class="" href="../jsontd/">JsonTicFactory</a>
+                </li>
+    </ul>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <span class="caption-text">mdb.py</span>
+    <ul class="subnav">
+                <li class="">
+                    
+    <a class="" href="../mdb/">MdbTicFactory</a>
+                </li>
+    </ul>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <span class="caption-text">opalytics.py</span>
+    <ul class="subnav">
+                <li class="">
+                    
+    <a class="" href="../opalytics/">OpalyticsTicFactory</a>
+                </li>
+    </ul>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <span class="caption-text">sqlitetd.py</span>
+    <ul class="subnav">
+                <li class="">
+                    
+    <a class="" href="../sqlitetd/">SQLiteTicFactory</a>
+                </li>
+    </ul>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <span class="caption-text">xls.py</span>
+    <ul class="subnav">
+                <li class="">
+                    
+    <a class="" href="../xls/">XlsTicFactory</a>
+                </li>
+    </ul>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <span class="caption-text">utils.py</span>
+    <ul class="subnav">
+                <li class="">
+                    
+    <a class="" href="../utils/">Utilities</a>
+                </li>
+    </ul>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <span class="caption-text">model.py</span>
+    <ul class="subnav">
+                <li class="">
+                    
+    <a class="" href="../model/">Model</a>
+                </li>
+    </ul>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <span class="caption-text">opl.py</span>
+    <ul class="subnav">
+                <li class="">
+                    
+    <a class="" href="../opl/">OPL</a>
+                </li>
+    </ul>
+	    </li>
+          
+            <li class="toctree-l1">
+		
+    <span class="caption-text">lingo.py</span>
+    <ul class="subnav">
+                <li class="">
+                    
+    <a class="" href="../lingo/">Lingo</a>
+                </li>
+    </ul>
+	    </li>
+          
+        </ul>
+      </div>
+      &nbsp;
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+        <a href="..">Ticdat</a>
+      </nav>
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="..">Docs</a> &raquo;</li>
+    
+      
+        
+          <li>pandatfactory.py &raquo;</li>
+        
+      
+    
+    <li>PanDatFactory</li>
+    <li class="wy-breadcrumbs-aside">
+      
+        <a href="https://github.com/opalytics/opalytics-ticdat/edit/master/docs/pandatfactory.md"
+          class="icon icon-github"> Edit on GitHub</a>
+      
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main">
+            <div class="section">
+              
+                <h1 id="ticdat.pandatfactory.PanDatFactory">PanDatFactory</h1>
+
+<pre><code class="python">PanDatFactory(self, **init_fields)
+</code></pre>
+
+<p>Defines a schema for a collection of pandas.DataFrame objects.
+This class is constructed with a schema. It can be used to generate PanDat objects,
+to write PanDat objects to different file types, or to perform bulk query operations
+to diagnose common data integrity failures.</p>
+<p>Analytical code that uses PanDat objects can be used, without change, on different data
+sources, thus facilitating the "separate model from data" design goal.</p>
+<p>A PanDat object is itself a collection of DataFrames that conform to a predefined schema.</p>
+<p>:param init_fields: a mapping of tables to primary key fields and data fields. Each field listing consists
+                   of two sub lists ... first primary keys fields, than data fields.</p>
+<p>ex:
+   <code>PanDatFactory (categories =  [["name"],["Min Nutrition", "Max Nutrition"]],
+                      foods  =  [["Name"],["Cost"]]
+                      nutritionQuantities = [["Food", "Category"],["Qty"]])</code></p>
+<p>Use '*' instead of a pair of lists for generic tables</p>
+<p>ex:
+   <code>PanDatFactory (typical_table = [["Primary Key Field"],["Data Field"]],
+                      generic_table = '*')</code></p>
+<h1 id="ticdat.pandatfactory.PanDatFactory.add_data_row_predicate">add_data_row_predicate</h1>
+
+<pre><code class="python">PanDatFactory.add_data_row_predicate(self, table, predicate, predicate_name=None)
+</code></pre>
+
+<p>Adds a data row predicate for a table. Row predicates can be used to check for
+sophisticated data integrity problems of the sort that can't be easily handled with
+a data type rule. For example, a min_supply column can be verified to be no larger than
+a max_supply column.</p>
+<p>!!! NB!!!!</p>
+<p><strong>pandas will render None as nan.</strong></p>
+<p><strong>Don't check for None in your predicate functions, use math.isnan instead</strong></p>
+<p>!!!!!!!!!!</p>
+<p>:param table: table in the schema</p>
+<p>:param predicate: A one argument function that accepts a table row as an argument and returns
+                  Truthy if the row is valid and Falsey otherwise. The argument passed to
+                  predicate will be a dict that maps field name to data value for all fields
+                  (both primary key and data field) in the table.
+                  Note - if None is passed as a predicate, then any previously added
+                  predicate matching (table, predicate_name) will be removed.</p>
+<p>:param predicate_name: The name of the predicate. If omitted, the smallest non-colliding
+                       number will be used.</p>
+<p>:return:</p>
+<h1 id="ticdat.pandatfactory.PanDatFactory.add_foreign_key">add_foreign_key</h1>
+
+<pre><code class="python">PanDatFactory.add_foreign_key(self, native_table, foreign_table, mappings)
+</code></pre>
+
+<p>Adds a foreign key relationship to the schema.  Adding a foreign key doesn't block
+the entry of child records that fail to find a parent match. It does make it easy
+to recognize such records (with find_foreign_key_failures()) and to remove such records
+(with remove_foreign_key_failures())</p>
+<p>:param native_table: (aka child table). The table with fields that must match some other table.</p>
+<p>:param foreign_table: (aka parent table). The table providing the matching entries.</p>
+<p>:param mappings: For simple foreign keys, a [native_field, foreign_field] pair.
+                 For compound foreign keys an iterable of [native_field, foreign_field]
+                 pairs.</p>
+<p>:return:</p>
+<h1 id="ticdat.pandatfactory.PanDatFactory.clear_data_type">clear_data_type</h1>
+
+<pre><code class="python">PanDatFactory.clear_data_type(self, table, field)
+</code></pre>
+
+<p>clears the data type for a field. By default, fields don't have types.  Adding a data type doesn't block
+data of the wrong type from being entered. Data types are useful for recognizing errant data entries.
+If no data type is specified (the default) then no errant data will be recognized.</p>
+<p>:param table: table in the schema</p>
+<p>:param field:</p>
+<p>:return:</p>
+<h1 id="ticdat.pandatfactory.PanDatFactory.clear_foreign_keys">clear_foreign_keys</h1>
+
+<pre><code class="python">PanDatFactory.clear_foreign_keys(self, native_table=None)
+</code></pre>
+
+<p>create a PanDatFactory</p>
+<p>:param native_table: optional. The table whose foreign keys should be cleared.
+                     If omitted, all foreign keys are cleared.</p>
+<h1 id="ticdat.pandatfactory.PanDatFactory.clone">clone</h1>
+
+<pre><code class="python">PanDatFactory.clone(self)
+</code></pre>
+
+<p>clones the PanDatFactory</p>
+<p>:return: a clone of the PanDatFactory</p>
+<h1 id="ticdat.pandatfactory.PanDatFactory.copy_from_ampl_variables">copy_from_ampl_variables</h1>
+
+<pre><code class="python">PanDatFactory.copy_from_ampl_variables(self, ampl_variables)
+</code></pre>
+
+<p>copies the solution results from ampl_variables into a new PanDat object</p>
+<p>:param ampl_variables: a dict mapping from (table_name, field_name) -&gt; amplpy.variable.Variable
+                       (amplpy.variable.Variable is the type object returned by
+                        AMPL.getVariable)
+                        table_name should refer to a table in the schema that has
+                        primary key fields.
+                        field_name can refer to a data field for table_name, or it
+                        can be falsey. If the latter, then AMPL variables that
+                        pass the filter (see below) will simply populate the primary key
+                        of the table_name.
+                        Note that by default, only non-zero data is copied over.
+                        If you want to override this filter, then instead of mapping to
+                        amplpy.variable.Variable you should map to a
+                        (amplpy.variable.Variable, filter) where filter accepts a data value
+                        and returns a boolean.</p>
+<p>:return: a deep copy of the ampl_variables into a PanDat object</p>
+<h1 id="ticdat.pandatfactory.PanDatFactory.copy_pan_dat">copy_pan_dat</h1>
+
+<pre><code class="python">PanDatFactory.copy_pan_dat(self, pan_dat)
+</code></pre>
+
+<p>copies the tic_dat object into a new tic_dat object
+performs a deep copy</p>
+<p>:param pan_dat: a pandat object</p>
+<p>:return: a deep copy of the pan_dat argument</p>
+<h1 id="ticdat.pandatfactory.PanDatFactory.copy_to_ampl">copy_to_ampl</h1>
+
+<pre><code class="python">PanDatFactory.copy_to_ampl(self, pan_dat, field_renamings=None, excluded_tables=None)
+</code></pre>
+
+<p>copies the pan_dat object into a new pan_dat object populated with amplpy.DataFrame objects
+performs a deep copy</p>
+<p>:param pan_dat: a PanDat object</p>
+<p>:param field_renamings: dict or None. If fields are to be renamed in the copy, then
+                        a mapping from (table_name, field_name) -&gt; new_field_name
+                        If a data field is to be omitted, then new_field can be falsey
+                        table_name cannot refer to an excluded table. (see below)
+                        field_name doesn't have to refer to a field to an element of
+                        self.data_fields[t], but it doesn't have to refer to a column in
+                        the pan_dat.table_name DataFrame</p>
+<p>:param excluded_tables: If truthy, a list of tables to be excluded from the copy.
+                        Tables without primary key fields are always excluded.</p>
+<p>:return: a deep copy of the tic_dat argument into amplpy.DataFrames</p>
+<h1 id="ticdat.pandatfactory.PanDatFactory.create_from_full_schema">create_from_full_schema</h1>
+
+<pre><code class="python">PanDatFactory.create_from_full_schema(full_schema)
+</code></pre>
+
+<p>create a PanDatFactory complete with default values, data types, and foreign keys</p>
+<p>:param full_schema: a dictionary consistent with the data returned by a call to schema()
+                    with include_ancillary_info = True</p>
+<p>:return: a PanDatFactory reflecting the tables, fields, default values, data types,
+         and foreign keys consistent with the full_schema argument</p>
+<h1 id="ticdat.pandatfactory.PanDatFactory.find_data_row_failures">find_data_row_failures</h1>
+
+<pre><code class="python">PanDatFactory.find_data_row_failures(self, pan_dat, as_table=True)
+</code></pre>
+
+<p>Finds the data row failures for a ticdat object</p>
+<p>:param pan_dat: a pandat object</p>
+<p>:param as_table: boolean - if truthy then the values of the return dictionary will be the
+       predicate failure rows themselves. Otherwise will return the boolean Series that indicates
+       which rows have predicate failures.</p>
+<p>:return: A dictionary constructed as follows:</p>
+<p>The keys are namedtuples with members "table", "predicate_name".</p>
+<p>The values are DataFrames that contain the subset of rows that exhibit data failures
+for this specific table, predicate pair (or the Series that identifies these rows).</p>
+<h1 id="ticdat.pandatfactory.PanDatFactory.find_data_type_failures">find_data_type_failures</h1>
+
+<pre><code class="python">PanDatFactory.find_data_type_failures(self, pan_dat, as_table=True)
+</code></pre>
+
+<p>Finds the data type failures for a pandat object</p>
+<p>:param pan_dat: pandat object</p>
+<p>:param as_table: boolean - if truthy then the values of the return dictionary will be the
+       data type failure rows themselves. Otherwise will return the boolean Series that indicates
+       which rows have data type failures.</p>
+<p>:return: A dictionary constructed as follow:
+         The keys are namedtuples with members "table", "field". Each (table,field) pair
+         has data values that are inconsistent with its data type. (table, field) pairs
+         with no data type at all are never part of the returned dictionary.
+         The values are DataFrames that contain the subset of rows that exhibit data failures
+         for this specific table, field pair (or the boolean Series that identifies these rows).</p>
+<h1 id="ticdat.pandatfactory.PanDatFactory.find_duplicates">find_duplicates</h1>
+
+<pre><code class="python">PanDatFactory.find_duplicates(self, pan_dat, keep='first', as_table=True)
+</code></pre>
+
+<p>Find the duplicated rows based on the primary key fields.</p>
+<p>:param pan_dat: pandat object</p>
+<p>:param keep: 'first': Treat all duplicated rows as duplicates except for the first occurrence.
+             'last': Treat all duplicated rows as duplicates except for the last occurrence.
+             False: Treat all duplicated rows as duplicates</p>
+<p>:param as_table: as_table boolean : if truthy then the values of the return dictionary will be the
+       duplicated rows themselves. Otherwise will return the boolean Series that indicates which rows
+       are duplicated rows.</p>
+<p>:return: A dictionary whose keys are the table names and whose values are duplicated rows (or the
+         Series that identifies these rows)</p>
+<h1 id="ticdat.pandatfactory.PanDatFactory.find_foreign_key_failures">find_foreign_key_failures</h1>
+
+<pre><code class="python">PanDatFactory.find_foreign_key_failures(self, pan_dat, verbosity='High')
+</code></pre>
+
+<p>Finds the foreign key failures for a pandat object</p>
+<p>:param pan_dat: pandat object</p>
+<p>:param verbosity: either "High" or "Low"</p>
+<p>:return: A dictionary constructed as follows:</p>
+<p>The keys are namedtuples with members "native_table", "foreign_table",
+ "mapping", "cardinality".</p>
+<p>The key data matches the arguments to add_foreign_key that constructed the
+ foreign key (with "cardinality" being deduced from the overall schema).</p>
+<p>The values are DataFrames that contain the subset of native table rows that fail to find
+ foreign table matching defined by the associated returned key.</p>
+<p>For verbosity = 'Low' a simpler return object is created that doesn't use namedtuples
+ and omits the foreign key cardinality.</p>
+<h1 id="ticdat.pandatfactory.PanDatFactory.good_pan_dat_object">good_pan_dat_object</h1>
+
+<pre><code class="python">PanDatFactory.good_pan_dat_object(self, data_obj, bad_message_handler=&lt;function &lt;lambda&gt; at 0x11b241f50&gt;)
+</code></pre>
+
+<p>determines if an object is a valid PanDat object for this schema</p>
+<p>:param data_obj: the object to verify</p>
+<p>:param bad_message_handler: a call back function to receive description of any failure message</p>
+<p>:return: True if the dataObj can be recognized as a PanDat data object. False otherwise.</p>
+<h1 id="ticdat.pandatfactory.PanDatFactory.remove_foreign_key_failures">remove_foreign_key_failures</h1>
+
+<pre><code class="python">PanDatFactory.remove_foreign_key_failures(self, pan_dat)
+</code></pre>
+
+<p>Removes foreign key failures (i.e. child records with no parent table record)</p>
+<p>:param pan_dat: pandat object (will be side-effected)</p>
+<p>:return: pan_dat, with the foreign key failures removed
+         Note that all foreign key removals are cascading. When a child removal results in
+         new foreign key failures, those failures are removed as well.</p>
+<h1 id="ticdat.pandatfactory.PanDatFactory.schema">schema</h1>
+
+<pre><code class="python">PanDatFactory.schema(self, include_ancillary_info=False)
+</code></pre>
+
+<p>Return a dictionary that summarizes the schema.</p>
+<p>:param include_ancillary_info: if True, include all the foreign key, default, and data type information
+                               as well. Otherwise, just return table-fields dictionary</p>
+<p>:return: a dictionary with table name mapping to a list of lists
+         defining primary key fields and data fields
+         If include_ancillary_info, this table-fields dictionary is just one entry in a more comprehensive
+         dictionary.</p>
+<h1 id="ticdat.pandatfactory.PanDatFactory.set_ampl_data">set_ampl_data</h1>
+
+<pre><code class="python">PanDatFactory.set_ampl_data(self, ampl_dat, ampl, table_to_set_name=None)
+</code></pre>
+
+<p>performs bulk setData on the AMPL-esque first argument.</p>
+<p>:param ampl_dat: an AmplTicDat object created by calling copy_to_ampl</p>
+<p>:param ampl: an amplpy.AMPL object</p>
+<p>:param table_to_set_name: a mapping of table_name to ampl set name</p>
+<p>:return:</p>
+<h1 id="ticdat.pandatfactory.PanDatFactory.set_data_type">set_data_type</h1>
+
+<pre><code class="python">PanDatFactory.set_data_type(self, table, field, number_allowed=True, inclusive_min=True, inclusive_max=False, min=0, max=inf, must_be_int=False, strings_allowed=(), nullable=False)
+</code></pre>
+
+<p>sets the data type for a field. By default, fields don't have types. Adding a data type doesn't block
+data of the wrong type from being entered. Data types are useful for recognizing errant data entries
+with find_data_type_failures(). Errant data entries can be replaced with replace_data_type_failures().</p>
+<p>:param table: a table in the schema</p>
+<p>:param field: a data field for this table</p>
+<p>:param number_allowed: boolean does this field allow numbers?</p>
+<p>:param inclusive_min: boolean : if number allowed, is the min inclusive?</p>
+<p>:param inclusive_max: boolean : if number allowed, is the max inclusive?</p>
+<p>:param min: if number allowed, the minimum value</p>
+<p>:param max: if number allowed, the maximum value</p>
+<p>:param must_be_int: boolean : if number allowed, must the number be integral?</p>
+<p>:param strings_allowed: if a collection - then a list of the strings allowed.
+                        The empty collection prohibits strings.
+                        If a "*", then any string is accepted.
+:param nullable : boolean : can this value contain null (aka None aka nan (since pandas treats null as nan))</p>
+<p>:return:</p>
+<h1 id="ticdat.pandatfactory.PanDatFactory.set_default_value">set_default_value</h1>
+
+<pre><code class="python">PanDatFactory.set_default_value(self, table, field, default_value)
+</code></pre>
+
+<p>sets the default value for a specific field</p>
+<p>:param table: a table in the schema</p>
+<p>:param field: a field in the table</p>
+<p>:param default_value: the default value to apply</p>
+<p>:return:</p>
+<h1 id="ticdat.pandatfactory.PanDatFactory.set_default_values">set_default_values</h1>
+
+<pre><code class="python">PanDatFactory.set_default_values(self, **tableDefaults)
+</code></pre>
+
+<p>sets the default values for the fields</p>
+<p>:param tableDefaults:
+     A dictionary of named arguments. Each argument name (i.e. each key) should be a table name
+     Each value should itself be a dictionary mapping data field names to default values</p>
+<p>Ex:</p>
+<p><code>tdf.set_default_values(categories = {"minNutrition":0, "maxNutrition":float("inf")},
+                 foods = {"cost":0}, nutritionQuantities = {"qty":0})</code></p>
+<p>:return:</p>
+              
+            </div>
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="../pandatio/" class="btn btn-neutral float-right" title="CsvPanFactory">Next <span class="icon icon-circle-arrow-right"></span></a>
+      
+      
+        <a href=".." class="btn btn-neutral" title="Home"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+    
+  </div>
+
+  Built with <a href="http://www.mkdocs.org">MkDocs</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+      
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" style="cursor: pointer">
+    <span class="rst-current-version" data-toggle="rst-current-version">
+      
+          <a href="https://github.com/opalytics/opalytics-ticdat/" class="fa fa-github" style="float: left; color: #fcfcfc"> GitHub</a>
+      
+      
+        <span><a href=".." style="color: #fcfcfc;">&laquo; Previous</a></span>
+      
+      
+        <span style="margin-left: 15px"><a href="../pandatio/" style="color: #fcfcfc">Next &raquo;</a></span>
+      
+    </span>
+</div>
+    <script>var base_url = '..';</script>
+    <script src="../js/theme.js" defer></script>
+      <script src="../search/main.js" defer></script>
+
+</body>
+</html>
