@@ -2,6 +2,8 @@ Repository for amplpy examples.
 
 These examples use `PanDatFactory` to connect `amplpy` seamlessly with `pandas`. This is our recommended best practice for OR practitioners looking to combine optimization with Python.
 
+Note that these validate input data integrity with both AMPL and `ticdat` code. See [here](https://github.com/opalytics/opalytics-ticdat/wiki/ticdat-and-Optimization-Engines#input-data-integrity-checking-with-ticdat-and-ampl) for more information.
+
  * diet - standard diet example. Easiest example.
  * netflow - standard multi-commodity network flow problem. Second easiest example.
  * fantop - fantasy football example. See [here](https://www.linkedin.com/pulse/fantasy-footballers-nerds-too-peter-cacioppi/) for more information. This is a good example of using `pandas` for pre and post solve data munging.
