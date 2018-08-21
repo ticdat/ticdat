@@ -687,7 +687,9 @@ class PanDatFactory(object):
             joined = child.join(parent, rsuffix=magic_field)
             bad_rows = set(joined[joined[magic_field] != True][magic_field*2])
             if bad_rows:
-                # for weird reasons I can't totally figure out, need to cast to list
+                # I'm casting to list here because child is a copy that doesn't have the original index
+                # This is fixable, (i.e. we could return a Series with an index matching the original child table)
+                # but the fix isn't high priority.
                 rtn[fk] = list(child.apply(lambda row: row[magic_field*2] in bad_rows, axis=1))
         return rtn
     def remove_foreign_key_failures(self, pan_dat):
