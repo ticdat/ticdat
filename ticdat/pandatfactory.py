@@ -618,13 +618,18 @@ class PanDatFactory(object):
                 if where_bad_rows.any():
                     rtn[TPN(tbl, pn)] = _table[where_bad_rows].copy() if as_table else where_bad_rows
         return rtn
-    def find_foreign_key_failures(self, pan_dat, verbosity="High"):
+    def find_foreign_key_failures(self, pan_dat, verbosity="High", as_table=True):
         """
         Finds the foreign key failures for a pandat object
 
         :param pan_dat: pandat object
 
         :param verbosity: either "High" or "Low"
+
+        :param as_table: as_table boolean : if truthy then the values of the return dictionary will be the
+               duplicated rows themselves. Otherwise will return the a boolean list that indicates which rows
+               are duplicated rows. (For technical reasons, not returning a boolean Series like the
+               other find functions)
 
         :return: A dictionary constructed as follows:
 
@@ -635,7 +640,8 @@ class PanDatFactory(object):
          foreign key (with "cardinality" being deduced from the overall schema).
 
          The values are DataFrames that contain the subset of native table rows that fail to find
-         foreign table matching defined by the associated returned key.
+         the foreign table matching defined by the associated returned key (or the
+         list that identifies these rows).
 
          For verbosity = 'Low' a simpler return object is created that doesn't use namedtuples
          and omits the foreign key cardinality.
@@ -646,7 +652,7 @@ class PanDatFactory(object):
         rtn = {}
         for fk, rows in self._find_foreign_key_failure_rows(pan_dat).items():
             native, foreign, mappings, card = fk
-            rtn[fk] = getattr(pan_dat, native)[rows]
+            rtn[fk] = getattr(pan_dat, native)[rows] if as_table else rows
         if verbosity == "Low":
             rtn = {tuple(k[:2]) + (tuple(k[2]),): v for k,v in rtn.items()}
         return rtn
@@ -681,6 +687,7 @@ class PanDatFactory(object):
             joined = child.join(parent, rsuffix=magic_field)
             bad_rows = set(joined[joined[magic_field] != True][magic_field*2])
             if bad_rows:
+                # for weird reasons I can't totally figure out, need to cast to list
                 rtn[fk] = list(child.apply(lambda row: row[magic_field*2] in bad_rows, axis=1))
         return rtn
     def remove_foreign_key_failures(self, pan_dat):
