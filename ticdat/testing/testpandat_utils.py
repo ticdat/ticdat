@@ -204,8 +204,10 @@ class TestUtils(unittest.TestCase):
         self.assertFalse(input_schema._same_data(orig_pan_dat, new_pan_dat))
         fk_fails = input_schema.find_foreign_key_failures(new_pan_dat)
         fk_fails_2 = input_schema.find_foreign_key_failures(new_pan_dat, verbosity="Low")
+        fk_fails_3 = input_schema.find_foreign_key_failures(new_pan_dat, verbosity="Low", as_table=False)
         self.assertTrue({tuple(k)[:2] + (tuple(k[2]),): len(v) for k,v in fk_fails.items()} ==
                         {k:len(v) for k,v in fk_fails_2.items()} ==
+                        {k:v.count(True) for k,v in fk_fails_3.items()} ==
                         {('position_constraints', 'innings', ("Inning Group", "Inning Group")): 2,
                          ('position_constraints', 'positions', ("Position Group", "Position Group")): 2,
                          ('position_constraints', 'roster', ("Grade", "Grade")): 1})
