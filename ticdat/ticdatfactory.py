@@ -768,7 +768,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
          if self.primary_key_fields.get(table_name, None) and containerish(data_table) \
                  and not dictish(data_table) and not utils.stringish(data_table) \
                  and not (utils.DataFrame and isinstance(data_table, utils.DataFrame)) \
-                 and not (pd.Series and isinstance(data_table, pd.Series)):
+                 and not (pd and isinstance(data_table, pd.Series)):
              tdf = TicDatFactory(**{table_name:[[], list(self.primary_key_fields[table_name]) +
                                                     list(self.data_fields.get(table_name, []))]})
              return tdf.good_tic_dat_table(data_table, table_name, bad_message_handler)
