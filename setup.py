@@ -12,8 +12,8 @@ setup(
 	long_description_content_type='text/markdown',
 	license = 'BSD 2-Clause',
 	author = 'Opalytics Inc',
-	author_email= 'pcacioppi@opalytics.com',
-	maintainer_email = 'snelson@opalytics.com',
+	author_email= 'peter.cacioppi@accenture.com',
+	maintainer_email = 'sam.s.nelson@accenture.com',
 	url = 'https://github.com/opalytics/opalytics-ticdat',
 	classifiers = [
 		"Development Status :: 5 - Production/Stable",
