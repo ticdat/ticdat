@@ -141,7 +141,7 @@ class JsonPanFactory(freezable_factory(object, "_isFrozen")):
         self._isFrozen = True
     def create_pan_dat(self, path_or_buf, fill_missing_fields=False, orient='split', **kwargs):
         """
-        Create a PanDat object from a SQLite database file
+        Create a PanDat object from a JSON file or string
 
         :param path_or_buf:  a valid JSON string or file-like
 
@@ -270,7 +270,7 @@ class CsvPanFactory(freezable_factory(object, "_isFrozen")):
         self._isFrozen = True
     def create_pan_dat(self, dir_path, fill_missing_fields=False, **kwargs):
         """
-        Create a PanDat object from a SQLite database file
+        Create a PanDat object from a directory of csv files.
 
         :param db_file_path: the directory containing the .csv files.
 
