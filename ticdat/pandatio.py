@@ -93,7 +93,7 @@ class OpalyticsPanFactory(freezable_factory(object, "_isFrozen")) :
 
         tms = {k:v[0] for k,v in self._find_table_matchings(inputset).items()}
         ia = {}
-        if "includeActive" in inspect.getargspec(inputset.getTable)[0]:
+        if "includeActive" in inspect.getfullargspec(inputset.getTable)[0]:
             ia = {"includeActive": not raw_data}
         rtn = self.pan_dat_factory.PanDat(**{t:inputset.getTable(tms[t], **ia) for t in tms})
         for t in self.pan_dat_factory.all_tables:
@@ -135,7 +135,7 @@ class JsonPanFactory(freezable_factory(object, "_isFrozen")):
         :return:
         """
         self.pan_dat_factory = pan_dat_factory
-        to_json_args = inspect.getargspec(pd.DataFrame.to_json).args
+        to_json_args = inspect.getfullargspec(pd.DataFrame.to_json).args
         assert "orient" in to_json_args
         self._modern_pandas = "index" in to_json_args
         self._isFrozen = True

@@ -548,7 +548,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
                         return super(TicDatDict, self).__getitem__(item)
                 assert dictish(TicDatDict)
                 return TicDatDict
-            class TicDatDataList(clt.MutableSequence):
+            class TicDatDataList(clt.abc.MutableSequence):
                 def __init__(self, *_args):
                     self._list = list()
                     self.extend(list(_args))

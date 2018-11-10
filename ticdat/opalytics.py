@@ -109,7 +109,7 @@ class OpalyticsTicFactory(freezable_factory(object, "_isFrozen")) :
 
         tms = {k:v[0] for k,v in self._find_table_matchings(inputset).items()}
         ia = {}
-        if "includeActive" in inspect.getargspec(inputset.getTable)[0]:
+        if "includeActive" in inspect.getfullargspec(inputset.getTable)[0]:
             ia = {"includeActive": not raw_data}
         tl = lambda t: self._table_as_lists(t, inputset.getTable(tms[t], **ia))
         rtn = self.tic_dat_factory.TicDat(**{t:tl(t) for t in tms})
