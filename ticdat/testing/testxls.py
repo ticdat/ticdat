@@ -428,11 +428,12 @@ class TestXls(unittest.TestCase):
         tdf = TicDatFactory(**{prepend+t:v for t,v in dietSchema().items()})
         ticDat = tdf.freeze_me(tdf.TicDat(**{t:getattr(dietData(),t.replace(prepend, ""))
                                              for t in tdf.primary_key_fields}))
-        filePath = os.path.join(_scratchDir, "longname.xls")
-        tdf.xls.write_file(ticDat, filePath)
-        self.assertFalse(tdf.xls.find_duplicates(filePath))
-        ticDat2 = tdf.xls.create_tic_dat(filePath)
-        self.assertTrue(tdf._same_data(ticDat, ticDat2))
+        for ext in [".xls", ".xlsx"]:
+            filePath = os.path.join(_scratchDir, f"longname{ext}")
+            tdf.xls.write_file(ticDat, filePath)
+            self.assertFalse(tdf.xls.find_duplicates(filePath))
+            ticDat2 = tdf.xls.create_tic_dat(filePath)
+            self.assertTrue(tdf._same_data(ticDat, ticDat2))
 
 _scratchDir = TestXls.__name__ + "_scratch"
 

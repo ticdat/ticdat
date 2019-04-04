@@ -846,7 +846,7 @@ class Progress(object):
         verify(stringish(theme), "type_ needs to be string")
         verify(all(map(numericish, (lower_bound, upper_bound))),
                "lower_bound, upper_bound need to be numeric")
-        verify(lower_bound * 0.99999 <= upper_bound,
+        verify(lower_bound - abs(lower_bound) * .00001 <= upper_bound,
                "lower_bound can't be bigger than upper_bound")
         if not self._quiet:
              print("%s:%s:%s"%(theme.ljust(30), "{:.5f}".format(lower_bound).ljust(20),
