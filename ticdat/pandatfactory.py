@@ -471,7 +471,6 @@ class PanDatFactory(object):
         self.sql = pandatio.SqlPanFactory(self)
         self.csv = pandatio.CsvPanFactory(self)
         self.json = pandatio.JsonPanFactory(self)
-        self.opalytics = pandatio.OpalyticsPanFactory(self)
 
     def good_pan_dat_object(self, data_obj, bad_message_handler = lambda x : None):
         """

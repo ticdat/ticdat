@@ -151,7 +151,7 @@ class MdbTicFactory(freezable_factory(object, "_isFrozen")) :
             with _connect(_connection_str(mdb_file_path)) as _:
                 pass
         except Exception as e:
-            raise TDE("Unable to open %s as MS Access file : %s"%(mdb_file_path, e.message))
+            raise TDE("Unable to open %s as MS Access file : %s"%(mdb_file_path, e))
         table_names = self._get_table_names(mdb_file_path, tables)
         with _connect(_connection_str(mdb_file_path)) as con:
             for table in tables:

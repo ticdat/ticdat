@@ -173,7 +173,7 @@ class SQLiteTicFactory(freezable_factory(object, "_isFrozen")) :
             with sql.connect(db_file_path) as _:
                 pass
         except Exception as e:
-            raise TDE("Unable to open %s as SQLite file : %s"%(db_file_path, e.message))
+            raise TDE("Unable to open %s as SQLite file : %s"%(db_file_path, e))
         table_names = self._get_table_names(db_file_path, tables)
         with sql.connect(db_file_path) as con:
             for table in tables :

@@ -764,7 +764,7 @@ class Sloc(object):
 
 class LogFile(object) :
     """
-    Utility class for writing log files to the Opalytics Cloud Platform.
+    Utility class for writing log files.
     Also enables writing on-the-fly tables into log files.
     """
     def __init__(self, path):
@@ -790,9 +790,7 @@ class LogFile(object) :
                     iterables are of length num_cols.
         :param formatter: a function used to turn column entries into strings
         :param max_write: the maximum number of table entries to write
-                          to the actual log file. In the Opalytics Cloud Platform,
-                          the log file will link to a scrollable, sortable grid
-                          with all the table entries.
+                          to the actual log file.
         :return:
         """
         verify(containerish(seq) and all(map(containerish, seq)),
@@ -818,8 +816,7 @@ class LogFile(object) :
 
 class Progress(object):
     """
-    Utility class for indicating progress to the Opalytics Cloud Platform.
-    Also enables writing on-the-fly tables into log files.
+    Utility class for indicating progress.
     """
     def __init__(self, quiet = False):
         self._quiet = quiet

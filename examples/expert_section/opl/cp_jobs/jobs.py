@@ -1,7 +1,3 @@
-#!/usr/bin/python
-
-# Copyright 2015, 2016, 2017 Opalytics, Inc.
-#
 # Constraint programming example based on https://ibm.co/2rGVyet
 
 # Implement core functionality needed to achieve modularity.

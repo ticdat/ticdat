@@ -105,7 +105,7 @@ class JsonTicFactory(freezable_factory(object, "_isFrozen")) :
                 jdict = json.load(fp)
         except Exception as e:
             raise TicDatError("Unable to interpret %s as json file : %s"%
-                              (json_file_path, e.message))
+                              (json_file_path, e))
         verify(dictish(jdict), "%s failed to load a dictionary"%json_file_path)
         verify(all(map(stringish, jdict)),
                "The dictionary loaded from %s isn't indexed by strings"%json_file_path)

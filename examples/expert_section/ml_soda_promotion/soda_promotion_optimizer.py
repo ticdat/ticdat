@@ -1,8 +1,3 @@
-#!/usr/bin/python
-
-# Copyright 2017 Opalytics, Inc.
-#
-
 # Solves a simple product-promotion optimization problem. The objective is to maximize
 # the total expected sales of a series of products. In order to prevent cannibalization,
 # there are restrictions on the total number of promotions for a given product family.

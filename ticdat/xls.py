@@ -126,7 +126,7 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
         try :
             book = xlrd.open_workbook(xls_file_path)
         except Exception as e:
-            raise TicDatError("Unable to open %s as xls file : %s"%(xls_file_path, e.message))
+            raise TicDatError("Unable to open %s as xls file : %s"%(xls_file_path, e))
         sheets = defaultdict(list)
         for table, sheet in product(all_tables, book.sheets()) :
             if table.lower()[:_longest_sheet] == sheet.name.lower().replace(' ', '_')[:_longest_sheet]:
