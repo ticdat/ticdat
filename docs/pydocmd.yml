@@ -1,5 +1,5 @@
 site_name: Ticdat
-repo_url: https://github.com/opalytics/opalytics-ticdat
+repo_url: https://github.com/ticdat/ticdat
 generate:
 - pandatfactory.md:
   - ticdat.pandatfactory.PanDatFactory
@@ -26,7 +26,6 @@ generate:
 - pandatio.md:
   - ticdat.pandatio.CsvPanFactory++
   - ticdat.pandatio.JsonPanFactory++
-  - ticdat.pandatio.OpalyticsPanFactory++
   - ticdat.pandatio.SqlPanFactory++
   - ticdat.pandatio.XlsPanFactory++
 - csvtd.md:
@@ -44,8 +43,6 @@ generate:
   - ticdat.mdb.MdbTicFactory++
 - model.md:
   - ticdat.model.Model++
-- opalytics.md:
-  - ticdat.opalytics.OpalyticsTicFactory++
 - opl.md:
   - ticdat.opl.opl_run
   - ticdat.opl.create_opl_text
@@ -103,7 +100,6 @@ pages:
 - pandatio.py:
   - CsvPanFactory: pandatio.md
   - JsonPanFactory: pandatio.md
-  - OpalyticsPanFactory: pandatio.md
   - SqlPanFactory: pandatio.md
   - XlsPanFactory: pandatio.md
 - ticdatfactory.py:
@@ -114,8 +110,6 @@ pages:
   - JsonTicFactory: jsontd.md
 - mdb.py:
   - MdbTicFactory: mdb.md
-- opalytics.py:
-  - OpalyticsTicFactory: opalytics.md
 - sqlitetd.py:
   - SQLiteTicFactory: sqlitetd.md
 - xls.py:
