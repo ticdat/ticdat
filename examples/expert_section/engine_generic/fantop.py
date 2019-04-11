@@ -1,5 +1,5 @@
 #
-# Author: Pete Cacioppi Opalytics.com https://lnkd.in/bUhfyNn
+# Author: Pete Cacioppi https://lnkd.in/bUhfyNn
 #
 # Solves a fantasy football drafting problem. Tries to maximize the weighted
 # expected points of a draft, while obeying min/max restrictions for different

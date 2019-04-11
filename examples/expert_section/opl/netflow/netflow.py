@@ -1,7 +1,3 @@
-#!/usr/bin/python
-
-# Copyright 2015, 2016 Opalytics, Inc.
-
 # Solve a multi-commodity flow problem as python package.
 
 # Implement core functionality needed to achieve modularity.

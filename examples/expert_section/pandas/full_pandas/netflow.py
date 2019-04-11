@@ -1,9 +1,3 @@
-#!/usr/bin/python
-
-# Copyright 2015, Opalytics, Inc.
-#
-# edited with permission from Gurobi Optimization, Inc.
-
 # Solve a multi-commodity flow problem as python package.
 # This version of the file uses pandas both for table and for complex data
 # manipulation. There is no slicing or iterating over indexes.

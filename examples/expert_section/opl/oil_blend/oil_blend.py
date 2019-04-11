@@ -1,8 +1,3 @@
-#!/usr/bin/python
-
-# Copyright 2017 Opalytics, Inc.
-#
-
 # Solves the oil blending problem defined at https://goo.gl/kqXmQE
 
 # Implement core functionality needed to achieve modularity.

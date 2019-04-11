@@ -1,6 +1,5 @@
 #
-# This example demonstrates a script that is capable of fully exploiting all the bells and
-# whistles of the Opalytics Cloud Platform. It pre-diagnoses infeasibility conditions and
+# This example demonstrates a script that  pre-diagnoses infeasibility conditions and
 # records them in a log file. It also keeps track of the MIP progress, and allows for the user
 # to terminate the solve prior to achieving the "a priori" goal for the optimization gap.
 #
@@ -178,13 +177,13 @@ def solve(dat, out, err, progress):
     progress.numerical_progress("Core Optimization", 100)
 
     if not hasattr(m, "status"):
-        print "missing status - likely premature termination"
+        print("missing status - likely premature termination")
         return
     for failStr,grbkey in (("inf_or_unbd", gu.GRB.INF_OR_UNBD),
                            ("infeasible", gu.GRB.INFEASIBLE),
                            ("unbounded", gu.GRB.UNBOUNDED)):
          if m.status == grbkey:
-            print "Optimization failed due to model status of %s"%failStr
+            print("Optimization failed due to model status of %s"%failStr)
             return
 
     if m.status == gu.GRB.INTERRUPTED:
@@ -228,15 +227,15 @@ def percent_error(lb, ub):
 # when run from the command line, will read/write json/xls/csv/db/mdb files
 if __name__ == "__main__":
     if os.path.exists("cog.stop"):
-        print "Removing the cog.stop file so that solve can proceed."
-        print "Add cog.stop whenever you want to stop the optimization"
+        print("Removing the cog.stop file so that solve can proceed.")
+        print("Add cog.stop whenever you want to stop the optimization")
         os.remove("cog.stop")
 
     class CogStopProgress(Progress):
         def mip_progress(self, theme, lower_bound, upper_bound):
             super(CogStopProgress, self).mip_progress(theme, lower_bound, upper_bound)
-            print "%s:%s:%s"%(theme.ljust(30), "Percent Error".ljust(20),
-                              percent_error(lower_bound, upper_bound))
+            print("%s:%s:%s"%(theme.ljust(30), "Percent Error".ljust(20),
+                              percent_error(lower_bound, upper_bound)))
             # return False (to stop optimization) if the cog.stop file exists
             return not os.path.exists("cog.stop")
 
