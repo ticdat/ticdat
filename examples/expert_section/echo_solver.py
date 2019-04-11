@@ -1,8 +1,3 @@
-#!/usr/bin/python
-
-# Copyright 2015, 2016, 2017 Opalytics, Inc.
-#
-
 # Simple toy solver to begin playing around with Python and ticdat.
 # This solver does nothing but validate the input data passed sanity checks,
 # and writes this same data back out as the 'solution'. This solver serves

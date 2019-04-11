@@ -15,7 +15,6 @@ import ticdat.csvtd as csv
 import ticdat.sqlitetd as sql
 import ticdat.mdb as mdb
 import ticdat.jsontd as json
-import ticdat.opalytics as opalytics
 import sys
 try:
     import amplpy
@@ -724,7 +723,6 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
         self.sql = sql.SQLiteTicFactory(self)
         self.mdb = mdb.MdbTicFactory(self)
         self.json = json.JsonTicFactory(self)
-        self.opalytics = opalytics.OpalyticsTicFactory(self)
         self._prepends = {}
         self._isFrozen=True
 
