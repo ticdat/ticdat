@@ -23,7 +23,7 @@ class TestMdb(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         tdmdb._dbq = _orig_dbq
-        if am_on_windows:  # working around issue opalytics/opalytics-ticdat#153
+        if am_on_windows:  # working around issue ticdat/ticdat#1
             try:
                 shutil.rmtree(_scratchDir)
             except:
@@ -171,7 +171,7 @@ class TestMdb(unittest.TestCase):
 
         ticDat.a["theboger"] = (1, None, "twelve")
         if am_on_windows:
-            filePath = filePath.replace("silly.mdb", "silly_2.mdb")  # working around issue opalytics/opalytics-ticdat#153
+            filePath = filePath.replace("silly.mdb", "silly_2.mdb")  # working around issue ticdat/ticdat#1
         tdf.mdb.write_file(ticDat, makeCleanSchema())
         ticDatNone = tdf.mdb.create_tic_dat(filePath, freeze_it=True)
         self.assertTrue(tdf._same_data(ticDat, ticDatNone))

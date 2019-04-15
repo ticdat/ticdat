@@ -19,7 +19,7 @@ class TestSql(unittest.TestCase):
         makeCleanDir(_scratchDir)
     @classmethod
     def tearDownClass(cls):
-        if am_on_windows: # working around issue opalytics/opalytics-ticdat#153
+        if am_on_windows: # working around issue ticdat/ticdat#1
             try:
                 shutil.rmtree(_scratchDir)
             except:
@@ -286,7 +286,7 @@ class TestSql(unittest.TestCase):
         self.assertTrue("table d" in self.firesException(lambda  : tdf6.sql.create_tic_dat(filePath)))
         ticDat.a["theboger"] = (1, None, 12)
         if am_on_windows:
-            filePath = filePath.replace("silly.db", "silly_2.db") # working around issue opalytics/opalytics-ticdat#153
+            filePath = filePath.replace("silly.db", "silly_2.db") # working around issue ticdat/ticdat#1
         tdf.sql.write_db_data(ticDat, makeCleanPath(filePath))
         ticDatNone = tdf.sql.create_tic_dat(filePath, freeze_it=True)
         self.assertTrue(tdf._same_data(ticDat, ticDatNone))

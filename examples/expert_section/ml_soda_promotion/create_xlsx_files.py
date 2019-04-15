@@ -1,7 +1,5 @@
 # Running this script will generate the .xlsx files and thus allow you to reproduce the
-# results in beer_promotion.ipynb. Also generates optimizer_only_test_input.xlsx for exercising
-# soda_promotion_optimizer.py and predict_then_optimize_super_bowl.xlsx for exercising the
-# pipelined predictor app on the Opalytics Cloud Platform.
+# results in soda_promotion.ipynb.
 
 from ticdat import TicDatFactory
 tdfHist = TicDatFactory(data =[[],

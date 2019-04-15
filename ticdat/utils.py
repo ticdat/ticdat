@@ -116,8 +116,8 @@ def standard_main(input_schema, solution_schema, solve):
            all(isinstance(_, ticdat.PanDatFactory) for _ in (input_schema, solution_schema)),
                "input_schema and solution_schema both need to be TicDatFactory (or PanDatFactory) objects")
     verify(callable(solve), "solve needs to be a function")
-    _args = inspect.getargspec(solve).args
-    verify(_args and len(_args) == 1, "solve needs to take just one argument")
+    _args = inspect.getfullargspec(solve).args
+    verify(_args, "solve needs at least one argument")
     if all(isinstance(_, ticdat.TicDatFactory) for _ in (input_schema, solution_schema)):
         return _standard_main_ticdat(input_schema, solution_schema, solve)
     return _standard_main_pandat(input_schema, solution_schema, solve)
@@ -271,14 +271,13 @@ except:
     gu = None
 
 def gurobi_env(*args, **kwargs):
-    '''
+    """
     Return a gurobipy.Env object for use in constructing gurobipy.Model() objects.
     On an ordinary Python installation, this is a pass through to gurobipy.Env()
-    Needed on Opalytics Cloud Platform
+    Useful for Gurobi licensing/DRM issues.
 
     :return: A gurobipy.Env object.
-
-    '''
+    """
     verify(gu, "gurobipy is not installed")
     if drm:
         return drm.gurobi_env()
@@ -765,7 +764,7 @@ class Sloc(object):
 
 class LogFile(object) :
     """
-    Utility class for writing log files to the Opalytics Cloud Platform.
+    Utility class for writing log files.
     Also enables writing on-the-fly tables into log files.
     """
     def __init__(self, path):
@@ -791,9 +790,7 @@ class LogFile(object) :
                     iterables are of length num_cols.
         :param formatter: a function used to turn column entries into strings
         :param max_write: the maximum number of table entries to write
-                          to the actual log file. In the Opalytics Cloud Platform,
-                          the log file will link to a scrollable, sortable grid
-                          with all the table entries.
+                          to the actual log file.
         :return:
         """
         verify(containerish(seq) and all(map(containerish, seq)),
@@ -819,8 +816,7 @@ class LogFile(object) :
 
 class Progress(object):
     """
-    Utility class for indicating progress to the Opalytics Cloud Platform.
-    Also enables writing on-the-fly tables into log files.
+    Utility class for indicating progress.
     """
     def __init__(self, quiet = False):
         self._quiet = quiet
@@ -847,7 +843,7 @@ class Progress(object):
         verify(stringish(theme), "type_ needs to be string")
         verify(all(map(numericish, (lower_bound, upper_bound))),
                "lower_bound, upper_bound need to be numeric")
-        verify(lower_bound * 0.99999 <= upper_bound,
+        verify(lower_bound - abs(lower_bound) * .00001 <= upper_bound,
                "lower_bound can't be bigger than upper_bound")
         if not self._quiet:
              print("%s:%s:%s"%(theme.ljust(30), "{:.5f}".format(lower_bound).ljust(20),

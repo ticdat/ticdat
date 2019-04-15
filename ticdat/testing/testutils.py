@@ -779,7 +779,11 @@ class TestUtils(unittest.TestCase):
     def testEleven(self):
         def do_checks(po):
             self.assertTrue(po.mip_progress("this", 1, 2))
+            self.assertTrue(po.mip_progress("this", 2, 2))
+            self.assertTrue(po.mip_progress("this", -2, -1))
+            self.assertTrue(po.mip_progress("this", -2, -2))
             self.assertTrue(self.firesException(lambda : po.mip_progress("this", 2.1, 2)))
+            self.assertTrue(self.firesException(lambda : po.mip_progress("this", -2, -2.1)))
             self.assertTrue(po.numerical_progress("boger", 1))
             self.assertTrue(self.firesException(lambda : po.numerical_progress("boger", "1")))
         do_checks(Progress())

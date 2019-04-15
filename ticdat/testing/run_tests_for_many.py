@@ -1,0 +1,26 @@
+#useful helper testing script
+
+import ticdat.testing.ticdattestutils
+run_suite = ticdat.testing.ticdattestutils._runSuite
+
+from ticdat.testing.testcsv import TestCsv
+from ticdat.testing.testxls import TestXls
+from ticdat.testing.testpandas import TestPandas
+from ticdat.testing.testutils import TestUtils
+from ticdat.testing.testjson import TestJson
+from ticdat.testing.testpandat_io import TestIO
+import ticdat.testing.testpandat_utils
+TestPandatUtils = ticdat.testing.testpandat_utils.TestUtils
+from ticdat.testing.testsql import TestSql
+
+the_classes = [TestSql, TestPandatUtils, TestIO, TestJson, TestUtils, TestSql, TestPandatUtils, TestCsv, TestXls,
+               TestPandas]
+
+for c in the_classes:
+    print(f"\n--------{c}")
+    can_attr = [x for x in dir(c) if x.startswith("can")]
+    assert len(can_attr) == 1 or c == TestUtils
+    if can_attr:
+        setattr(c, can_attr[0], True)
+    run_suite(c)
+

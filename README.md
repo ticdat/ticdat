@@ -1,7 +1,7 @@
 # ticdat
 
-Go [here](https://github.com/opalytics/opalytics-ticdat/wiki/ticdat-status) for project status and installation
-instructions. Go [here](http://opalytics.github.io/opalytics-ticdat/) for documentation.
+Go [here](https://github.com/ticdat/ticdat/wiki/ticdat-status) for project status and installation
+instructions. Go [here](https://ticdat.github.io/ticdat/) for documentation.
 
 `ticdat` is a Python package that provides lightweight, ORM style functionality around either a dict-of-dicts or
 `pandas.DataFrame` representation of tables. It is well suited for defining and validating the input data for complex

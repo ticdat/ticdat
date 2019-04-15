@@ -15,7 +15,6 @@ import ticdat.csvtd as csv
 import ticdat.sqlitetd as sql
 import ticdat.mdb as mdb
 import ticdat.jsontd as json
-import ticdat.opalytics as opalytics
 import sys
 try:
     import amplpy
@@ -548,7 +547,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
                         return super(TicDatDict, self).__getitem__(item)
                 assert dictish(TicDatDict)
                 return TicDatDict
-            class TicDatDataList(clt.MutableSequence):
+            class TicDatDataList(clt.abc.MutableSequence):
                 def __init__(self, *_args):
                     self._list = list()
                     self.extend(list(_args))
@@ -724,7 +723,6 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
         self.sql = sql.SQLiteTicFactory(self)
         self.mdb = mdb.MdbTicFactory(self)
         self.json = json.JsonTicFactory(self)
-        self.opalytics = opalytics.OpalyticsTicFactory(self)
         self._prepends = {}
         self._isFrozen=True
 
@@ -768,7 +766,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
          if self.primary_key_fields.get(table_name, None) and containerish(data_table) \
                  and not dictish(data_table) and not utils.stringish(data_table) \
                  and not (utils.DataFrame and isinstance(data_table, utils.DataFrame)) \
-                 and not (pd.Series and isinstance(data_table, pd.Series)):
+                 and not (pd and isinstance(data_table, pd.Series)):
              tdf = TicDatFactory(**{table_name:[[], list(self.primary_key_fields[table_name]) +
                                                     list(self.data_fields.get(table_name, []))]})
              return tdf.good_tic_dat_table(data_table, table_name, bad_message_handler)

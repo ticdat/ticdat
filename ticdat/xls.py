@@ -126,7 +126,7 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
         try :
             book = xlrd.open_workbook(xls_file_path)
         except Exception as e:
-            raise TicDatError("Unable to open %s as xls file : %s"%(xls_file_path, e.message))
+            raise TicDatError("Unable to open %s as xls file : %s"%(xls_file_path, e))
         sheets = defaultdict(list)
         for table, sheet in product(all_tables, book.sheets()) :
             if table.lower()[:_longest_sheet] == sheet.name.lower().replace(' ', '_')[:_longest_sheet]:
@@ -371,7 +371,7 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
             return x
         for t in sorted(sorted(tdf.all_tables),
                          key=lambda x: len(tdf.primary_key_fields.get(x, ()))) :
-            sheet = book.add_worksheet(tbl_name_mapping[t])
+            sheet = book.add_worksheet(tbl_name_mapping[t][:_longest_sheet])
             for i,f in enumerate(tdf.primary_key_fields.get(t,()) + tdf.data_fields.get(t, ())) :
                 sheet.write(0, i, f)
             _t = getattr(tic_dat, t)

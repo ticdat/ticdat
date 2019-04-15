@@ -1,7 +1,3 @@
-#!/usr/bin/python
-#
-# Copyright 2015, Opalytics, Inc
-#
 # Be advised - although this is the first ticdat example alphabetically, it is not the
 # first example intellectually. I strongly recommend beginning with the diet example,
 # and follow that with either netflow/simplest_version or fantop. These three examples
@@ -9,8 +5,7 @@
 # (complete with sanity checking of the input data) that can accommodate a variety
 # of file formats.
 #
-# This example demonstrates a script that is capable of fully exploiting all the bells and
-# whistles of the Opalytics Cloud Platform. It pre-diagnoses infeasibility conditions and
+# This example   pre-diagnoses infeasibility conditions and
 # records them in a log file. It also keeps track of the MIP progress, and allows for the user
 # to terminate the solve prior to achieving the "a priori" goal for the optimization gap.
 #
@@ -206,15 +201,15 @@ def percent_error(lb, ub):
 # when run from the command line, will read/write json/xls/csv/db/mdb files
 if __name__ == "__main__":
     if os.path.exists("cog.stop"):
-        print "Removing the cog.stop file so that solve can proceed."
-        print "Add cog.stop whenever you want to stop the optimization"
+        print("Removing the cog.stop file so that solve can proceed.")
+        print("Add cog.stop whenever you want to stop the optimization")
         os.remove("cog.stop")
 
     class CogStopProgress(Progress):
         def mip_progress(self, theme, lower_bound, upper_bound):
             super(CogStopProgress, self).mip_progress(theme, lower_bound, upper_bound)
-            print "%s:%s:%s"%(theme.ljust(30), "Percent Error".ljust(20),
-                              percent_error(lower_bound, upper_bound))
+            print("%s:%s:%s"%(theme.ljust(30), "Percent Error".ljust(20),
+                              percent_error(lower_bound, upper_bound)))
             # return False (to stop optimization) if the cog.stop file exists
             return not os.path.exists("cog.stop")
 

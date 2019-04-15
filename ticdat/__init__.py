@@ -9,8 +9,7 @@ Although ticDat was specifically designed with Mixed Integer Programming data se
 rapidly developing a wide variety of mathematical engines. It facilitates creating one definition of your
 input data schema and one solve module, and reusing this same code, unchanged, on data from different
 sources. This "separation of model from data" enables a user to move easily from toy, hard coded data to
-larger, more realistic data sets. In addition, Opalytics Inc. (the developer of the ticDat library) can support
-cloud deployments of solve engines that use the ticDat library.
+larger, more realistic data sets.
 The ticDat library is distributed under the BSD2 open source license.
 """
 
@@ -22,7 +21,7 @@ from ticdat.opl import opl_run, create_opl_mod_text, create_opl_mod_output_text
 from ticdat.lingo import lingo_run
 from ticdat.model import Model
 from ticdat.pandatfactory import PanDatFactory
-__version__ = '0.2.16'
+__version__ = '0.2.18'
 __all__ = ["TicDatFactory", "PanDatFactory", "freeze_me", "LogFile", "Sloc", "Slicer", "Progress", "standard_main",
            "Model", "opl_run", "create_opl_mod_text", "create_opl_mod_output_text", "lingo_run", "ampl_format",
            "gurobi_env", "verify"]
