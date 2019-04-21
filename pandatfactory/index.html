@@ -50,7 +50,7 @@
           
             <li class="toctree-l1">
 		
-    <span class="caption-text">Home</span>
+    <a class="" href="..">Home</a>
 	    </li>
           
             <li class="toctree-l1">
@@ -78,10 +78,6 @@
                 <li class="">
                     
     <a class="" href="../pandatio/">JsonPanFactory</a>
-                </li>
-                <li class="">
-                    
-    <a class="" href="../pandatio/">OpalyticsPanFactory</a>
                 </li>
                 <li class="">
                     
@@ -134,17 +130,6 @@
                 <li class="">
                     
     <a class="" href="../mdb/">MdbTicFactory</a>
-                </li>
-    </ul>
-	    </li>
-          
-            <li class="toctree-l1">
-		
-    <span class="caption-text">opalytics.py</span>
-    <ul class="subnav">
-                <li class="">
-                    
-    <a class="" href="../opalytics/">OpalyticsTicFactory</a>
                 </li>
     </ul>
 	    </li>
@@ -244,7 +229,7 @@
     <li>PanDatFactory</li>
     <li class="wy-breadcrumbs-aside">
       
-        <a href="https://github.com/opalytics/opalytics-ticdat/edit/master/docs/pandatfactory.md"
+        <a href="https://github.com/ticdat/ticdat/edit/master/docs/pandatfactory.md"
           class="icon icon-github"> Edit on GitHub</a>
       
     </li>
@@ -445,24 +430,29 @@ for this specific table, predicate pair (or the Series that identifies these row
          Series that identifies these rows)</p>
 <h1 id="ticdat.pandatfactory.PanDatFactory.find_foreign_key_failures">find_foreign_key_failures</h1>
 
-<pre><code class="python">PanDatFactory.find_foreign_key_failures(self, pan_dat, verbosity='High')
+<pre><code class="python">PanDatFactory.find_foreign_key_failures(self, pan_dat, verbosity='High', as_table=True)
 </code></pre>
 
 <p>Finds the foreign key failures for a pandat object</p>
 <p>:param pan_dat: pandat object</p>
 <p>:param verbosity: either "High" or "Low"</p>
+<p>:param as_table: as_table boolean : if truthy then the values of the return dictionary will be the
+       duplicated rows themselves. Otherwise will return the a boolean list that indicates which rows
+       are duplicated rows. (For technical reasons, not returning a boolean Series like the
+       other find functions)</p>
 <p>:return: A dictionary constructed as follows:</p>
 <p>The keys are namedtuples with members "native_table", "foreign_table",
  "mapping", "cardinality".</p>
 <p>The key data matches the arguments to add_foreign_key that constructed the
  foreign key (with "cardinality" being deduced from the overall schema).</p>
 <p>The values are DataFrames that contain the subset of native table rows that fail to find
- foreign table matching defined by the associated returned key.</p>
+ the foreign table matching defined by the associated returned key (or the
+ list that identifies these rows).</p>
 <p>For verbosity = 'Low' a simpler return object is created that doesn't use namedtuples
  and omits the foreign key cardinality.</p>
 <h1 id="ticdat.pandatfactory.PanDatFactory.good_pan_dat_object">good_pan_dat_object</h1>
 
-<pre><code class="python">PanDatFactory.good_pan_dat_object(self, data_obj, bad_message_handler=&lt;function &lt;lambda&gt; at 0x11531df50&gt;)
+<pre><code class="python">PanDatFactory.good_pan_dat_object(self, data_obj, bad_message_handler=&lt;function PanDatFactory.&lt;lambda&gt; at 0x1161f3e18&gt;)
 </code></pre>
 
 <p>determines if an object is a valid PanDat object for this schema</p>
@@ -580,7 +570,7 @@ with find_data_type_failures(). Errant data entries can be replaced with replace
   <div class="rst-versions" role="note" style="cursor: pointer">
     <span class="rst-current-version" data-toggle="rst-current-version">
       
-          <a href="https://github.com/opalytics/opalytics-ticdat/" class="fa fa-github" style="float: left; color: #fcfcfc"> GitHub</a>
+          <a href="https://github.com/ticdat/ticdat/" class="fa fa-github" style="float: left; color: #fcfcfc"> GitHub</a>
       
       
         <span><a href=".." style="color: #fcfcfc;">&laquo; Previous</a></span>

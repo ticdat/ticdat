@@ -50,7 +50,7 @@
           
             <li class="toctree-l1">
 		
-    <span class="caption-text">Home</span>
+    <a class="" href="..">Home</a>
 	    </li>
           
             <li class="toctree-l1">
@@ -75,10 +75,6 @@
                 <li class="">
                     
     <a class="" href="../pandatio/">JsonPanFactory</a>
-                </li>
-                <li class="">
-                    
-    <a class="" href="../pandatio/">OpalyticsPanFactory</a>
                 </li>
                 <li class="">
                     
@@ -131,17 +127,6 @@
                 <li class="">
                     
     <a class="" href="../mdb/">MdbTicFactory</a>
-                </li>
-    </ul>
-	    </li>
-          
-            <li class="toctree-l1">
-		
-    <span class="caption-text">opalytics.py</span>
-    <ul class="subnav">
-                <li class="">
-                    
-    <a class="" href="../opalytics/">OpalyticsTicFactory</a>
                 </li>
     </ul>
 	    </li>
@@ -244,7 +229,7 @@
     <li>Utilities</li>
     <li class="wy-breadcrumbs-aside">
       
-        <a href="https://github.com/opalytics/opalytics-ticdat/edit/master/docs/utils.md"
+        <a href="https://github.com/ticdat/ticdat/edit/master/docs/utils.md"
           class="icon icon-github"> Edit on GitHub</a>
       
     </li>
@@ -295,7 +280,7 @@
 
 <p>Return a gurobipy.Env object for use in constructing gurobipy.Model() objects.
 On an ordinary Python installation, this is a pass through to gurobipy.Env()
-Needed on Opalytics Cloud Platform</p>
+Useful for Gurobi licensing/DRM issues.</p>
 <p>:return: A gurobipy.Env object.</p>
 <h1 id="ticdat.utils.ampl_format">ampl_format</h1>
 
@@ -380,11 +365,11 @@ https://github.com/pydata/pandas/issues/10695</p>
 <pre><code class="python">LogFile(self, path)
 </code></pre>
 
-<p>Utility class for writing log files to the Opalytics Cloud Platform.
+<p>Utility class for writing log files.
 Also enables writing on-the-fly tables into log files.</p>
 <h2 id="ticdat.utils.LogFile.log_table">log_table</h2>
 
-<pre><code class="python">LogFile.log_table(self, table_name, seq, formatter=&lt;function &lt;lambda&gt; at 0x1140ed050&gt;, max_write=10)
+<pre><code class="python">LogFile.log_table(self, table_name, seq, formatter=&lt;function LogFile.&lt;lambda&gt; at 0x115babd08&gt;, max_write=10)
 </code></pre>
 
 <p>Writes a table to the log file. Extremely useful functionality for
@@ -397,17 +382,14 @@ on the fly errors, warnings and diagnostics.
             iterables are of length num_cols.
 :param formatter: a function used to turn column entries into strings
 :param max_write: the maximum number of table entries to write
-                  to the actual log file. In the Opalytics Cloud Platform,
-                  the log file will link to a scrollable, sortable grid
-                  with all the table entries.
+                  to the actual log file.
 :return:</p>
 <h1 id="ticdat.utils.Progress">Progress</h1>
 
 <pre><code class="python">Progress(self, quiet=False)
 </code></pre>
 
-<p>Utility class for indicating progress to the Opalytics Cloud Platform.
-Also enables writing on-the-fly tables into log files.</p>
+<p>Utility class for indicating progress.</p>
 <h2 id="ticdat.utils.Progress.numerical_progress">numerical_progress</h2>
 
 <pre><code class="python">Progress.numerical_progress(self, theme, progress)
@@ -471,7 +453,7 @@ Also enables writing on-the-fly tables into log files.</p>
   <div class="rst-versions" role="note" style="cursor: pointer">
     <span class="rst-current-version" data-toggle="rst-current-version">
       
-          <a href="https://github.com/opalytics/opalytics-ticdat/" class="fa fa-github" style="float: left; color: #fcfcfc"> GitHub</a>
+          <a href="https://github.com/ticdat/ticdat/" class="fa fa-github" style="float: left; color: #fcfcfc"> GitHub</a>
       
       
         <span><a href="../xls/" style="color: #fcfcfc;">&laquo; Previous</a></span>

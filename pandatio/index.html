@@ -50,7 +50,7 @@
           
             <li class="toctree-l1">
 		
-    <span class="caption-text">Home</span>
+    <a class="" href="..">Home</a>
 	    </li>
           
             <li class="toctree-l1">
@@ -75,10 +75,6 @@
                 <li class="">
                     
     <a class="" href="./">JsonPanFactory</a>
-                </li>
-                <li class="">
-                    
-    <a class="" href="./">OpalyticsPanFactory</a>
                 </li>
                 <li class="">
                     
@@ -134,17 +130,6 @@
                 <li class="">
                     
     <a class="" href="../mdb/">MdbTicFactory</a>
-                </li>
-    </ul>
-	    </li>
-          
-            <li class="toctree-l1">
-		
-    <span class="caption-text">opalytics.py</span>
-    <ul class="subnav">
-                <li class="">
-                    
-    <a class="" href="../opalytics/">OpalyticsTicFactory</a>
                 </li>
     </ul>
 	    </li>
@@ -244,7 +229,7 @@
     <li>XlsPanFactory</li>
     <li class="wy-breadcrumbs-aside">
       
-        <a href="https://github.com/opalytics/opalytics-ticdat/edit/master/docs/pandatio.md"
+        <a href="https://github.com/ticdat/ticdat/edit/master/docs/pandatio.md"
           class="icon icon-github"> Edit on GitHub</a>
       
     </li>
@@ -268,7 +253,7 @@ PanDatFactory.</p>
 <pre><code class="python">CsvPanFactory.create_pan_dat(self, dir_path, fill_missing_fields=False, **kwargs)
 </code></pre>
 
-<p>Create a PanDat object from a SQLite database file</p>
+<p>Create a PanDat object from a directory of csv files.</p>
 <p>:param db_file_path: the directory containing the .csv files.</p>
 <p>:param fill_missing_fields: boolean. If truthy, missing fields will be filled in
                             with their default value. Otherwise, missing fields
@@ -308,7 +293,7 @@ PanDatFactory.</p>
 <pre><code class="python">JsonPanFactory.create_pan_dat(self, path_or_buf, fill_missing_fields=False, orient='split', **kwargs)
 </code></pre>
 
-<p>Create a PanDat object from a SQLite database file</p>
+<p>Create a PanDat object from a JSON file or string</p>
 <p>:param path_or_buf:  a valid JSON string or file-like</p>
 <p>:param fill_missing_fields: boolean. If truthy, missing fields will be filled in
                             with their default value. Otherwise, missing fields
@@ -339,28 +324,6 @@ PanDatFactory.</p>
 <p>:param kwargs: additional named arguments to pass to pandas.to_json</p>
 <p>:return:</p>
 <p>caveats:  +-float("inf") will be converted to "inf", "-inf"</p>
-<h1 id="ticdat.pandatio.OpalyticsPanFactory">OpalyticsPanFactory</h1>
-
-<pre><code class="python">OpalyticsPanFactory(self, pan_dat_factory)
-</code></pre>
-
-<p>Primary class for reading PanDat objects from the Opalytics Cloud Platform.
-Not expected to be used outside of Opalytics Cloud hosted notebooks.
-Don't create this object explicitly. An OpalyticsPanFactory will
-automatically be associated with the opalytics attribute of the parent
-PanDatFactory.</p>
-<h2 id="ticdat.pandatio.OpalyticsPanFactory.create_pan_dat">create_pan_dat</h2>
-
-<pre><code class="python">OpalyticsPanFactory.create_pan_dat(self, inputset, raw_data=False, freeze_it=False)
-</code></pre>
-
-<p>Create a PanDat object from an opalytics inputset</p>
-<p>:param inputset: An opalytics inputset consistent with this PanDatFactory</p>
-<p>:param raw_data: boolean. should data cleaning be skipped? On the Opalytics Cloud Platform
-                 cleaned data will be passed to instant apps. Data cleaning involves
-                 removing data type failures, data row predicate failures, foreign key
-                 failures, duplicated rows and deactivated records.</p>
-<p>:return: a PanDat object populated by the tables as they are rendered by inputset</p>
 <h1 id="ticdat.pandatio.SqlPanFactory">SqlPanFactory</h1>
 
 <pre><code class="python">SqlPanFactory(self, pan_dat_factory)
@@ -477,7 +440,7 @@ with the xls attribute of the parent PanDatFactory.</p>
   <div class="rst-versions" role="note" style="cursor: pointer">
     <span class="rst-current-version" data-toggle="rst-current-version">
       
-          <a href="https://github.com/opalytics/opalytics-ticdat/" class="fa fa-github" style="float: left; color: #fcfcfc"> GitHub</a>
+          <a href="https://github.com/ticdat/ticdat/" class="fa fa-github" style="float: left; color: #fcfcfc"> GitHub</a>
       
       
         <span><a href="./" style="color: #fcfcfc;">&laquo; Previous</a></span>
