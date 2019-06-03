@@ -16,6 +16,15 @@ except:
     amplpy = None
 pd, DataFrame = utils.pd, utils.DataFrame # if pandas not installed will be falsey
 
+def _faster_df_apply(df, func):
+    cols = list(df.columns)
+    data, index = [], []
+    for row in df.itertuples(index=True):
+        row_dict = {f:v for f,v in zip(cols, row[1:])}
+        data.append(func(row_dict))
+        index.append(row[0])
+    return pd.Series(data, index=index)
+
 class PanDatFactory(object):
     """
      Defines a schema for a collection of pandas.DataFrame objects.
@@ -575,6 +584,7 @@ class PanDatFactory(object):
                "pan_dat not a good object for this factory : %s"%"\n".join(msg))
 
         rtn = {}
+        safe_isnan = safe_apply(isnan)
         TableField = clt.namedtuple("TableField", ["table", "field"])
         for table, type_row in self._data_types.items():
             _table = getattr(pan_dat, table)
@@ -582,8 +592,8 @@ class PanDatFactory(object):
                 def bad_row(row):
                     data = row[field]
                     # pandas turns None into nan
-                    return not data_type.valid_data(None if safe_apply(isnan)(data) else data)
-                where_bad_rows = _table.apply(bad_row, axis=1)
+                    return not data_type.valid_data(None if safe_isnan(data) else data)
+                where_bad_rows = _faster_df_apply(_table, bad_row)
                 if where_bad_rows.any():
                     rtn[TableField(table, field)] = _table[where_bad_rows].copy() if as_table else where_bad_rows
         return rtn
@@ -613,7 +623,7 @@ class PanDatFactory(object):
             for pn, p in row_predicates.items():
                 _table = getattr(pan_dat, tbl)
                 bad_row = lambda row: not p(row)
-                where_bad_rows =_table.apply(bad_row, axis=1)
+                where_bad_rows = _faster_df_apply(_table, bad_row)
                 if where_bad_rows.any():
                     rtn[TPN(tbl, pn)] = _table[where_bad_rows].copy() if as_table else where_bad_rows
         return rtn
@@ -689,7 +699,7 @@ class PanDatFactory(object):
                 # I'm casting to list here because child is a copy that doesn't have the original index
                 # This is fixable, (i.e. we could return a Series with an index matching the original child table)
                 # but the fix isn't high priority.
-                rtn[fk] = list(child.apply(lambda row: row[magic_field*2] in bad_rows, axis=1))
+                rtn[fk] = list(_faster_df_apply(child, lambda row: row[magic_field*2] in bad_rows))
         return rtn
     def remove_foreign_key_failures(self, pan_dat):
         """
