@@ -9,7 +9,7 @@
 #
 # Provides command line interface via ticdat.standard_main
 # For example, typing
-#   python dietmodel.py -i diet_sample_data.sql -o diet_solution_data.sql
+#   python diet.py -i diet_sample_data.sql -o diet_solution_data.sql
 # will read from a model stored in the file diet_sample_data.sql and write the solution
 # to diet_solution_data.sql.
 
