@@ -636,8 +636,8 @@ class PanDatFactory(object):
         :param verbosity: either "High" or "Low"
 
         :param as_table: as_table boolean : if truthy then the values of the return dictionary will be the
-               duplicated rows themselves. Otherwise will return the a boolean list that indicates which rows
-               are duplicated rows. (For technical reasons, not returning a boolean Series like the
+               failed rows themselves. Otherwise will return the a boolean list that indicates which rows
+               have failures. (For technical reasons, not returning a boolean Series like the
                other find functions)
 
         :return: A dictionary constructed as follows:
