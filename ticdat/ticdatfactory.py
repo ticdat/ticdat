@@ -854,17 +854,20 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
             return False
         return self._good_data_rows(ticdat_table.values(), table_name, bad_msg_handler)
     def _good_data_rows(self, data_rows, table_name, bad_message_handler = lambda x : None):
-        dictishrows = tuple(x for x in data_rows if utils.dictish(x))
+        dictishrows, containerishrows, singletonishrows = [], [], []
+        for x in data_rows:
+            if utils.dictish(x):
+                dictishrows.append(x)
+            elif utils.containerish(x):
+                containerishrows.append(x)
+            else:
+                singletonishrows.append(x)
         if not all(set(x.keys()).issubset(self.data_fields.get(table_name,())) for x in dictishrows):
             bad_message_handler("Inconsistent data field name keys.")
             return False
-        containerishrows = tuple(x for x in data_rows
-                                 if utils.containerish(x) and not  utils.dictish(x))
         if not all(len(x) == len(self.data_fields.get(table_name,())) for x in containerishrows) :
             bad_message_handler("Inconsistent data row lengths.")
             return False
-        singletonishrows = tuple(x for x in data_rows if not
-                                 (utils.containerish(x) or utils.dictish(x)))
         if singletonishrows and (len(self.data_fields.get(table_name,())) != 1)  :
             bad_message_handler(
                 "Non-container data rows supported only for single-data-field tables")
