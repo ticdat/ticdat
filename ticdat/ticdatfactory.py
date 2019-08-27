@@ -1191,9 +1191,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
          and omits the foreign key cardinality.
         """
         verify(verbosity in ["High", "Low"], "verbosity needs to be either 'High' or 'Low'")
-        msg  = []
-        verify(self.good_tic_dat_object(tic_dat, msg.append),
-               "tic_dat not a good object for this factory : %s"%"\n".join(msg))
+        assert self.good_tic_dat_object(tic_dat), "tic_dat not a good object for this factory"
         rtn_values, rtn_pks = clt.defaultdict(set), clt.defaultdict(set)
 
         def getcell(tblname, native_pk, native_data_row, field_name):
@@ -1307,9 +1305,8 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
          and pks tells you which table rows will have their field entry changed if you call
          replace_data_type_failures().
         """
-        msg  = []
-        verify(self.good_tic_dat_object(tic_dat, msg.append),
-               "tic_dat not a good object for this factory : %s"%"\n".join(msg))
+        assert self.good_tic_dat_object(tic_dat), "tic_dat not a good object for this factory"
+
 
         rtn_values, rtn_pks = clt.defaultdict(set), clt.defaultdict(set)
         for table, type_row in self._data_types.items():
@@ -1402,9 +1399,8 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
          contain the primary key value of each failed row. Otherwise, this tuple
          will list the positions of the failed rows.
         """
-        msg  = []
-        verify(self.good_tic_dat_object(tic_dat, msg.append),
-               "tic_dat not a good object for this factory : %s"%"\n".join(msg))
+        assert self.good_tic_dat_object(tic_dat), "tic_dat not a good object for this factory"
+
         rtn = clt.defaultdict(set)
         for tbl, row_predicates in self._data_row_predicates.items():
             for pn, p in row_predicates.items():
