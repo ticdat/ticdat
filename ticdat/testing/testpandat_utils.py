@@ -20,6 +20,7 @@ def _deep_anonymize(x)  :
 #@fail_to_debugger
 class TestUtils(unittest.TestCase):
     canRun = False
+
     def testSimple(self):
         if not self.canRun:
             return
@@ -49,6 +50,10 @@ class TestUtils(unittest.TestCase):
         dat5 = pdf2.copy_pan_dat(dat)
         self.assertTrue(pdf._same_data(dat, dat5))
         self.assertTrue(pdf2._same_data(dat, dat5))
+        dat.commodities = dat.commodities.append(dat.commodities[dat.commodities["name"] == "Pencils"])
+        dat.arcs = dat.arcs.append(dat.arcs[dat.arcs["destination"] == "Boston"])
+        self.assertFalse(pdf2._same_data(dat, dat5))
+        self.assertFalse(pdf._same_data(dat, dat5))
 
     def testDataTypes(self):
         if not self.canRun:

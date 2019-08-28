@@ -555,6 +555,8 @@ class PanDatFactory(object):
     def _same_data(self, obj1, obj2, epsilon = 0):
         from ticdat import TicDatFactory
         sch = self.schema()
+        if not all(len(getattr(obj1, t)) == len(getattr(obj2, t)) for t in self.all_tables):
+            return False
         for t in self.generic_tables:
             if set(getattr(obj1, t).columns) != set(getattr(obj2, t).columns):
                 return False
