@@ -595,7 +595,8 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
                         _t._attributesFrozen = True
                 self._isFrozen = True
             def __repr__(self):
-                return "td:" + tuple(sorted(superself.all_tables)).__repr__()
+                tlen = lambda t: utils.safe_apply(len)(getattr(self, t))
+                return "td: {" + ", ".join("%s: %s"%(t, tlen(t)) for t in superself.all_tables) + "}"
         class TicDat(_TicDat) :
             def _generatorfactory(self, data, tableName):
                 return generatorfactory(data, tableName)
