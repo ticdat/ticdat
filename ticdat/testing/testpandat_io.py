@@ -82,6 +82,7 @@ class TestIO(unittest.TestCase):
         if e:
             self.assertTrue("TicDatError" in e.__class__.__name__)
             return str(e)
+
     def testXlsSimple(self):
         if not self.can_run:
             return
@@ -321,6 +322,24 @@ class TestIO(unittest.TestCase):
         panDat2 = pdf2.csv.create_pan_dat(dirPath)
         self.assertTrue(pdf._same_data(panDat, panDat2))
 
+        pdf2 = PanDatFactory(**{k: v for k, v in dietSchema().items() if k != "nutritionQuantities"})
+        panDat2 = pdf2.copy_pan_dat(panDat)
+        dirPath = os.path.join(_scratchDir, "diet_missing_csv")
+        pdf2.csv.write_directory(panDat2, dirPath, makeCleanDir(dirPath))
+        panDat3 = pdf.csv.create_pan_dat(dirPath)
+        self.assertTrue(pdf2._same_data(panDat2, panDat3))
+        self.assertTrue(all(hasattr(panDat3, x) for x in pdf.all_tables))
+        self.assertFalse(len(panDat3.nutritionQuantities))
+        self.assertTrue(len(panDat3.categories) and len(panDat3.foods))
+
+        pdf2 = PanDatFactory(**{k: v for k, v in dietSchema().items() if k == "categories"})
+        panDat2 = pdf2.copy_pan_dat(panDat)
+        pdf2.csv.write_directory(panDat2, dirPath, makeCleanDir(dirPath))
+        panDat3 = pdf.csv.create_pan_dat(dirPath)
+        self.assertTrue(pdf2._same_data(panDat2, panDat3))
+        self.assertTrue(all(hasattr(panDat3, x) for x in pdf.all_tables))
+        self.assertFalse(len(panDat3.nutritionQuantities) or len(panDat3.foods))
+        self.assertTrue(len(panDat3.categories))
 
         tdf = TicDatFactory(**netflowSchema())
         pdf = PanDatFactory(**netflowSchema())

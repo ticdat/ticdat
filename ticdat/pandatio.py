@@ -198,6 +198,10 @@ class CsvPanFactory(freezable_factory(object, "_isFrozen")):
         verify(os.path.isdir(dir_path), "%s not a directory path"%dir_path)
         tbl_names = self._get_table_names(dir_path)
         rtn = {t: pd.read_csv(f, **kwargs) for t,f in tbl_names.items()}
+        missing_tables = {t for t in self.pan_dat_factory.all_tables if t not in rtn}
+        if missing_tables:
+            print ("The following table names could not be found in the %s directory.\n%s\n"%
+                   (dir_path,"\n".join(missing_tables)))
         missing_fields = {(t, f) for t in rtn for f in all_fields(self.pan_dat_factory, t)
                           if f not in rtn[t].columns}
         if fill_missing_fields:
@@ -216,9 +220,11 @@ class CsvPanFactory(freezable_factory(object, "_isFrozen")):
             rtn[table] = [path for f in os.listdir(dir_path) for path in [os.path.join(dir_path, f)]
                           if os.path.isfile(path) and
                           f.lower().replace(" ", "_") == "%s.csv"%table.lower()]
-            verify(len(rtn[table]) >= 1, "Unable to recognize table %s" % table)
             verify(len(rtn[table]) <= 1, "Multiple possible csv files found for table %s" % table)
-            rtn[table] = rtn[table][0]
+            if len(rtn[table]) == 1:
+                rtn[table] = rtn[table][0]
+            else:
+                rtn.pop(table)
         return rtn
     def write_directory(self, pan_dat, dir_path, case_space_table_names=False, index=False, **kwargs):
         """
