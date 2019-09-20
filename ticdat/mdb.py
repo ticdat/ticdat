@@ -2,6 +2,18 @@
 Read/write ticDat objects from mdb files. Requires the pypyodbc module
 PEP8
 """
+
+# note that getting ODBC drivers to work with pyodbc or pypyodbc can itself be a non-trivial sys admin task on your
+# computer. pyodbc seems to be most common and useful connector. There can be bitness problems between 64 bit Python
+# and 32 bit Access drives, so you might want to install a 32 bit Python. Bear in mind your installation will
+# configured so that
+#
+#   import pyodbc
+#   file = "whatever_the_file_path_is.accdb"
+#   pyodbc.connect('DRIVER={{Microsoft Access Driver (*.mdb, *.accdb)}};DBQ={};'.format(os.path.abspath(file)))
+#
+# doesn't throw an exception.
+
 import os
 import sys
 import inspect
