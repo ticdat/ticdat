@@ -14,8 +14,7 @@ The ticDat library is distributed under the BSD2 open source license.
 """
 
 from ticdat.ticdatfactory import TicDatFactory, freeze_me
-from ticdat.utils import Sloc, LogFile, Progress, Slicer, \
-                         find_denormalized_sub_table_failures, standard_main, \
+from ticdat.utils import Sloc, LogFile, Progress, Slicer, standard_main, \
                          gurobi_env, ampl_format, verify
 from ticdat.opl import opl_run, create_opl_mod_text, create_opl_mod_output_text
 from ticdat.lingo import lingo_run

@@ -40,40 +40,6 @@ class TestPandas(unittest.TestCase):
                 getattr(check_dat, t)[k] = v
         self.assertTrue(clean_tdf._same_data(check_dat, clean_tdf.copy_tic_dat(ticDat)))
 
-    def testDenormalizedErrors(self):
-        if not self.canRun:
-            return
-        c = clean_denormalization_errors
-        f = utils.find_denormalized_sub_table_failures
-        tdf = TicDatFactory(**spacesSchema())
-        dat = tdf.TicDat(**spacesData())
-        p = lambda :tdf.copy_to_pandas(dat, drop_pk_columns=False).b_table
-        self.assertFalse(f(p(),"b Field 1",("b Field 2", "b Field 3")))
-        dat.b_table[2,2,3] = "boger"
-        self.assertFalse(f(p(), "b Field 1",("b Field 2", "b Field 3")))
-        chk = f(p(), "b Field 2",("b Field 1", "b Field 3"))
-        self.assertTrue(c(chk) == {2: {'b Field 1': {1, 2}}})
-        dat.b_table[2,2,4] = "boger"
-        dat.b_table[1,'b','b'] = "boger"
-        chk = f(p(), ["b Field 2"],("b Field 1", "b Field 3", "b Data"))
-        self.assertTrue(c(chk) == c({2: {'b Field 3': (3, 4), 'b Data': (1, 'boger'), 'b Field 1': (1, 2)},
-                                 'b': {'b Data': ('boger', 12), 'b Field 1': ('a', 1)}}))
-
-        ex = self.firesException(lambda : f(p(), ["b Data"],"wtf"))
-        self.assertTrue("wtf isn't a column" in ex)
-
-
-        p = lambda :tdf.copy_to_pandas(dat, drop_pk_columns=False).c_table
-        chk = f(p(), pk_fields=["c Data 1", "c Data 2"], data_fields=["c Data 3", "c Data 4"])
-        self.assertTrue(c(chk) == {('a', 'b'): {'c Data 3': {'c', 12}, 'c Data 4': {24, 'd'}}})
-        dat.c_table.append((1, 2, 3, 4))
-        dat.c_table.append((1, 2, 1, 4))
-        dat.c_table.append((1, 2, 1, 5))
-        dat.c_table.append((1, 2, 3, 6))
-        chk = f(p(), pk_fields=["c Data 1", "c Data 2"], data_fields=["c Data 3", "c Data 4"])
-        self.assertTrue(c(chk) == {('a', 'b'): {'c Data 3': {'c', 12}, 'c Data 4': {24, 'd'}},
-                                   (1,2):{'c Data 3':{3,1}, 'c Data 4':{4,5,6}}})
-
     def testDiet(self):
         if not self.canRun:
             return
