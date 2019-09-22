@@ -411,6 +411,14 @@ class TestIO(unittest.TestCase):
         panDat2 = pdf2.json.create_pan_dat(filePath)
         self.assertTrue(pdf._same_data(panDat, panDat2, epsilon=1e-5))
 
+        re_fielded_schema = {"categories" : (("name",),["maxNutrition", "minNutrition"]),
+     "foods" :[["name"],[]],
+     "nutritionQuantities" : (["food", "category"], ["qty"])}
+        pdf3 = PanDatFactory(**re_fielded_schema)
+        panDat3 = pdf3.json.create_pan_dat(filePath)
+        for t, (pks, dfs) in re_fielded_schema.items():
+            self.assertTrue(list(pks) + list(dfs) == list(getattr(panDat3, t).columns))
+
         tdf = TicDatFactory(**netflowSchema())
         pdf = PanDatFactory(**netflowSchema())
         ticDat = tdf.freeze_me(tdf.TicDat(**{t:getattr(netflowData(),t) for t in tdf.primary_key_fields}))
@@ -476,8 +484,6 @@ class TestIO(unittest.TestCase):
         dicted = json.loads(pdf.json.write_file(panDat, "", orient='columns'))
         panDat4 = pdf.PanDat(**dicted)
         self.assertTrue(pdf._same_data(panDat, panDat4, epsilon=1e-5))
-
-
 
 
 _scratchDir = TestIO.__name__ + "_scratch"

@@ -8,7 +8,7 @@ import json
 import os
 from ticdat.utils import freezable_factory, verify, case_space_to_pretty, pd, TicDatError, FrozenDict, all_fields
 from ticdat.utils import all_underscore_replacements, stringish, dictish
-from itertools import product
+from itertools import product, chain
 from collections import defaultdict
 import inspect
 
@@ -26,6 +26,15 @@ class _DummyContextManager(object):
         return self
     def __exit__(self, *excinfo) :
         pass
+
+def _clean_pandat_creator(pdf, df_dict):
+    pandat = pdf.PanDat(**df_dict)
+    for t in set(pdf.all_tables).difference(pdf.generic_tables):
+        flds = [f for f in chain(pdf.primary_key_fields[t], pdf.data_fields[t])]
+        setattr(pandat, t, getattr(pandat, t)[flds])
+    msg = []
+    assert pdf.good_pan_dat_object(pandat, msg.append), str(msg)
+    return pandat
 
 class JsonPanFactory(freezable_factory(object, "_isFrozen")):
     """
@@ -93,10 +102,8 @@ class JsonPanFactory(freezable_factory(object, "_isFrozen")):
         for v in rtn.values():
             v.replace("inf", float("inf"), inplace=True)
             v.replace("-inf", -float("inf"), inplace=True)
-        rtn = self.pan_dat_factory.PanDat(**rtn)
-        msg = []
-        assert self.pan_dat_factory.good_pan_dat_object(rtn, msg.append), str(msg)
-        return rtn
+        return _clean_pandat_creator(self.pan_dat_factory, rtn)
+
     def _get_table_names(self, loaded_dict):
         rtn = {}
         for table in self.pan_dat_factory.all_tables:
@@ -210,10 +217,8 @@ class CsvPanFactory(freezable_factory(object, "_isFrozen")):
         verify(fill_missing_fields or not missing_fields,
                "The following (table, file_name, field) triplets are missing fields.\n%s" %
                [(t, os.path.basename(tbl_names[t]), f) for t,f in missing_fields])
-        rtn = self.pan_dat_factory.PanDat(**rtn)
-        msg = []
-        assert self.pan_dat_factory.good_pan_dat_object(rtn, msg.append), str(msg)
-        return rtn
+        return _clean_pandat_creator(self.pan_dat_factory, rtn)
+
     def _get_table_names(self, dir_path):
         rtn = {}
         for table in self.pan_dat_factory.all_tables:
@@ -317,10 +322,8 @@ class SqlPanFactory(freezable_factory(object, "_isFrozen")):
                 rtn[t][f] = self.pan_dat_factory.default_values[t][f]
         verify(fill_missing_fields or not missing_fields,
                "The following are (table, field) pairs missing from the %s file.\n%s" % (db_file_path, missing_fields))
-        rtn = self.pan_dat_factory.PanDat(**rtn)
-        msg = []
-        assert self.pan_dat_factory.good_pan_dat_object(rtn, msg.append), str(msg)
-        return rtn
+        return _clean_pandat_creator(self.pan_dat_factory, rtn)
+
     def _get_table_names(self, con):
         rtn = {}
         def try_name(name):
@@ -431,10 +434,8 @@ class XlsPanFactory(freezable_factory(object, "_isFrozen")):
                 rtn[t][f] = self.pan_dat_factory.default_values[t][f]
         verify(fill_missing_fields or not missing_fields,
                "The following are (table, field) pairs missing from the %s file.\n%s" % (xls_file_path, missing_fields))
-        rtn = self.pan_dat_factory.PanDat(**rtn)
-        msg = []
-        assert self.pan_dat_factory.good_pan_dat_object(rtn, msg.append), str(msg)
-        return rtn
+        return _clean_pandat_creator(self.pan_dat_factory, rtn)
+
     def _get_sheet_names(self, xls_file_path):
         sheets = defaultdict(list)
         try :
