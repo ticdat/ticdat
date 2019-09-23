@@ -14,6 +14,12 @@ try:
 except:
     csv = None
 
+# csv format is really hard to convey type so will try to read via the pandas readers if they are available
+try:
+    import pandas as pd
+except:
+    pandas = None
+
 _can_unit_test = csv
 
 def _try_float(x) :
@@ -214,7 +220,7 @@ class CsvTicFactory(freezable_factory(object, "_isFrozen")) :
             os.mkdir(dir_path)
         for t in tdf.all_tables :
             f = os.path.join(dir_path, t + ".csv")
-            with open(f, 'w') as csvfile:
+            with open(f, 'w', newline='') as csvfile:
                  writer = csv.DictWriter(csvfile,dialect=dialect, fieldnames=
                         tdf.primary_key_fields.get(t, ()) + tdf.data_fields.get(t, ()) )
                  writer.writeheader() if write_header else None
