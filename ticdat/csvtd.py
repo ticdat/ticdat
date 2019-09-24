@@ -4,7 +4,7 @@ PEP8
 """
 
 import os
-from ticdat.utils import DataFrame, create_generic_free
+from ticdat.utils import DataFrame, create_generic_free, numericish
 from ticdat.utils import freezable_factory, TicDatError, verify, containerish, dictish
 from collections import defaultdict
 from itertools import product
@@ -14,19 +14,7 @@ try:
 except:
     csv = None
 
-# csv format is really hard to convey type so will try to read via the pandas readers if they are available
-try:
-    import pandas as pd
-except:
-    pandas = None
-
 _can_unit_test = csv
-
-def _try_float(x) :
-    try :
-        return float(x)
-    except :
-        return x
 
 class CsvTicFactory(freezable_factory(object, "_isFrozen")) :
     """
@@ -65,8 +53,14 @@ class CsvTicFactory(freezable_factory(object, "_isFrozen")) :
 
         caveats: Missing files resolve to an empty table, but missing fields on
                  matching files throw an Exception.
-                 Data field values (but not primary key values) will be coerced
-                 into floats if possible.
+                 By default, data field values (but not primary key values) will be coerced into floats if possible.
+                 The rules over which fields are/are-not coerced can be controlled  via hints from the default_values
+                 or data_types
+
+        Note - pandas doesn't really do a fantastic job handling file types either, since it coerces all columns
+        to be the same type. If that's the behavior you want you can use PanDatFactory. JSON is just a better file
+        format for a variety of reasons, to include typing of data.
+
         """
         verify(csv, "csv needs to be installed to use this subroutine")
         tdf = self.tic_dat_factory
@@ -79,6 +73,18 @@ class CsvTicFactory(freezable_factory(object, "_isFrozen")) :
         if freeze_it:
             return self.tic_dat_factory.freeze_me(rtn)
         return rtn
+    def _try_float(self, table, field, x):
+        # reminder - data fields have a default default of zero, primary keys don't get a default default
+        dv = self.tic_dat_factory.default_values.get(table, {}).get(field, "")
+        dt = self.tic_dat_factory.data_types.get(table, {}).get(field)
+        should_try_float = (dt and dt.number_allowed) or (not dt and numericish(dv)) or \
+                           (table in self.tic_dat_factory.generic_tables)
+        if should_try_float:
+            try:
+                return float(x)
+            except:
+                return x
+        return x
     def _create_tic_dat(self, dir_path, dialect, headers_present):
         verify(dialect in csv.list_dialects(), "Invalid dialect %s"%dialect)
         verify(os.path.isdir(dir_path), "Invalid directory path %s"%dir_path)
@@ -144,7 +150,7 @@ class CsvTicFactory(freezable_factory(object, "_isFrozen")) :
             if not headers_present:
                 verify(len(row) == len(fieldnames),
                    "Need %s columns for table %s"%(len(fieldnames), table))
-                yield {f: _try_float(row[f]) for f in fieldnames}
+                yield {f: self._try_float(table, f, row[f]) for f in fieldnames}
             else:
                 key_matching = defaultdict(list)
                 for k,f in product(row.keys(), fieldnames or row.keys()):
@@ -155,7 +161,7 @@ class CsvTicFactory(freezable_factory(object, "_isFrozen")) :
                     verify(f in key_matching, "Unable to find field name %s for table %s"%(f, table))
                     verify(len(key_matching[f]) <= 1,
                            "Duplicate field names found for field %s table %s"%(f, table))
-                yield {f: _try_float(row[key_matching[f][0]]) for f in fieldnames}
+                yield {f: self._try_float(table, f, row[key_matching[f][0]]) for f in fieldnames}
 
     def _create_table(self, dir_path, table, dialect, headers_present):
         file_path = self._get_file_path(dir_path, table)

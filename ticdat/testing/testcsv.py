@@ -134,6 +134,7 @@ class TestCsv(unittest.TestCase):
         if not self.can_run:
             return
         tdf = TicDatFactory(**sillyMeSchema())
+        tdf.set_data_type("a", "aField", strings_allowed='*', number_allowed=True)
         ticDat = tdf.TicDat(**sillyMeDataTwoTables())
         dirPath = os.path.join(_scratchDir, "sillyTwoTables")
         tdf.csv.write_directory(ticDat,dirPath)
@@ -160,24 +161,31 @@ class TestCsv(unittest.TestCase):
         csvTicDat = tdf.csv.create_tic_dat(dirPath, headers_present=False, freeze_it=True)
         self.assertTrue(tdf._same_data(ticDat, csvTicDat))
 
+        # the casting to floats is controlled by data types and default values
         ticDat.nodes[12] = {}
         tdf.csv.write_directory(ticDat, dirPath, allow_overwrite=True)
         csvTicDat = tdf.csv.create_tic_dat(dirPath, freeze_it=True)
+        self.assertFalse(tdf._same_data(ticDat, csvTicDat))
+        tdf2 = TicDatFactory(**netflowSchema())
+        tdf2.set_data_type("nodes", "name", strings_allowed='*', number_allowed=True)
+        csvTicDat = tdf2.csv.create_tic_dat(dirPath, freeze_it=True)
         self.assertTrue(tdf._same_data(ticDat, csvTicDat))
 
-        # minor flaw - strings that are floatable get turned into floats when reading csvs
         del(ticDat.nodes[12])
         ticDat.nodes['12'] = {}
         self.assertTrue(firesException(lambda : tdf.csv.write_directory(ticDat, dirPath)))
         tdf.csv.write_directory(ticDat, dirPath, allow_overwrite=True)
         csvTicDat = tdf.csv.create_tic_dat(dirPath, freeze_it=True)
-        self.assertFalse(tdf._same_data(ticDat, csvTicDat))
+        self.assertTrue(tdf._same_data(ticDat, csvTicDat))
 
     def testSilly(self):
         if not self.can_run:
             return
         def doTest(headersPresent) :
             tdf = TicDatFactory(**sillyMeSchema())
+            for t, flds in tdf.primary_key_fields.items():
+                for f in flds:
+                    tdf.set_data_type(t, f, number_allowed=True, strings_allowed='*')
             ticDat = tdf.TicDat(**sillyMeData())
             schema2 = sillyMeSchema()
             schema2["b"][0] = ("bField2", "bField1", "bField3")
@@ -199,6 +207,10 @@ class TestCsv(unittest.TestCase):
 
             tdf2, tdf3, tdf4, tdf5, tdf5b, tdf6 = (TicDatFactory(**x) for x in
                             (schema2, schema3, schema4, schema5, schema5b, schema6))
+            for tdf_ in [ tdf2, tdf3, tdf4, tdf5, tdf5b, tdf6]:
+                for t, flds in tdf_.primary_key_fields.items():
+                    for f in flds:
+                        tdf_.set_data_type(t, f, number_allowed=True, strings_allowed='*')
             tdf5.set_generator_tables(["a", "c"])
             tdf5b.set_generator_tables(("a", "c"))
 
@@ -263,6 +275,26 @@ class TestCsv(unittest.TestCase):
 
 
         utils.do_it(doTest(x) for x in (True, False))
+
+    def test_numericish_text(self):
+        dir_path = os.path.join(_scratchDir, "numericish")
+        tdf = TicDatFactory(parameter=[["Key"], ["Value"]])
+        dat = tdf.TicDat(parameter=[["a", "100"], ["b", "010"], [3, "200"], ["d", "020"]])
+        def round_trip():
+            tdf.csv.write_directory(dat, makeCleanDir(dir_path))
+            return tdf.csv.create_tic_dat(dir_path)
+        dat2 = round_trip()
+        self.assertFalse(tdf._same_data(dat, dat2))
+        tdf = TicDatFactory(parameter=[["Key"], ["Value"]])
+        tdf.set_data_type("parameter", "Key", strings_allowed='*', number_allowed=True)
+        tdf.set_default_value("parameter", "Value", "")
+        dat2 = round_trip()
+        self.assertTrue(tdf._same_data(dat, dat2))
+        tdf = TicDatFactory(parameter=[["Key"], ["Value"]])
+        tdf.set_data_type("parameter", "Value", strings_allowed='*', number_allowed=False)
+        dat = tdf.TicDat(parameter=[["a", "100"], ["b", "010"], ["c", "200"], ["d", "020"]])
+        dat2 = round_trip()
+        self.assertTrue(tdf._same_data(dat, dat2))
 
 _scratchDir = TestCsv.__name__ + "_scratch"
 

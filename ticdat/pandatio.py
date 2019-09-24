@@ -201,6 +201,14 @@ class CsvPanFactory(freezable_factory(object, "_isFrozen")):
                  Table names are matched with case-space insensitivity, but spaces
                  are respected for field names.
                  (ticdat supports whitespace in field names but not table names).
+
+        Note that if you save a DataFrame to csv and then recover it, the type of data might change. For example
+
+            df = pd.DataFrame({"a":["100", "200", "300"]})
+            df.to_csv("something.csv")
+            df2 = pd.read_csv("something.csv")
+
+        results in a numeric column in df2. This is one of the many reasons why JSON is a better file format.
         """
         verify(os.path.isdir(dir_path), "%s not a directory path"%dir_path)
         tbl_names = self._get_table_names(dir_path)
