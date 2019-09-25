@@ -296,6 +296,29 @@ class TestCsv(unittest.TestCase):
         dat2 = round_trip()
         self.assertTrue(tdf._same_data(dat, dat2))
 
+    def test_empty_text_none(self):
+        dir_path = os.path.join(_scratchDir, "empty_text")
+        tdf = TicDatFactory(parameter=[["Key"], ["Value"]])
+        dat_n = tdf.TicDat(parameter=[[None, 100], ["b", 10.01], ["three", 200], ["d", None]])
+        dat_s = tdf.TicDat(parameter=[["", 100], ["b", 10.01], ["three", 200], ["d", ""]])
+        def round_trip():
+            tdf.csv.write_directory(dat_n, makeCleanDir(dir_path))
+            return tdf.csv.create_tic_dat(dir_path)
+        dat2 = round_trip()
+        self.assertTrue(tdf._same_data(dat_s, dat2) and not tdf._same_data(dat_n, dat2))
+        tdf = TicDatFactory(parameter=[["Key"], ["Value"]])
+        tdf.set_data_type("parameter", "Key", nullable=True)
+        tdf.set_default_value("parameter", "Value", None) # this default alone will mess with number reading
+        dat2 = round_trip()
+        self.assertFalse(tdf._same_data(dat_s, dat2) or tdf._same_data(dat_n, dat2))
+        self.assertTrue(any(r["Value"] is None for r in dat2.parameter.values()))
+        tdf = TicDatFactory(parameter=[["Key"], ["Value"]])
+        tdf.set_data_type("parameter", "Key", nullable=True)
+        tdf.set_data_type("parameter", "Value", nullable=True, must_be_int=True)
+        dat2 = round_trip()
+        self.assertTrue(not tdf._same_data(dat_s, dat2) and tdf._same_data(dat_n, dat2))
+
+
 _scratchDir = TestCsv.__name__ + "_scratch"
 
 # Run the tests.
