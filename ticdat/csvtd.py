@@ -84,7 +84,9 @@ class CsvTicFactory(freezable_factory(object, "_isFrozen")) :
                            (table in self.tic_dat_factory.generic_tables)
         if should_try_float:
             try:
-                return float(x)
+                x = float(x)
+                if int(x) == x and dt and dt.must_be_int:
+                    x = int(x)
             except:
                 return x
         return x

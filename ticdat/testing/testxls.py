@@ -435,6 +435,22 @@ class TestXls(unittest.TestCase):
             ticDat2 = tdf.xls.create_tic_dat(filePath)
             self.assertTrue(tdf._same_data(ticDat, ticDat2))
 
+    def test_empty_text_none(self):
+        filePath = os.path.join(_scratchDir, "empty.xls")
+        tdf = TicDatFactory(parameter=[["Key"], ["Value"]])
+        dat_n = tdf.TicDat(parameter=[[None, 100], ["b", 10.01], ["three", 200], ["d", None]])
+        dat_s = tdf.TicDat(parameter=[["", 100], ["b", 10.01], ["three", 200], ["d", ""]])
+        def round_trip():
+            tdf.xls.write_file(dat_n, filePath, allow_overwrite=True)
+            return tdf.xls.create_tic_dat(filePath)
+        dat2 = round_trip()
+        self.assertTrue(tdf._same_data(dat_s, dat2) and not tdf._same_data(dat_n, dat2))
+        tdf = TicDatFactory(parameter=[["Key"], ["Value"]])
+        tdf.set_data_type("parameter", "Key", nullable=True)
+        tdf.set_default_value("parameter", "Value", None) # this default alone will mess with number reading
+        dat2 = round_trip()
+        self.assertTrue(not tdf._same_data(dat_s, dat2) and tdf._same_data(dat_n, dat2))
+
 _scratchDir = TestXls.__name__ + "_scratch"
 
 # Run the tests.

@@ -314,7 +314,7 @@ class TestCsv(unittest.TestCase):
         self.assertTrue(any(r["Value"] is None for r in dat2.parameter.values()))
         tdf = TicDatFactory(parameter=[["Key"], ["Value"]])
         tdf.set_data_type("parameter", "Key", nullable=True)
-        tdf.set_data_type("parameter", "Value", nullable=True)
+        tdf.set_data_type("parameter", "Value", nullable=True, must_be_int=True)
         dat2 = round_trip()
         self.assertTrue(not tdf._same_data(dat_s, dat2) and tdf._same_data(dat_n, dat2))
 

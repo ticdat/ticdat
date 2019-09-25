@@ -253,18 +253,20 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
         return rtn
     def _sub_tuple(self, table, fields, field_indicies) :
         assert set(fields).issubset(field_indicies)
-        data_types = self.tic_dat_factory.data_types
-        def _convert_float(x, field):
+        def _read_cell(x, field):
+            # reminder - data fields have a default default of zero, primary keys don't get a default default
+            dv = self.tic_dat_factory.default_values.get(table, {}).get(field, ["LIST", "NOT", "POSSIBLE"])
+            dt = self.tic_dat_factory.data_types.get(table, {}).get(field)
             rtn = x[field_indicies[field]]
-            if utils.numericish(rtn) and utils.safe_apply(int)(rtn) == rtn and \
-               table in data_types and field in data_types[table] and \
-               data_types[table][field].must_be_int:
+            if rtn == "" and ((dt and dt.nullable) or (not dt and dv is None)):
+                return None
+            if utils.numericish(rtn) and utils.safe_apply(int)(rtn) == rtn and dt and dt.must_be_int:
                 return int(rtn)
             return rtn
         def rtn(x) :
             if len(fields) == 1 :
-                return _convert_float(x, fields[0])
-            return tuple(_convert_float(x, field) for field in fields)
+                return _read_cell(x, fields[0])
+            return tuple(_read_cell(x, field) for field in fields)
         return rtn
 
     def _get_field_indicies(self, table, sheet, row_offset, headers_present) :
