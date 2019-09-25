@@ -7,7 +7,7 @@ from ticdat.utils import freezable_factory, TicDatError, verify, containerish, c
 import os
 from collections import defaultdict
 from itertools import product
-
+from ticdat.pandatfactory import PanDatFactory
 try:
     import xlrd
 except:
@@ -47,7 +47,7 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
         """
         self.tic_dat_factory = tic_dat_factory
         self._isFrozen = True
-    def create_tic_dat(self, xls_file_path, row_offsets={}, headers_present = True,
+    def create_tic_dat(self, xls_file_path, row_offsets=None, headers_present = True,
                        treat_inf_as_infinity = True,
                        freeze_it = False):
         """
@@ -92,8 +92,19 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
                "headers need to be present to read generic tables")
         verify(utils.DataFrame or not tdf.generic_tables,
                "Strange absence of pandas despite presence of generic tables")
-        rtn =  tdf.TicDat(**self._create_tic_dat_dict
-                          (xls_file_path, row_offsets, headers_present, treat_inf_as_infinity))
+        if self.tic_dat_factory.generic_tables:
+            verify(headers_present and treat_inf_as_infinity and not row_offsets,
+                   "headers_present, treat_inf_as_infinity and row_offsets must all be at default values\n" +
+                   "to use generic tables")
+        rtn = self._create_tic_dat_dict(xls_file_path, row_offsets or {}, headers_present, treat_inf_as_infinity)
+        if self.tic_dat_factory.generic_tables:
+            if xls_file_path.endswith(".xls"):
+                print("** Warning : pandas doesn't always play well with older Excel formats.")
+            pdf = PanDatFactory(**{t: '*' for t in self.tic_dat_factory.generic_tables})
+            pandat = pdf.xls.create_pan_dat(xls_file_path)
+            for t in self.tic_dat_factory.generic_tables:
+                rtn[t] = getattr(pandat, t)
+        rtn = tdf.TicDat(**rtn)
         if freeze_it:
             return self.tic_dat_factory.freeze_me(rtn)
         return rtn
@@ -175,14 +186,13 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
                             for x in (sheet.row_values(i) for i in
                                         range(table_len)[row_offsets[tbl]+ho:])}
             elif tbl in tdf.generic_tables:
-                tableObj = [{f:x[i] for f,i in field_indicies[tbl].items()}
-                            for x in (sheet.row_values(i) for i in
-                                      range(table_len)[row_offsets[tbl]+ho:])]
+                tableObj = None # will be read via PanDatFactory
             else :
                 tableObj = [self._sub_tuple(tbl, tdf.data_fields.get(tbl, ()), indicies, tiai)(x)
                             for x in (sheet.row_values(i) for i in
                                         range(table_len)[row_offsets[tbl]+ho:])]
-            rtn[tbl] = tableObj
+            if tableObj is not None:
+                rtn[tbl] = tableObj
         for tbl in tdf.generator_tables :
             rtn[tbl] = self._create_generator_obj(xls_file_path, tbl, row_offsets[tbl],
                                                     headers_present, tiai)

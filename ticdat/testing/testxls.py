@@ -27,7 +27,7 @@ class TestXls(unittest.TestCase):
             return str(e)
     def _test_generic_copy(self, ticDat, tdf, skip_tables=None):
         assert all(tdf.primary_key_fields.get(t) for t in tdf.all_tables)
-        path = os.path.join(makeCleanDir(os.path.join(_scratchDir, "generic_copy")), "file.xls")
+        path = os.path.join(makeCleanDir(os.path.join(_scratchDir, "generic_copy")), "file.xlsx")
         replace_name  = lambda f : "name_" if f == "name" else f
         clean_tdf = TicDatFactory(**{t:[list(map(replace_name, pks)), dfs] for t,(pks, dfs)
                                      in tdf.schema().items()})
@@ -450,6 +450,10 @@ class TestXls(unittest.TestCase):
         tdf.set_default_value("parameter", "Value", None) # this default alone will mess with number reading
         dat2 = round_trip()
         self.assertTrue(not tdf._same_data(dat_s, dat2) and tdf._same_data(dat_n, dat2))
+
+        tdf = TicDatFactory(parameter='*')
+        dat = tdf.xls.create_tic_dat(filePath)
+        self.assertTrue(dat.parameter.shape == (4, 2))
 
 _scratchDir = TestXls.__name__ + "_scratch"
 
