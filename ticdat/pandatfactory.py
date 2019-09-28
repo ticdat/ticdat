@@ -174,24 +174,8 @@ class PanDatFactory(object):
         verify(field in self.data_fields[table] + self.primary_key_fields[table],
                "%s does not refer to a field for %s"%(field, table))
 
-        verify((strings_allowed == '*') or
-               (containerish(strings_allowed) and all(utils.stringish(x) for x in strings_allowed)),
-"""The strings_allowed argument should be a container of strings, or the single '*' character.""")
-        if utils.containerish(strings_allowed):
-            strings_allowed = tuple(strings_allowed) # defensive copy
-        if number_allowed:
-            verify(utils.numericish(max), "max should be numeric")
-            verify(utils.numericish(min), "min should be numeric")
-            verify(max >= min, "max cannot be smaller than min")
-            self._data_types[table][field] = TypeDictionary(number_allowed=True,
-                strings_allowed=strings_allowed,  nullable = bool(nullable),
-                min = min, max = max, inclusive_min= bool(inclusive_min), inclusive_max = bool(inclusive_max),
-                must_be_int = bool(must_be_int))
-        else :
-            self._data_types[table][field] = TypeDictionary(number_allowed=False,
-                strings_allowed=strings_allowed,  nullable = bool(nullable),
-                min = 0, max = float("inf"), inclusive_min= True, inclusive_max = True,
-                must_be_int = False)
+        self._data_types[table][field] = TypeDictionary.safe_creator(number_allowed, inclusive_min, inclusive_max,
+                                                                     min, max, must_be_int, strings_allowed, nullable)
 
     def clear_data_type(self, table, field):
         """
