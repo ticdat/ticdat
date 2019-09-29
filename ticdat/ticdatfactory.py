@@ -1418,9 +1418,21 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
          will list the positions of the failed rows.
         """
         assert self.good_tic_dat_object(tic_dat), "tic_dat not a good object for this factory"
+        data_row_predicates = {k: dict(v) for k,v in self._data_row_predicates.items()}
+        if self._parameters:
+            def good_parameter(row):
+                k = row[self.primary_key_fields["parameters"][0]]
+                v = row[self.data_fields["parameters"][0]]
+                return k in self._parameters and self._parameters[k].type_dictionary.valid_data(v)
+            _ = "Good Name/Value Check"
+            make_name = lambda i: _ if _ not in self._data_row_predicates.get("parameters", {}) else f"{_}_{i}"
+            predicate_name = next(make_name(i) for i in count() if make_name(i) not in
+                                  self._data_row_predicates.get("parameters", {}))
+            data_row_predicates["parameters"] = data_row_predicates.get("parameters", {})
+            data_row_predicates["parameters"][predicate_name] = good_parameter
 
         rtn = clt.defaultdict(set)
-        for tbl, row_predicates in self._data_row_predicates.items():
+        for tbl, row_predicates in data_row_predicates.items():
             for pn, p in row_predicates.items():
                 _table = getattr(tic_dat, tbl)
                 if dictish(_table):
