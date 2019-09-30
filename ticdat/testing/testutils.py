@@ -979,6 +979,11 @@ class TestUtils(unittest.TestCase):
                         {("parameters", "Good Name/Value Check"): 1,
                          ("parameters", 'Good Name/Value Check_0'): 2, ('data_table', "boo"): 1})
 
+        tdf = make_tdf()
+        dat = tdf.TicDat(parameters = [["Something", 90], ["Last", "boo"]])
+        self.assertTrue(tdf.create_full_parameters_dict(dat) ==
+                        {"Something": 90, "Another thing": 5, "Last": "boo"})
+
 
 _scratchDir = TestUtils.__name__ + "_scratch"
 

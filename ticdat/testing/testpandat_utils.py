@@ -504,6 +504,11 @@ class TestUtils(unittest.TestCase):
                         {("parameters", "Good Name/Value Check"): 1,
                          ("parameters", 'Good Name/Value Check_0'): 2, ('data_table', "boo"): 1})
 
+        pdf = make_pdf()
+        dat = pdf.PanDat(parameters = DataFrame({"a": ["Something", "Last"], "b": [90, "boo"]}))
+        self.assertTrue(pdf.create_full_parameters_dict(dat) ==
+                        {"Something": 90, "Another thing": 5, "Last": "boo"})
+
 # Run the tests.
 if __name__ == "__main__":
     if not DataFrame :

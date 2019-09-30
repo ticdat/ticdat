@@ -1274,6 +1274,17 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
         if verbosity == "Low":
             rtn = {tuple(k[:2]) + (tuple(k[2]),): tuple(v) for k,v in rtn.items()}
         return rtn
+    def create_full_parameters_dict(self, dat):
+        """
+        create a fully populated dictionary of all the parameters
+        :param dat: a TicDat object that has a parameters table
+        :return: a dictionary that maps parameter option to actual dat.parameters value.
+                 if the specific option isn't part of dat.parameters, then the default value is used
+        """
+        assert self.good_tic_dat_object(dat)
+        verify(self.parameters, "no parameters options have been specified")
+        return dict({k: v.default_value for k,v in self._parameters.items()},
+                    **{k: v[self.data_fields["parameters"][0]] for k,v in dat.parameters.items()})
 
     def remove_foreign_key_failures(self, tic_dat, propagate=True):
         """

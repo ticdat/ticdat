@@ -744,6 +744,20 @@ class PanDatFactory(object):
                 # but the fix isn't high priority.
                 rtn[fk] = list(_faster_df_apply(child, lambda row: row[magic_field*2] in bad_rows))
         return rtn
+    def create_full_parameters_dict(self, dat):
+        """
+        create a fully populated dictionary of all the parameters
+        :param dat: a PanDat object that has a parameters table
+        :return: a dictionary that maps parameter option to actual dat.parameters value.
+                 if the specific option isn't part of dat.parameters, then the default value is used
+        """
+        msg  = []
+        verify(self.good_pan_dat_object(dat, msg.append),
+               "pan_dat not a good object for this factory : %s"%"\n".join(msg))
+        verify(self.parameters, "no parameters options have been specified")
+        df = dat.parameters[list(self.primary_key_fields["parameters"]) + list(self.data_fields["parameters"])]
+        return dict({k: v.default_value for k,v in self._parameters.items()},
+                    **{k: v for k,v in df.itertuples(index=False)})
     def remove_foreign_key_failures(self, pan_dat):
         """
 
