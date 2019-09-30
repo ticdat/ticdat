@@ -473,6 +473,37 @@ class TestUtils(unittest.TestCase):
         self.assertTrue(pdf._same_data(panDat, panDat4))
         self.assertTrue(set(panDat4.cost["extra"]) == {"boger"})
 
+    def testParametersTest(self):
+        def make_pdf():
+            pdf = PanDatFactory(data_table = [["a"], ["b", "c"]],
+                                parameters = [["a"], ["b"]])
+            pdf.add_parameter("Something", 100, max=100, inclusive_max=True)
+            pdf.add_parameter("Another thing", 5, must_be_int=True)
+            pdf.add_parameter("Last", 'boo', number_allowed=False, strings_allowed='*')
+            return pdf
+
+        pdf = make_pdf()
+
+        dat = pdf.PanDat(data_table = DataFrame({"a":[1, 4], "b":[2, 5], "c":[3, 6]}),
+                         parameters = DataFrame({"a": ["Something", "Another thing", "Last"],
+                                                 "b":[100, 200, "goo"]}))
+
+        self.assertFalse(pdf.find_data_row_failures(dat))
+        dat.parameters = DataFrame({"a": ["Something", "Another thing", "Last"],
+                                    "b": [100, 200.1, 100]})
+        self.assertTrue(set(pdf.find_data_row_failures(dat)) == {("parameters", "Good Name/Value Check")})
+        self.assertTrue(set(next(iter(pdf.find_data_row_failures(dat).values()))["a"]) == {"Another thing", "Last"})
+
+        pdf = make_pdf()
+        pdf.add_parameter("Another thing", 5, max=100)
+        pdf.add_data_row_predicate("parameters", lambda row: "thing" in row["a"],
+                                   predicate_name="Good Name/Value Check")
+        pdf.add_data_row_predicate("data_table", lambda row: row["a"] + row["b"] > row["c"], predicate_name="boo")
+        fails = pdf.find_data_row_failures(dat)
+        self.assertTrue({k:len(v) for k,v in fails.items()} ==
+                        {("parameters", "Good Name/Value Check"): 1,
+                         ("parameters", 'Good Name/Value Check_0'): 2, ('data_table', "boo"): 1})
+
 # Run the tests.
 if __name__ == "__main__":
     if not DataFrame :

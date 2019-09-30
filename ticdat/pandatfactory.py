@@ -238,6 +238,37 @@ class PanDatFactory(object):
             predicate_name = next(i for i in count() if i not in self._data_row_predicates[table])
         self._data_row_predicates[table][predicate_name] = predicate
 
+    def add_parameter(self, name, default_value, number_allowed = True,
+                      inclusive_min = True, inclusive_max = False, min = 0, max = float("inf"),
+                      must_be_int = False, strings_allowed= (), nullable = False):
+        """
+        Add (or reset) a parameters option. Requires that a parameters table with one primary key field and one
+        data field already be present. The legal parameters options will be enforced as part of find_data_row_failures
+        :param name: name of the parameter to add or reset
+        :param default_value: default value for the parameter if not present
+        :param number_allowed: boolean does this parameter allow numbers?
+        :param inclusive_min: if number allowed, is the min inclusive?
+        :param inclusive_max: if number allowed, is the max inclusive?
+        :param min: if number allowed, the minimum value
+        :param max: if number allowed, the maximum value
+        :param must_be_int: boolean : if number allowed, must the number be integral?
+        :param strings_allowed: if a collection - then a list of the strings allowed.
+                                The empty collection prohibits strings.
+                                If a "*", then any string is accepted.
+        :param nullable:  boolean : can this parameter be set to null (aka None)
+        :return:
+        """
+        verify("parameters" in self.all_tables, "No parameters table")
+        verify(len(self.primary_key_fields.get("parameters", [])) ==
+               len(self.data_fields.get("parameters", [])) == 1, "parameters table is badly formatted")
+        verify(not self._has_been_used,
+               "The parameters can't be changed after a TicDatFactory has been used.")
+        td = TypeDictionary.safe_creator(number_allowed, inclusive_min, inclusive_max,
+                                         min, max, must_be_int, strings_allowed, nullable)
+        verify(td.valid_data(default_value), f"{default_value} is not a legal default value for parameter {name}")
+        ParameterInfo = clt.namedtuple("ParameterInfo", ["type_dictionary", "default_value"])
+        self._parameters[name] = ParameterInfo(td, default_value)
+
     def set_default_value(self, table, field, default_value):
         """
         sets the default value for a specific field
@@ -424,6 +455,8 @@ class PanDatFactory(object):
         self._data_types = clt.defaultdict(dict)
         self._data_row_predicates = clt.defaultdict(dict)
         self._foreign_keys = clt.defaultdict(set)
+        self._parameters = {}
+
         self.all_tables = frozenset(init_fields)
         superself = self
         class PanDat(object):
@@ -603,9 +636,22 @@ class PanDatFactory(object):
         msg = []
         verify(self.good_pan_dat_object(pan_dat, msg.append),
                "pan_dat not a good object for this factory : %s"%"\n".join(msg))
+        data_row_predicates = {k: dict(v) for k,v in self._data_row_predicates.items()}
+        if self._parameters:
+            def good_parameter(row):
+                k = row[self.primary_key_fields["parameters"][0]]
+                v = row[self.data_fields["parameters"][0]]
+                return k in self._parameters and self._parameters[k].type_dictionary.valid_data(v)
+            _ = "Good Name/Value Check"
+            make_name = lambda i: _ if _ not in self._data_row_predicates.get("parameters", {}) else f"{_}_{i}"
+            predicate_name = next(make_name(i) for i in count() if make_name(i) not in
+                                  self._data_row_predicates.get("parameters", {}))
+            data_row_predicates["parameters"] = data_row_predicates.get("parameters", {})
+            data_row_predicates["parameters"][predicate_name] = good_parameter
+
         rtn = {}
         TPN = clt.namedtuple("TablePredicateName", ["table", "predicate_name"])
-        for tbl, row_predicates in self._data_row_predicates.items():
+        for tbl, row_predicates in data_row_predicates.items():
             for pn, p in row_predicates.items():
                 _table = getattr(pan_dat, tbl)
                 bad_row = lambda row: not p(row)
