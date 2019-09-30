@@ -80,7 +80,8 @@ class PanDatFactory(object):
         return {"tables_fields" : tables_fields,
                 "foreign_keys" : self.foreign_keys,
                 "default_values" : self.default_values,
-                "data_types" : self.data_types}
+                "data_types" : self.data_types,
+                "parameters": self.parameters}
     @staticmethod
     def create_from_full_schema(full_schema):
         """
@@ -94,7 +95,7 @@ class PanDatFactory(object):
                  and foreign keys consistent with the full_schema argument
         """
         verify(dictish(full_schema) and set(full_schema) == {"tables_fields", "foreign_keys",
-                                                             "default_values", "data_types"},
+                                                             "default_values", "data_types", "parameters"},
                "full_schema should be the result of calling schema(True) for some PanDatFactory")
         fks = full_schema["foreign_keys"]
         verify( (not fks) or (lupish(fks) and all(lupish(_) and len(_) >= 3 for _ in fks)),
@@ -106,6 +107,11 @@ class PanDatFactory(object):
         dvs = full_schema["default_values"]
         verify( (not dvs) or (dictish(dvs) and all(map(dictish, dvs.values()))),
                 "default_values entry poorly formatted")
+        params = full_schema["parameters"]
+        if params:
+            verify(dictish(params) and all(map(utils.stringish, params)), "parameters not well formatted")
+            verify(all(len(v) == 2 and len(v[0]) == 8 and not containerish(v[1]) for v in params.values()),
+                   "parameters improperly formatted")
 
         rtn = PanDatFactory(**full_schema["tables_fields"])
         for fk in (fks or []):
@@ -116,6 +122,8 @@ class PanDatFactory(object):
         for t,fdvs in (dvs or {}).items():
             for f, dv in fdvs.items():
                 rtn.set_default_value(t,f,dv)
+        for p, (dt, df) in (params or {}).items():
+            rtn.add_parameter(p, *((df,) + tuple(dt)))
         return rtn
     def clone(self):
         """
@@ -136,6 +144,9 @@ class PanDatFactory(object):
     def data_types(self):
         return utils.FrozenDict({t : utils.FrozenDict({k :v for k,v in vd.items()})
                                 for t,vd in self._data_types.items()})
+    @property
+    def parameters(self):
+        return FrozenDict(self._parameters)
     def set_data_type(self, table, field, number_allowed = True,
                       inclusive_min = True, inclusive_max = False, min = 0, max = float("inf"),
                       must_be_int = False, strings_allowed= (), nullable = False):
@@ -174,24 +185,8 @@ class PanDatFactory(object):
         verify(field in self.data_fields[table] + self.primary_key_fields[table],
                "%s does not refer to a field for %s"%(field, table))
 
-        verify((strings_allowed == '*') or
-               (containerish(strings_allowed) and all(utils.stringish(x) for x in strings_allowed)),
-"""The strings_allowed argument should be a container of strings, or the single '*' character.""")
-        if utils.containerish(strings_allowed):
-            strings_allowed = tuple(strings_allowed) # defensive copy
-        if number_allowed:
-            verify(utils.numericish(max), "max should be numeric")
-            verify(utils.numericish(min), "min should be numeric")
-            verify(max >= min, "max cannot be smaller than min")
-            self._data_types[table][field] = TypeDictionary(number_allowed=True,
-                strings_allowed=strings_allowed,  nullable = bool(nullable),
-                min = min, max = max, inclusive_min= bool(inclusive_min), inclusive_max = bool(inclusive_max),
-                must_be_int = bool(must_be_int))
-        else :
-            self._data_types[table][field] = TypeDictionary(number_allowed=False,
-                strings_allowed=strings_allowed,  nullable = bool(nullable),
-                min = 0, max = float("inf"), inclusive_min= True, inclusive_max = True,
-                must_be_int = False)
+        self._data_types[table][field] = TypeDictionary.safe_creator(number_allowed, inclusive_min, inclusive_max,
+                                                                     min, max, must_be_int, strings_allowed, nullable)
 
     def clear_data_type(self, table, field):
         """
@@ -253,6 +248,37 @@ class PanDatFactory(object):
         if predicate_name is None:
             predicate_name = next(i for i in count() if i not in self._data_row_predicates[table])
         self._data_row_predicates[table][predicate_name] = predicate
+
+    def add_parameter(self, name, default_value, number_allowed = True,
+                      inclusive_min = True, inclusive_max = False, min = 0, max = float("inf"),
+                      must_be_int = False, strings_allowed= (), nullable = False):
+        """
+        Add (or reset) a parameters option. Requires that a parameters table with one primary key field and one
+        data field already be present. The legal parameters options will be enforced as part of find_data_row_failures
+        :param name: name of the parameter to add or reset
+        :param default_value: default value for the parameter if not present
+        :param number_allowed: boolean does this parameter allow numbers?
+        :param inclusive_min: if number allowed, is the min inclusive?
+        :param inclusive_max: if number allowed, is the max inclusive?
+        :param min: if number allowed, the minimum value
+        :param max: if number allowed, the maximum value
+        :param must_be_int: boolean : if number allowed, must the number be integral?
+        :param strings_allowed: if a collection - then a list of the strings allowed.
+                                The empty collection prohibits strings.
+                                If a "*", then any string is accepted.
+        :param nullable:  boolean : can this parameter be set to null (aka None)
+        :return:
+        """
+        verify("parameters" in self.all_tables, "No parameters table")
+        verify(len(self.primary_key_fields.get("parameters", [])) ==
+               len(self.data_fields.get("parameters", [])) == 1, "parameters table is badly formatted")
+        verify(not self._has_been_used,
+               "The parameters can't be changed after a TicDatFactory has been used.")
+        td = TypeDictionary.safe_creator(number_allowed, inclusive_min, inclusive_max,
+                                         min, max, must_be_int, strings_allowed, nullable)
+        verify(td.valid_data(default_value), f"{default_value} is not a legal default value for parameter {name}")
+        ParameterInfo = clt.namedtuple("ParameterInfo", ["type_dictionary", "default_value"])
+        self._parameters[name] = ParameterInfo(td, default_value)
 
     def set_default_value(self, table, field, default_value):
         """
@@ -440,6 +466,8 @@ class PanDatFactory(object):
         self._data_types = clt.defaultdict(dict)
         self._data_row_predicates = clt.defaultdict(dict)
         self._foreign_keys = clt.defaultdict(set)
+        self._parameters = {}
+
         self.all_tables = frozenset(init_fields)
         superself = self
         class PanDat(object):
@@ -619,9 +647,22 @@ class PanDatFactory(object):
         msg = []
         verify(self.good_pan_dat_object(pan_dat, msg.append),
                "pan_dat not a good object for this factory : %s"%"\n".join(msg))
+        data_row_predicates = {k: dict(v) for k,v in self._data_row_predicates.items()}
+        if self._parameters:
+            def good_parameter(row):
+                k = row[self.primary_key_fields["parameters"][0]]
+                v = row[self.data_fields["parameters"][0]]
+                return k in self._parameters and self._parameters[k].type_dictionary.valid_data(v)
+            _ = "Good Name/Value Check"
+            make_name = lambda i: _ if _ not in self._data_row_predicates.get("parameters", {}) else f"{_}_{i}"
+            predicate_name = next(make_name(i) for i in count() if make_name(i) not in
+                                  self._data_row_predicates.get("parameters", {}))
+            data_row_predicates["parameters"] = data_row_predicates.get("parameters", {})
+            data_row_predicates["parameters"][predicate_name] = good_parameter
+
         rtn = {}
         TPN = clt.namedtuple("TablePredicateName", ["table", "predicate_name"])
-        for tbl, row_predicates in self._data_row_predicates.items():
+        for tbl, row_predicates in data_row_predicates.items():
             for pn, p in row_predicates.items():
                 _table = getattr(pan_dat, tbl)
                 bad_row = lambda row: not p(row)
@@ -703,6 +744,20 @@ class PanDatFactory(object):
                 # but the fix isn't high priority.
                 rtn[fk] = list(_faster_df_apply(child, lambda row: row[magic_field*2] in bad_rows))
         return rtn
+    def create_full_parameters_dict(self, dat):
+        """
+        create a fully populated dictionary of all the parameters
+        :param dat: a PanDat object that has a parameters table
+        :return: a dictionary that maps parameter option to actual dat.parameters value.
+                 if the specific option isn't part of dat.parameters, then the default value is used
+        """
+        msg  = []
+        verify(self.good_pan_dat_object(dat, msg.append),
+               "pan_dat not a good object for this factory : %s"%"\n".join(msg))
+        verify(self.parameters, "no parameters options have been specified")
+        df = dat.parameters[list(self.primary_key_fields["parameters"]) + list(self.data_fields["parameters"])]
+        return dict({k: v.default_value for k,v in self._parameters.items()},
+                    **{k: v for k,v in df.itertuples(index=False)})
     def remove_foreign_key_failures(self, pan_dat):
         """
 

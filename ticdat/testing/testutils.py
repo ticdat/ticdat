@@ -950,6 +950,39 @@ class TestUtils(unittest.TestCase):
         self.assertFalse(tdf._same_data(dataObj, dataObj2, pow(.00001, 3)))
         self.assertTrue(tdf._same_data(dataObj, dataObj2, pow(.00001, 0.333)))
 
+    def testTwenty(self):
+        def make_tdf():
+            tdf = TicDatFactory(data_table = [["a"], ["b", "c"]],
+                                parameters = [["a"], ["b"]])
+            tdf.add_parameter("Something", 100, max=100, inclusive_max=True)
+            tdf.add_parameter("Another thing", 5, must_be_int=True)
+            tdf.add_parameter("Last", 'boo', number_allowed=False, strings_allowed='*')
+            return TicDatFactory.create_from_full_schema(tdf.schema(True))
+
+        tdf = make_tdf()
+        dat = tdf.TicDat(data_table = [[1, 2, 3], [4, 5, 6]],
+                         parameters = [["Something", 100], ["Another thing", 200], ["Last", "goo"]])
+
+        self.assertFalse(tdf.find_data_row_failures(dat))
+        dat.parameters["Another thing"] = 200.1
+        dat.parameters["Last"] = 100
+        self.assertTrue(set(tdf.find_data_row_failures(dat)) == {("parameters", "Good Name/Value Check")})
+        self.assertTrue(set(next(iter(tdf.find_data_row_failures(dat).values()))) == {"Another thing", "Last"})
+
+        tdf = make_tdf()
+        tdf.add_parameter("Another thing", 5, max=100)
+        tdf.add_data_row_predicate("parameters", lambda row: "thing" in row["a"],
+                                   predicate_name="Good Name/Value Check")
+        tdf.add_data_row_predicate("data_table", lambda row: row["a"] + row["b"] > row["c"], predicate_name="boo")
+        fails = tdf.find_data_row_failures(dat)
+        self.assertTrue({k:len(v) for k,v in fails.items()} ==
+                        {("parameters", "Good Name/Value Check"): 1,
+                         ("parameters", 'Good Name/Value Check_0'): 2, ('data_table', "boo"): 1})
+
+        tdf = make_tdf()
+        dat = tdf.TicDat(parameters = [["Something", 90], ["Last", "boo"]])
+        self.assertTrue(tdf.create_full_parameters_dict(dat) ==
+                        {"Something": 90, "Another thing": 5, "Last": "boo"})
 
 
 _scratchDir = TestUtils.__name__ + "_scratch"

@@ -57,6 +57,23 @@ class TypeDictionary(namedtuple("TypeDictionary",
         if data is None:
             return bool(self.nullable)
         return False
+    @staticmethod
+    def safe_creator(number_allowed, inclusive_min, inclusive_max, min, max,
+                      must_be_int, strings_allowed, nullable):
+        verify((strings_allowed == '*') or
+               (containerish(strings_allowed) and all(stringish(x) for x in strings_allowed)),
+               """The strings_allowed argument should be a container of strings, or the single '*' character.""")
+        if containerish(strings_allowed):
+            strings_allowed = tuple(strings_allowed)  # defensive copy
+        if number_allowed:
+            verify(numericish(max), "max should be numeric")
+            verify(numericish(min), "min should be numeric")
+            verify(max >= min, "max cannot be smaller than min")
+            return TypeDictionary(number_allowed=True, strings_allowed=strings_allowed, nullable=bool(nullable),
+                                  min=min, max=max, inclusive_min=bool(inclusive_min),inclusive_max=bool(inclusive_max),
+                                  must_be_int=bool(must_be_int))
+        return TypeDictionary(number_allowed=False, strings_allowed=strings_allowed, nullable=bool(nullable),
+                              min=0, max=float("inf"), inclusive_min=True, inclusive_max=True, must_be_int=False)
 
 class ForeignKey(namedtuple("ForeignKey", ("native_table", "foreign_table", "mapping", "cardinality"))) :
     def nativefields(self):
