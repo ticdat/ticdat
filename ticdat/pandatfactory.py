@@ -80,7 +80,8 @@ class PanDatFactory(object):
         return {"tables_fields" : tables_fields,
                 "foreign_keys" : self.foreign_keys,
                 "default_values" : self.default_values,
-                "data_types" : self.data_types}
+                "data_types" : self.data_types,
+                "parameters": self.parameters}
     @staticmethod
     def create_from_full_schema(full_schema):
         """
@@ -94,7 +95,7 @@ class PanDatFactory(object):
                  and foreign keys consistent with the full_schema argument
         """
         verify(dictish(full_schema) and set(full_schema) == {"tables_fields", "foreign_keys",
-                                                             "default_values", "data_types"},
+                                                             "default_values", "data_types", "parameters"},
                "full_schema should be the result of calling schema(True) for some PanDatFactory")
         fks = full_schema["foreign_keys"]
         verify( (not fks) or (lupish(fks) and all(lupish(_) and len(_) >= 3 for _ in fks)),
@@ -106,6 +107,11 @@ class PanDatFactory(object):
         dvs = full_schema["default_values"]
         verify( (not dvs) or (dictish(dvs) and all(map(dictish, dvs.values()))),
                 "default_values entry poorly formatted")
+        params = full_schema["parameters"]
+        if params:
+            verify(dictish(params) and all(map(utils.stringish, params)), "parameters not well formatted")
+            verify(all(len(v) == 2 and len(v[0]) == 8 and not containerish(v[1]) for v in params.values()),
+                   "parameters improperly formatted")
 
         rtn = PanDatFactory(**full_schema["tables_fields"])
         for fk in (fks or []):
@@ -116,6 +122,8 @@ class PanDatFactory(object):
         for t,fdvs in (dvs or {}).items():
             for f, dv in fdvs.items():
                 rtn.set_default_value(t,f,dv)
+        for p, (dt, df) in (params or {}).items():
+            rtn.add_parameter(p, *((df,) + tuple(dt)))
         return rtn
     def clone(self):
         """
@@ -136,6 +144,9 @@ class PanDatFactory(object):
     def data_types(self):
         return utils.FrozenDict({t : utils.FrozenDict({k :v for k,v in vd.items()})
                                 for t,vd in self._data_types.items()})
+    @property
+    def parameters(self):
+        return FrozenDict(self._parameters)
     def set_data_type(self, table, field, number_allowed = True,
                       inclusive_min = True, inclusive_max = False, min = 0, max = float("inf"),
                       must_be_int = False, strings_allowed= (), nullable = False):

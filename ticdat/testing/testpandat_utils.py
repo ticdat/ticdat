@@ -480,7 +480,7 @@ class TestUtils(unittest.TestCase):
             pdf.add_parameter("Something", 100, max=100, inclusive_max=True)
             pdf.add_parameter("Another thing", 5, must_be_int=True)
             pdf.add_parameter("Last", 'boo', number_allowed=False, strings_allowed='*')
-            return pdf
+            return PanDatFactory.create_from_full_schema(pdf.schema(True))
 
         pdf = make_pdf()
 
