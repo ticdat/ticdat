@@ -251,12 +251,13 @@ class PanDatFactory(object):
 
     def add_parameter(self, name, default_value, number_allowed = True,
                       inclusive_min = True, inclusive_max = False, min = 0, max = float("inf"),
-                      must_be_int = False, strings_allowed= (), nullable = False):
+                      must_be_int = False, strings_allowed= (), nullable = False,
+                      enforce_type_rules = True):
         """
         Add (or reset) a parameters option. Requires that a parameters table with one primary key field and one
         data field already be present. The legal parameters options will be enforced as part of find_data_row_failures
         :param name: name of the parameter to add or reset
-        :param default_value: default value for the parameter if not present
+        :param default_value: default value for the parameter (used for create_full_parameters_dict)
         :param number_allowed: boolean does this parameter allow numbers?
         :param inclusive_min: if number allowed, is the min inclusive?
         :param inclusive_max: if number allowed, is the max inclusive?
@@ -267,6 +268,8 @@ class PanDatFactory(object):
                                 The empty collection prohibits strings.
                                 If a "*", then any string is accepted.
         :param nullable:  boolean : can this parameter be set to null (aka None)
+        :param enforce_type_rules: boolean: ignore all of number_allowed through nullabe, and only
+                                   enforce the parameter names and default values
         :return:
         """
         verify("parameters" in self.all_tables, "No parameters table")
@@ -274,9 +277,11 @@ class PanDatFactory(object):
                len(self.data_fields.get("parameters", [])) == 1, "parameters table is badly formatted")
         verify(not self._has_been_used,
                "The parameters can't be changed after a TicDatFactory has been used.")
-        td = TypeDictionary.safe_creator(number_allowed, inclusive_min, inclusive_max,
-                                         min, max, must_be_int, strings_allowed, nullable)
-        verify(td.valid_data(default_value), f"{default_value} is not a legal default value for parameter {name}")
+        td = None
+        if enforce_type_rules:
+            td = TypeDictionary.safe_creator(number_allowed, inclusive_min, inclusive_max,
+                                             min, max, must_be_int, strings_allowed, nullable)
+            verify(td.valid_data(default_value), f"{default_value} is not a legal default value for parameter {name}")
         ParameterInfo = clt.namedtuple("ParameterInfo", ["type_dictionary", "default_value"])
         self._parameters[name] = ParameterInfo(td, default_value)
 
