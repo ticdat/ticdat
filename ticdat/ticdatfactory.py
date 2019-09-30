@@ -83,7 +83,8 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
         return {"tables_fields" : tables_fields,
                 "foreign_keys" : self.foreign_keys,
                 "default_values" : self.default_values,
-                "data_types" : self.data_types}
+                "data_types" : self.data_types,
+                "parameters": self.parameters}
     @staticmethod
     def create_from_full_schema(full_schema):
         """
@@ -97,7 +98,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
                  and foreign keys consistent with the full_schema argument
         """
         verify(dictish(full_schema) and set(full_schema) == {"tables_fields", "foreign_keys",
-                                                             "default_values", "data_types"},
+                                                             "default_values", "data_types", "parameters"},
                "full_schema should be the result of calling schema(True) for some TicDatFactory")
         fks = full_schema["foreign_keys"]
         verify( (not fks) or (lupish(fks) and all(lupish(_) and len(_) >= 3 for _ in fks)),
@@ -109,6 +110,11 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
         dvs = full_schema["default_values"]
         verify( (not dvs) or (dictish(dvs) and all(map(dictish, dvs.values()))),
                 "default_values entry poorly formatted")
+        params = full_schema["parameters"]
+        if params:
+            verify(dictish(params) and all(map(utils.stringish, params)), "parameters not well formatted")
+            verify(all(len(v) == 2 and len(v[0]) == 8 and not containerish(v[1]) for v in params.values()),
+                   "parameters improperly formatted")
 
         rtn = TicDatFactory(**full_schema["tables_fields"])
         for fk in (fks or []):
@@ -119,6 +125,8 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
         for t,fdvs in (dvs or {}).items():
             for f, dv in fdvs.items():
                 rtn.set_default_value(t,f,dv)
+        for p, (dt, df) in (params or {}).items():
+            rtn.add_parameter(p, *((df,) + tuple(dt)))
         return rtn
     @property
     def generator_tables(self):
@@ -126,6 +134,9 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
     @property
     def default_values(self):
         return deep_freeze(self._default_values)
+    @property
+    def parameters(self):
+        return FrozenDict(self._parameters)
     @property
     def data_types(self):
         return utils.FrozenDict({t : utils.FrozenDict({k :v for k,v in vd.items()})

@@ -957,7 +957,7 @@ class TestUtils(unittest.TestCase):
             tdf.add_parameter("Something", 100, max=100, inclusive_max=True)
             tdf.add_parameter("Another thing", 5, must_be_int=True)
             tdf.add_parameter("Last", 'boo', number_allowed=False, strings_allowed='*')
-            return tdf
+            return TicDatFactory.create_from_full_schema(tdf.schema(True))
 
         tdf = make_tdf()
         dat = tdf.TicDat(data_table = [[1, 2, 3], [4, 5, 6]],
