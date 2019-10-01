@@ -113,7 +113,8 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
         params = full_schema["parameters"]
         if params:
             verify(dictish(params) and all(map(utils.stringish, params)), "parameters not well formatted")
-            verify(all(len(v) == 2 and len(v[0]) == 8 and not containerish(v[1]) for v in params.values()),
+            verify(all(len(v) == 2 and (v[0] is None or len(v[0]) == 8)
+                       and not containerish(v[1]) for v in params.values()),
                    "parameters improperly formatted")
 
         rtn = TicDatFactory(**full_schema["tables_fields"])
@@ -126,7 +127,10 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
             for f, dv in fdvs.items():
                 rtn.set_default_value(t,f,dv)
         for p, (dt, df) in (params or {}).items():
-            rtn.add_parameter(p, *((df,) + tuple(dt)))
+            if dt is None:
+                rtn.add_parameter(p, df, enforce_type_rules=False)
+            else:
+                rtn.add_parameter(p, *((df,) + tuple(dt)), enforce_type_rules=True)
         return rtn
     @property
     def generator_tables(self):
@@ -240,12 +244,13 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
 
     def add_parameter(self, name, default_value, number_allowed = True,
                       inclusive_min = True, inclusive_max = False, min = 0, max = float("inf"),
-                      must_be_int = False, strings_allowed= (), nullable = False):
+                      must_be_int = False, strings_allowed= (), nullable = False,
+                      enforce_type_rules = True):
         """
         Add (or reset) a parameters option. Requires that a parameters table with one primary key field and one
         data field already be present. The legal parameters options will be enforced as part of find_data_row_failures
         :param name: name of the parameter to add or reset
-        :param default_value: default value for the parameter if not present
+        :param default_value: default value for the parameter (used for create_full_parameters_dict)
         :param number_allowed: boolean does this parameter allow numbers?
         :param inclusive_min: if number allowed, is the min inclusive?
         :param inclusive_max: if number allowed, is the max inclusive?
@@ -256,6 +261,8 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
                                 The empty collection prohibits strings.
                                 If a "*", then any string is accepted.
         :param nullable:  boolean : can this parameter be set to null (aka None)
+        :param enforce_type_rules: boolean: ignore all of number_allowed through nullabe, and only
+                                   enforce the parameter names and default values
         :return:
         """
         verify("parameters" in self.all_tables, "No parameters table")
@@ -263,9 +270,11 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
                len(self.data_fields.get("parameters", [])) == 1, "parameters table is badly formatted")
         verify(not self._has_been_used,
                "The parameters can't be changed after a TicDatFactory has been used.")
-        td = TypeDictionary.safe_creator(number_allowed, inclusive_min, inclusive_max,
-                                         min, max, must_be_int, strings_allowed, nullable)
-        verify(td.valid_data(default_value), f"{default_value} is not a legal default value for parameter {name}")
+        td = None
+        if enforce_type_rules:
+            td = TypeDictionary.safe_creator(number_allowed, inclusive_min, inclusive_max,
+                                             min, max, must_be_int, strings_allowed, nullable)
+            verify(td.valid_data(default_value), f"{default_value} is not a legal default value for parameter {name}")
         ParameterInfo = namedtuple("ParameterInfo", ["type_dictionary", "default_value"])
         self._parameters[name] = ParameterInfo(td, default_value)
 
@@ -1445,7 +1454,8 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
             def good_parameter(row):
                 k = row[self.primary_key_fields["parameters"][0]]
                 v = row[self.data_fields["parameters"][0]]
-                return k in self._parameters and self._parameters[k].type_dictionary.valid_data(v)
+                chk = self._parameters.get(k)
+                return chk and (chk.type_dictionary is None or chk.type_dictionary.valid_data(v))
             _ = "Good Name/Value Check"
             make_name = lambda i: _ if _ not in self._data_row_predicates.get("parameters", {}) else f"{_}_{i}"
             predicate_name = next(make_name(i) for i in count() if make_name(i) not in

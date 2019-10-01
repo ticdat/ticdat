@@ -479,21 +479,25 @@ class TestUtils(unittest.TestCase):
                                 parameters = [["a"], ["b"]])
             pdf.add_parameter("Something", 100, max=100, inclusive_max=True)
             pdf.add_parameter("Another thing", 5, must_be_int=True)
+            pdf.add_parameter("Untyped thing", "whatever", enforce_type_rules=False)
             pdf.add_parameter("Last", 'boo', number_allowed=False, strings_allowed='*')
             return PanDatFactory.create_from_full_schema(pdf.schema(True))
 
         pdf = make_pdf()
 
         dat = pdf.PanDat(data_table = DataFrame({"a":[1, 4], "b":[2, 5], "c":[3, 6]}),
-                         parameters = DataFrame({"a": ["Something", "Another thing", "Last"],
-                                                 "b":[100, 200, "goo"]}))
+                         parameters = DataFrame({"a": ["Something", "Another thing", "Last", "Untyped thing"],
+                                                 "b":[100, 200, "goo", -float("inf")]}))
 
         self.assertFalse(pdf.find_data_row_failures(dat))
-        dat.parameters = DataFrame({"a": ["Something", "Another thing", "Last"],
-                                    "b": [100, 200.1, 100]})
+        dat.parameters = DataFrame({"a": ["Something", "Another thing", "Bad P", "Last"],
+                                    "b": [100, 200.1, -float("inf"), 100]})
         self.assertTrue(set(pdf.find_data_row_failures(dat)) == {("parameters", "Good Name/Value Check")})
-        self.assertTrue(set(next(iter(pdf.find_data_row_failures(dat).values()))["a"]) == {"Another thing", "Last"})
+        self.assertTrue(set(next(iter(pdf.find_data_row_failures(dat).values()))["a"])
+                        == {"Another thing", "Last", "Bad P"})
 
+        dat.parameters = DataFrame({"a": ["Something", "Another thing", "Untyped thingy", "Last"],
+                                    "b": [100, 200.1, -float("inf"), 100]})
         pdf = make_pdf()
         pdf.add_parameter("Another thing", 5, max=100)
         pdf.add_data_row_predicate("parameters", lambda row: "thing" in row["a"],
@@ -502,12 +506,12 @@ class TestUtils(unittest.TestCase):
         fails = pdf.find_data_row_failures(dat)
         self.assertTrue({k:len(v) for k,v in fails.items()} ==
                         {("parameters", "Good Name/Value Check"): 1,
-                         ("parameters", 'Good Name/Value Check_0'): 2, ('data_table', "boo"): 1})
+                         ("parameters", 'Good Name/Value Check_0'): 3, ('data_table', "boo"): 1})
 
         pdf = make_pdf()
         dat = pdf.PanDat(parameters = DataFrame({"a": ["Something", "Last"], "b": [90, "boo"]}))
         self.assertTrue(pdf.create_full_parameters_dict(dat) ==
-                        {"Something": 90, "Another thing": 5, "Last": "boo"})
+                        {"Something": 90, "Another thing": 5, "Last": "boo", "Untyped thing": "whatever"})
 
 # Run the tests.
 if __name__ == "__main__":
