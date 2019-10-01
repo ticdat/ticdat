@@ -110,7 +110,8 @@ class PanDatFactory(object):
         params = full_schema["parameters"]
         if params:
             verify(dictish(params) and all(map(utils.stringish, params)), "parameters not well formatted")
-            verify(all(len(v) == 2 and len(v[0]) == 8 and not containerish(v[1]) for v in params.values()),
+            verify(all(len(v) == 2 and (v[0] is None or len(v[0]) == 8)
+                       and not containerish(v[1]) for v in params.values()),
                    "parameters improperly formatted")
 
         rtn = PanDatFactory(**full_schema["tables_fields"])
@@ -123,7 +124,10 @@ class PanDatFactory(object):
             for f, dv in fdvs.items():
                 rtn.set_default_value(t,f,dv)
         for p, (dt, df) in (params or {}).items():
-            rtn.add_parameter(p, *((df,) + tuple(dt)))
+            if dt is None:
+                rtn.add_parameter(p, df, enforce_type_rules=False)
+            else:
+                rtn.add_parameter(p, *((df,) + tuple(dt)), enforce_type_rules=True)
         return rtn
     def clone(self):
         """
@@ -657,7 +661,8 @@ class PanDatFactory(object):
             def good_parameter(row):
                 k = row[self.primary_key_fields["parameters"][0]]
                 v = row[self.data_fields["parameters"][0]]
-                return k in self._parameters and self._parameters[k].type_dictionary.valid_data(v)
+                chk = self._parameters.get(k)
+                return chk and (chk.type_dictionary is None or chk.type_dictionary.valid_data(v))
             _ = "Good Name/Value Check"
             make_name = lambda i: _ if _ not in self._data_row_predicates.get("parameters", {}) else f"{_}_{i}"
             predicate_name = next(make_name(i) for i in count() if make_name(i) not in
