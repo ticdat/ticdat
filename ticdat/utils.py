@@ -139,6 +139,10 @@ def standard_main(input_schema, solution_schema, solve):
         return _standard_main_ticdat(input_schema, solution_schema, solve)
     return _standard_main_pandat(input_schema, solution_schema, solve)
 
+def _extra_input_file_check_str(input_file):
+    if os.path.isfile(input_file) and input_file.endswith(".csv"):
+        return "\nTo load data from .csv files, pass the parent directory containing the .csv files as the -i argument."
+    return ""
 
 def _standard_main_pandat(input_schema, solution_schema, solve):
     file_name = sys.argv[0]
@@ -179,7 +183,7 @@ def _standard_main_pandat(input_schema, solution_schema, solve):
                 dat = input_schema.sql.create_pan_dat(input_file)
         elif os.path.isdir(input_file) and file_or_dir(input_file) == "directory":
             dat = input_schema.csv.create_pan_dat(input_file)
-        verify(dat, "Failed to read from and/or recognize %s"%input_file)
+        verify(dat, f"Failed to read from and/or recognize {input_file}{_extra_input_file_check_str(input_file)}")
         sln = solve(dat)
         if sln:
             print("%s output %s %s"%("Overwriting" if os.path.exists(output_file) else "Creating",
@@ -246,7 +250,7 @@ def _standard_main_ticdat(input_schema, solution_schema, solve):
         elif os.path.isdir(input_file) and file_or_dir(input_file) == "directory":
             assert not input_schema.csv.find_duplicates(input_file), "duplicate rows found"
             dat = input_schema.csv.create_tic_dat(input_file)
-        verify(dat, "Failed to read from and/or recognize %s"%input_file)
+        verify(dat, f"Failed to read from and/or recognize {input_file}{_extra_input_file_check_str(input_file)}")
         sln = solve(dat)
         if sln:
             print("%s output %s %s"%("Overwriting" if os.path.exists(output_file) else "Creating",
