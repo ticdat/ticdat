@@ -1,0 +1,11 @@
+Commodity,Node,Quantity
+Pens,Boston,-40
+Pens,New York,-30
+Pencils,Detroit,50
+Pencils,Seattle,-10
+Pencils,Denver,60
+Pens,Detroit,60
+Pens,Seattle,-30
+Pens,Denver,40
+Pencils,New York,-50
+Pencils,Boston,-50

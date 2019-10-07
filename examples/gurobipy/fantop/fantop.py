@@ -62,6 +62,11 @@ input_schema.add_data_row_predicate("roster_requirements",
     predicate=lambda row : row["Max Num Starters"] >= row["Min Num Starters"])
 input_schema.add_data_row_predicate("roster_requirements",
     predicate=lambda row : row["Max Num Reserve"] >= row["Min Num Reserve"])
+
+input_schema.add_parameter("Starter Weight", default_value=1.2, min=0, max=float("inf"),
+                           inclusive_min=False, inclusive_max=False)
+input_schema.add_parameter("Reserve Weight", default_value=0.9, min=0, max=float("inf"),
+                           inclusive_min=False, inclusive_max=False)
 # ---------------------------------------------------------------------------------
 
 
@@ -139,8 +144,9 @@ def solve(dat):
                     <= dat.parameters["Maximum Number of Flex Starters"]["Value"],
                     name = "max_flex")
 
-    starter_weight = dat.parameters["Starter Weight"]["Value"] if "Starter Weight" in dat.parameters else 1
-    reserve_weight = dat.parameters["Reserve Weight"]["Value"] if "Reserve Weight" in dat.parameters else 1
+    parameters = input_schema.create_full_parameters_dict(dat)
+    starter_weight = parameters["Starter Weight"]
+    reserve_weight = parameters["Reserve Weight"]
     m.setObjective(gu.quicksum(dat.players[player_name]["Expected Points"] *
                                (my_starters[player_name] * starter_weight + my_reserves[player_name] * reserve_weight)
                                for player_name in can_be_drafted_by_me),
