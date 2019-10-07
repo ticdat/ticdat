@@ -10,7 +10,7 @@ from diet import solve, input_schema
 dat = input_schema.TicDat(
     categories = {
       'calories': [1800, 2200],
-      'protein':  [91, float("inf")],
+      'protein':  [91, 300],
       'fat':      [0, 65],
       'sodium':   [0, 1779] },
 

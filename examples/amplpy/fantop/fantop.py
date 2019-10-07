@@ -60,6 +60,11 @@ input_schema.add_data_row_predicate("roster_requirements",
     predicate=lambda row : row["Max Num Starters"] >= row["Min Num Starters"])
 input_schema.add_data_row_predicate("roster_requirements",
     predicate=lambda row : row["Max Num Reserve"] >= row["Min Num Reserve"])
+
+input_schema.add_parameter("Starter Weight", default_value=1.2, min=0, max=float("inf"),
+                           inclusive_min=False, inclusive_max=False)
+input_schema.add_parameter("Reserve Weight", default_value=0.9, min=0, max=float("inf"),
+                           inclusive_min=False, inclusive_max=False)
 # ---------------------------------------------------------------------------------
 
 
@@ -78,7 +83,7 @@ def solve(dat):
     assert not input_schema.find_data_type_failures(dat)
     assert not input_schema.find_data_row_failures(dat)
 
-    parameters = {k:v for k,v in dat.parameters.itertuples(index=False)}
+    parameters = input_schema.create_full_parameters_dict(dat)
 
     # for our purposes, its fine to assume all those drafted by someone else are drafted
     # prior to any players drafted by me
@@ -168,8 +173,8 @@ def solve(dat):
                                                 "roster_requirements": "POSITIONS"})
     ampl.param['max_number_of_flex_starters'] = parameters.get('Maximum Number of Flex Starters',
                                                 len(dat.my_draft_positions))
-    ampl.param['starter_weight'] = parameters.get('Starter Weight', 1.)
-    ampl.param['reserve_weight'] = parameters.get('Reserve Weight', 1.)
+    ampl.param['starter_weight'] = parameters['Starter Weight']
+    ampl.param['reserve_weight'] = parameters['Reserve Weight']
 
     # solve and recover solutions next
     ampl.solve()
