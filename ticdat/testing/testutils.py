@@ -1,7 +1,7 @@
 import sys
 import unittest
 import ticdat.utils as utils
-from ticdat import LogFile, Progress
+from ticdat import LogFile, Progress, PanDatFactory
 from ticdat.ticdatfactory import TicDatFactory, ForeignKey, ForeignKeyMapping
 from ticdat.testing.ticdattestutils import dietData, dietSchema, netflowData, netflowSchema, firesException, memo
 from ticdat.testing.ticdattestutils import sillyMeData, sillyMeSchema, makeCleanDir, fail_to_debugger, flagged_as_run_alone
@@ -10,6 +10,7 @@ from ticdat.testing.ticdattestutils import spacesSchema, spacesData, clean_denor
 import os
 import itertools
 import shutil
+import json
 
 def _deep_anonymize(x)  :
     if not hasattr(x, "__contains__") or utils.stringish(x):
@@ -987,6 +988,31 @@ class TestUtils(unittest.TestCase):
         dat = tdf.TicDat(parameters = [["Something", 90], ["Last", "boo"]])
         self.assertTrue(tdf.create_full_parameters_dict(dat) ==
                         {"Something": 90, "Another thing": 5, "Last": "boo", "Untyped thing": "whatever"})
+
+    def testTwentyOne(self):
+        simple_sch = {'tables_fields': {'commodities': [['name'], []],
+                      'inflow': [['commodity', 'node'], ['quantity']],
+                      'nodes': [['name'], []],
+                      'cost': [['commodity', 'source', 'destination'], ['cost']],
+                      'arcs': [['source', 'destination'], ['capacity']]},
+                     'foreign_keys': [['arcs', 'nodes', ['destination', 'name'], 'many-to-one'],
+                      ['arcs', 'nodes', ['source', 'name'], 'many-to-one'],
+                      ['cost', 'commodities', ['commodity', 'name'], 'many-to-one'],
+                      ['cost', 'nodes', ['destination', 'name'], 'many-to-one'],
+                      ['cost', 'nodes', ['source', 'name'], 'many-to-one'],
+                      ['inflow', 'commodities', ['commodity', 'name'], 'many-to-one'],
+                      ['inflow', 'nodes', ['node', 'name'], 'many-to-one']],
+                     'default_values': {'arcs': {'capacity': 0},
+                      'cost': {'cost': 0},
+                      'inflow': {'quantity': 0}},
+                     'data_types': {}}
+        for _class in [TicDatFactory, PanDatFactory]:
+            tdf = _class.create_from_full_schema(simple_sch)
+            new_sch = tdf.schema(include_ancillary_info=True)
+            self.assertFalse(new_sch.pop("parameters"))
+            new_sch = json.loads(json.dumps(new_sch))
+            new_sch["foreign_keys"] = sorted(new_sch["foreign_keys"])
+            self.assertTrue(new_sch == simple_sch)
 
 
 _scratchDir = TestUtils.__name__ + "_scratch"

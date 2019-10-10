@@ -94,8 +94,8 @@ class PanDatFactory(object):
         :return: a PanDatFactory reflecting the tables, fields, default values, data types,
                  and foreign keys consistent with the full_schema argument
         """
-        verify(dictish(full_schema) and set(full_schema) == {"tables_fields", "foreign_keys",
-                                                             "default_values", "data_types", "parameters"},
+        old_schema = {"tables_fields", "foreign_keys", "default_values", "data_types"}
+        verify(dictish(full_schema) and set(full_schema) in [old_schema, old_schema.union({"parameters"})],
                "full_schema should be the result of calling schema(True) for some PanDatFactory")
         fks = full_schema["foreign_keys"]
         verify( (not fks) or (lupish(fks) and all(lupish(_) and len(_) >= 3 for _ in fks)),
@@ -107,7 +107,7 @@ class PanDatFactory(object):
         dvs = full_schema["default_values"]
         verify( (not dvs) or (dictish(dvs) and all(map(dictish, dvs.values()))),
                 "default_values entry poorly formatted")
-        params = full_schema["parameters"]
+        params = full_schema.get("parameters", {})
         if params:
             verify(dictish(params) and all(map(utils.stringish, params)), "parameters not well formatted")
             verify(all(len(v) == 2 and (v[0] is None or len(v[0]) == 8)
