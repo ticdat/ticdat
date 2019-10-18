@@ -1146,8 +1146,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
         :return: a deep copy of the tic_dat argument into DataFrames
                  If table_restrictions is falsey and drop_pk_columns is False, then the return object
                  will be a valid pan_dat object. I.e.
-                    pdf = PanDatFactory.create_from_full_schema(self.schema(include_ancillary_info=True))
-                    assert pdf.good_pan_dat_object(rtn)
+                    assert PanDatFactory(**self.schema()).good_pan_dat_object(rtn)
                  works.
         """
         verify(DataFrame, "pandas needs to be installed in order to enable pandas functionality")

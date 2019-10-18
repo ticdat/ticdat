@@ -566,6 +566,10 @@ class PanDatFactory(object):
         :param freeze_it: boolean. should the returned object be frozen?
 
         :return: a deep copy of the pan_dat argument in tic_dat format
+                I.e.
+                   assert TicDatFactory(**self.schema()).good_tic_dat_object(rtn)
+                 works.
+
         """
         msg = []
         verify(self.good_pan_dat_object(pan_dat, msg.append),

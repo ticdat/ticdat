@@ -186,6 +186,8 @@ class TestPandas(unittest.TestCase):
         pdf = PanDatFactory.create_from_full_schema(tdf.schema(include_ancillary_info=True))
         pan_dat = tdf.copy_to_pandas(oldDat, drop_pk_columns=False)
         self.assertTrue(pdf.good_pan_dat_object(pan_dat))
+        tic_dat = pdf.copy_to_tic_dat(pan_dat)
+        self.assertTrue(tdf._same_data(oldDat, tic_dat))
 
         tdf = TicDatFactory(**netflowSchema())
         tdf.enable_foreign_key_links()
@@ -194,6 +196,8 @@ class TestPandas(unittest.TestCase):
         pdf = PanDatFactory.create_from_full_schema(tdf.schema(include_ancillary_info=True))
         pan_dat = tdf.copy_to_pandas(oldDat, drop_pk_columns=False)
         self.assertTrue(pdf.good_pan_dat_object(pan_dat))
+        tic_dat = pdf.copy_to_tic_dat(pan_dat)
+        self.assertTrue(tdf._same_data(oldDat, tic_dat))
 
 # Run the tests.
 if __name__ == "__main__":
