@@ -574,6 +574,8 @@ class PanDatFactory(object):
         msg = []
         verify(self.good_pan_dat_object(pan_dat, msg.append),
                "pan_dat not a good object for this factory : %s"%"\n".join(msg))
+        if self.find_duplicates(pan_dat):
+            print("--> Warning: duplicate rows will force copy_to_tic_dat to return an object with fewer total rows")
         rtn = self._copy_to_tic_dat(pan_dat)
         from ticdat import TicDatFactory
         tdf = TicDatFactory(**self.schema())

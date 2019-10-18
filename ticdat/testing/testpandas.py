@@ -199,6 +199,12 @@ class TestPandas(unittest.TestCase):
         tic_dat = pdf.copy_to_tic_dat(pan_dat)
         self.assertTrue(tdf._same_data(oldDat, tic_dat))
 
+        pdf = PanDatFactory(table = [["a", "b"],["c"]])
+        pan_dat = pdf.PanDat(table=utils.DataFrame({"a":[1, 2, 1, 1],"b": [10, 10, 10, 11], "c": [101, 102, 103, 104]}))
+        self.assertTrue(len(pdf.find_duplicates(pan_dat, keep=False)["table"]) == 2)
+        tic_dat = pdf.copy_to_tic_dat(pan_dat)
+        self.assertTrue(len(tic_dat.table) == len(pan_dat.table) - 1)
+
 # Run the tests.
 if __name__ == "__main__":
     if not DataFrame :
