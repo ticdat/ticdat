@@ -4,7 +4,7 @@ PEP8
 """
 
 import os
-from ticdat.utils import DataFrame, create_generic_free, numericish
+from ticdat.utils import DataFrame, create_generic_free, numericish, case_space_to_pretty
 from ticdat.utils import freezable_factory, TicDatError, verify, containerish, dictish
 from collections import defaultdict
 from itertools import product
@@ -194,7 +194,7 @@ class CsvTicFactory(freezable_factory(object, "_isFrozen")) :
         return rtn
 
     def write_directory(self, tic_dat, dir_path, allow_overwrite = False, dialect='excel',
-                        write_header = True):
+                        write_header = True, case_space_table_names = False):
         """
 
         write the ticDat data to a collection of csv files
@@ -210,6 +210,9 @@ class CsvTicFactory(freezable_factory(object, "_isFrozen")) :
 
         :param write_header: Boolean. Should the header information be written
                              as the first row?
+
+        :param case_space_table_names: boolean - make best guesses how to add spaces and upper case
+                                       characters to table names
 
         :return:
         """
@@ -229,8 +232,11 @@ class CsvTicFactory(freezable_factory(object, "_isFrozen")) :
                 verify(not os.path.exists(f), "The %s path exists and overwrite is not allowed"%f)
         if not os.path.isdir(dir_path) :
             os.mkdir(dir_path)
+        case_space_table_names = case_space_table_names and \
+                                 len(set(self.tic_dat_factory.all_tables)) == \
+                                 len(set(map(case_space_to_pretty, self.tic_dat_factory.all_tables)))
         for t in tdf.all_tables :
-            f = os.path.join(dir_path, t + ".csv")
+            f = os.path.join(dir_path, (case_space_to_pretty(t) if case_space_table_names else t) + ".csv")
             with open(f, 'w', newline='') as csvfile:
                  writer = csv.DictWriter(csvfile,dialect=dialect, fieldnames=
                         tdf.primary_key_fields.get(t, ()) + tdf.data_fields.get(t, ()) )

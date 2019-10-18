@@ -267,7 +267,7 @@ def _standard_main_ticdat(input_schema, solution_schema, solve):
             elif output_file.endswith(".mdb") or output_file.endswith(".accdb"):
                 solution_schema.mdb.write_file(sln, output_file, allow_overwrite=True)
             else:
-                solution_schema.csv.write_directory(sln, output_file, allow_overwrite=True)
+                solution_schema.csv.write_directory(sln, output_file, allow_overwrite=True, case_space_table_names=True)
         else:
             print("No solution was created!")
 

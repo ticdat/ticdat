@@ -318,6 +318,18 @@ class TestCsv(unittest.TestCase):
         dat2 = round_trip()
         self.assertTrue(not tdf._same_data(dat_s, dat2) and tdf._same_data(dat_n, dat2))
 
+    def testCaseSpaceTableNames(self):
+        tdf = TicDatFactory(table_one = [["a"],["b", "c"]], table_two = [["this", "that"],[]])
+        dir_path = os.path.join(_scratchDir, "case_space")
+        dat = tdf.TicDat(table_one = [['a', 2, 3], ['b', 5, 6]], table_two = [["a", "b"],["c", "d"], ["x", "z"]])
+        tdf.csv.write_directory(dat, makeCleanDir(dir_path), case_space_table_names=True)
+        self.assertTrue(all(os.path.exists(os.path.join(dir_path, _+".csv")) for _ in ["Table One", "Table Two"]))
+        self.assertFalse(any(os.path.exists(os.path.join(dir_path, _+".csv")) for _ in ["table_one", "table_two"]))
+        self.assertTrue(tdf._same_data(dat, tdf.csv.create_tic_dat(dir_path)))
+        tdf.csv.write_directory(dat, makeCleanDir(dir_path), case_space_table_names=False)
+        self.assertFalse(any(os.path.exists(os.path.join(dir_path, _+".csv")) for _ in ["Table One", "Table Two"]))
+        self.assertTrue(all(os.path.exists(os.path.join(dir_path, _+".csv")) for _ in ["table_one", "table_two"]))
+        self.assertTrue(tdf._same_data(dat, tdf.csv.create_tic_dat(dir_path)))
 
 _scratchDir = TestCsv.__name__ + "_scratch"
 
