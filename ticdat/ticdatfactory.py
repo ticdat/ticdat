@@ -1130,7 +1130,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
                 raise utils.TicDatError(t + " cannot be passed as an argument to AMPL.setData()")
     def copy_to_pandas(self, tic_dat, table_restrictions = None, drop_pk_columns = None):
         """
-        copies the tic_dat object into a new tic_dat object populated with pandas.DataFrame objects
+        copies the tic_dat object into a new object populated with pandas.DataFrame objects
         performs a deep copy
 
         :param tic_dat: a ticdat object
@@ -1144,6 +1144,10 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
                                 If None, then pk fields will be dropped only for tables with data fields
 
         :return: a deep copy of the tic_dat argument into DataFrames
+                 If table_restrictions is falsey and drop_pk_columns is False, then the return object
+                 will be a valid pan_dat object. I.e.
+                    assert PanDatFactory(**self.schema()).good_pan_dat_object(rtn)
+                 works.
         """
         verify(DataFrame, "pandas needs to be installed in order to enable pandas functionality")
         msg  = []
@@ -1153,9 +1157,11 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
         table_restrictions = table_restrictions or normal_tables
         verify(containerish(table_restrictions) and normal_tables.issuperset(table_restrictions),
            "if provided, table_restrictions should be a subset of the table names")
+        superself = self
         class PandasTicDat(object):
             def __repr__(self):
-                return "td:" + tuple(table_restrictions).__repr__()
+                tlen = lambda t: utils.safe_apply(len)(getattr(self, t))
+                return "pd: {" + ", ".join("%s: %s"%(t, tlen(t)) for t in superself.all_tables) + "}"
         rtn = PandasTicDat()
 
         # this is the only behavior change we exhibit from between 2 and 3. can

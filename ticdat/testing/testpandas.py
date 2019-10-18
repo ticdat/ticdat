@@ -2,6 +2,7 @@ import os
 import ticdat.utils as utils
 import sys
 from ticdat.ticdatfactory import TicDatFactory, DataFrame
+from ticdat.pandatfactory import PanDatFactory
 from ticdat.testing.ticdattestutils import dietData, dietSchema, netflowData
 from ticdat.testing.ticdattestutils import  netflowSchema, firesException, spacesData, spacesSchema
 from ticdat.testing.ticdattestutils import sillyMeData, sillyMeSchema, fail_to_debugger, flagged_as_run_alone
@@ -175,6 +176,28 @@ class TestPandas(unittest.TestCase):
         ticDat.b = ticDat.b.bData
         rebornTicDat = tdf.TicDat(**{t:getattr(ticDat, t) for t in tdf.all_tables})
         self.assertTrue(tdf._same_data(rebornTicDat, oldDat))
+
+    def testRoundTrips(self):
+        if not self.canRun:
+            return
+        tdf = TicDatFactory(**dietSchema())
+        tdf.enable_foreign_key_links()
+        oldDat = tdf.freeze_me(tdf.TicDat(**{t:getattr(dietData(),t) for t in tdf.primary_key_fields}))
+        pdf = PanDatFactory.create_from_full_schema(tdf.schema(include_ancillary_info=True))
+        pan_dat = tdf.copy_to_pandas(oldDat, drop_pk_columns=False)
+        self.assertTrue(pdf.good_pan_dat_object(pan_dat))
+        tic_dat = pdf.copy_to_tic_dat(pan_dat)
+        self.assertTrue(tdf._same_data(oldDat, tic_dat))
+
+        tdf = TicDatFactory(**netflowSchema())
+        tdf.enable_foreign_key_links()
+        addNetflowForeignKeys(tdf)
+        oldDat = tdf.freeze_me(tdf.TicDat(**{t:getattr(netflowData(),t) for t in tdf.primary_key_fields}))
+        pdf = PanDatFactory.create_from_full_schema(tdf.schema(include_ancillary_info=True))
+        pan_dat = tdf.copy_to_pandas(oldDat, drop_pk_columns=False)
+        self.assertTrue(pdf.good_pan_dat_object(pan_dat))
+        tic_dat = pdf.copy_to_tic_dat(pan_dat)
+        self.assertTrue(tdf._same_data(oldDat, tic_dat))
 
 # Run the tests.
 if __name__ == "__main__":
