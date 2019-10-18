@@ -205,6 +205,27 @@ class TestPandas(unittest.TestCase):
         tic_dat = pdf.copy_to_tic_dat(pan_dat)
         self.assertTrue(len(tic_dat.table) == len(pan_dat.table) - 1)
 
+        tdf = TicDatFactory(**pdf.schema())
+        tic_dat = tdf.TicDat(table=[[1, 2, 3], [None, 2, 3], [2, 1, None]])
+        self.assertTrue(len(tic_dat.table) == 3)
+        tic_dat_two = pdf.copy_to_tic_dat(tdf.copy_to_pandas(tic_dat, drop_pk_columns=False))
+        self.assertFalse(tdf._same_data(tic_dat, tic_dat_two))
+        tic_dat3 = tdf.TicDat(table=[[1, 2, 3], [float("nan"), 2, 3], [2, 1, float("nan")]])
+        # this fails because _same_data isn't smart enough to check against nan in the keys,
+        # because float("nan") != float("nan")
+        self.assertFalse(tdf._same_data(tic_dat3, tic_dat_two))
+
+        pdf = PanDatFactory(table = [["a"], ["b", "c"]])
+        tdf = TicDatFactory(**pdf.schema())
+        tic_dat = tdf.TicDat(table=[[1, 2, 3], [2, None, 3], [2, 1, None]])
+        tic_dat_two = pdf.copy_to_tic_dat(tdf.copy_to_pandas(tic_dat, drop_pk_columns=False))
+        self.assertFalse(tdf._same_data(tic_dat, tic_dat_two))
+        tic_dat3 = tdf.TicDat(table=[[1, 2, 3], [2, float("nan"), 3], [2, 1, float("nan")]])
+        # _same_data works fine in checking nan equivalence in data rows - which maybe
+        self.assertTrue(tdf._same_data(tic_dat3, tic_dat_two, nans_are_same_for_data_rows=True))
+
+
+
 # Run the tests.
 if __name__ == "__main__":
     if not DataFrame :

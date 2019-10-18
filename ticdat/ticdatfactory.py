@@ -16,6 +16,7 @@ import ticdat.sqlitetd as sql
 import ticdat.mdb as mdb
 import ticdat.jsontd as json
 import sys
+import math
 try:
     import amplpy
 except:
@@ -928,7 +929,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
                     _rtn.append(dict(dr))
             setattr(rtn, t, _rtn)
         return rtn
-    def _same_data(self, obj1, obj2, epsilon = 0):
+    def _same_data(self, obj1, obj2, epsilon = 0, nans_are_same_for_data_rows = False):
         assert self.good_tic_dat_object(obj1) and self.good_tic_dat_object(obj2)
         assert epsilon >= 0
         _n_s = lambda x, y: False
@@ -939,7 +940,8 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
                 if bool(r1) != bool(r2) or set(r1) != set(r2) :
                     return False
                 for _k in r1:
-                    if r1[_k] != r2[_k] and not _n_s(r1[_k], r2[_k]):
+                    if r1[_k] != r2[_k] and not _n_s(r1[_k], r2[_k]) and \
+                        not (nans_are_same_for_data_rows and all(map(safe_apply(math.isnan), [r1[_k], r2[_k]]))):
                         return False
                 return True
             if dictish(r2) and not dictish(r1) :
@@ -1148,6 +1150,9 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
                  will be a valid pan_dat object. I.e.
                     assert PanDatFactory(**self.schema()).good_pan_dat_object(rtn)
                  works.
+
+                Note that None will be converted to nan in the returned object (as is the norm for pandas.DataFrame)
+
         """
         verify(DataFrame, "pandas needs to be installed in order to enable pandas functionality")
         msg  = []

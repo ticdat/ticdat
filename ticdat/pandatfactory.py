@@ -570,6 +570,8 @@ class PanDatFactory(object):
                    assert TicDatFactory(**self.schema()).good_tic_dat_object(rtn)
                  works.
 
+                 Note that nan will NOT be converted to None in the returned object.
+
         """
         msg = []
         verify(self.good_pan_dat_object(pan_dat, msg.append),
