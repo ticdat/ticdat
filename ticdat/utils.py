@@ -437,8 +437,6 @@ def change_fields_with_reserved_keywords(tdf, reserved_keywords, undo=False):
         rtn.opl_prepend = tdf.opl_prepend
     if hasattr(tdf,'ampl_prepend'):
         rtn.ampl_prepend = tdf.ampl_prepend
-    if hasattr(tdf,'lingo_prepend'):
-        rtn.lingo_prepend = tdf.lingo_prepend
     return rtn
 
 def create_generic_free(td, tdf):

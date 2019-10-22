@@ -33,7 +33,7 @@ def _keylen(k) :
         rtn = 0
     return rtn
 
-class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "lingo_prepend", "ampl_prepend"})) :
+class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl_prepend"})) :
     """
     Primary class for ticdat library. This class is constructed with a schema.
     It can be used to generate TicDat objects, to write TicDat objects to
@@ -1623,10 +1623,6 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
     def ampl_prepend(self):
         return self._prepends.get("ampl","")
 
-    @property
-    def lingo_prepend(self):
-        return self._prepends.get("lingo", "")
-
     @opl_prepend.setter
     def opl_prepend(self, value):
         verify(utils.stringish(value), "opl_prepend should be a string")
@@ -1636,11 +1632,6 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
     def ampl_prepend(self,value):
         verify(utils.stringish(value), "ampl_prepend should be a string")
         self._prepends["ampl"] = value
-
-    @lingo_prepend.setter
-    def lingo_prepend(self,value):
-        verify(utils.stringish(value), "lingo_prepend should be a string")
-        self._prepends["lingo"] = value
 
 def freeze_me(x) :
     """
