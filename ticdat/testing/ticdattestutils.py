@@ -48,20 +48,6 @@ def configure_oplrun_path():
     with open(os.path.join(opl_dir, "oplrun_path.txt"), "w") as f:
         f.write(oplrun_path)
 
-def configure_runlingo_path():
-    if am_on_windows:
-        runlingo_name = os.path.abspath('runlingo.exe')
-    else:
-        runlingo_name = os.path.abspath('runlingo')
-    verify(os.path.isfile(runlingo_name), "You need to be in the directory containing runlingo")
-    lingo_dir = os.path.abspath(os.path.join(_codeDir(), ".."))
-    v_str = "Please submit an issue at https://github.com/ticdat/ticdat/issues"
-    verify(os.path.isdir(lingo_dir), "%s is strangely not a directory. %s"%(lingo_dir, v_str))
-    verify(os.path.isfile(os.path.join(lingo_dir,"lingo.py")), "opl.py is missing. %s"%v_str)
-    runlingo_path = os.path.abspath(runlingo_name)
-    with open(os.path.join(lingo_dir, "runlingo_path.txt"), "w") as f:
-        f.write(runlingo_path)
-
 _debug = []
 def _asserting() :
     _debug.append(())
