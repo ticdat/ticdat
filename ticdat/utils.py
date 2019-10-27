@@ -293,16 +293,15 @@ except:
 
 def gurobi_env(*args, **kwargs):
     """
-    Return a gurobipy.Env object for use in constructing gurobipy.Model() objects.
-    On an ordinary Python installation, this is a pass through to gurobipy.Env()
+    Return an object that can be passed to gurobipy.Model() as the env argument.
+    On an ordinary Python installation, just returns None
     Useful for Gurobi licensing/DRM issues.
 
-    :return: A gurobipy.Env object.
+    :return: An object that can be passed to gurobipy.Model as the env argument
     """
     verify(gu, "gurobipy is not installed")
     if drm:
         return drm.gurobi_env()
-    return gu.Env(*args, **kwargs)
 
 try:
     import docplex.mp.progress as cplexprogress
