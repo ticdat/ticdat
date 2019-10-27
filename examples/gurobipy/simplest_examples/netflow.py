@@ -1,7 +1,7 @@
 # Simplest netflow example using gurobipy and ticdat
 
 import gurobipy as gu
-from ticdat import TicDatFactory, standard_main, Slicer, gurobi_env
+from ticdat import TicDatFactory, standard_main, Slicer
 
 input_schema = TicDatFactory (
      commodities=[["Name"],["Volume"]],
@@ -18,7 +18,7 @@ solution_schema = TicDatFactory(
 def solve(dat):
     assert input_schema.good_tic_dat_object(dat)
 
-    mdl = gu.Model("netflow", env=gurobi_env())
+    mdl = gu.Model("netflow")
 
     flow = {(h, i, j): mdl.addVar(name='flow_%s_%s_%s' % (h, i, j)) for h, i, j in dat.cost}
 

@@ -17,7 +17,7 @@
 # unneeded constraints. See the simplest_examples directory for a simpler version of this model.
 
 import gurobipy as gu
-from ticdat import TicDatFactory, standard_main, Slicer, gurobi_env
+from ticdat import TicDatFactory, standard_main, Slicer
 
 # ------------------------ define the input schema --------------------------------
 input_schema = TicDatFactory (
@@ -68,7 +68,7 @@ def solve(dat):
     assert not input_schema.find_foreign_key_failures(dat)
     assert not input_schema.find_data_type_failures(dat)
 
-    mdl = gu.Model("netflow", env=gurobi_env())
+    mdl = gu.Model("netflow")
 
     flow = {(h, i, j): mdl.addVar(name='flow_%s_%s_%s' % (h, i, j))
             for h, i, j in dat.cost if (i,j) in dat.arcs}
