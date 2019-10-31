@@ -331,6 +331,50 @@ class TestCsv(unittest.TestCase):
         self.assertTrue(all(os.path.exists(os.path.join(dir_path, _+".csv")) for _ in ["table_one", "table_two"]))
         self.assertTrue(tdf._same_data(dat, tdf.csv.create_tic_dat(dir_path)))
 
+    def testNulls(self):
+        tdf = TicDatFactory(table=[["field one"], ["field two"]])
+        for f in ["field one", "field two"]:
+            tdf.set_data_type("table", f, nullable=True)
+        dat = tdf.TicDat(table = [[None, 100], [200, "this"], ["that", 300], [300, None], [400, "that"]])
+        dir_path = os.path.join(_scratchDir, "boolDefaults")
+        tdf.csv.write_directory(dat, dir_path)
+        dat_1 = tdf.csv.create_tic_dat(dir_path)
+        self.assertTrue(tdf._same_data(dat, dat_1))
+
+        tdf = TicDatFactory(table=[["field one"], ["field two"]])
+        for f in ["field one", "field two"]:
+            tdf.set_data_type("table", f, max=float("inf"), inclusive_max=True)
+        tdf.set_infinity_io_flag(None)
+        dat_inf = tdf.TicDat(table = [[float("inf"), 100], [200, "this"], ["that", 300], [300, float("inf")],
+                                      [400, "that"]])
+        dat_1 = tdf.csv.create_tic_dat(dir_path)
+        self.assertTrue(tdf._same_data(dat_inf, dat_1))
+        tdf.csv.write_directory(dat_inf, makeCleanDir(dir_path))
+        dat_1 = tdf.csv.create_tic_dat(dir_path)
+        self.assertTrue(tdf._same_data(dat_inf, dat_1))
+
+        tdf = TicDatFactory(table=[["field one"], ["field two"]])
+        for f in ["field one", "field two"]:
+            tdf.set_data_type("table", f, min=-float("inf"), inclusive_min=True)
+        tdf.set_infinity_io_flag(None)
+        dat_1 = tdf.csv.create_tic_dat(dir_path)
+        self.assertFalse(tdf._same_data(dat_inf, dat_1))
+        dat_inf = tdf.TicDat(table = [[float("-inf"), 100], [200, "this"], ["that", 300], [300, -float("inf")],
+                                      [400, "that"]])
+        self.assertTrue(tdf._same_data(dat_inf, dat_1))
+
+    def testDietWithInfFlagging(self):
+        tdf = TicDatFactory(**dietSchema())
+        dat = tdf.copy_tic_dat(dietData())
+        tdf.set_infinity_io_flag(999999999)
+        path = os.path.join(_scratchDir, "dietInfFlag")
+        tdf.csv.write_directory(dat, path)
+        dat_1 = tdf.csv.create_tic_dat(path)
+        self.assertTrue(tdf._same_data(dat, dat_1))
+        tdf = tdf.clone()
+        dat_1 = tdf.csv.create_tic_dat(path)
+        self.assertTrue(tdf._same_data(dat, dat_1))
+
 _scratchDir = TestCsv.__name__ + "_scratch"
 
 # Run the tests.
