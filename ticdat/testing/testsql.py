@@ -347,6 +347,63 @@ class TestSql(unittest.TestCase):
 
         self.assertFalse(tdf2._same_data(dat2, dat2_b))
 
+    def testBooleansAndNulls(self):
+        tdf = TicDatFactory(table=[["field one"], ["field two"]])
+        dat = tdf.TicDat(table = [[None, 100], [200, True], [False, 300], [300, None], [400, False]])
+        file_one = os.path.join(_scratchDir, "boolDefaults.sql")
+        file_two = os.path.join(_scratchDir, "boolDefaults.db")
+        tdf.sql.write_sql_file(dat, file_one)
+        tdf.sql.write_db_data(dat, file_two)
+        dat_1 = tdf.sql.create_tic_dat_from_sql(file_one)
+        dat_2 = tdf.sql.create_tic_dat(file_two)
+        self.assertTrue(tdf._same_data(dat, dat_1))
+        self.assertTrue(tdf._same_data(dat, dat_2))
+
+        tdf = TicDatFactory(table=[["field one"], ["field two"]])
+        for f in ["field one", "field two"]:
+            tdf.set_data_type("table", f, max=float("inf"), inclusive_max=True)
+        tdf.set_infinity_io_flag(None)
+        dat_inf = tdf.TicDat(table = [[float("inf"), 100], [200, True], [False, 300], [300, float("inf")],
+                                      [400, False]])
+        dat_1 = tdf.sql.create_tic_dat_from_sql(file_one)
+        dat_2 = tdf.sql.create_tic_dat(file_two)
+        self.assertTrue(tdf._same_data(dat_inf, dat_1))
+        self.assertTrue(tdf._same_data(dat_inf, dat_2))
+        tdf.sql.write_sql_file(dat_inf, makeCleanPath(file_one))
+        tdf.sql.write_db_data(dat_inf, file_two, allow_overwrite=True)
+        dat_1 = tdf.sql.create_tic_dat_from_sql(file_one)
+        dat_2 = tdf.sql.create_tic_dat(file_two)
+        self.assertTrue(tdf._same_data(dat_inf, dat_1))
+        self.assertTrue(tdf._same_data(dat_inf, dat_2))
+
+        tdf = TicDatFactory(table=[["field one"], ["field two"]])
+        for f in ["field one", "field two"]:
+            tdf.set_data_type("table", f, min=-float("inf"), inclusive_min=True)
+        tdf.set_infinity_io_flag(None)
+        dat_1 = tdf.sql.create_tic_dat_from_sql(file_one)
+        dat_2 = tdf.sql.create_tic_dat(file_two)
+        self.assertFalse(tdf._same_data(dat_inf, dat_1))
+        self.assertFalse(tdf._same_data(dat_inf, dat_2))
+        dat_inf = tdf.TicDat(table = [[float("-inf"), 100], [200, True], [False, 300], [300, -float("inf")],
+                                      [400, False]])
+        self.assertTrue(tdf._same_data(dat_inf, dat_1))
+        self.assertTrue(tdf._same_data(dat_inf, dat_2))
+
+    def testDietWithInfFlagging(self):
+        tdf = TicDatFactory(**dietSchema())
+        dat = tdf.copy_tic_dat(dietData())
+        tdf.set_infinity_io_flag(999999999)
+        file_one = os.path.join(_scratchDir, "dietInfFlag.sql")
+        file_two = os.path.join(_scratchDir, "dietInfFlag.db")
+        tdf.sql.write_sql_file(dat, file_one)
+        tdf.sql.write_db_data(dat, file_two)
+        dat_1 = tdf.sql.create_tic_dat_from_sql(file_one)
+        dat_2 = tdf.sql.create_tic_dat(file_two)
+        self.assertTrue(tdf._same_data(dat, dat_1))
+        self.assertTrue(tdf._same_data(dat, dat_2))
+        tdf = tdf.clone()
+        dat_1 = tdf.sql.create_tic_dat_from_sql(file_one)
+        self.assertTrue(tdf._same_data(dat, dat_1))
 
 _scratchDir = TestSql.__name__ + "_scratch"
 

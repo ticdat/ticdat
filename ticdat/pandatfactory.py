@@ -81,7 +81,8 @@ class PanDatFactory(object):
                 "foreign_keys" : self.foreign_keys,
                 "default_values" : self.default_values,
                 "data_types" : self.data_types,
-                "parameters": self.parameters}
+                "parameters": self.parameters,
+                "infinity_io_flag": self.infinity_io_flag}
     @staticmethod
     def create_from_full_schema(full_schema):
         """
@@ -95,7 +96,8 @@ class PanDatFactory(object):
                  and foreign keys consistent with the full_schema argument
         """
         old_schema = {"tables_fields", "foreign_keys", "default_values", "data_types"}
-        verify(dictish(full_schema) and set(full_schema) in [old_schema, old_schema.union({"parameters"})],
+        verify(dictish(full_schema) and set(full_schema) in [old_schema, old_schema.union(
+            {"parameters", "infinity_io_flag"})],
                "full_schema should be the result of calling schema(True) for some PanDatFactory")
         fks = full_schema["foreign_keys"]
         verify( (not fks) or (lupish(fks) and all(lupish(_) and len(_) >= 3 for _ in fks)),
@@ -128,6 +130,8 @@ class PanDatFactory(object):
                 rtn.add_parameter(p, df, enforce_type_rules=False)
             else:
                 rtn.add_parameter(p, *((df,) + tuple(dt)), enforce_type_rules=True)
+        if "infinity_io_flag" in full_schema:
+            rtn.set_infinity_io_flag(full_schema["infinity_io_flag"])
         return rtn
     def clone(self):
         """
@@ -151,6 +155,39 @@ class PanDatFactory(object):
     @property
     def parameters(self):
         return FrozenDict(self._parameters)
+    @property
+    def infinity_io_flag(self):
+        """
+        see __doc__ for set_infinity_io_flag
+        """
+        return  self._infinity_io_flag[0]
+    def set_infinity_io_flag(self, value):
+        """
+        Set the infinity_io_flag for the TicDatFactory.
+        'N/A' (the default) is recognized as a flag to disable infinity I/O buffering.
+
+        If numeric, when writing data to the file system (or a database), float("inf") will be replaced by the
+        infinity_io_flag and float("-inf") will be replaced by -infinity_io_flag, prior to writing.
+        Similarly, the read data will replace any number >= the infinity_io_flag with float("inf") and any
+        number smaller than float("-inf") with -infinity_io_flag.
+
+        If None, then +/- infinity will be replaced by None prior to writing.
+        Similarly, subsequent to reading, None will be replaced either by float("inf") or float("-inf"), depending
+        on field data types.
+        Note that None flagging will only perform replacements on fields whose data types allow infinity and not None.
+
+        For all cases, these replacements will be done on a temporary copy of the data that is created prior to writing.
+
+        Also note that none of the these replacements will be done on the parameters table. The assumption is the
+        parameters table will be serialized to a string/string database table. Infinity can thus be represented by
+        "inf"/"-inf" in such serializations.
+
+        :param value: a valid infinity_io_flag
+        :return:
+        """
+        verify(value == "N/A" or (utils.numericish(value) and (0 < value < float("inf"))) or (value is None),
+           "infinity_io_flag needs to be 'N/A' (to indicate it isn't being used), or None, or a positive finite number")
+        self._infinity_io_flag[0] = value
     def set_data_type(self, table, field, number_allowed = True,
                       inclusive_min = True, inclusive_max = False, min = 0, max = float("inf"),
                       must_be_int = False, strings_allowed= (), nullable = False):
@@ -476,6 +513,7 @@ class PanDatFactory(object):
         self._data_row_predicates = clt.defaultdict(dict)
         self._foreign_keys = clt.defaultdict(set)
         self._parameters = {}
+        self._infinity_io_flag = ["N/A"]
 
         self.all_tables = frozenset(init_fields)
         superself = self
