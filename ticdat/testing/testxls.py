@@ -455,6 +455,75 @@ class TestXls(unittest.TestCase):
         dat = tdf.xls.create_tic_dat(filePath)
         self.assertTrue(dat.parameter.shape == (4, 2))
 
+    def testDietWithInfFlagging(self):
+        tdf = TicDatFactory(**dietSchema())
+        dat = tdf.copy_tic_dat(dietData())
+        tdf.set_infinity_io_flag(999999999)
+        file_one = os.path.join(_scratchDir, "dietInfFlag.xls")
+        file_two = os.path.join(_scratchDir, "dietInfFlag.xlsx")
+        tdf.xls.write_file(dat, file_one)
+        tdf.xls.write_file(dat, file_two)
+        dat_1 = tdf.xls.create_tic_dat(file_one)
+        dat_2 = tdf.xls.create_tic_dat(file_two)
+        self.assertTrue(tdf._same_data(dat, dat_1))
+        self.assertTrue(tdf._same_data(dat, dat_2))
+        tdf = tdf.clone()
+        dat_1 = tdf.xls.create_tic_dat(file_one)
+        self.assertTrue(tdf._same_data(dat, dat_1))
+        tdf = TicDatFactory(**dietSchema())
+        dat_1 = tdf.xls.create_tic_dat(file_one)
+        dat_2 = tdf.xls.create_tic_dat(file_two)
+        self.assertFalse(tdf._same_data(dat, dat_1))
+        self.assertFalse(tdf._same_data(dat, dat_2))
+        self.assertTrue({_.categories["protein"]["maxNutrition"] for _ in [dat_1, dat_2]} == {999999999})
+        for _ in [dat_1, dat_2]:
+            _.categories["protein"]["maxNutrition"] = float("inf")
+        self.assertTrue(tdf._same_data(dat, dat_1))
+        self.assertTrue(tdf._same_data(dat, dat_2))
+
+    def testNulls(self):
+        tdf = TicDatFactory(table=[["field one"], ["field two"]])
+        for f in ["field one", "field two"]:
+            tdf.set_data_type("table", f, nullable=True)
+        dat = tdf.TicDat(table = [[None, 100], [200, 109], [0, 300], [300, None], [400, 0]])
+        file_one = os.path.join(_scratchDir, "boolDefaults.xls")
+        file_two = os.path.join(_scratchDir, "boolDefaults.xlsx")
+        tdf.xls.write_file(dat, file_one)
+        tdf.xls.write_file(dat, file_two)
+        dat_1 = tdf.xls.create_tic_dat(file_one)
+        dat_2 = tdf.xls.create_tic_dat(file_two)
+        self.assertTrue(tdf._same_data(dat, dat_1))
+        self.assertTrue(tdf._same_data(dat, dat_2))
+
+        tdf = TicDatFactory(table=[["field one"], ["field two"]])
+        for f in ["field one", "field two"]:
+            tdf.set_data_type("table", f, max=float("inf"), inclusive_max=True)
+        tdf.set_infinity_io_flag(None)
+        dat_inf = tdf.TicDat(table = [[float("inf"), 100], [200, 109], [0, 300], [300, float("inf")], [400, 0]])
+        dat_1 = tdf.xls.create_tic_dat(file_one)
+        dat_2 = tdf.xls.create_tic_dat(file_two)
+
+        self.assertTrue(tdf._same_data(dat_inf, dat_1))
+        self.assertTrue(tdf._same_data(dat_inf, dat_2))
+        tdf.xls.write_file(dat_inf, file_one, allow_overwrite=True)
+        tdf.xls.write_file(dat_inf, file_two, allow_overwrite=True)
+        dat_1 = tdf.xls.create_tic_dat(file_one)
+        dat_2 = tdf.xls.create_tic_dat(file_two)
+        self.assertTrue(tdf._same_data(dat_inf, dat_1))
+        self.assertTrue(tdf._same_data(dat_inf, dat_2))
+
+        tdf = TicDatFactory(table=[["field one"], ["field two"]])
+        for f in ["field one", "field two"]:
+            tdf.set_data_type("table", f, min=-float("inf"), inclusive_min=True)
+        tdf.set_infinity_io_flag(None)
+        dat_1 = tdf.xls.create_tic_dat(file_one)
+        dat_2 = tdf.xls.create_tic_dat(file_two)
+        self.assertFalse(tdf._same_data(dat_inf, dat_1))
+        self.assertFalse(tdf._same_data(dat_inf, dat_2))
+        dat_inf = tdf.TicDat(table = [[float("-inf"), 100], [200, 109], [0, 300], [300, -float("inf")], [400, 0]])
+        self.assertTrue(tdf._same_data(dat_inf, dat_1))
+        self.assertTrue(tdf._same_data(dat_inf, dat_2))
+
 _scratchDir = TestXls.__name__ + "_scratch"
 
 # Run the tests.
