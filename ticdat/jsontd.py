@@ -20,13 +20,16 @@ def _standard_verify(tdf):
     verify(not tdf.generic_tables, "json not yet implemented for generic tables.\n" +
            "This is due to lack of multi-index json support. See goo.gl/u6FGBg")
 
-def make_json_dict(tdf, tic_dat, verbose=False):
+def make_json_dict(tdf, tic_dat, verbose=False, use_infinity_io_flag_if_provided=False):
     assert tdf.good_tic_dat_object(tic_dat)
+    def write_cell(t, f, x):
+        return x if not use_infinity_io_flag_if_provided else tdf._infinity_flag_write_cell(t, f, x)
     jdict = defaultdict(list)
     for t in tdf.all_tables:
         all_fields = tdf.primary_key_fields.get(t,()) + tdf.data_fields.get(t,())
         def make_row(row):
             assert containerish(row) and len(row) == len(all_fields)
+            row = [write_cell(t, f, x) for f, x in zip(all_fields, row)]
             return {f:v for f,v in zip(all_fields, row)} if verbose else row
         appender = lambda row : jdict[t].append(make_row(row))
         tbl = getattr(tic_dat, t)
@@ -123,6 +126,16 @@ class JsonTicFactory(freezable_factory(object, "_isFrozen")) :
             if len(table_keys[t]) >= 1:
                 verify(len(table_keys[t]) < 2, "Found duplicate matching keys for table %s"%t)
                 rtn[t] = jdict[table_keys[t][0]]
+        if tdf.infinity_io_flag != "N/A":
+            orig_rtn, rtn = rtn, {}
+            for t, rows in orig_rtn.items():
+                all_fields = tdf.primary_key_fields.get(t, ()) + tdf.data_fields.get(t, ())
+                rtn[t] = []
+                for row in rows:
+                    if dictish(row):
+                        rtn[t].append({f: tdf._infinity_flag_read_cell(t, f, x) for f,x in row.items()})
+                    else:
+                        rtn[t].append([tdf._infinity_flag_read_cell(t, f, x) for f, x in zip(all_fields, row)])
         return rtn
     def write_file(self, tic_dat, json_file_path, allow_overwrite = False, verbose = False):
         """
@@ -146,6 +159,6 @@ class JsonTicFactory(freezable_factory(object, "_isFrozen")) :
         msg = []
         if not self.tic_dat_factory.good_tic_dat_object(tic_dat, lambda m : msg.append(m)) :
             raise TicDatError("Not a valid TicDat object for this schema : " + " : ".join(msg))
-        jdict = make_json_dict(self.tic_dat_factory, tic_dat, verbose)
+        jdict = make_json_dict(self.tic_dat_factory, tic_dat, verbose, use_infinity_io_flag_if_provided=True)
         with open(json_file_path, "w") as fp:
             json.dump(jdict, fp, sort_keys=True, indent=2)

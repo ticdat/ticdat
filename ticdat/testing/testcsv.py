@@ -374,6 +374,10 @@ class TestCsv(unittest.TestCase):
         tdf = tdf.clone()
         dat_1 = tdf.csv.create_tic_dat(path)
         self.assertTrue(tdf._same_data(dat, dat_1))
+        tdf = TicDatFactory(**dietSchema())
+        dat_1 = tdf.csv.create_tic_dat(path)
+        self.assertFalse(tdf._same_data(dat, dat_1))
+
 
 _scratchDir = TestCsv.__name__ + "_scratch"
 

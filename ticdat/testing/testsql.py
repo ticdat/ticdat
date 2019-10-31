@@ -404,6 +404,9 @@ class TestSql(unittest.TestCase):
         tdf = tdf.clone()
         dat_1 = tdf.sql.create_tic_dat_from_sql(file_one)
         self.assertTrue(tdf._same_data(dat, dat_1))
+        tdf = TicDatFactory(**dietSchema())
+        dat_1 = tdf.sql.create_tic_dat_from_sql(file_one)
+        self.assertFalse(tdf._same_data(dat, dat_1))
 
 _scratchDir = TestSql.__name__ + "_scratch"
 
