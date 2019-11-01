@@ -65,15 +65,6 @@ def _connection_str(file):
 
 _mdb_inf = 1e+100
 assert _mdb_inf < float("inf"), "sanity check on inf"
-def _write_data(x) :  return max(min(x, _mdb_inf), -_mdb_inf) if numericish(x) else x
-
-def _read_data(x) :
-    if utils.numericish(x) :
-        if x >= _mdb_inf :
-            return float("inf")
-        if x <= -_mdb_inf :
-            return -float("inf")
-    return x
 
 def _brackets(l) :
     return ["[%s]"%_ for _ in l]
@@ -112,8 +103,7 @@ class MdbTicFactory(freezable_factory(object, "_isFrozen")) :
 
         :return: a TicDat object populated by the matching tables.
 
-        caveats : Numbers with absolute values larger than 1e+100 will
-                  be read as float("inf") or float("-inf")
+        caveats : See infinity_io_flag
         """
         _standard_verify(self.tic_dat_factory.generic_tables)
         rtn =  self.tic_dat_factory.TicDat(**self._create_tic_dat(mdb_file_path))
@@ -185,7 +175,7 @@ class MdbTicFactory(freezable_factory(object, "_isFrozen")) :
                 cur.execute("Select %s from [%s]"%(", ".join(_brackets(tdf.data_fields[table])),
                                                    table_name))
                 for row in cur.fetchall():
-                  yield list(map(_read_data, row))
+                  yield [tdf._infinity_flag_read_cell(table, f, x) for f, x in zip(tdf.data_fields[table], row)]
         return tableObj
     def _create_tic_dat(self, mdbFilePath):
         tdf = self.tic_dat_factory
@@ -198,10 +188,10 @@ class MdbTicFactory(freezable_factory(object, "_isFrozen")) :
                 with con.cursor() as cur :
                     cur.execute("Select %s from [%s]"%(", ".join(_brackets(fields)),
                                  table_names[table]))
-                    for row in cur.fetchall():
+                    for row_ in cur.fetchall():
+                        row = [tdf._infinity_flag_read_cell(table, f, x) for f, x in zip(fields, row_)]
                         pk = row[:len(tdf.primary_key_fields.get(table, ()))]
-                        data = list(map(_read_data,
-                                    row[len(tdf.primary_key_fields.get(table, ())):]))
+                        data = row[len(tdf.primary_key_fields.get(table, ())):]
                         if dictish(rtn[table]) :
                             rtn[table][pk[0] if len(pk) == 1 else tuple(pk)] = data
                         else :
@@ -281,8 +271,7 @@ class MdbTicFactory(freezable_factory(object, "_isFrozen")) :
 
         :return:
 
-        caveats : Numbers with absolute values larger than 1e+100 will
-                  be written as 1e+100 or -1e+100
+        caveats : See infinity_io_flag
 
         NB - thrown Exceptions of the form "Data type mismatch in criteria expression"
              generally result either from Access's inability to store different data
@@ -301,6 +290,8 @@ class MdbTicFactory(freezable_factory(object, "_isFrozen")) :
         table_names = self._check_tables_fields(mdb_file_path, self.tic_dat_factory.all_tables)
         with _connect(_connection_str(mdb_file_path)) as con:
             for t in self.tic_dat_factory.all_tables:
+                def write_data(f, x):
+                    return self.tic_dat_factory._infinity_flag_write_cell(t, f, x)
                 verify(table_names[t] == t, "Failed to find table %s in path %s"%
                                             (t, mdb_file_path))
                 if not allow_overwrite :
@@ -315,9 +306,9 @@ class MdbTicFactory(freezable_factory(object, "_isFrozen")) :
                     for pk_row, sql_data_row in _t.items() :
                         _items = tuple(sql_data_row.items())
                         fields = _brackets(primary_keys + tuple(x[0] for x in _items))
-                        data_row = ((pk_row,) if len(primary_keys)==1 else pk_row) + \
-                                  tuple(_write_data(x[1]) for x in _items)
+                        data_row = ((pk_row,) if len(primary_keys)==1 else pk_row) + tuple(x[1] for x in _items)
                         assert len(data_row) == len(fields)
+                        data_row = tuple(write_data(f, x) for f, x in zip(fields, data_row))
                         str = "INSERT INTO %s (%s) VALUES (%s)"%\
                               (t, ",".join(fields), ",".join("?" for _ in fields))
                         con.cursor().execute(str, data_row).commit()
@@ -326,4 +317,5 @@ class MdbTicFactory(freezable_factory(object, "_isFrozen")) :
                         str = "INSERT INTO %s (%s) VALUES (%s)"%(t,
                           ",".join(_brackets(sql_data_row.keys())),
                           ",".join(["?"]*len(sql_data_row)))
-                        con.cursor().execute(str,tuple(map(_write_data, sql_data_row.values())))
+                        data_row = tuple(write_data(f, x) for f, x in sql_data_row.items())
+                        con.cursor().execute(str, data_row)
