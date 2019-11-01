@@ -15,6 +15,7 @@ import ticdat.csvtd as csv
 import ticdat.sqlitetd as sql
 import ticdat.mdb as mdb
 import ticdat.jsontd as json
+from ticdat.pgtd import PostgresTicFactory
 import sys
 import math
 try:
@@ -764,6 +765,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
         self.sql = sql.SQLiteTicFactory(self)
         self.mdb = mdb.MdbTicFactory(self)
         self.json = json.JsonTicFactory(self)
+        self.pgsql = PostgresTicFactory(self)
         self._prepends = {}
         self._parameters = {}
         self._infinity_io_flag = ["N/A"]
