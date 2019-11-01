@@ -10,6 +10,7 @@ import ticdat.pandatio as pandatio
 from itertools import count
 from math import isnan
 import collections as clt
+from ticdat.pgtd import PostgresPanFactory
 try:
     import amplpy
 except:
@@ -38,7 +39,7 @@ class PanDatFactory(object):
      A PanDat object is itself a collection of DataFrames that conform to a predefined schema.
 
     :param init_fields: a mapping of tables to primary key fields and data fields. Each field listing consists
-                        of two sub lists ... first primary keys fields, than data fields.
+                        of two sub lists ... first primary keys fields, then data fields.
 
         ex:
         ```PanDatFactory (categories =  [["name"],["Min Nutrition", "Max Nutrition"]],
@@ -188,6 +189,57 @@ class PanDatFactory(object):
         verify(value == "N/A" or (utils.numericish(value) and (0 < value < float("inf"))) or (value is None),
            "infinity_io_flag needs to be 'N/A' (to indicate it isn't being used), or None, or a positive finite number")
         self._infinity_io_flag[0] = value
+    def _none_as_infinity_bias(self, t, f):
+        assert t in self.all_tables
+        fld_type = self.data_types.get(t, {}).get(f)
+        if fld_type and fld_type.number_allowed and not fld_type.valid_data(None):
+            verify(not (fld_type.valid_data(float("inf")) and fld_type.valid_data(-float("inf"))),
+                   "")
+            for rtn in [1, -1]:
+                if fld_type.valid_data(rtn * float("inf")):
+                    return rtn
+    def _infinity_flag_post_read_adjustment(self, dat):
+        '''
+        we expect other routines inside ticdat to access this routine, even though it starts with _
+        :param dat: PanDat object that was just read from an external data source. dat will be side-effected
+        :return: dat, after being adjusted to handly infinity flagging
+        '''
+        apply = _faster_df_apply
+        for t in set(self.all_tables).difference(["parameters"]): # parameters table is handled differently
+            for f in self.primary_key_fields.get(t, ()) + self.data_fields.get(t, ()):
+                if utils.numericish(self.infinity_io_flag):
+                    fixme = apply(dat[t], lambda row: utils.numericish(row[f]) and row[f] >= self.infinity_io_flag)
+                    dat[t].loc[fixme, f] = float("inf")
+                    fixme = apply(dat[t], lambda row: utils.numericish(row[f]) and row[f] <= -self.infinity_io_flag)
+                    dat[t].loc[fixme, f] = -float("inf")
+                elif utils.numericish(self._none_as_infinity_bias(t, f)):
+                    assert self.infinity_io_flag is None
+                    dat[t][f].fillna(value=self._none_as_infinity_bias(t, f) * float("inf"), inplace=True)
+        return dat
+    def _infinity_flag_pre_write_adjustment(self, dat):
+        '''
+        we expect other routines inside ticdat to access this routine, even though it starts with _
+        :param dat: PanDat object that is just now going to be written to an external data source.
+                    dat will NOT be side affected by this routine
+        :return if adjustment is needed, a deep copy of dat that has the appropriate adjustments
+        '''
+        if self.infinity_io_flag == "N/A":
+            return dat
+        rtn = self.copy_pan_dat(dat)
+        apply = _faster_df_apply
+        for t in set(self.all_tables).difference(["parameters"]): # parameters table is handled differently
+            df = getattr(dat, t)
+            for f in self.primary_key_fields.get(t, ()) + self.data_fields.get(t, ()):
+                if utils.numericish(self.infinity_io_flag):
+                    fixme = apply(df, lambda row: utils.numericish(row[f]) and row[f] >= self.infinity_io_flag)
+                    df.loc[fixme, f] = self.infinity_io_flag
+                    fixme = apply(df, lambda row: utils.numericish(row[f]) and row[f] <= -self.infinity_io_flag)
+                    df.loc[fixme, f] = -self.infinity_io_flag
+                elif utils.numericish(self._none_as_infinity_bias(t, f)):
+                    assert self.infinity_io_flag is None
+                    fixme = apply(df, lambda row: row[f] == float("inf") * self._none_as_infinity_bias(t, f))
+                    df.loc[fixme, f] = None
+        return rtn
     def set_data_type(self, table, field, number_allowed = True,
                       inclusive_min = True, inclusive_max = False, min = 0, max = float("inf"),
                       must_be_int = False, strings_allowed= (), nullable = False):
@@ -555,6 +607,7 @@ class PanDatFactory(object):
         self.sql = pandatio.SqlPanFactory(self)
         self.csv = pandatio.CsvPanFactory(self)
         self.json = pandatio.JsonPanFactory(self)
+        self.pgsql = PostgresPanFactory(self)
 
     def good_pan_dat_object(self, data_obj, bad_message_handler = lambda x : None):
         """

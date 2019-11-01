@@ -408,10 +408,10 @@ class PostgresPanFactory(_PostgresFactory):
                                      con=engine)
             rtn[table].rename(columns={pgf: f for f, pgf in fields}, inplace=True)
 
-        rtn = self.pan_dat_factory.PanDat(**rtn)
+        rtn = self._tdf.PanDat(**rtn)
         msg = []
-        assert self.pan_dat_factory.good_pan_dat_object(rtn, msg.append), str(msg)
-        return rtn
+        assert self._tdf.good_pan_dat_object(rtn, msg.append), str(msg)
+        return self._tdf._infinity_flag_post_read_adjustment(rtn)
 
     def write_data(self, pan_dat, engine, schema, pre_existing_rows=None):
         '''
@@ -429,7 +429,7 @@ class PostgresPanFactory(_PostgresFactory):
                "pan_dat not a good object for this factory : %s"%"\n".join(msg))
         self.check_tables_fields(engine, schema) # call self.write_schema explicitly as needed
         self._handle_prexisting_rows(engine, schema, pre_existing_rows or {})
-
+        pan_dat = self._tdf._infinity_flag_pre_write_adjustment(pan_dat)
         for table in self._ordered_tables():
             df = getattr(pan_dat, table).copy(deep=True)
             fields = self.pan_dat_factory.primary_key_fields.get(table, ()) + \

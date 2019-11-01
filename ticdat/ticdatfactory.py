@@ -825,6 +825,13 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
             return float("inf") * self._none_as_infinity_bias(t, f)
         return x
     def _infinity_flag_write_cell(self, t, f, x):
+        '''
+        we expect other routines inside ticdat to access this routine, even though it starts with _
+        :param t: table name
+        :param f: field name
+        :param x: cell value which might need to be adjusted
+        :return: x, adjusted as required
+        '''
         if t == "parameters": # infinity flagging doesn't apply to parameters table, see set_infinity_flag __doc__
             return x
         if self.infinity_io_flag is None and (self._none_as_infinity_bias(t, f) or float("nan"))*float("inf") == x:
