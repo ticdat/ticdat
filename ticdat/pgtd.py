@@ -119,7 +119,7 @@ class _PostgresFactory(freezable_factory(object, "_isFrozen"),):
             fld_type = self._tdf.data_types.get(t, {}).get(f)
             if not fld_type:
                 return True
-            if fld_type.number_allowed and  None in [self._read_infinity_flag, self._write_infinity_flag]:
+            if fld_type.number_allowed and self._tdf.infinity_io_flag is None :
                 return True
             return fld_type.nullable
 
@@ -402,8 +402,8 @@ class PostgresPanFactory(_PostgresFactory):
         self.check_tables_fields(engine, schema)
         rtn = {}
         for table in self._tdf.all_tables:
-            fields = [(f, _pg_name(f)) for f in self.pan_dat_factory.primary_key_fields.get(table, ()) +
-                      self.pan_dat_factory.data_fields.get(table, ())]
+            fields = [(f, _pg_name(f)) for f in self._tdf.primary_key_fields.get(table, ()) +
+                      self._tdf.data_fields.get(table, ())]
             rtn[table] = pd.read_sql(sql=f"Select {', '.join([pgf for f, pgf in fields])} from {schema}.{table}",
                                      con=engine)
             rtn[table].rename(columns={pgf: f for f, pgf in fields}, inplace=True)
@@ -425,14 +425,13 @@ class PostgresPanFactory(_PostgresFactory):
         '''
         self._check_good_pgtd_compatible_table_field_names()
         msg = []
-        verify(self.pan_dat_factory.good_pan_dat_object(pan_dat, msg.append),
+        verify(self._tdf.good_pan_dat_object(pan_dat, msg.append),
                "pan_dat not a good object for this factory : %s"%"\n".join(msg))
         self.check_tables_fields(engine, schema) # call self.write_schema explicitly as needed
         self._handle_prexisting_rows(engine, schema, pre_existing_rows or {})
         pan_dat = self._tdf._infinity_flag_pre_write_adjustment(pan_dat)
         for table in self._ordered_tables():
             df = getattr(pan_dat, table).copy(deep=True)
-            fields = self.pan_dat_factory.primary_key_fields.get(table, ()) + \
-                     self.pan_dat_factory.data_fields.get(table, ())
+            fields = self._tdf.primary_key_fields.get(table, ()) + self._tdf.data_fields.get(table, ())
             df.rename(columns={f: _pg_name(f) for f in fields}, inplace=True)
             df.to_sql(name=table, schema=schema, con=engine, if_exists="append", index=False)

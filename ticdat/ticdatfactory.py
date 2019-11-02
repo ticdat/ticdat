@@ -839,8 +839,9 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
         if utils.numericish(self.infinity_io_flag) and utils.numericish(x):
             return max(min(x, self.infinity_io_flag), -self.infinity_io_flag)
         return x
-
     def _none_as_infinity_bias(self, t, f):
+        if self.infinity_io_flag is not None:
+            return None
         assert t in self.all_tables
         fld_type = self.data_types.get(t, {}).get(f)
         if fld_type and fld_type.number_allowed and not fld_type.valid_data(None):

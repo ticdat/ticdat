@@ -8,7 +8,10 @@ import datetime
 import math
 
 import unittest
-import sqlalchemy as sa
+try:
+    import sqlalchemy as sa
+except:
+    sa = None
 try:
     import testing.postgresql as testing_postgresql
 except:
@@ -17,7 +20,10 @@ try:
     import pandas as pd
 except:
     pd = None
-import dateutil
+try:
+    import dateutil
+except:
+    dateutil = None
 
 diet_schema = TicDatFactory (
     categories = [["Name"],["Min Nutrition", "Max Nutrition"]],
@@ -146,7 +152,9 @@ class TestPostres(unittest.TestCase):
     def test_diet(self):
         if not self.can_run:
             return
-        pgtf = diet_schema.pgsql
+        tdf = diet_schema.clone()
+        tdf.set_infinity_io_flag(999999999)
+        pgtf = tdf.pgsql
         pgtf.write_schema(self.engine, test_schema, include_ancillary_info=False)
         pgtf.write_data(diet_dat, self.engine, test_schema)
         self.assertFalse(pgtf.find_duplicates(self.engine, test_schema))
@@ -154,7 +162,7 @@ class TestPostres(unittest.TestCase):
         self.assertTrue(diet_schema._same_data(diet_dat, pg_tic_dat))
 
         tdf = diet_schema.clone()
-        tdf.infinity_io_flag = None
+        tdf.set_infinity_io_flag(None)
         pgtf_null_inf = tdf.pgsql
         pg_tic_dat_none_inf = pgtf_null_inf.create_tic_dat(self.engine, test_schema)
         self.assertFalse(diet_schema._same_data(diet_dat, pg_tic_dat_none_inf))
@@ -185,8 +193,8 @@ class TestPostres(unittest.TestCase):
         pg_tic_dat_none_inf = pgtf_null_inf.create_tic_dat(self.engine, test_schema_2)
         self.assertTrue(diet_schema._same_data(diet_dat, pg_tic_dat_none_inf))
 
-        TicDatFactory(**diet_schema.schema()) # not clone so losing the data types
-        tdf.infinity_io_flag = None
+        tdf = TicDatFactory(**diet_schema.schema()) # not clone so losing the data types
+        tdf.set_infinity_io_flag(None)
         pgtf_null_inf = tdf.pgsql
         pg_tic_dat_none_inf = pgtf_null_inf.create_tic_dat(self.engine, test_schema_2)
         self.assertFalse(diet_schema._same_data(diet_dat, pg_tic_dat_none_inf))
@@ -289,23 +297,24 @@ class TestPostres(unittest.TestCase):
     def test_diet_pd(self):
         if not self.can_run:
             return
-        # HERE!!!!
         schema = "test_pg_diet"
         tdf = diet_schema
         pdf = PanDatFactory.create_from_full_schema(tdf.schema(include_ancillary_info=True))
+        pdf.set_infinity_io_flag(1e12)
         pgpf = pdf.pgsql
         pan_dat = pan_dat_maker(tdf.schema(), diet_dat)
         pgpf.write_schema(self.engine, schema, include_ancillary_info=False)
         pgpf.write_data(pan_dat, self.engine, schema)
         pg_pan_dat = pgpf.create_pan_dat(self.engine, schema)
         self.assertTrue(pdf._same_data(pan_dat, pg_pan_dat))
-        pdf.infinity_io_flag = None
+        pdf.set_infinity_io_flag(None)
         pg_pan_dat_none_inf = pdf.pgsql.create_pan_dat(self.engine, schema)
         self.assertFalse(pdf._same_data(pan_dat, pg_pan_dat_none_inf))
         pg_pan_dat_none_inf.categories.loc[pg_pan_dat_none_inf.categories["Name"] == "protein", "Max Nutrition"] = \
             float("inf")
         self.assertTrue(pdf._same_data(pan_dat, pg_pan_dat_none_inf))
 
+        pdf.set_infinity_io_flag("N/A")
         dat2 = diet_schema.copy_tic_dat(diet_dat)
         dat2.foods["za"] = dat2.foods.pop("pizza")
         dat2 = pan_dat_maker(tdf.schema(), dat2)
@@ -324,17 +333,21 @@ class TestPostres(unittest.TestCase):
         self.assertTrue(pdf._same_data(dat2, dat4))
 
         test_schema_2 = schema +  "_none_inf"
-        pgpf_null_inf.write_schema(self.engine, test_schema_2)
-        pgpf_null_inf.write_data(pg_pan_dat_none_inf, self.engine, test_schema_2)
+        pdf.set_infinity_io_flag(None)
+        pgpf.write_schema(self.engine, test_schema_2)
+        pgpf.write_data(pan_dat, self.engine, test_schema_2)
+        pdf.set_infinity_io_flag("N/A")
         pg_pan_dat = pgpf.create_pan_dat(self.engine, test_schema_2)
         self.assertFalse(pdf._same_data(pan_dat, pg_pan_dat))
         pg_pan_dat.categories.loc[pg_pan_dat.categories["Name"] == "protein", "Max Nutrition"] = float("inf")
         self.assertTrue(pdf._same_data(pan_dat, pg_pan_dat))
-        pg_pan_dat_none_inf = pgpf_null_inf.create_pan_dat(self.engine, test_schema_2)
+        pdf.set_infinity_io_flag(None)
+        pg_pan_dat_none_inf = pgpf.create_pan_dat(self.engine, test_schema_2)
         self.assertTrue(pdf._same_data(pan_dat, pg_pan_dat_none_inf))
 
-        pgpf_null_inf = PostgresPanFactory(PanDatFactory(**diet_schema.schema()), read_infinity_flag=None,
-                                           write_infinity_flag=None)
+        pdf_ = PanDatFactory(**diet_schema.schema()) # doesnt have data types
+        pdf_.set_infinity_io_flag(None)
+        pgpf_null_inf = pdf_.pgsql
         pg_pan_dat_none_inf = pgpf_null_inf.create_pan_dat(self.engine, test_schema_2)
         self.assertFalse(pdf._same_data(pan_dat, pg_pan_dat_none_inf))
         self.assertTrue(math.isnan(pg_pan_dat_none_inf.categories[pg_pan_dat_none_inf.categories["Name"] == "protein"]
@@ -364,15 +377,15 @@ class TestPostres(unittest.TestCase):
         pdf = PanDatFactory(boger = [["a"], ["b", "c"]])
         dat = pdf.PanDat(boger = pd.DataFrame({"a": [1, 2, 3], "b":[4, 5,6], "c":['a', 'b', 'c']}))
         schema = "test_pd_extra_fields"
-        PostgresPanFactory(pdf).write_schema(self.engine, schema, forced_field_types={("boger", "c"): "text",
+        pdf.pgsql.write_schema(self.engine, schema, forced_field_types={("boger", "c"): "text",
                                                                                       ("boger", "a"):"float"})
-        PostgresPanFactory(pdf).write_data(dat, self.engine, schema)
+        pdf.pgsql.write_data(dat, self.engine, schema)
         pdf2 = PanDatFactory(boger=[["a"], ["b"]])
-        dat2 = PostgresPanFactory(pdf2).create_pan_dat(self.engine, schema)
+        dat2 = pdf2.pgsql.create_pan_dat(self.engine, schema)
         self.assertTrue(list(dat2.boger["a"]) == [1.0, 2.0, 3.0] and list(dat2.boger["b"]) == [4.0, 5.0, 6.0])
         dat2_2 = pdf2.PanDat(boger = pd.DataFrame({"a": [10, 300], "b":[40, 60]}))
-        PostgresPanFactory(pdf2).write_data(dat2_2, self.engine, schema)
-        dat = PostgresPanFactory(pdf).create_pan_dat(self.engine, schema)
+        pdf2.pgsql.write_data(dat2_2, self.engine, schema)
+        dat = pdf.pgsql.create_pan_dat(self.engine, schema)
         self.assertTrue(list(dat.boger["a"]) == [10, 300] and list(dat.boger["b"]) == [40, 60])
         self.assertTrue(len(set(dat.boger["c"])) == 1)
 
@@ -383,7 +396,7 @@ class TestPostres(unittest.TestCase):
         dat = tdf.TicDat()
         dat.table[1] = dateutil.parser.parse("2014-05-01 18:47:05.069722")
         dat.table[2] = dateutil.parser.parse("2014-05-02 18:47:05.178768")
-        pgtf = PostgresTicFactory(tdf)
+        pgtf = tdf.pgsql
         pgtf.write_schema(self.engine, test_schema,
                           forced_field_types={('table', 'Blah'):"integer", ('table', 'Timed Info'):"timestamp"})
         pgtf.write_data(dat, self.engine, test_schema, dsn=self.postgresql.dsn())
@@ -393,19 +406,28 @@ class TestPostres(unittest.TestCase):
         self.assertFalse(any(isinstance(k, datetime.datetime) for k in dat_2.table))
 
         pdf = PanDatFactory.create_from_full_schema(tdf.schema(include_ancillary_info=True))
-        pan_dat = PostgresPanFactory(pdf).create_pan_dat(self.engine, test_schema)
+        def same_data(pan_dat, pan_dat_2):
+            df1, df2 = pan_dat.table, pan_dat_2.table
+            if list(df1["Blah"]) != list(df2["Blah"]):
+                return False
+            for dt1, dt2 in zip(df1["Timed Info"], df2["Timed Info"]):
+                delta = dt1 - dt2
+                if abs(delta.total_seconds()) > 1e-6:
+                    return False
+            return True
+        pan_dat = pdf.pgsql.create_pan_dat(self.engine, test_schema)
         pan_dat_2 = pan_dat_maker(tdf.schema(), dat_2)
-        self.assertTrue(pdf._same_data(pan_dat, pan_dat_2))
+        self.assertTrue(same_data(pan_dat, pan_dat_2))
         for df in [_.table for _ in [pan_dat, pan_dat_2]]:
             for i in range(len(df)):
                 self.assertFalse(isinstance(df.loc[i, "Blah"], datetime.datetime))
                 self.assertTrue(isinstance(df.loc[i, "Timed Info"], datetime.datetime))
 
         pan_dat.table.loc[1, "Timed Info"] = dateutil.parser.parse("2014-05-02 18:48:05.178768")
-        self.assertFalse(pdf._same_data(pan_dat, pan_dat_2))
-        PostgresPanFactory(pdf).write_data(pan_dat, self.engine, test_schema)
-        pan_dat_2 = PostgresPanFactory(pdf).create_pan_dat(self.engine, test_schema)
-        self.assertTrue(pdf._same_data(pan_dat, pan_dat_2))
+        self.assertFalse(same_data(pan_dat, pan_dat_2))
+        pdf.pgsql.write_data(pan_dat, self.engine, test_schema)
+        pan_dat_2 = pdf.pgsql.create_pan_dat(self.engine, test_schema)
+        self.assertTrue(same_data(pan_dat, pan_dat_2))
 
         dat.table[2] = dateutil.parser.parse("2014-05-02 18:48:05.178768")
         self.assertFalse(tdf._same_data(dat, dat_2))

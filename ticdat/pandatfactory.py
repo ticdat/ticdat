@@ -190,11 +190,13 @@ class PanDatFactory(object):
            "infinity_io_flag needs to be 'N/A' (to indicate it isn't being used), or None, or a positive finite number")
         self._infinity_io_flag[0] = value
     def _none_as_infinity_bias(self, t, f):
+        if self.infinity_io_flag is not None:
+            return None
         assert t in self.all_tables
         fld_type = self.data_types.get(t, {}).get(f)
         if fld_type and fld_type.number_allowed and not fld_type.valid_data(None):
             verify(not (fld_type.valid_data(float("inf")) and fld_type.valid_data(-float("inf"))),
-                   "")
+                   f"None cannot be used as an infinity IO flag ")
             for rtn in [1, -1]:
                 if fld_type.valid_data(rtn * float("inf")):
                     return rtn
@@ -206,15 +208,16 @@ class PanDatFactory(object):
         '''
         apply = _faster_df_apply
         for t in set(self.all_tables).difference(["parameters"]): # parameters table is handled differently
+            df = getattr(dat, t)
             for f in self.primary_key_fields.get(t, ()) + self.data_fields.get(t, ()):
                 if utils.numericish(self.infinity_io_flag):
-                    fixme = apply(dat[t], lambda row: utils.numericish(row[f]) and row[f] >= self.infinity_io_flag)
-                    dat[t].loc[fixme, f] = float("inf")
-                    fixme = apply(dat[t], lambda row: utils.numericish(row[f]) and row[f] <= -self.infinity_io_flag)
-                    dat[t].loc[fixme, f] = -float("inf")
+                    fixme = apply(df, lambda row: utils.numericish(row[f]) and row[f] >= self.infinity_io_flag)
+                    df.loc[fixme, f] = float("inf")
+                    fixme = apply(df, lambda row: utils.numericish(row[f]) and row[f] <= -self.infinity_io_flag)
+                    df.loc[fixme, f] = -float("inf")
                 elif utils.numericish(self._none_as_infinity_bias(t, f)):
                     assert self.infinity_io_flag is None
-                    dat[t][f].fillna(value=self._none_as_infinity_bias(t, f) * float("inf"), inplace=True)
+                    df[f].fillna(value=self._none_as_infinity_bias(t, f) * float("inf"), inplace=True)
         return dat
     def _infinity_flag_pre_write_adjustment(self, dat):
         '''
@@ -228,7 +231,7 @@ class PanDatFactory(object):
         rtn = self.copy_pan_dat(dat)
         apply = _faster_df_apply
         for t in set(self.all_tables).difference(["parameters"]): # parameters table is handled differently
-            df = getattr(dat, t)
+            df = getattr(rtn, t)
             for f in self.primary_key_fields.get(t, ()) + self.data_fields.get(t, ()):
                 if utils.numericish(self.infinity_io_flag):
                     fixme = apply(df, lambda row: utils.numericish(row[f]) and row[f] >= self.infinity_io_flag)
