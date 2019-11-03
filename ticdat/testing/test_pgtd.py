@@ -447,6 +447,39 @@ class TestPostres(unittest.TestCase):
         pg_pan_dat = pdf_2.pgsql.create_pan_dat(self.engine, schema)
         self.assertTrue(pdf_1._same_data(pan_dat, pg_pan_dat))
 
+    def testNulls(self):
+        tdf = TicDatFactory(table=[["field one"], ["field two"]])
+        for f in ["field one", "field two"]:
+            tdf.set_data_type("table", f, nullable=True)
+        dat = tdf.TicDat(table = [[None, 100], [200, 109], [0, 300], [300, None], [400, 0]])
+        schema = test_schema + "_bool_defaults"
+        tdf.pgsql.write_schema(self.engine, schema, include_ancillary_info=False)
+        tdf.pgsql.write_data(dat, self.engine, schema)
+
+        dat_1 = tdf.pgsql.create_tic_dat(self.engine, schema)
+        self.assertTrue(tdf._same_data(dat, dat_1))
+
+        tdf = TicDatFactory(table=[["field one"], ["field two"]])
+        for f in ["field one", "field two"]:
+            tdf.set_data_type("table", f, max=float("inf"), inclusive_max=True)
+        tdf.set_infinity_io_flag(None)
+        dat_inf = tdf.TicDat(table = [[float("inf"), 100], [200, 109], [0, 300], [300, float("inf")], [400, 0]])
+        dat_1 = tdf.pgsql.create_tic_dat(self.engine, schema)
+
+        self.assertTrue(tdf._same_data(dat_inf, dat_1))
+        tdf.pgsql.write_data(dat_inf, self.engine, schema)
+        dat_1 = tdf.pgsql.create_tic_dat(self.engine, schema)
+        self.assertTrue(tdf._same_data(dat_inf, dat_1))
+
+        tdf = TicDatFactory(table=[["field one"], ["field two"]])
+        for f in ["field one", "field two"]:
+            tdf.set_data_type("table", f, min=-float("inf"), inclusive_min=True)
+        tdf.set_infinity_io_flag(None)
+        dat_1 = tdf.pgsql.create_tic_dat(self.engine, schema)
+        self.assertFalse(tdf._same_data(dat_inf, dat_1))
+        dat_inf = tdf.TicDat(table = [[float("-inf"), 100], [200, 109], [0, 300], [300, -float("inf")], [400, 0]])
+        self.assertTrue(tdf._same_data(dat_inf, dat_1))
+
 test_schema = 'test'
 db_dict = {'drivername': 'postgresql', 'username': 'postgres', 'password': '',
            'host': '127.0.0.1', 'port': '5432', 'database': 'postgres'}

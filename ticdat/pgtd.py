@@ -149,7 +149,6 @@ class _PostgresFactory(freezable_factory(object, "_isFrozen"),):
                             f"{schema}.{fk.foreign_table} ({','.join(map(_pg_name, foreignfields))})")
             str += ",\n".join(strl) + "\n);"
             rtn.append(str)
-
         return tuple(rtn)
 
     def write_schema(self, engine, schema, forced_field_types=None, include_ancillary_info=True):
@@ -278,7 +277,8 @@ class PostgresTicFactory(_PostgresFactory):
                       tdf.data_fields.get(table, ())]
             for row in engine.execute(f"Select {', '.join(fields)} from {schema}.{table}"):
                 if tdf.primary_key_fields.get(table):
-                    pk = row[:len(tdf.primary_key_fields[table])]
+                    pk = [self._read_data_cell(table, f, x) for f,x in
+                          zip(tdf.primary_key_fields[table], row[:len(tdf.primary_key_fields[table])])]
                     data = [self._read_data_cell(table, f, x) for f, x in
                             zip(tdf.data_fields[table], row[len(tdf.primary_key_fields[table]):])]
                     rtn[table][pk[0] if len(pk) == 1 else tuple(pk)] = data
@@ -322,7 +322,8 @@ class PostgresTicFactory(_PostgresFactory):
                     pkrow, sqldatarow = the_data
                     # sqldatarow will always yield keys, values in TicDatFactory defined order
                     fields = primarykeys + tuple(sqldatarow.keys())
-                    datarow = ((pkrow,) if len(primarykeys) == 1 else pkrow) + \
+                    pkrow = (pkrow,) if len(primarykeys) == 1 else pkrow
+                    datarow = tuple(self._write_data_cell(t, f, x) for f,x in zip(primarykeys, pkrow)) + \
                               tuple(self._write_data_cell(t, f, x) for f,x in sqldatarow.items())
                 else:
                     fields = tuple(the_data.keys())
