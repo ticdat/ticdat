@@ -480,6 +480,25 @@ class TestPostres(unittest.TestCase):
         dat_inf = tdf.TicDat(table = [[float("-inf"), 100], [200, 109], [0, 300], [300, -float("inf")], [400, 0]])
         self.assertTrue(tdf._same_data(dat_inf, dat_1))
 
+    def testDietWithInfFlagging(self):
+        tdf = diet_schema.clone()
+        dat = tdf.copy_tic_dat(diet_dat)
+        tdf.set_infinity_io_flag(999999999)
+        schema = test_schema + "_diet_inf_flagging"
+        tdf.pgsql.write_schema(self.engine, schema)
+        tdf.pgsql.write_data(dat, self.engine, schema)
+        dat_1 = tdf.pgsql.create_tic_dat(self.engine, schema)
+        self.assertTrue(tdf._same_data(dat, dat_1))
+        tdf = tdf.clone()
+        dat_1 = tdf.pgsql.create_tic_dat(self.engine, schema)
+        self.assertTrue(tdf._same_data(dat, dat_1))
+        tdf = TicDatFactory(**diet_schema.schema())
+        dat_1 = tdf.pgsql.create_tic_dat(self.engine, schema)
+        self.assertFalse(tdf._same_data(dat, dat_1))
+        self.assertTrue(dat_1.categories["protein"]["Max Nutrition"] == 999999999)
+        dat_1.categories["protein"]["Max Nutrition"] = float("inf")
+        self.assertTrue(tdf._same_data(dat, dat_1))
+
 test_schema = 'test'
 db_dict = {'drivername': 'postgresql', 'username': 'postgres', 'password': '',
            'host': '127.0.0.1', 'port': '5432', 'database': 'postgres'}
