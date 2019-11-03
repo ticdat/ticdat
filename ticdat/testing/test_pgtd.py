@@ -432,6 +432,20 @@ class TestPostres(unittest.TestCase):
         dat.table[2] = dateutil.parser.parse("2014-05-02 18:48:05.178768")
         self.assertFalse(tdf._same_data(dat, dat_2))
 
+    def test_missing_tables(self):
+        schema = test_schema + "_missing_tables"
+        tdf_1 = TicDatFactory(this = [["Something"],["Another"]])
+        pdf_1 = PanDatFactory(**tdf_1.schema())
+        tdf_2 = TicDatFactory(**dict(tdf_1.schema(), that=[["What", "Ever"],[]]))
+        pdf_2 = PanDatFactory(**tdf_2.schema())
+        dat = tdf_1.TicDat(this=[["a", 2],["b", 3],["c", 5]])
+        pan_dat = tdf_1.copy_to_pandas(dat, drop_pk_columns=False)
+        tdf_1.pgsql.write_schema(self.engine, schema)
+        tdf_1.pgsql.write_data(dat, self.engine, schema)
+        pg_dat = tdf_2.pgsql.create_tic_dat(self.engine, schema)
+        self.assertTrue(tdf_1._same_data(dat, pg_dat))
+        pg_pan_dat = pdf_2.pgsql.create_pan_dat(self.engine, schema)
+        self.assertTrue(pdf_1._same_data(pan_dat, pg_pan_dat))
 
 test_schema = 'test'
 db_dict = {'drivername': 'postgresql', 'username': 'postgres', 'password': '',

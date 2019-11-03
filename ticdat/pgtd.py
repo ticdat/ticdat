@@ -43,29 +43,39 @@ class _PostgresFactory(freezable_factory(object, "_isFrozen"),):
                    f"Table {t} has field names that collide with each other under case/space insensitivity.\n" +
                    "This is a postgres specific requirement. See pgsql doc string for more info.")
 
-    def check_tables_fields(self, engine, schema):
+    def check_tables_fields(self, engine, schema, error_on_missing_table=False):
         '''
         throws a TicDatError if there there isn't a postgres schema in engine with the proper tables and fields.
         :param engine: has an .execute method
         :param schema: string that represents a postgres schema
-        :return: None - either raises a TicDatError or doesn't
+        :param error_on_missing_table: boolean - should an error be thrown for missing tables? If falsey, then
+               print a warning instead.
+        :return: A list of missing tables. Will raise TicDatError if there are missing  tables and
+                 error_on_missing_table is truthy.
         '''
         tdf = self._tdf
         verify(schema in [row[0] for row in engine.execute("select schema_name from information_schema.schemata")],
                f"Schema {schema} is missing from engine {engine}")
         pg_tables = [row[0] for row in engine.execute(
             f"select table_name from information_schema.tables where table_schema ='{schema}'")]
+        missing_tables = []
         for table in tdf.all_tables:
-            verify(table in pg_tables,
-                   f"Unable to recognize table {table} in postgres schema {schema}")
-            pg_fields = [row[0] for row in engine.execute(f"""SELECT column_name FROM information_schema.columns WHERE 
-                         table_schema = '{schema}' AND table_name = '{table}'""")]
-            for field in tdf.primary_key_fields.get(table, ()) + \
-                         tdf.data_fields.get(table, ()):
-                matches = [f for f in pg_fields if f == _pg_name(field)]
-                verify(len(matches) == 1,
-                       f"Unable to recognize {table}.{_pg_name(field)} in postgres schema {schema}")
-
+            if table in pg_tables:
+                pg_fields = [row[0] for row in engine.execute(f"""SELECT column_name FROM information_schema.columns 
+                             WHERE table_schema = '{schema}' AND table_name = '{table}'""")]
+                for field in tdf.primary_key_fields.get(table, ()) + \
+                             tdf.data_fields.get(table, ()):
+                    matches = [f for f in pg_fields if f == _pg_name(field)]
+                    verify(len(matches) == 1,
+                           f"Unable to recognize {table}.{_pg_name(field)} in postgres schema {schema}")
+            else:
+                missing_tables.append(table)
+        verify(not (missing_tables and error_on_missing_table),
+               f"Unable to recognize tables {missing_tables} in postgres schema {schema}")
+        if missing_tables:
+            print ("The following table names could not be found in the %s schema.\n%s\n"%
+                   (schema,"\n".join(missing_tables)))
+        return missing_tables
     def _fks(self):
         rtn = defaultdict(set)
         for fk in self._tdf.foreign_keys:
@@ -240,7 +250,8 @@ class PostgresTicFactory(_PostgresFactory):
 
         :param freeze_it: boolean. should the returned object be frozen?
 
-        :return: a TicDat object populated by the matching tables.
+        :return: a TicDat object populated by the matching tables. Missing tables issue a warning and resolve
+                 to empty.
 
         """
         verify(sa, "sqlalchemy needs to be installed to use this subroutine")
@@ -253,14 +264,14 @@ class PostgresTicFactory(_PostgresFactory):
                "Generic tables have not been enabled for postgres")
         verify(len(tdf.generator_tables) == 0,
                "Generator tables have not been enabled for postgres")
-        self.check_tables_fields(engine, schema)
         rtn = self._create_tic_dat_from_con(engine, schema)
         return rtn
 
     def _create_tic_dat_from_con(self, engine, schema):
         tdf = self._tdf
+        missing_tables = self.check_tables_fields(engine, schema)
         rtn = {}
-        for table in tdf.all_tables:
+        for table in set(tdf.all_tables).difference(missing_tables):
             rtn[table] = {} if tdf.primary_key_fields.get(table) else []
             assert tdf.primary_key_fields.get(table) or tdf.data_fields.get(table), "since no generic tables"
             fields = [_pg_name(f) for f in tdf.primary_key_fields.get(table, ()) +
@@ -355,7 +366,7 @@ class PostgresTicFactory(_PostgresFactory):
             raise TicDatError("Not a valid TicDat object for this schema : " + " : ".join(msg))
         verify(not self._tdf.generic_tables,
                "TicDat for postgres does not yet support generic tables")
-        self.check_tables_fields(engine, schema) # call self.write_schema explicitly as needed
+        self.check_tables_fields(engine, schema, error_on_missing_table=True) # call self.write_schema as needed
         self._handle_prexisting_rows(engine, schema, pre_existing_rows or {})
         if dsn:
             with psycopg2.connect(**dsn) as db:
@@ -396,12 +407,13 @@ class PostgresPanFactory(_PostgresFactory):
         Create a PanDat object from a PostGres connection
         :param engine: A sqlalchemy connection to the PostGres database
         :param schema : The name of the schema to read from
-        :return: a PanDat object populated by the matching tables.
+        :return: a PanDat object populated by the matching tables. Missing tables issue a warning and resolve
+                 to empty.
         """
         self._check_good_pgtd_compatible_table_field_names()
-        self.check_tables_fields(engine, schema)
+        missing_tables = self.check_tables_fields(engine, schema)
         rtn = {}
-        for table in self._tdf.all_tables:
+        for table in set(self._tdf.all_tables).difference(missing_tables):
             fields = [(f, _pg_name(f)) for f in self._tdf.primary_key_fields.get(table, ()) +
                       self._tdf.data_fields.get(table, ())]
             rtn[table] = pd.read_sql(sql=f"Select {', '.join([pgf for f, pgf in fields])} from {schema}.{table}",
@@ -427,7 +439,7 @@ class PostgresPanFactory(_PostgresFactory):
         msg = []
         verify(self._tdf.good_pan_dat_object(pan_dat, msg.append),
                "pan_dat not a good object for this factory : %s"%"\n".join(msg))
-        self.check_tables_fields(engine, schema) # call self.write_schema explicitly as needed
+        self.check_tables_fields(engine, schema, error_on_missing_table=True) # call self.write_schema as needed
         self._handle_prexisting_rows(engine, schema, pre_existing_rows or {})
         pan_dat = self._tdf._infinity_flag_pre_write_adjustment(pan_dat)
         for table in self._ordered_tables():

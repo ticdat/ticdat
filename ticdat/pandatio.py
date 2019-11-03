@@ -34,7 +34,7 @@ def _clean_pandat_creator(pdf, df_dict):
         setattr(pandat, t, getattr(pandat, t)[flds])
     msg = []
     assert pdf.good_pan_dat_object(pandat, msg.append), str(msg)
-    return pandat
+    return pdf._infinity_flag_post_read_adjustment(pandat)
 
 class JsonPanFactory(freezable_factory(object, "_isFrozen")):
     """
@@ -307,7 +307,9 @@ class SqlPanFactory(freezable_factory(object, "_isFrozen")):
 
         :return: a PanDat object populated by the matching tables.
 
-        caveats: Missing tables always throw an Exception.
+        caveats: Missing tables always resolve to an empty table, but missing fields on matching tables.
+                 (NEEDS FIXING!! #33)
+
                  Table names are matched with case-space insensitivity, but spaces
                  are respected for field names.
                  (ticdat supports whitespace in field names but not table names).
@@ -423,7 +425,7 @@ class XlsPanFactory(freezable_factory(object, "_isFrozen")):
         :return: a PanDat object populated by the matching sheets.
 
         caveats: Missing sheets resolve to an empty table, but missing fields
-                 on matching sheets throw an Exception (unless fill_missing_fields is falsey).
+                 on matching sheets throw an Exception (unless fill_missing_fields is truthy).
                  Table names are matched to sheets with with case-space insensitivity, but spaces and
                  case are respected for field names.
                  (ticdat supports whitespace in field names but not table names).
