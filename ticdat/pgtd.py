@@ -3,9 +3,8 @@ Read/write ticDat objects from PostGres database. Requires the sqlalchemy module
 """
 
 from collections import defaultdict
-from ticdat.utils import freezable_factory, TicDatError, verify, stringish, dictish, containerish, numericish
-from ticdat.utils import FrozenDict, all_underscore_replacements, find_duplicates
-from ticdat.utils import create_duplicate_focused_tdf, create_generic_free, safe_apply
+from ticdat.utils import freezable_factory, TicDatError, verify, dictish, FrozenDict, find_duplicates
+from ticdat.utils import create_duplicate_focused_tdf
 
 try:
     import sqlalchemy as sa
@@ -50,7 +49,7 @@ class _PostgresFactory(freezable_factory(object, "_isFrozen"),):
         :param schema: string that represents a postgres schema
         :param error_on_missing_table: boolean - should an error be thrown for missing tables? If falsey, then
                print a warning instead.
-        :return: A list of missing tables. Will raise TicDatError if there are missing  tables and
+        :return: A list of missing tables. Will raise TicDatError if there are missing tables and
                  error_on_missing_table is truthy.
         '''
         tdf = self._tdf
@@ -155,7 +154,7 @@ class _PostgresFactory(freezable_factory(object, "_isFrozen"),):
         """
         :param engine: typically a sqlalchemy database engine with drivertype postgres (really just needs an .execute)
 
-        :param schema: the postgres schema to populate (will create if needed)
+        :param schema: a string naming the postgres schema to populate (will create if needed)
 
         :param forced_field_types : A dictionary mappying (table, field) to a field type
                                     Absent forcing, types are inferred from tic_dat_factory.data_types if possible,
@@ -340,7 +339,7 @@ class PostgresTicFactory(_PostgresFactory):
 
     def write_data(self, tic_dat, engine, schema, dsn=None, pre_existing_rows=None):
         """
-        write the ticDat data to an SQLite database file
+        write the ticDat data to a PostGres database
 
         :param tic_dat: the data object to write
 
