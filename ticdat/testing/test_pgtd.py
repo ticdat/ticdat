@@ -447,7 +447,7 @@ class TestPostres(unittest.TestCase):
         pg_pan_dat = pdf_2.pgsql.create_pan_dat(self.engine, schema)
         self.assertTrue(pdf_1._same_data(pan_dat, pg_pan_dat))
 
-    def testNulls(self):
+    def testNullsAndInf(self):
         tdf = TicDatFactory(table=[["field one"], ["field two"]])
         for f in ["field one", "field two"]:
             tdf.set_data_type("table", f, nullable=True)
