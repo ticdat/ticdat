@@ -297,7 +297,7 @@ class PostgresTicFactory(_PostgresFactory):
         :return: A dictionary whose keys are table names for the primary-ed key tables.
                  Each value of the return dictionary is itself a dictionary.
                  The inner dictionary is keyed by the primary key values encountered in the table,
-                 and the value is the count of records in the SQLite table with this primary key.
+                 and the value is the count of records in the postgres table with this primary key.
                  Row counts smaller than 2 are pruned off, as they aren't duplicates
         """
         verify(sa, "sqlalchemy needs to be installed to use this subroutine")
