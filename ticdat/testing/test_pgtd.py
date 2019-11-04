@@ -499,6 +499,61 @@ class TestPostres(unittest.TestCase):
         dat_1.categories["protein"]["Max Nutrition"] = float("inf")
         self.assertTrue(tdf._same_data(dat, dat_1))
 
+    def testNullsPd(self):
+        pdf = PanDatFactory(table=[[], ["field one", "field two"]])
+        for f in ["field one", "field two"]:
+            pdf.set_data_type("table", f, nullable=True)
+        dat = pdf.PanDat(table = {"field one": [None, 200, 0, 300, 400], "field two": [100, 109, 300, None, 0]})
+        schema = test_schema + "_bool_defaults_pd"
+        pdf.pgsql.write_schema(self.engine, schema, include_ancillary_info=False)
+        pdf.pgsql.write_data(dat, self.engine, schema)
+
+        dat_1 = pdf.pgsql.create_pan_dat(self.engine, schema)
+        self.assertTrue(pdf._same_data(dat, dat_1, nans_are_same_for_data_rows=True))
+
+        pdf = PanDatFactory(table=[["field one"], ["field two"]])
+        for f in ["field one", "field two"]:
+            pdf.set_data_type("table", f, max=float("inf"), inclusive_max=True)
+        pdf.set_infinity_io_flag(None)
+        dat_inf = pdf.PanDat(table = {"field one": [float("inf"), 200, 0, 300, 400],
+                                      "field two": [100, 109, 300, float("inf"), 0]})
+        dat_1 = pdf.pgsql.create_pan_dat(self.engine, schema)
+
+        self.assertTrue(pdf._same_data(dat_inf, dat_1))
+        pdf.pgsql.write_data(dat_inf, self.engine, schema)
+        dat_1 = pdf.pgsql.create_pan_dat(self.engine, schema)
+        self.assertTrue(pdf._same_data(dat_inf, dat_1))
+
+        pdf = PanDatFactory(table=[["field one"], ["field two"]])
+        for f in ["field one", "field two"]:
+            pdf.set_data_type("table", f, min=-float("inf"), inclusive_min=True)
+        pdf.set_infinity_io_flag(None)
+        dat_1 = pdf.pgsql.create_pan_dat(self.engine, schema)
+        self.assertFalse(pdf._same_data(dat_inf, dat_1))
+        dat_inf = pdf.PanDat(table = {"field one": [-float("inf"), 200, 0, 300, 400],
+                                      "field two": [100, 109, 300, -float("inf"), 0]})
+        self.assertTrue(pdf._same_data(dat_inf, dat_1))
+
+    def testDietWithInfFlaggingPd(self):
+        pdf = PanDatFactory.create_from_full_schema(diet_schema.schema(include_ancillary_info=True))
+        dat = diet_schema.copy_to_pandas(diet_dat, drop_pk_columns=False)
+        pdf.set_infinity_io_flag(999999999)
+        schema = test_schema + "_diet_inf_flagging_pd"
+        pdf.pgsql.write_schema(self.engine, schema)
+        pdf.pgsql.write_data(dat, self.engine, schema)
+        dat_1 = pdf.pgsql.create_pan_dat(self.engine, schema)
+        self.assertTrue(pdf._same_data(dat, dat_1))
+        pdf = pdf.clone()
+        dat_1 = pdf.pgsql.create_pan_dat(self.engine, schema)
+        self.assertTrue(pdf._same_data(dat, dat_1))
+        tdf = PanDatFactory(**diet_schema.schema())
+        dat_1 = tdf.pgsql.create_pan_dat(self.engine, schema)
+        self.assertFalse(tdf._same_data(dat, dat_1))
+        protein = dat_1.categories["Name"] == "protein"
+        self.assertTrue(list(dat_1.categories[protein]["Max Nutrition"])[0] == 999999999)
+        dat_1.categories.loc[protein, "Max Nutrition"] = float("inf")
+        self.assertTrue(tdf._same_data(dat, dat_1))
+
 test_schema = 'test'
 db_dict = {'drivername': 'postgresql', 'username': 'postgres', 'password': '',
            'host': '127.0.0.1', 'port': '5432', 'database': 'postgres'}

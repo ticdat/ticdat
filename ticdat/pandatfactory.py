@@ -691,7 +691,7 @@ class PanDatFactory(object):
                 return list(map(list, rtn.itertuples(index=False)))
             return rtn
         return tdf.TicDat(**{t: df(t) for t in self.all_tables})
-    def _same_data(self, obj1, obj2, epsilon = 0):
+    def _same_data(self, obj1, obj2, epsilon = 0, nans_are_same_for_data_rows = False):
         from ticdat import TicDatFactory
         sch = self.schema()
         if not all(len(getattr(obj1, t)) == len(getattr(obj2, t)) for t in self.all_tables):
@@ -702,7 +702,8 @@ class PanDatFactory(object):
             sch[t] = [[], list(getattr(obj1, t).columns)]
         tdf = TicDatFactory(**sch)
         return tdf._same_data(self._copy_to_tic_dat(obj1, keep_generics_as_df=False),
-                              self._copy_to_tic_dat(obj2, keep_generics_as_df=False), epsilon=epsilon)
+                              self._copy_to_tic_dat(obj2, keep_generics_as_df=False), epsilon=epsilon,
+                              nans_are_same_for_data_rows=nans_are_same_for_data_rows)
     def find_data_type_failures(self, pan_dat, as_table=True):
         """
         Finds the data type failures for a pandat object
