@@ -523,6 +523,9 @@ def all_underscore_replacements(s):
         rtn.append(s_)
     return rtn
 
+def all_subsets(my_set):
+    return [set(subset) for l in range(len(my_set)+1) for subset in combinations(my_set, l)]
+
 class TicDatError(Exception) :
     pass
 

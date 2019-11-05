@@ -101,8 +101,8 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
                  and foreign keys consistent with the full_schema argument
         """
         old_schema = {"tables_fields", "foreign_keys", "default_values", "data_types"}
-        verify(dictish(full_schema) and set(full_schema) in [old_schema, old_schema.union(
-            {"parameters", "infinity_io_flag"})],
+        verify(dictish(full_schema) and set(full_schema).issuperset(old_schema) and  set(full_schema) in
+               utils.all_subsets(old_schema.union({"parameters", "infinity_io_flag"})),
                "full_schema should be the result of calling schema(True) for some TicDatFactory")
         fks = full_schema["foreign_keys"]
         verify( (not fks) or (lupish(fks) and all(lupish(_) and len(_) >= 3 for _ in fks)),
