@@ -28,12 +28,12 @@ def _pg_name(name):
 
 class _PostgresFactory(freezable_factory(object, "_isFrozen"),):
     def __init__(self, tdf):
-        self._tdf = tdf
+        self.tdf = tdf
         self._isFrozen = True
 
     def _check_good_pgtd_compatible_table_field_names(self):
-        all_fields = lambda t: self._tdf.primary_key_fields.get(t, ()) + self._tdf.data_fields.get(t, ())
-        for t in self._tdf.all_tables: # play nice with the table/field names or don't play at all
+        all_fields = lambda t: self.tdf.primary_key_fields.get(t, ()) + self.tdf.data_fields.get(t, ())
+        for t in self.tdf.all_tables: # play nice with the table/field names or don't play at all
             verify(_pg_name(t) == t,
                    f"Table {t} doesn't obey a postgres friendly naming convention." +
                    f"It should be have been named {_pg_name(t)}\n" +
@@ -52,7 +52,7 @@ class _PostgresFactory(freezable_factory(object, "_isFrozen"),):
         :return: A list of missing tables. Will raise TicDatError if there are missing tables and
                  error_on_missing_table is truthy.
         '''
-        tdf = self._tdf
+        tdf = self.tdf
         verify(schema in [row[0] for row in engine.execute("select schema_name from information_schema.schemata")],
                f"Schema {schema} is missing from engine {engine}")
         pg_tables = [row[0] for row in engine.execute(
@@ -77,7 +77,7 @@ class _PostgresFactory(freezable_factory(object, "_isFrozen"),):
         return missing_tables
     def _fks(self):
         rtn = defaultdict(set)
-        for fk in self._tdf.foreign_keys:
+        for fk in self.tdf.foreign_keys:
             rtn[fk.native_table].add(fk)
         return FrozenDict({k: tuple(v) for k, v in rtn.items()})
 
@@ -91,7 +91,7 @@ class _PostgresFactory(freezable_factory(object, "_isFrozen"),):
                     processTable(fk.foreign_table)
                 rtn.append(t)
 
-        list(map(processTable, self._tdf.all_tables))
+        list(map(processTable, self.tdf.all_tables))
         return tuple(rtn)
 
     def _get_schema_sql(self, tables, schema, forced_field_types):
@@ -101,7 +101,7 @@ class _PostgresFactory(freezable_factory(object, "_isFrozen"),):
         def get_fld_type(t, f, default_type):
             if (t, f) in forced_field_types:
                 return forced_field_types[t, f]
-            fld_type = self._tdf.data_types.get(t, {}).get(f)
+            fld_type = self.tdf.data_types.get(t, {}).get(f)
             if not fld_type:
                 return default_type
             verify(not (fld_type.number_allowed and fld_type.strings_allowed),
@@ -117,7 +117,7 @@ class _PostgresFactory(freezable_factory(object, "_isFrozen"),):
                 TicDatError(f"Allow one of text or numeric for {t}.{f} if declaring type and using postgres")
 
         def db_default(t, f):
-            rtn = self._tdf.default_values[t][f]
+            rtn = self.tdf.default_values[t][f]
             if forced_field_types.get((t, f)) in ("bool", "boolean"):
                 return bool(rtn)
             if rtn is None:
@@ -125,23 +125,23 @@ class _PostgresFactory(freezable_factory(object, "_isFrozen"),):
             return rtn
 
         def nullable(t, f):
-            fld_type = self._tdf.data_types.get(t, {}).get(f)
+            fld_type = self.tdf.data_types.get(t, {}).get(f)
             if not fld_type:
                 return True
-            if fld_type.number_allowed and self._tdf.infinity_io_flag is None :
+            if fld_type.number_allowed and self.tdf.infinity_io_flag is None :
                 return True
             return fld_type.nullable
 
         for t in [_ for _ in self._ordered_tables() if _ in tables]:
             str = f"CREATE TABLE {schema}.{t} (\n"
             strl = [f"{_pg_name(f)} " + get_fld_type(t, f, 'text') for f in
-                    self._tdf.primary_key_fields.get(t, ())] + \
+                    self.tdf.primary_key_fields.get(t, ())] + \
                    [f"{_pg_name(f)} " + get_fld_type(t, f, 'float') +
                     f"{' NOT NULL' if not nullable(t,f) else ''}"
                     f" DEFAULT {db_default(t, f)}"
-                    for f in self._tdf.data_fields.get(t, ())]
-            if self._tdf.primary_key_fields.get(t):
-                strl.append(f"PRIMARY KEY ({','.join(map(_pg_name, self._tdf.primary_key_fields[t]))})")
+                    for f in self.tdf.data_fields.get(t, ())]
+            if self.tdf.primary_key_fields.get(t):
+                strl.append(f"PRIMARY KEY ({','.join(map(_pg_name, self.tdf.primary_key_fields[t]))})")
             for fk in fks.get(t, ()):
                 nativefields, foreignfields = zip(*(fk.nativetoforeignmapping().items()))
                 strl.append(f"FOREIGN KEY ({','.join(map(_pg_name, nativefields))}) REFERENCES " +
@@ -165,7 +165,7 @@ class _PostgresFactory(freezable_factory(object, "_isFrozen"),):
         """
         self._check_good_pgtd_compatible_table_field_names()
         forced_field_types = forced_field_types or {}
-        all_fields = lambda t: self._tdf.primary_key_fields.get(t, ()) + self._tdf.data_fields.get(t, ())
+        all_fields = lambda t: self.tdf.primary_key_fields.get(t, ()) + self.tdf.data_fields.get(t, ())
         good_forced_field_type_entry = lambda k, v: isinstance(k, tuple) and len(k) == 2 \
                         and k[1] in all_fields(k[0]) and v in \
                         ["text", "integer", "float", "bool", "boolean", "timestamp"]
@@ -174,27 +174,27 @@ class _PostgresFactory(freezable_factory(object, "_isFrozen"),):
                "bad forced_field_types argument")
         if not include_ancillary_info:
             from ticdat import TicDatFactory
-            tdf = TicDatFactory(**{t: [[], pks + dfs] for t, (pks, dfs) in self._tdf.schema().items()})
-            for t, dts in self._tdf.data_types.items():
+            tdf = TicDatFactory(**{t: [[], pks + dfs] for t, (pks, dfs) in self.tdf.schema().items()})
+            for t, dts in self.tdf.data_types.items():
                 for f, dt in dts.items():
                     tdf.set_data_type(t, f, *dt)
             return PostgresTicFactory(tdf).write_schema(engine, schema,
-                 dict({(t, f): "text" for t, (pks, dfs) in self._tdf.schema().items() for f in pks
-                 if f not in tdf.data_types.get(t, {})}, **forced_field_types))
+                 dict({(t, f): "text" for t, (pks, dfs) in self.tdf.schema().items() for f in pks
+                       if f not in tdf.data_types.get(t, {})}, **forced_field_types))
 
-        verify(not getattr(self._tdf, "generic_tables", None),
+        verify(not getattr(self.tdf, "generic_tables", None),
                "TicDat for postgres does not yet support generic tables")
 
         if schema not in [row[0] for row in engine.execute("select schema_name from information_schema.schemata")]:
             engine.execute(sa.schema.CreateSchema(schema))
-        for str in self._get_schema_sql(self._tdf.all_tables, schema, forced_field_types):
+        for str in self._get_schema_sql(self.tdf.all_tables, schema, forced_field_types):
             engine.execute(str)
 
     def _handle_prexisting_rows(self, engine, schema, pre_existing_rows):
         verify(isinstance(pre_existing_rows, dict), "pre_existing_rows needs to dict")
-        verify(set(pre_existing_rows).issubset(self._tdf.all_tables), "bad pre_existing_rows keys")
+        verify(set(pre_existing_rows).issubset(self.tdf.all_tables), "bad pre_existing_rows keys")
         verify(set(pre_existing_rows.values()).issubset({'delete', 'append'}), "bad pre_existing_rows values")
-        pre_existing_rows = dict({t:"delete" for t in self._tdf.all_tables}, **pre_existing_rows)
+        pre_existing_rows = dict({t:"delete" for t in self.tdf.all_tables}, **pre_existing_rows)
         # need to iterate from leaves (children) upwards to avoid breaking foreign keys with delete
         for t in reversed(self._ordered_tables()):
             if pre_existing_rows[t] == "delete":
@@ -228,15 +228,15 @@ class PostgresTicFactory(_PostgresFactory):
         super().__init__(tic_dat_factory)
 
     def _read_data_cell(self, t, f, x):
-        return self._tdf._infinity_flag_read_cell(t, f, x)
+        return self.tdf._infinity_flag_read_cell(t, f, x)
 
     def _write_data_cell(self, t, f, x):
-        return self._tdf._infinity_flag_write_cell(t, f, x)
+        return self.tdf._infinity_flag_write_cell(t, f, x)
 
     def _Rtn(self, freeze_it):
         if freeze_it:
-            return lambda *args, **kwargs : self._tdf.freeze_me(self._tdf.TicDat(*args, **kwargs))
-        return self._tdf.TicDat
+            return lambda *args, **kwargs : self.tdf.freeze_me(self.tdf.TicDat(*args, **kwargs))
+        return self.tdf.TicDat
 
     def create_tic_dat(self, engine, schema, freeze_it=False):
         """
@@ -257,7 +257,7 @@ class PostgresTicFactory(_PostgresFactory):
         return self._Rtn(freeze_it)(**self._create_tic_dat(engine, schema))
 
     def _create_tic_dat(self, engine, schema):
-        tdf = self._tdf
+        tdf = self.tdf
         verify(len(tdf.generic_tables) == 0,
                "Generic tables have not been enabled for postgres")
         verify(len(tdf.generator_tables) == 0,
@@ -266,7 +266,7 @@ class PostgresTicFactory(_PostgresFactory):
         return rtn
 
     def _create_tic_dat_from_con(self, engine, schema):
-        tdf = self._tdf
+        tdf = self.tdf
         missing_tables = self.check_tables_fields(engine, schema)
         rtn = {}
         for table in set(tdf.all_tables).difference(missing_tables):
@@ -315,7 +315,7 @@ class PostgresTicFactory(_PostgresFactory):
         rtn = [] if dump_format == "list" else defaultdict(list)
         for t in self._ordered_tables():
             _t = getattr(tic_dat, t)
-            primarykeys = tuple(self._tdf.primary_key_fields.get(t, ()))
+            primarykeys = tuple(self.tdf.primary_key_fields.get(t, ()))
             for the_data in (_t.items() if primarykeys else _t):
                 if primarykeys:
                     pkrow, sqldatarow = the_data
@@ -362,9 +362,9 @@ class PostgresTicFactory(_PostgresFactory):
         verify(dictish(dsn or {}), "if provided - dsn needs to be a dict")
         self._check_good_pgtd_compatible_table_field_names()
         msg = []
-        if not self._tdf.good_tic_dat_object(tic_dat, lambda m: msg.append(m)):
+        if not self.tdf.good_tic_dat_object(tic_dat, lambda m: msg.append(m)):
             raise TicDatError("Not a valid TicDat object for this schema : " + " : ".join(msg))
-        verify(not self._tdf.generic_tables,
+        verify(not self.tdf.generic_tables,
                "TicDat for postgres does not yet support generic tables")
         self.check_tables_fields(engine, schema, error_on_missing_table=True) # call self.write_schema as needed
         self._handle_prexisting_rows(engine, schema, pre_existing_rows or {})
@@ -413,17 +413,17 @@ class PostgresPanFactory(_PostgresFactory):
         self._check_good_pgtd_compatible_table_field_names()
         missing_tables = self.check_tables_fields(engine, schema)
         rtn = {}
-        for table in set(self._tdf.all_tables).difference(missing_tables):
-            fields = [(f, _pg_name(f)) for f in self._tdf.primary_key_fields.get(table, ()) +
-                      self._tdf.data_fields.get(table, ())]
+        for table in set(self.tdf.all_tables).difference(missing_tables):
+            fields = [(f, _pg_name(f)) for f in self.tdf.primary_key_fields.get(table, ()) +
+                      self.tdf.data_fields.get(table, ())]
             rtn[table] = pd.read_sql(sql=f"Select {', '.join([pgf for f, pgf in fields])} from {schema}.{table}",
                                      con=engine)
             rtn[table].rename(columns={pgf: f for f, pgf in fields}, inplace=True)
 
-        rtn = self._tdf.PanDat(**rtn)
+        rtn = self.tdf.PanDat(**rtn)
         msg = []
-        assert self._tdf.good_pan_dat_object(rtn, msg.append), str(msg)
-        return self._tdf._infinity_flag_post_read_adjustment(rtn)
+        assert self.tdf.good_pan_dat_object(rtn, msg.append), str(msg)
+        return self.tdf._infinity_flag_post_read_adjustment(rtn)
 
     def write_data(self, pan_dat, engine, schema, pre_existing_rows=None):
         '''
@@ -437,13 +437,13 @@ class PostgresPanFactory(_PostgresFactory):
         '''
         self._check_good_pgtd_compatible_table_field_names()
         msg = []
-        verify(self._tdf.good_pan_dat_object(pan_dat, msg.append),
-               "pan_dat not a good object for this factory : %s"%"\n".join(msg))
+        verify(self.tdf.good_pan_dat_object(pan_dat, msg.append),
+               "pan_dat not a good object for this factory : %s" %"\n".join(msg))
         self.check_tables_fields(engine, schema, error_on_missing_table=True) # call self.write_schema as needed
         self._handle_prexisting_rows(engine, schema, pre_existing_rows or {})
-        pan_dat = self._tdf._infinity_flag_pre_write_adjustment(pan_dat)
+        pan_dat = self.tdf._infinity_flag_pre_write_adjustment(pan_dat)
         for table in self._ordered_tables():
             df = getattr(pan_dat, table).copy(deep=True)
-            fields = self._tdf.primary_key_fields.get(table, ()) + self._tdf.data_fields.get(table, ())
+            fields = self.tdf.primary_key_fields.get(table, ()) + self.tdf.data_fields.get(table, ())
             df.rename(columns={f: _pg_name(f) for f in fields}, inplace=True)
             df.to_sql(name=table, schema=schema, con=engine, if_exists="append", index=False)
