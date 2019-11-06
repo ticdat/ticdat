@@ -247,6 +247,51 @@ class TestAccdb(unittest.TestCase):
 
         self.assertTrue(self.firesException(lambda : tdf3.mdb.create_tic_dat(filePath)))
 
+    def testNulls(self):
+        tdf = TicDatFactory(table=[["field one"], ["field two"]])
+        dat = tdf.TicDat(table = [[None, 100], [200, "this"], ["that", 300], [300, None], [400, "that"]])
+        file_path = os.path.join(_scratchDir, "nulls.accdb")
+        tdf.mdb.write_file(dat, file_path)
+        dat_1 = tdf.mdb.create_tic_dat(file_path)
+        self.assertTrue(tdf._same_data(dat, dat_1))
+
+        tdf = TicDatFactory(table=[["field one"], ["field two"]])
+        for f in ["field one", "field two"]:
+            tdf.set_data_type("table", f, max=float("inf"), inclusive_max=True)
+        tdf.set_infinity_io_flag(None)
+        dat_inf = tdf.TicDat(table = [[float("inf"), 100], [200, "this"], ["that", 300], [300, float("inf")],
+                                      [400, "that"]])
+        dat_1 = tdf.mdb.create_tic_dat(file_path)
+        self.assertTrue(tdf._same_data(dat_inf, dat_1))
+        tdf.mdb.write_file(dat_inf, makeCleanPath(file_path))
+        dat_1 = tdf.mdb.create_tic_dat(file_path)
+        self.assertTrue(tdf._same_data(dat_inf, dat_1))
+
+        tdf = TicDatFactory(table=[["field one"], ["field two"]])
+        for f in ["field one", "field two"]:
+            tdf.set_data_type("table", f, min=-float("inf"), inclusive_min=True)
+        tdf.set_infinity_io_flag(None)
+        dat_1 = tdf.mdb.create_tic_dat(file_path)
+        self.assertFalse(tdf._same_data(dat_inf, dat_1))
+        dat_inf = tdf.TicDat(table = [[float("-inf"), 100], [200, "this"], ["that", 300], [300, -float("inf")],
+                                      [400, "that"]])
+        self.assertTrue(tdf._same_data(dat_inf, dat_1))
+
+    def testDietWithInfFlagging(self):
+        tdf = TicDatFactory(**dietSchema())
+        dat = tdf.copy_tic_dat(dietData())
+        tdf.set_infinity_io_flag(999999999)
+        path = os.path.join(_scratchDir, "dietInfFlag.accdb")
+        tdf.mdb.write_file(dat, path)
+        dat_1 = tdf.mdb.create_tic_dat(path)
+        self.assertTrue(tdf._same_data(dat, dat_1))
+        tdf = tdf.clone()
+        dat_1 = tdf.mdb.create_tic_dat(path)
+        self.assertTrue(tdf._same_data(dat, dat_1))
+        tdf = TicDatFactory(**dietSchema())
+        dat_1 = tdf.mdb.create_tic_dat(path)
+        self.assertFalse(tdf._same_data(dat, dat_1))
+
 _scratchDir = TestAccdb.__name__ + "_scratch"
 
 # Run the tests.

@@ -34,7 +34,7 @@ def _clean_pandat_creator(pdf, df_dict):
         setattr(pandat, t, getattr(pandat, t)[flds])
     msg = []
     assert pdf.good_pan_dat_object(pandat, msg.append), str(msg)
-    return pandat
+    return pdf._infinity_flag_post_read_adjustment(pandat)
 
 class JsonPanFactory(freezable_factory(object, "_isFrozen")):
     """
@@ -144,6 +144,7 @@ class JsonPanFactory(freezable_factory(object, "_isFrozen")):
                "pan_dat not a good object for this factory : %s"%"\n".join(msg))
         verify("orient" not in kwargs, "orient should be passed as a non-kwargs argument")
         verify("index" not in kwargs, "index should be passed as a non-kwargs argument")
+        pan_dat = self.pan_dat_factory._infinity_flag_pre_write_adjustment(pan_dat)
 
         if self._modern_pandas:
             # FYI - pandas Exception: ValueError: 'index=False' is only valid when 'orient' is 'split' or 'table'
@@ -263,6 +264,7 @@ class CsvPanFactory(freezable_factory(object, "_isFrozen")):
         msg = []
         verify(self.pan_dat_factory.good_pan_dat_object(pan_dat, msg.append),
                "pan_dat not a good object for this factory : %s"%"\n".join(msg))
+        pan_dat = self.pan_dat_factory._infinity_flag_pre_write_adjustment(pan_dat)
         verify("index" not in kwargs, "index should be passed as a non-kwargs argument")
         kwargs["index"] = index
         case_space_table_names = case_space_table_names and \
@@ -307,7 +309,9 @@ class SqlPanFactory(freezable_factory(object, "_isFrozen")):
 
         :return: a PanDat object populated by the matching tables.
 
-        caveats: Missing tables always throw an Exception.
+        caveats: Missing tables always resolve to an empty table, but missing fields on matching tables.
+                 (NEEDS FIXING!! #33)
+
                  Table names are matched with case-space insensitivity, but spaces
                  are respected for field names.
                  (ticdat supports whitespace in field names but not table names).
@@ -378,6 +382,7 @@ class SqlPanFactory(freezable_factory(object, "_isFrozen")):
         msg = []
         verify(self.pan_dat_factory.good_pan_dat_object(pan_dat, msg.append),
                "pan_dat not a good object for this factory : %s"%"\n".join(msg))
+        pan_dat = self.pan_dat_factory._infinity_flag_pre_write_adjustment(pan_dat)
         if db_file_path:
             verify(not os.path.isdir(db_file_path), "A directory is not a valid SQLLite file path")
         case_space_table_names = case_space_table_names and \
@@ -423,7 +428,7 @@ class XlsPanFactory(freezable_factory(object, "_isFrozen")):
         :return: a PanDat object populated by the matching sheets.
 
         caveats: Missing sheets resolve to an empty table, but missing fields
-                 on matching sheets throw an Exception (unless fill_missing_fields is falsey).
+                 on matching sheets throw an Exception (unless fill_missing_fields is truthy).
                  Table names are matched to sheets with with case-space insensitivity, but spaces and
                  case are respected for field names.
                  (ticdat supports whitespace in field names but not table names).
@@ -476,6 +481,7 @@ class XlsPanFactory(freezable_factory(object, "_isFrozen")):
         msg = []
         verify(self.pan_dat_factory.good_pan_dat_object(pan_dat, msg.append),
                "pan_dat not a good object for this factory : %s"%"\n".join(msg))
+        pan_dat = self.pan_dat_factory._infinity_flag_pre_write_adjustment(pan_dat)
         verify(not os.path.isdir(file_path), "A directory is not a valid xls file path")
         case_space_sheet_names = case_space_sheet_names and \
                                  len(set(self.pan_dat_factory.all_tables)) == \

@@ -15,15 +15,6 @@ except:
 
 _can_unit_test = sql
 
-def _read_data_format(x) :
-    if stringish(x) and x.lower() in ("inf", "-inf") :
-        return float(x)
-    if stringish(x) and x.lower()  == "true" :
-        return True
-    if stringish(x) and x.lower()  == "false" :
-        return False
-    return x
-
 def _fix_str(x):
     """
     can't fix all the strings. won't work right if some jerk wants to insert '' or some other multiple
@@ -43,11 +34,11 @@ def _insert_format(x) :
     # note that [1==True, 0==False, 1 is not True, 0 is not False] is all part of Python
     if stringish(x):
         return "'%s'"%_fix_str(x)
-    if x in (float("inf"), -float("inf")) or (x is True) or (x is False):
+    if x in (float("inf"), -float("inf")):
         return "'%s'"%x
     if x is None:
         return "null"
-    return  str(x)
+    return str(x)
 
 def _sql_con(dbFile, foreign_keys = True) :
     con = sql.connect(dbFile)
@@ -91,7 +82,9 @@ class SQLiteTicFactory(freezable_factory(object, "_isFrozen")) :
 
         :return: a TicDat object populated by the matching tables.
 
-        caveats : "inf" and "-inf" (case insensitive) are read as floats
+        caveats : "inf" and "-inf" (case insensitive) are read as floats, unless the infinity_io_flag
+                  is being applied.
+                  "true"/"false" (case insensitive) are read as booleans booleans.
         """
         verify(sql, "sqlite3 needs to be installed to use this subroutine")
         return self._Rtn(freeze_it)(**self._create_tic_dat(db_file_path))
@@ -106,7 +99,7 @@ class SQLiteTicFactory(freezable_factory(object, "_isFrozen")) :
 
         :param freeze_it: boolean. should the returned object be frozen?
 
-        :return: a TicDat object populated by the db created from the SQL
+        :return: a TicDat object populated by the db created from the SQL. See create_tic_dat for caveats.
         """
         verify(sql, "sqlite3 needs to be installed to use this subroutine")
         return self._Rtn(freeze_it)(**self._create_tic_dat_from_sql(
@@ -185,6 +178,14 @@ class SQLiteTicFactory(freezable_factory(object, "_isFrozen")) :
                         raise TDE("Unable to recognize field %s in table %s for file %s"%
                                   (field, table, db_file_path))
         return table_names
+    def _read_data_cell(self, t, f, x):
+        if stringish(x) and x.lower() in ("inf", "-inf") and self.tic_dat_factory.infinity_io_flag == "N/A":
+            return float(x)
+        if stringish(x) and x.lower() == "true":
+            return True
+        if stringish(x) and x.lower() == "false":
+            return False
+        return self.tic_dat_factory._infinity_flag_read_cell(t, f, x)
     def _create_gen_obj(self, db_file_path, table, table_name):
         tdf = self.tic_dat_factory
         def tableObj() :
@@ -192,7 +193,7 @@ class SQLiteTicFactory(freezable_factory(object, "_isFrozen")) :
             with sql.connect(db_file_path) as con:
                 for row in con.execute("Select %s from [%s]"%
                         (", ".join(_brackets(tdf.data_fields[table])), table_name)):
-                    yield list(map(_read_data_format, row))
+                    yield [self._read_data_cell(table, f, x) for f, x in zip(tdf.data_fields[table], row)]
         return tableObj
     def _create_tic_dat(self, db_file_path):
         tdf = self.tic_dat_factory
@@ -214,12 +215,11 @@ class SQLiteTicFactory(freezable_factory(object, "_isFrozen")) :
             for row in con.execute("Select %s from [%s]"%(", ".join(_brackets(fields)),
                                                           table_names[table])):
                 if table in tdf.generic_tables:
-                    rtn[table].append({f:_read_data_format(d) for f,d in zip(fields,row)})
+                    rtn[table].append({f:self._read_data_cell(table, f, d) for f, d in zip(fields, row)})
                 else:
-                    pk = row[:len(tdf.primary_key_fields.get(table, ()))]
-                    data = list(map(_read_data_format,
-                                    row[len(tdf.primary_key_fields.get(table, ())):]))
-
+                    pkfs = tdf.primary_key_fields.get(table, ())
+                    pk = tuple(self._read_data_cell(table, f, x) for f, x in zip(pkfs, row[:len(pkfs)]))
+                    data = [self._read_data_cell(table, f, x) for f, x in zip(fields[len(pkfs):], row[len(pkfs):])]
                     if dictish(rtn[table]) :
                         rtn[table][pk[0] if len(pk) == 1 else tuple(pk)] = data
                     else :
@@ -262,6 +262,10 @@ class SQLiteTicFactory(freezable_factory(object, "_isFrozen")) :
             str += ",\n".join(strl) + "\n);"
             rtn.append(str)
         return tuple(rtn)
+    def _write_data_cell(self, t, f, x):
+        if x is True or x is False:
+            return str(x)
+        return self.tic_dat_factory._infinity_flag_write_cell(t, f, x)
     def _get_data(self, tic_dat, as_sql):
         rtn = []
         for t in self.tic_dat_factory.all_tables:
@@ -271,9 +275,9 @@ class SQLiteTicFactory(freezable_factory(object, "_isFrozen")) :
                 for pkrow, sqldatarow in _t.items() :
                     _items = list(sqldatarow.items())
                     fields = primarykeys + tuple(x[0] for x in _items)
-                    datarow = ((pkrow,) if len(primarykeys)==1 else pkrow) + \
-                              tuple(x[1] for x in _items)
+                    datarow = ((pkrow,) if len(primarykeys)==1 else pkrow) + tuple(x[1] for x in _items)
                     assert len(datarow) == len(fields)
+                    datarow = tuple(self._write_data_cell(t, f, x) for f,x in zip(fields, datarow))
                     str = "INSERT INTO [%s] (%s) VALUES (%s)"%(t, ",".join(_brackets(fields)),
                           ",".join("%s" if as_sql else "?" for _ in fields))
                     if as_sql:
@@ -315,7 +319,7 @@ class SQLiteTicFactory(freezable_factory(object, "_isFrozen")) :
 
         :return:
 
-        caveats : float("inf"), float("-inf") are written as "inf", "-inf"
+        caveats : True, False are written as "True", "False". Also see infinity_io_flag __doc__
         """
         verify(sql, "sqlite3 needs to be installed to use this subroutine")
         msg = []
@@ -332,9 +336,9 @@ class SQLiteTicFactory(freezable_factory(object, "_isFrozen")) :
             for t in self.tic_dat_factory.all_tables:
                 verify(table_names[t] == t, "Failed to find table %s in path %s"%
                                             (t, db_file_path))
-                verify(allow_overwrite or not any(True for _ in  con.execute("Select * from %s"%t)),
+                verify(allow_overwrite or not any(True for _ in  con.execute("Select * from [%s]"%t)),
                         "allow_overwrite is False, but there are already data records in %s"%t)
-                con.execute("Delete from %s"%t) if allow_overwrite else None
+                con.execute("Delete from [%s]"%t) if allow_overwrite else None
             for sql_str, data in self._get_data(tic_dat, as_sql=False):
                 con.execute(sql_str, list(data))
 
@@ -353,7 +357,8 @@ class SQLiteTicFactory(freezable_factory(object, "_isFrozen")) :
 
         :return:
 
-        caveats : float("inf"), float("-inf") are written as "inf", "-inf"
+        caveats : float("inf"), float("-inf") are written as "inf", "-inf" (unless infinity_io_flag
+                  is being applied). True/False are written as "True", "False"
         """
         verify(sql, "sqlite3 needs to be installed to use this subroutine")
         verify(allow_overwrite or not os.path.exists(sql_file_path),

@@ -4,11 +4,9 @@ from ticdat.utils import DataFrame, numericish, ForeignKey, ForeignKeyMapping
 import ticdat.utils as utils
 from ticdat.testing.ticdattestutils import fail_to_debugger, flagged_as_run_alone, spacesSchema, firesException
 from ticdat.testing.ticdattestutils import netflowSchema, pan_dat_maker, dietSchema, spacesData
-from ticdat.testing.ticdattestutils import makeCleanDir, netflowData, dietData, addDietForeignKeys
-from ticdat.testing.ticdattestutils import sillyMeData, sillyMeSchema, sillyMeDataTwoTables
+from ticdat.testing.ticdattestutils import makeCleanDir, netflowData, dietData, addDietDataTypes
 from ticdat.ticdatfactory import TicDatFactory
 import ticdat.pandatio as pandatio
-import itertools
 import shutil
 import os
 import json
@@ -121,6 +119,69 @@ class TestIO(unittest.TestCase):
         pdf2 = PanDatFactory(**{t:'*' for t in pdf.all_tables})
         xlsPanDat = pdf2.xls.create_pan_dat(filePath)
         self.assertTrue(pdf._same_data(panDat, xlsPanDat))
+
+    def testDietWithInfFlagging(self):
+        diet_pdf = PanDatFactory(**dietSchema())
+        addDietDataTypes(diet_pdf)
+        tdf = TicDatFactory(**dietSchema())
+        dat = tdf.copy_to_pandas(tdf.copy_tic_dat(dietData()), drop_pk_columns=False)
+        diet_pdf.set_infinity_io_flag(999999999)
+        core_path = os.path.join(_scratchDir, "diet_with_inf_flagging")
+        diet_pdf.sql.write_file(dat, core_path+".db")
+        diet_pdf.csv.write_directory(dat, core_path+"_csv")
+        diet_pdf.json.write_file(dat, core_path+".json")
+        diet_pdf.xls.write_file(dat, core_path+".xlsx")
+        for attr, f in [["sql", core_path+".db"], ["csv", core_path+"_csv"], ["json", core_path+".json"],
+                        ["xls", core_path+".xlsx"]]:
+            dat_1 = getattr(diet_pdf, attr).create_pan_dat(f)
+            self.assertTrue(diet_pdf._same_data(dat, dat_1, epsilon=1e-5))
+            pdf = diet_pdf.clone()
+            dat_1 = getattr(pdf, attr).create_pan_dat(f)
+            self.assertTrue(pdf._same_data(dat, dat_1, epsilon=1e-5))
+            pdf = PanDatFactory(**diet_pdf.schema())
+            dat_1 = getattr(pdf, attr).create_pan_dat(f)
+            self.assertFalse(pdf._same_data(dat, dat_1, epsilon=1e-5))
+            protein = dat_1.categories["name"] == "protein"
+            self.assertTrue(list(dat_1.categories[protein]["maxNutrition"])[0] == 999999999)
+            dat_1.categories.loc[protein, "maxNutrition"] = float("inf")
+            self.assertTrue(pdf._same_data(dat, dat_1, epsilon=1e-5))
+
+
+    def testInfFlagging(self):
+        pdf = PanDatFactory(table=[["field one"], ["field two"]])
+        for f in ["field one", "field two"]:
+            pdf.set_data_type("table", f, nullable=True)
+        def make_dat(l):
+            tdf = TicDatFactory(**pdf.schema())
+            return tdf.copy_to_pandas(tdf.TicDat(table = l), drop_pk_columns=False)
+        dat = make_dat([[None, 100], [200, 109], [0, 300], [300, None], [400, 0]])
+        core_path = os.path.join(_scratchDir, "non_inf_flagging")
+        for attr, path in [["sql", core_path+".db"], ["csv", core_path+"_csv"], ["json", core_path+".json"],
+                           ["xls", core_path+".xlsx"]]:
+            func = "write_directory" if attr == "csv" else "write_file"
+            getattr(getattr(pdf, attr), func)(dat, path)
+            dat_1 = getattr(pdf, attr).create_pan_dat(path)
+            pdf._same_data(dat, dat_1)
+
+            pdf_ = PanDatFactory(table=[["field one"], ["field two"]])
+            for f in ["field one", "field two"]:
+                pdf_.set_data_type("table", f, max=float("inf"), inclusive_max=True)
+            pdf_.set_infinity_io_flag(None)
+            dat_inf = make_dat([[float("inf"), 100], [200, 109], [0, 300], [300, float("inf")], [400, 0]])
+            dat_1 = getattr(pdf_, attr).create_pan_dat(path)
+            self.assertTrue(pdf._same_data(dat_inf, dat_1))
+            getattr(getattr(pdf_, attr), func)(dat, path)
+            dat_1 = getattr(pdf_, attr).create_pan_dat(path)  #
+            self.assertTrue(pdf._same_data(dat_inf, dat_1))
+            pdf_ = PanDatFactory(table=[["field one"], ["field two"]])
+            for f in ["field one", "field two"]:
+                pdf_.set_data_type("table", f, min=-float("inf"), inclusive_min=True)
+            pdf_.set_infinity_io_flag(None)
+            dat_1 = getattr(pdf_, attr).create_pan_dat(path)  #
+            self.assertFalse(pdf._same_data(dat_inf, dat_1))
+            dat_inf = make_dat([[float("-inf"), 100], [200, 109], [0, 300], [300, -float("inf")], [400, 0]])
+            self.assertTrue(pdf._same_data(dat_inf, dat_1))
+
 
     def testXlsSpacey(self):
         if not self.can_run:

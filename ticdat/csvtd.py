@@ -54,13 +54,16 @@ class CsvTicFactory(freezable_factory(object, "_isFrozen")) :
         caveats: Missing files resolve to an empty table, but missing fields on
                  matching files throw an Exception.
                  By default, data field values (but not primary key values) will be coerced into floats if possible.
+                 This includes coercing "inf" and "-inf" into +/- float("inf")
                  The rules over which fields are/are-not coerced can be controlled  via hints from the default values
                  or data types. Default values and data types can also be used to control whether or not the empty
                  string should be coerced into None.
+                 The infinity_io_flag rules are applied subsequent to this coercion.
 
-        Note - pandas doesn't really do a fantastic job handling file types either, since it coerces all columns
-        to be the same type. If that's the behavior you want you can use PanDatFactory. JSON is just a better file
-        format for a variety of reasons, to include typing of data.
+        Note - pandas doesn't really do a fantastic job handling date types either, since it coerces all columns
+        to be the same type. If that's the behavior you want you can use PanDatFactory.
+
+        JSON is just a better file format than csv for a variety of reasons, to include typing of data.
 
         """
         verify(csv, "csv needs to be installed to use this subroutine")
@@ -75,21 +78,24 @@ class CsvTicFactory(freezable_factory(object, "_isFrozen")) :
             return self.tic_dat_factory.freeze_me(rtn)
         return rtn
     def _read_cell(self, table, field, x):
-        # reminder - data fields have a default default of zero, primary keys don't get a default default
-        dv = self.tic_dat_factory.default_values.get(table, {}).get(field, ["LIST", "NOT", "POSSIBLE"])
-        dt = self.tic_dat_factory.data_types.get(table, {}).get(field)
-        if x == "" and ((dt and dt.nullable) or (not dt and dv is None)):
-            return None
-        should_try_float = (dt and dt.number_allowed) or (not dt and numericish(dv)) or \
-                           (table in self.tic_dat_factory.generic_tables)
-        if should_try_float:
-            try:
-                x = float(x)
-                if int(x) == x and dt and dt.must_be_int:
-                    x = int(x)
-            except:
-                return x
-        return x
+        def _inner_rtn(x):
+            # reminder - data fields have a default default of zero, primary keys don't get a default default
+            dv = self.tic_dat_factory.default_values.get(table, {}).get(field, ["LIST", "NOT", "POSSIBLE"])
+            dt = self.tic_dat_factory.data_types.get(table, {}).get(field)
+            if x == "" and ((dt and dt.nullable) or (not dt and dv is None) or
+                            numericish(self.tic_dat_factory._infinity_flag_read_cell(table, field, None))):
+                return None
+            should_try_float = (dt and dt.number_allowed) or (not dt and numericish(dv)) or \
+                               (table in self.tic_dat_factory.generic_tables)
+            if should_try_float:
+                try:
+                    x = float(x)
+                    if int(x) == x and dt and dt.must_be_int:
+                        x = int(x)
+                except:
+                    return x
+            return x
+        return self.tic_dat_factory._infinity_flag_read_cell(table, field, _inner_rtn(x))
     def _create_tic_dat(self, dir_path, dialect, headers_present):
         verify(dialect in csv.list_dialects(), "Invalid dialect %s"%dialect)
         verify(os.path.isdir(dir_path), "Invalid directory path %s"%dir_path)
@@ -241,12 +247,14 @@ class CsvTicFactory(freezable_factory(object, "_isFrozen")) :
                  writer = csv.DictWriter(csvfile,dialect=dialect, fieldnames=
                         tdf.primary_key_fields.get(t, ()) + tdf.data_fields.get(t, ()) )
                  writer.writeheader() if write_header else None
+                 def infinty_io_dict(d):
+                     return {f: self.tic_dat_factory._infinity_flag_write_cell(t, f, x) for f,x in d.items()}
                  _t =  getattr(tic_dat, t)
                  if dictish(_t) :
                      for p_key, data_row in _t.items() :
                          primaryKeyDict = {f:v for f,v in zip(tdf.primary_key_fields[t],
                                             p_key if containerish(p_key) else (p_key,))}
-                         writer.writerow(dict(data_row, **primaryKeyDict))
+                         writer.writerow(infinty_io_dict(dict(data_row, **primaryKeyDict)))
                  else :
                      for data_row in (_t if containerish(_t) else _t()) :
-                         writer.writerow(dict(data_row))
+                         writer.writerow(infinty_io_dict(data_row))

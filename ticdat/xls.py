@@ -249,6 +249,8 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
         return rtn
     def _sub_tuple(self, table, fields, field_indicies, treat_inf_as_infinity) :
         assert set(fields).issubset(field_indicies)
+        if self.tic_dat_factory.infinity_io_flag != "N/A":
+            treat_inf_as_infinity = False
         def _read_cell(x, field):
             # reminder - data fields have a default default of zero, primary keys don't get a default default
             dv = self.tic_dat_factory.default_values.get(table, {}).get(field, ["LIST", "NOT", "POSSIBLE"])
@@ -259,8 +261,12 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
             if treat_inf_as_infinity and utils.stringish(rtn) and rtn.lower() in ["inf", "-inf"]:
                 return float(rtn.lower())
             if utils.numericish(rtn) and utils.safe_apply(int)(rtn) == rtn and dt and dt.must_be_int:
-                return int(rtn)
-            return rtn
+                rtn = int(rtn)
+            if rtn == "":
+                try_rtn = self.tic_dat_factory._infinity_flag_read_cell(table, field, None)
+                if utils.numericish(try_rtn):
+                    return try_rtn
+            return self.tic_dat_factory._infinity_flag_read_cell(table, field, rtn)
         def rtn(x) :
             if len(fields) == 1 :
                 return _read_cell(x, fields[0])
@@ -302,7 +308,7 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
                           The latter is capable of writing out larger tables,
                           but the former handles infinity seamlessly.
                           If ".xlsx", then be advised that +/- float("inf") will be replaced
-                          with "inf"/"-inf"
+                          with "inf"/"-inf", unless infinity_io_flag is being applied.
 
         :param allow_overwrite: boolean - are we allowed to overwrite an
                                 existing file?
@@ -338,9 +344,12 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
     def _xls_write(self, tic_dat, file_path, tbl_name_mapping):
         verify(xlwt, "Can't write .xls files because xlwt package isn't installed.")
         tdf = self.tic_dat_factory
+        def clean_inf(t, f, x):
+            return self.tic_dat_factory._infinity_flag_write_cell(t, f, x)
         book = xlwt.Workbook()
         for t in  sorted(sorted(tdf.all_tables),
                          key=lambda x: len(tdf.primary_key_fields.get(x, ()))) :
+            all_flds = self.tic_dat_factory.primary_key_fields.get(t, ()) + self.tic_dat_factory.data_fields.get(t, ())
             sheet = book.add_sheet(tbl_name_mapping[t][:_longest_sheet])
             for i,f in enumerate(tdf.primary_key_fields.get(t,()) + tdf.data_fields.get(t, ())) :
                 sheet.write(0, i, f)
@@ -349,11 +358,11 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
                 for row_ind, (p_key, data) in enumerate(_t.items()) :
                     for field_ind, cell in enumerate( (p_key if containerish(p_key) else (p_key,)) +
                                         tuple(data[_f] for _f in tdf.data_fields.get(t, ()))):
-                        sheet.write(row_ind+1, field_ind, cell)
+                        sheet.write(row_ind+1, field_ind, clean_inf(t, all_flds[field_ind], cell))
             else :
                 for row_ind, data in enumerate(_t if containerish(_t) else _t()) :
                     for field_ind, cell in enumerate(tuple(data[_f] for _f in tdf.data_fields[t])) :
-                        sheet.write(row_ind+1, field_ind, cell)
+                        sheet.write(row_ind+1, field_ind, clean_inf(t, all_flds[field_ind], cell))
         if os.path.exists(file_path):
             os.remove(file_path)
         book.save(file_path)
@@ -363,14 +372,15 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
         if os.path.exists(file_path):
             os.remove(file_path)
         book = xlsx.Workbook(file_path)
-        def clean_inf(x):
-            if x == float("inf"):
-                return "inf"
-            if x == -float("inf"):
-                return "-inf"
+        def clean_inf(t, field_index, x):
+            if self.tic_dat_factory.infinity_io_flag != "N/A":
+                return self.tic_dat_factory._infinity_flag_write_cell(t, f, x)
+            if x in [float("inf"), -float("inf")]:
+                return str(x)
             return x
         for t in sorted(sorted(tdf.all_tables),
                          key=lambda x: len(tdf.primary_key_fields.get(x, ()))) :
+            all_flds = self.tic_dat_factory.primary_key_fields.get(t, ()) + self.tic_dat_factory.data_fields.get(t, ())
             sheet = book.add_worksheet(tbl_name_mapping[t][:_longest_sheet])
             for i,f in enumerate(tdf.primary_key_fields.get(t,()) + tdf.data_fields.get(t, ())) :
                 sheet.write(0, i, f)
@@ -379,9 +389,9 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
                 for row_ind, (p_key, data) in enumerate(_t.items()) :
                     for field_ind, cell in enumerate( (p_key if containerish(p_key) else (p_key,)) +
                                         tuple(data[_f] for _f in tdf.data_fields.get(t, ()))):
-                        sheet.write(row_ind+1, field_ind, clean_inf(cell))
+                        sheet.write(row_ind+1, field_ind, clean_inf(t, all_flds[field_ind], cell))
             else :
                 for row_ind, data in enumerate(_t if containerish(_t) else _t()) :
                     for field_ind, cell in enumerate(tuple(data[_f] for _f in tdf.data_fields[t])) :
-                        sheet.write(row_ind+1, field_ind, clean_inf(cell))
+                        sheet.write(row_ind+1, field_ind, clean_inf(t, all_flds[field_ind], cell))
         book.close()

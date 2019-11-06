@@ -10,6 +10,7 @@ import ticdat.pandatio as pandatio
 from itertools import count
 from math import isnan
 import collections as clt
+from ticdat.pgtd import PostgresPanFactory
 try:
     import amplpy
 except:
@@ -38,7 +39,7 @@ class PanDatFactory(object):
      A PanDat object is itself a collection of DataFrames that conform to a predefined schema.
 
     :param init_fields: a mapping of tables to primary key fields and data fields. Each field listing consists
-                        of two sub lists ... first primary keys fields, than data fields.
+                        of two sub lists ... first primary keys fields, then data fields.
 
         ex:
         ```PanDatFactory (categories =  [["name"],["Min Nutrition", "Max Nutrition"]],
@@ -81,7 +82,8 @@ class PanDatFactory(object):
                 "foreign_keys" : self.foreign_keys,
                 "default_values" : self.default_values,
                 "data_types" : self.data_types,
-                "parameters": self.parameters}
+                "parameters": self.parameters,
+                "infinity_io_flag": self.infinity_io_flag}
     @staticmethod
     def create_from_full_schema(full_schema):
         """
@@ -95,7 +97,8 @@ class PanDatFactory(object):
                  and foreign keys consistent with the full_schema argument
         """
         old_schema = {"tables_fields", "foreign_keys", "default_values", "data_types"}
-        verify(dictish(full_schema) and set(full_schema) in [old_schema, old_schema.union({"parameters"})],
+        verify(dictish(full_schema) and set(full_schema).issuperset(old_schema) and set(full_schema) in
+               utils.all_subsets(old_schema.union({"parameters", "infinity_io_flag"})),
                "full_schema should be the result of calling schema(True) for some PanDatFactory")
         fks = full_schema["foreign_keys"]
         verify( (not fks) or (lupish(fks) and all(lupish(_) and len(_) >= 3 for _ in fks)),
@@ -128,6 +131,8 @@ class PanDatFactory(object):
                 rtn.add_parameter(p, df, enforce_type_rules=False)
             else:
                 rtn.add_parameter(p, *((df,) + tuple(dt)), enforce_type_rules=True)
+        if "infinity_io_flag" in full_schema:
+            rtn.set_infinity_io_flag(full_schema["infinity_io_flag"])
         return rtn
     def clone(self):
         """
@@ -151,6 +156,93 @@ class PanDatFactory(object):
     @property
     def parameters(self):
         return FrozenDict(self._parameters)
+    @property
+    def infinity_io_flag(self):
+        """
+        see __doc__ for set_infinity_io_flag
+        """
+        return  self._infinity_io_flag[0]
+    def set_infinity_io_flag(self, value):
+        """
+        Set the infinity_io_flag for the TicDatFactory.
+        'N/A' (the default) is recognized as a flag to disable infinity I/O buffering.
+
+        If numeric, when writing data to the file system (or a database), float("inf") will be replaced by the
+        infinity_io_flag and float("-inf") will be replaced by -infinity_io_flag, prior to writing.
+        Similarly, the read data will replace any number >= the infinity_io_flag with float("inf") and any
+        number smaller than float("-inf") with -infinity_io_flag.
+
+        If None, then +/- infinity will be replaced by None prior to writing.
+        Similarly, subsequent to reading, None will be replaced either by float("inf") or float("-inf"), depending
+        on field data types.
+        Note that None flagging will only perform replacements on fields whose data types allow infinity and not None.
+
+        For all cases, these replacements will be done on a temporary copy of the data that is created prior to writing.
+
+        Also note that none of the these replacements will be done on the parameters table. The assumption is the
+        parameters table will be serialized to a string/string database table. Infinity can thus be represented by
+        "inf"/"-inf" in such serializations.
+
+        :param value: a valid infinity_io_flag
+        :return:
+        """
+        verify(value == "N/A" or (utils.numericish(value) and (0 < value < float("inf"))) or (value is None),
+           "infinity_io_flag needs to be 'N/A' (to indicate it isn't being used), or None, or a positive finite number")
+        self._infinity_io_flag[0] = value
+    def _none_as_infinity_bias(self, t, f):
+        if self.infinity_io_flag is not None:
+            return None
+        assert t in self.all_tables
+        fld_type = self.data_types.get(t, {}).get(f)
+        if fld_type and fld_type.number_allowed and not fld_type.valid_data(None):
+            verify(not (fld_type.valid_data(float("inf")) and fld_type.valid_data(-float("inf"))),
+                   f"None cannot be used as an infinity IO flag ")
+            for rtn in [1, -1]:
+                if fld_type.valid_data(rtn * float("inf")):
+                    return rtn
+    def _infinity_flag_post_read_adjustment(self, dat):
+        '''
+        we expect other routines inside ticdat to access this routine, even though it starts with _
+        :param dat: PanDat object that was just read from an external data source. dat will be side-effected
+        :return: dat, after being adjusted to handly infinity flagging
+        '''
+        apply = _faster_df_apply
+        for t in set(self.all_tables).difference(["parameters"]): # parameters table is handled differently
+            df = getattr(dat, t)
+            for f in self.primary_key_fields.get(t, ()) + self.data_fields.get(t, ()):
+                if utils.numericish(self.infinity_io_flag):
+                    fixme = apply(df, lambda row: utils.numericish(row[f]) and row[f] >= self.infinity_io_flag)
+                    df.loc[fixme, f] = float("inf")
+                    fixme = apply(df, lambda row: utils.numericish(row[f]) and row[f] <= -self.infinity_io_flag)
+                    df.loc[fixme, f] = -float("inf")
+                elif utils.numericish(self._none_as_infinity_bias(t, f)):
+                    assert self.infinity_io_flag is None
+                    df[f].fillna(value=self._none_as_infinity_bias(t, f) * float("inf"), inplace=True)
+        return dat
+    def _infinity_flag_pre_write_adjustment(self, dat):
+        '''
+        we expect other routines inside ticdat to access this routine, even though it starts with _
+        :param dat: PanDat object that is just now going to be written to an external data source.
+                    dat will NOT be side affected by this routine
+        :return if adjustment is needed, a deep copy of dat that has the appropriate adjustments
+        '''
+        if self.infinity_io_flag == "N/A":
+            return dat
+        rtn = self.copy_pan_dat(dat)
+        apply = _faster_df_apply
+        for t in set(self.all_tables).difference(["parameters"]): # parameters table is handled differently
+            df = getattr(rtn, t)
+            for f in self.primary_key_fields.get(t, ()) + self.data_fields.get(t, ()):
+                if utils.numericish(self.infinity_io_flag):
+                    fixme = apply(df, lambda row: utils.numericish(row[f]) and row[f] >= self.infinity_io_flag)
+                    df.loc[fixme, f] = self.infinity_io_flag
+                    fixme = apply(df, lambda row: utils.numericish(row[f]) and row[f] <= -self.infinity_io_flag)
+                    df.loc[fixme, f] = -self.infinity_io_flag
+                elif utils.numericish(self._none_as_infinity_bias(t, f)):
+                    assert self.infinity_io_flag is None
+                    fixme = apply(df, lambda row: row[f] == float("inf") * self._none_as_infinity_bias(t, f))
+                    df.loc[fixme, f] = None
+        return rtn
     def set_data_type(self, table, field, number_allowed = True,
                       inclusive_min = True, inclusive_max = False, min = 0, max = float("inf"),
                       must_be_int = False, strings_allowed= (), nullable = False):
@@ -476,6 +568,7 @@ class PanDatFactory(object):
         self._data_row_predicates = clt.defaultdict(dict)
         self._foreign_keys = clt.defaultdict(set)
         self._parameters = {}
+        self._infinity_io_flag = ["N/A"]
 
         self.all_tables = frozenset(init_fields)
         superself = self
@@ -517,6 +610,7 @@ class PanDatFactory(object):
         self.sql = pandatio.SqlPanFactory(self)
         self.csv = pandatio.CsvPanFactory(self)
         self.json = pandatio.JsonPanFactory(self)
+        self.pgsql = PostgresPanFactory(self)
 
     def good_pan_dat_object(self, data_obj, bad_message_handler = lambda x : None):
         """
@@ -597,7 +691,7 @@ class PanDatFactory(object):
                 return list(map(list, rtn.itertuples(index=False)))
             return rtn
         return tdf.TicDat(**{t: df(t) for t in self.all_tables})
-    def _same_data(self, obj1, obj2, epsilon = 0):
+    def _same_data(self, obj1, obj2, epsilon = 0, nans_are_same_for_data_rows = False):
         from ticdat import TicDatFactory
         sch = self.schema()
         if not all(len(getattr(obj1, t)) == len(getattr(obj2, t)) for t in self.all_tables):
@@ -608,7 +702,8 @@ class PanDatFactory(object):
             sch[t] = [[], list(getattr(obj1, t).columns)]
         tdf = TicDatFactory(**sch)
         return tdf._same_data(self._copy_to_tic_dat(obj1, keep_generics_as_df=False),
-                              self._copy_to_tic_dat(obj2, keep_generics_as_df=False), epsilon=epsilon)
+                              self._copy_to_tic_dat(obj2, keep_generics_as_df=False), epsilon=epsilon,
+                              nans_are_same_for_data_rows=nans_are_same_for_data_rows)
     def find_data_type_failures(self, pan_dat, as_table=True):
         """
         Finds the data type failures for a pandat object
