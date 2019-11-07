@@ -72,13 +72,16 @@ class CsvTicFactory(freezable_factory(object, "_isFrozen")) :
                "headers need to be present to read generic tables")
         verify(DataFrame or not tdf.generic_tables,
                "Strange absence of pandas despite presence of generic tables")
-        rtn =  self.tic_dat_factory.TicDat(**self._create_tic_dat(dir_path, dialect,
+        rtn = self.tic_dat_factory.TicDat(**self._create_tic_dat(dir_path, dialect,
                                                                   headers_present))
+        rtn = self.tic_dat_factory._parameter_table_post_read_adjustment(rtn)
         if freeze_it:
             return self.tic_dat_factory.freeze_me(rtn)
         return rtn
     def _read_cell(self, table, field, x):
         def _inner_rtn(x):
+            if table == "parameters" and self.tic_dat_factory.parameters:
+                return x
             # reminder - data fields have a default default of zero, primary keys don't get a default default
             dv = self.tic_dat_factory.default_values.get(table, {}).get(field, ["LIST", "NOT", "POSSIBLE"])
             dt = self.tic_dat_factory.data_types.get(table, {}).get(field)
