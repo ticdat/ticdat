@@ -554,6 +554,17 @@ class TestPostres(unittest.TestCase):
         dat_1.categories.loc[protein, "Max Nutrition"] = float("inf")
         self.assertTrue(tdf._same_data(dat, dat_1))
 
+    def test_parameters(self):
+        schema = test_schema + "_parameters"
+        tdf = TicDatFactory(parameters=[["Key"], ["Value"]])
+        tdf.add_parameter("Something", 100)
+        tdf.add_parameter("Different", 'boo', strings_allowed='*', number_allowed=False)
+        dat = tdf.TicDat(parameters = [["Something",float("inf")], ["Different", "inf"]])
+        tdf.write_schema.write_schema(self.engine, schema)
+        tdf.pgsql.write_data(dat, self.engine, schema)
+        dat_ = tdf.pgsql.create_tic_dat(self.engine, schema)
+        self.assertTrue(tdf._same_data(dat, dat_))
+
 test_schema = 'test'
 db_dict = {'drivername': 'postgresql', 'username': 'postgres', 'password': '',
            'host': '127.0.0.1', 'port': '5432', 'database': 'postgres'}

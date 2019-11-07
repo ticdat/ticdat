@@ -101,6 +101,8 @@ class _PostgresFactory(freezable_factory(object, "_isFrozen"),):
         def get_fld_type(t, f, default_type):
             if (t, f) in forced_field_types:
                 return forced_field_types[t, f]
+            if t == "parameters" and self.tdf.parameters:
+                return "text"
             fld_type = self.tdf.data_types.get(t, {}).get(f)
             if not fld_type:
                 return default_type
@@ -263,7 +265,7 @@ class PostgresTicFactory(_PostgresFactory):
         verify(len(tdf.generator_tables) == 0,
                "Generator tables have not been enabled for postgres")
         rtn = self._create_tic_dat_from_con(engine, schema)
-        return rtn
+        return self.tdf._parameter_table_post_read_adjustment(rtn)
 
     def _create_tic_dat_from_con(self, engine, schema):
         tdf = self.tdf
