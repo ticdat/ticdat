@@ -292,6 +292,16 @@ class TestAccdb(unittest.TestCase):
         dat_1 = tdf.mdb.create_tic_dat(path)
         self.assertFalse(tdf._same_data(dat, dat_1))
 
+    def test_parameters(self):
+        path = os.path.join(_scratchDir, "parameters.accdb")
+        tdf = TicDatFactory(parameters=[["Key"], ["Value"]])
+        tdf.add_parameter("Something", 100)
+        tdf.add_parameter("Different", 'boo', strings_allowed='*', number_allowed=False)
+        dat = tdf.TicDat(parameters = [["Something", float("inf")], ["Different", "inf"]])
+        tdf.mdb.write_file(dat, path)
+        dat_ = tdf.mdb.create_tic_dat(path)
+        self.assertTrue(tdf._same_data(dat, dat_))
+
 _scratchDir = TestAccdb.__name__ + "_scratch"
 
 # Run the tests.
