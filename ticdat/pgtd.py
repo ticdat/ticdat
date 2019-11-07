@@ -236,9 +236,12 @@ class PostgresTicFactory(_PostgresFactory):
         return self.tdf._infinity_flag_write_cell(t, f, x)
 
     def _Rtn(self, freeze_it):
-        if freeze_it:
-            return lambda *args, **kwargs : self.tdf.freeze_me(self.tdf.TicDat(*args, **kwargs))
-        return self.tdf.TicDat
+        def _rtn(*args, **kwargs):
+            rtn = self.tdf._parameter_table_post_read_adjustment(self.tdf.TicDat(*args, **kwargs))
+            if freeze_it:
+                return self.tdf.freeze_me(rtn)
+            return rtn
+        return _rtn
 
     def create_tic_dat(self, engine, schema, freeze_it=False):
         """
@@ -265,7 +268,7 @@ class PostgresTicFactory(_PostgresFactory):
         verify(len(tdf.generator_tables) == 0,
                "Generator tables have not been enabled for postgres")
         rtn = self._create_tic_dat_from_con(engine, schema)
-        return self.tdf._parameter_table_post_read_adjustment(rtn)
+        return rtn
 
     def _create_tic_dat_from_con(self, engine, schema):
         tdf = self.tdf

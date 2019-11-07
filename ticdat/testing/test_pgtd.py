@@ -560,7 +560,7 @@ class TestPostres(unittest.TestCase):
         tdf.add_parameter("Something", 100)
         tdf.add_parameter("Different", 'boo', strings_allowed='*', number_allowed=False)
         dat = tdf.TicDat(parameters = [["Something",float("inf")], ["Different", "inf"]])
-        tdf.write_schema.write_schema(self.engine, schema)
+        tdf.pgsql.write_schema(self.engine, schema)
         tdf.pgsql.write_data(dat, self.engine, schema)
         dat_ = tdf.pgsql.create_tic_dat(self.engine, schema)
         self.assertTrue(tdf._same_data(dat, dat_))
