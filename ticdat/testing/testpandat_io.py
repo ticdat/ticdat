@@ -146,6 +146,19 @@ class TestIO(unittest.TestCase):
             dat_1.categories.loc[protein, "maxNutrition"] = float("inf")
             self.assertTrue(pdf._same_data(dat, dat_1, epsilon=1e-5))
 
+    def test_parameters(self):
+        core_path = os.path.join(_scratchDir, "parameters")
+        pdf = PanDatFactory(parameters=[["Key"], ["Value"]])
+        pdf.add_parameter("Something", 100)
+        pdf.add_parameter("Different", 'boo', strings_allowed='*', number_allowed=False)
+        dat = TicDatFactory(**pdf.schema()).TicDat(parameters = [["Something",float("inf")], ["Different", "inf"]])
+        dat = TicDatFactory(**pdf.schema()).copy_to_pandas(dat, drop_pk_columns=False)
+        for attr, path in [["sql", core_path+".db"], ["csv", core_path+"_csv"], ["json", core_path+".json"],
+                           ["xls", core_path+".xlsx"]]:
+            func = "write_directory" if attr == "csv" else "write_file"
+            getattr(getattr(pdf, attr), func)(dat, path)
+            dat_1 = getattr(pdf, attr).create_pan_dat(path)
+            self.assertTrue(pdf._same_data(dat, dat_1))
 
     def testInfFlagging(self):
         pdf = PanDatFactory(table=[["field one"], ["field two"]])
@@ -161,7 +174,8 @@ class TestIO(unittest.TestCase):
             func = "write_directory" if attr == "csv" else "write_file"
             getattr(getattr(pdf, attr), func)(dat, path)
             dat_1 = getattr(pdf, attr).create_pan_dat(path)
-            pdf._same_data(dat, dat_1)
+            _ = PanDatFactory(table=[[], ["field one", "field two"]])
+            self.assertTrue(_._same_data(dat, dat_1, nans_are_same_for_data_rows=True))
 
             pdf_ = PanDatFactory(table=[["field one"], ["field two"]])
             for f in ["field one", "field two"]:

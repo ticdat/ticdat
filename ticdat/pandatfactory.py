@@ -218,6 +218,19 @@ class PanDatFactory(object):
                 elif utils.numericish(self._none_as_infinity_bias(t, f)):
                     assert self.infinity_io_flag is None
                     df[f].fillna(value=self._none_as_infinity_bias(t, f) * float("inf"), inplace=True)
+        if self.parameters:
+            [key_fld], [val_fld] = self.schema()["parameters"]
+            _can_parameter_have_number = lambda k : False if k in self.parameters and \
+                                                    not self.parameters[k].type_dictionary.number_allowed else True
+            def fix_value(row):
+                key, value = [row[_] for _ in [key_fld, val_fld]]
+                if not _can_parameter_have_number(key):
+                    return value
+                number_v = safe_apply(float)(value)
+                if number_v is not None and safe_apply(int)(number_v) == number_v:
+                    number_v = int(number_v)
+                return value if number_v is None else number_v
+            dat.parameters[val_fld] = _faster_df_apply(dat.parameters, lambda row: fix_value(row))
         return dat
     def _infinity_flag_pre_write_adjustment(self, dat):
         '''
@@ -226,9 +239,14 @@ class PanDatFactory(object):
                     dat will NOT be side affected by this routine
         :return if adjustment is needed, a deep copy of dat that has the appropriate adjustments
         '''
-        if self.infinity_io_flag == "N/A":
+        if self.infinity_io_flag == "N/A" and not self.parameters:
             return dat
         rtn = self.copy_pan_dat(dat)
+        if self.parameters: # Assuming a parameters table without parameters specification is just a naive developer
+            fld = self.data_fields["parameters"][0]
+            rtn.parameters[fld] = str(rtn.parameters[fld])
+        if self.infinity_io_flag == "N/A":
+            return rtn
         apply = _faster_df_apply
         for t in set(self.all_tables).difference(["parameters"]): # parameters table is handled differently
             df = getattr(rtn, t)
