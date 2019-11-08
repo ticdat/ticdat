@@ -68,10 +68,13 @@ class SQLiteTicFactory(freezable_factory(object, "_isFrozen")) :
         self._duplicate_focused_tdf = create_duplicate_focused_tdf(tic_dat_factory)
         self._isFrozen = True
     def _Rtn(self, freeze_it):
-        if freeze_it:
-            return lambda *args, **kwargs : self.tic_dat_factory.freeze_me(
-                    self.tic_dat_factory.TicDat(*args, **kwargs))
-        return self.tic_dat_factory.TicDat
+        def rtn(*args, **kwargs):
+            rtn = self.tic_dat_factory.TicDat(*args, **kwargs)
+            rtn = self.tic_dat_factory._parameter_table_post_read_adjustment(rtn)
+            if freeze_it:
+                return self.tic_dat_factory.freeze_me(rtn)
+            return rtn
+        return rtn
     def create_tic_dat(self, db_file_path, freeze_it = False):
         """
         Create a TicDat object from a SQLite database file
@@ -179,7 +182,8 @@ class SQLiteTicFactory(freezable_factory(object, "_isFrozen")) :
                                   (field, table, db_file_path))
         return table_names
     def _read_data_cell(self, t, f, x):
-        if stringish(x) and x.lower() in ("inf", "-inf") and self.tic_dat_factory.infinity_io_flag == "N/A":
+        if stringish(x) and x.lower() in ("inf", "-inf") and self.tic_dat_factory.infinity_io_flag == "N/A" and \
+            not (t == "parameters" and self.tic_dat_factory.parameters):
             return float(x)
         if stringish(x) and x.lower() == "true":
             return True
@@ -241,13 +245,14 @@ class SQLiteTicFactory(freezable_factory(object, "_isFrozen")) :
         fks = self._fks()
         default_ = lambda t, f : self.tic_dat_factory.default_values[t][f]
         def data_type(t, f):
+            if t == "parameters" and self.tic_dat_factory.parameters:
+                return "" # the TEXT data type doesn't seem to have much value for my purposes.
             def_  = default_(t, f)
             if numericish(def_):
                 if safe_apply(int)(def_) == def_:
                     return "INT"
                 return "FLOAT"
-            # the TEXT data type doesn't seem to have much value for my purposes.
-            return ""
+            return "" # the TEXT data type doesn't seem to have much value for my purposes.
         for t in [_ for _ in self._ordered_tables() if _ in tables]:
             str = "Create TABLE [%s] (\n"%t
             strl = _brackets(self.tic_dat_factory.primary_key_fields.get(t, ())) + \

@@ -27,14 +27,16 @@ class _DummyContextManager(object):
     def __exit__(self, *excinfo) :
         pass
 
-def _clean_pandat_creator(pdf, df_dict):
+def _clean_pandat_creator(pdf, df_dict, push_parameters_to_be_valid=True):
+    # note that pandas built in IO routines tend to be a bit overy pushy with the typing, hence
+    # the push_parameters_to_be_valid argument
     pandat = pdf.PanDat(**df_dict)
     for t in set(pdf.all_tables).difference(pdf.generic_tables):
         flds = [f for f in chain(pdf.primary_key_fields[t], pdf.data_fields[t])]
         setattr(pandat, t, getattr(pandat, t)[flds])
     msg = []
     assert pdf.good_pan_dat_object(pandat, msg.append), str(msg)
-    return pdf._infinity_flag_post_read_adjustment(pandat)
+    return pdf._infinity_flag_post_read_adjustment(pandat, push_parameters_to_be_valid=push_parameters_to_be_valid)
 
 class JsonPanFactory(freezable_factory(object, "_isFrozen")):
     """
@@ -278,8 +280,7 @@ class CsvPanFactory(freezable_factory(object, "_isFrozen")):
 
 class SqlPanFactory(freezable_factory(object, "_isFrozen")):
     """
-    Primary class for reading/writing SQLite files
-    (and sqlalchemy.engine.Engine objects) with PanDat objects.
+    Primary class for reading/writing SQLite files with PanDat objects.
     Don't create this object explicitly. A SqlPanFactory will
     automatically be associated with the sql attribute of the parent
     PanDatFactory.
@@ -300,7 +301,7 @@ class SqlPanFactory(freezable_factory(object, "_isFrozen")):
 
         :param db_file_path: A SQLite DB File. Set to falsey if using con argument
 
-        :param con: sqlalchemy.engine.Engine or sqlite3.Connection.
+        :param con: A connection object that can be passed to pandas read_sql.
                     Set to falsey if using db_file_path argument.
 
         :param fill_missing_fields: boolean. If truthy, missing fields will be filled in
@@ -360,7 +361,7 @@ class SqlPanFactory(freezable_factory(object, "_isFrozen")):
         :param db_file_path: The file path of the SQLite file to create.
                              Set to falsey if using con argument.
 
-        :param con: sqlalchemy.engine.Engine or sqlite3.Connection.
+        :param con: A connection object that can be passed to pandas to_sql.
                     Set to falsey if using db_file_path argument
 
         :param if_exists: ‘fail’, ‘replace’ or ‘append’. How to behave if the table already exists

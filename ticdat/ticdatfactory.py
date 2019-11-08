@@ -796,7 +796,9 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
 
         Also note that none of the these replacements will be done on the parameters table. The assumption is the
         parameters table will be serialized to a string/string database table. Infinity can thus be represented by
-        "inf"/"-inf" in such serializations.
+        "inf"/"-inf" in such serializations. File readers will attempt to cast strings to floats on a row-by-row
+        basis, as determined by add_parameter settings. File writers will cast parameters table entries to strings
+        (assuming the add_parameters functionality is being used).
 
         :param value: a valid infinity_io_flag
         :return:
@@ -825,15 +827,16 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
             return float("inf") * self._none_as_infinity_bias(t, f)
         return x
     def _infinity_flag_write_cell(self, t, f, x):
-        '''
+        """
         we expect other routines inside ticdat to access this routine, even though it starts with _
         :param t: table name
         :param f: field name
         :param x: cell value which might need to be adjusted
         :return: x, adjusted as required
-        '''
-        if t == "parameters": # infinity flagging doesn't apply to parameters table, see set_infinity_flag __doc__
-            return x
+        """
+        if t == "parameters":
+            # I will assume a parameters table without parameters specification is just a naive developer
+            return str(x) if self.parameters else x
         if self.infinity_io_flag is None and (self._none_as_infinity_bias(t, f) or float("nan"))*float("inf") == x:
             return None
         if utils.numericish(self.infinity_io_flag) and utils.numericish(x):
@@ -850,6 +853,28 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
             for rtn in [1, -1]:
                 if fld_type.valid_data(rtn * float("inf")):
                     return rtn
+    def _parameter_table_post_read_adjustment(self, dat):
+        """
+        we expect other routines inside ticdat to access this routine, even though it starts with _
+        this is the routine that is used in lieu of infinity_io_flag logic for the parameters table
+        it is predicated on the assumption that the parameters table will be serialized to a string/string table
+        :param dat: TicDat object
+        :return: the same dat object, with parameter table entries adjusted to handle typing of strings-to-floats as
+                 appropriate
+        """
+        if not self.parameters:
+            return dat
+        data_field = self.data_fields["parameters"][0]
+        for k, v in list(dat.parameters.items()):
+            number_allowed = True
+            if k in self.parameters and not self.parameters[k].type_dictionary.number_allowed:
+                number_allowed = False
+            if number_allowed:
+                number_v = utils.safe_apply(float)(v[data_field])
+                if number_v is not None and utils.safe_apply(int)(number_v) == number_v:
+                    number_v = int(number_v)
+                dat.parameters[k] = number_v if number_v is not None else v[data_field]
+        return dat
 
     def _allFields(self, table):
         assert table in self.all_tables

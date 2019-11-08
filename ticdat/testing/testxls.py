@@ -436,24 +436,36 @@ class TestXls(unittest.TestCase):
             self.assertTrue(tdf._same_data(ticDat, ticDat2))
 
     def test_empty_text_none(self):
+        # this is a naive data scientist who isn't using the parameters functionality
         filePath = os.path.join(_scratchDir, "empty.xls")
-        tdf = TicDatFactory(parameter=[["Key"], ["Value"]])
-        dat_n = tdf.TicDat(parameter=[[None, 100], ["b", 10.01], ["three", 200], ["d", None]])
-        dat_s = tdf.TicDat(parameter=[["", 100], ["b", 10.01], ["three", 200], ["d", ""]])
+        tdf = TicDatFactory(parameters=[["Key"], ["Value"]])
+        dat_n = tdf.TicDat(parameters=[[None, 100], ["b", 10.01], ["three", 200], ["d", None]])
+        dat_s = tdf.TicDat(parameters=[["", 100], ["b", 10.01], ["three", 200], ["d", ""]])
         def round_trip():
             tdf.xls.write_file(dat_n, filePath, allow_overwrite=True)
             return tdf.xls.create_tic_dat(filePath)
         dat2 = round_trip()
         self.assertTrue(tdf._same_data(dat_s, dat2) and not tdf._same_data(dat_n, dat2))
-        tdf = TicDatFactory(parameter=[["Key"], ["Value"]])
-        tdf.set_data_type("parameter", "Key", nullable=True)
-        tdf.set_default_value("parameter", "Value", None) # this default alone will mess with number reading
+        tdf = TicDatFactory(parameters=[["Key"], ["Value"]])
+        tdf.set_data_type("parameters", "Key", nullable=True)
+        tdf.set_default_value("parameters", "Value", None) # this default alone will mess with number reading
         dat2 = round_trip()
         self.assertTrue(not tdf._same_data(dat_s, dat2) and tdf._same_data(dat_n, dat2))
 
-        tdf = TicDatFactory(parameter='*')
+        tdf = TicDatFactory(parameters='*')
         dat = tdf.xls.create_tic_dat(filePath)
-        self.assertTrue(dat.parameter.shape == (4, 2))
+        self.assertTrue(dat.parameters.shape == (4, 2))
+
+    def test_parameters(self):
+        filePath = os.path.join(_scratchDir, "parameters.xls")
+        tdf = TicDatFactory(parameters=[["Key"], ["Value"]])
+        tdf.add_parameter("Something", 100)
+        tdf.add_parameter("Different", 'boo', strings_allowed='*', number_allowed=False)
+        dat = tdf.TicDat(parameters = [["Something",float("inf")], ["Different", "inf"]])
+        for _ in ["", "x"]:
+            tdf.xls.write_file(dat, filePath+_)
+            dat_ = tdf.xls.create_tic_dat(filePath+_)
+            self.assertTrue(tdf._same_data(dat, dat_))
 
     def testDietWithInfFlagging(self):
         tdf = TicDatFactory(**dietSchema())

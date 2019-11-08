@@ -408,6 +408,20 @@ class TestSql(unittest.TestCase):
         dat_1 = tdf.sql.create_tic_dat_from_sql(file_one)
         self.assertFalse(tdf._same_data(dat, dat_1))
 
+    def test_parameters(self):
+        filePath = os.path.join(_scratchDir, "parameters")
+        tdf = TicDatFactory(parameters=[["Key"], ["Value"]])
+        tdf.add_parameter("Something", 100)
+        tdf.add_parameter("Different", 'boo', strings_allowed='*', number_allowed=False)
+        dat = tdf.TicDat(parameters = [["Something",float("inf")], ["Different", "inf"]])
+        tdf.sql.write_sql_file(dat, filePath+".sql")
+        dat_ = tdf.sql.create_tic_dat_from_sql(filePath+".sql")
+        self.assertTrue(tdf._same_data(dat, dat_))
+        tdf.sql.write_db_data(dat, filePath+".db")
+        dat_ = tdf.sql.create_tic_dat(filePath+".db")
+        self.assertTrue(tdf._same_data(dat, dat_))
+
+
 _scratchDir = TestSql.__name__ + "_scratch"
 
 # Run the tests.

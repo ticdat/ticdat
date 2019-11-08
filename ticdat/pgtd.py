@@ -101,6 +101,8 @@ class _PostgresFactory(freezable_factory(object, "_isFrozen"),):
         def get_fld_type(t, f, default_type):
             if (t, f) in forced_field_types:
                 return forced_field_types[t, f]
+            if t == "parameters" and self.tdf.parameters:
+                return "text"
             fld_type = self.tdf.data_types.get(t, {}).get(f)
             if not fld_type:
                 return default_type
@@ -234,9 +236,12 @@ class PostgresTicFactory(_PostgresFactory):
         return self.tdf._infinity_flag_write_cell(t, f, x)
 
     def _Rtn(self, freeze_it):
-        if freeze_it:
-            return lambda *args, **kwargs : self.tdf.freeze_me(self.tdf.TicDat(*args, **kwargs))
-        return self.tdf.TicDat
+        def _rtn(*args, **kwargs):
+            rtn = self.tdf._parameter_table_post_read_adjustment(self.tdf.TicDat(*args, **kwargs))
+            if freeze_it:
+                return self.tdf.freeze_me(rtn)
+            return rtn
+        return _rtn
 
     def create_tic_dat(self, engine, schema, freeze_it=False):
         """

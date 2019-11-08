@@ -106,7 +106,8 @@ class MdbTicFactory(freezable_factory(object, "_isFrozen")) :
         caveats : See infinity_io_flag
         """
         _standard_verify(self.tic_dat_factory.generic_tables)
-        rtn =  self.tic_dat_factory.TicDat(**self._create_tic_dat(mdb_file_path))
+        rtn = self.tic_dat_factory.TicDat(**self._create_tic_dat(mdb_file_path))
+        rtn = self.tic_dat_factory._parameter_table_post_read_adjustment(rtn)
         if freeze_it:
             return self.tic_dat_factory.freeze_me(rtn)
         return rtn
@@ -219,6 +220,7 @@ class MdbTicFactory(freezable_factory(object, "_isFrozen")) :
                             fields are double
         :return:
         """
+
         verify(not self.tic_dat_factory.generic_tables,
                "generic_tables are not compatible with write_schema. " +
                "Use write_file instead.")
@@ -233,7 +235,12 @@ class MdbTicFactory(freezable_factory(object, "_isFrozen")) :
                        "%s isn't a field name for table %s"%(fld, k))
                 verify(type_ in ("text", "double", "int"),
                        "For table %s, field %s, %s isn't one of (text, double, int)"%(k, fld, type_))
-        get_fld_type = lambda tbl, fld, default : field_types.get(tbl, {}).get(fld, default)
+        def get_fld_type(tbl, fld, default):
+            if tbl in field_types and fld in field_types[tbl]:
+                return field_types[tbl][fld]
+            if tbl == "parameters" and self.tic_dat_factory.parameters: # properly formatted parameters table = all text
+                return "text"
+            return default
         if not os.path.exists(mdb_file_path) :
             verify(mdb_file_path.endswith(".mdb") or mdb_file_path.endswith(".accdb"),
                    "For file creation, specify either an .mdb or .accdb file name")

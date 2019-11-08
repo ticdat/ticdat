@@ -221,6 +221,16 @@ class TestJson(unittest.TestCase):
         dat_1 = tdf.json.create_tic_dat(file_one)
         self.assertFalse(tdf._same_data(dat, dat_1))
 
+    def test_parameters(self):
+        path = os.path.join(_scratchDir, "parameters.json")
+        tdf = TicDatFactory(parameters=[["Key"], ["Value"]])
+        tdf.add_parameter("Something", 100)
+        tdf.add_parameter("Different", 'boo', strings_allowed='*', number_allowed=False)
+        dat = tdf.TicDat(parameters = [["Something", float("inf")], ["Different", "inf"]])
+        tdf.json.write_file(dat, path)
+        dat_ = tdf.json.create_tic_dat(path)
+        self.assertTrue(tdf._same_data(dat, dat_))
+
 
 _scratchDir = TestJson.__name__ + "_scratch"
 

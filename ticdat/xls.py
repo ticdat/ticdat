@@ -104,7 +104,7 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
             pandat = pdf.xls.create_pan_dat(xls_file_path)
             for t in self.tic_dat_factory.generic_tables:
                 rtn[t] = getattr(pandat, t)
-        rtn = tdf.TicDat(**rtn)
+        rtn = tdf._parameter_table_post_read_adjustment(tdf.TicDat(**rtn))
         if freeze_it:
             return self.tic_dat_factory.freeze_me(rtn)
         return rtn
@@ -249,7 +249,8 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
         return rtn
     def _sub_tuple(self, table, fields, field_indicies, treat_inf_as_infinity) :
         assert set(fields).issubset(field_indicies)
-        if self.tic_dat_factory.infinity_io_flag != "N/A":
+        if self.tic_dat_factory.infinity_io_flag != "N/A" or \
+            (table == "parameters" and self.tic_dat_factory.parameters):
             treat_inf_as_infinity = False
         def _read_cell(x, field):
             # reminder - data fields have a default default of zero, primary keys don't get a default default
@@ -373,7 +374,8 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
             os.remove(file_path)
         book = xlsx.Workbook(file_path)
         def clean_inf(t, field_index, x):
-            if self.tic_dat_factory.infinity_io_flag != "N/A":
+            if self.tic_dat_factory.infinity_io_flag != "N/A" or \
+               (t == "parameters" and self.tic_dat_factory.parameters):
                 return self.tic_dat_factory._infinity_flag_write_cell(t, f, x)
             if x in [float("inf"), -float("inf")]:
                 return str(x)
