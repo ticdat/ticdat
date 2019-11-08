@@ -207,6 +207,7 @@ class PanDatFactory(object):
         :param push_parameters_to_be_valid : needed for certain file formats, where pandas makes pushy assumptions
                                              about type that might need to be undone
         :return: dat, after being adjusted to handly infinity flagging
+
         '''
         apply = _faster_df_apply
         for t in set(self.all_tables).difference(["parameters"]): # parameters table is handled differently
@@ -220,6 +221,9 @@ class PanDatFactory(object):
                 elif utils.numericish(self._none_as_infinity_bias(t, f)):
                     assert self.infinity_io_flag is None
                     df[f].fillna(value=self._none_as_infinity_bias(t, f) * float("inf"), inplace=True)
+
+        # this is the logic that is used in lieu of infinity_io_flag logic for the parameters table
+        # it is predicated on the assumption that the parameters table will be serialized to a string/string table
         if self.parameters:
             [key_fld], [val_fld] = self.schema()["parameters"]
             _can_parameter_have_number = lambda k : False if k in self.parameters and \

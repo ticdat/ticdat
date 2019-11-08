@@ -856,6 +856,8 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
     def _parameter_table_post_read_adjustment(self, dat):
         """
         we expect other routines inside ticdat to access this routine, even though it starts with _
+        this is the routine that is used in lieu of infinity_io_flag logic for the parameters table
+        it is predicated on the assumption that the parameters table will be serialized to a string/string table
         :param dat: TicDat object
         :return: the same dat object, with parameter table entries adjusted to handle typing of strings-to-floats as
                  appropriate
@@ -871,7 +873,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
                 number_v = utils.safe_apply(float)(v[data_field])
                 if number_v is not None and utils.safe_apply(int)(number_v) == number_v:
                     number_v = int(number_v)
-                dat.parameters[k] = number_v
+                dat.parameters[k] = number_v if number_v is not None else v[data_field]
         return dat
 
     def _allFields(self, table):
