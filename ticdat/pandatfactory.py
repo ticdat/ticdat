@@ -200,10 +200,12 @@ class PanDatFactory(object):
             for rtn in [1, -1]:
                 if fld_type.valid_data(rtn * float("inf")):
                     return rtn
-    def _infinity_flag_post_read_adjustment(self, dat):
+    def _infinity_flag_post_read_adjustment(self, dat, push_parameters_to_be_valid=False):
         '''
         we expect other routines inside ticdat to access this routine, even though it starts with _
         :param dat: PanDat object that was just read from an external data source. dat will be side-effected
+        :param push_parameters_to_be_valid : needed for certain file formats, where pandas makes pushy assumptions
+                                             about type that might need to be undone
         :return: dat, after being adjusted to handly infinity flagging
         '''
         apply = _faster_df_apply
@@ -222,9 +224,14 @@ class PanDatFactory(object):
             [key_fld], [val_fld] = self.schema()["parameters"]
             _can_parameter_have_number = lambda k : False if k in self.parameters and \
                                                     not self.parameters[k].type_dictionary.number_allowed else True
+            _can_parameter_have_data = lambda k, data: False if k in self.parameters and \
+                                                       not self.parameters[k].type_dictionary.valid_data(data) else True
             def fix_value(row):
                 key, value = [row[_] for _ in [key_fld, val_fld]]
                 if not _can_parameter_have_number(key):
+                    if push_parameters_to_be_valid and not _can_parameter_have_data(key, value) and \
+                       _can_parameter_have_data(key, str(value)):
+                        return str(value)
                     return value
                 number_v = safe_apply(float)(value)
                 if number_v is not None and safe_apply(int)(number_v) == number_v:
@@ -244,7 +251,7 @@ class PanDatFactory(object):
         rtn = self.copy_pan_dat(dat)
         if self.parameters: # Assuming a parameters table without parameters specification is just a naive developer
             fld = self.data_fields["parameters"][0]
-            rtn.parameters[fld] = str(rtn.parameters[fld])
+            rtn.parameters[fld] = _faster_df_apply(rtn.parameters, lambda row: str(row[fld]))
         if self.infinity_io_flag == "N/A":
             return rtn
         apply = _faster_df_apply
