@@ -574,7 +574,7 @@ class TestPostres(unittest.TestCase):
         dat = TicDatFactory(**pdf.schema()).copy_to_pandas(dat, drop_pk_columns=False)
         pdf.pgsql.write_schema(self.engine, schema)
         pdf.pgsql.write_data(dat, self.engine, schema)
-        dat_ = pdf.pgsql.create_tic_dat(self.engine, schema)
+        dat_ = pdf.pgsql.create_pan_dat(self.engine, schema)
         self.assertTrue(pdf._same_data(dat, dat_))
 
 test_schema = 'test'
