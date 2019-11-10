@@ -302,6 +302,15 @@ class TestAccdb(unittest.TestCase):
         dat_ = tdf.mdb.create_tic_dat(path)
         self.assertTrue(tdf._same_data(dat, dat_))
 
+    def test_missing_tables(self):
+        path = os.path.join(_scratchDir, "missing.accdb")
+        tdf_1 = TicDatFactory(this = [["Something"],["Another"]])
+        tdf_2 = TicDatFactory(**dict(tdf_1.schema(), that=[["What", "Ever"],[]]))
+        dat = tdf_1.TicDat(this=[["a", 2],["b", 3],["c", 5]])
+        tdf_1.mdb.write_file(dat, path)
+        mdb_dat = tdf_2.mdb.create_tic_dat(path)
+        self.assertTrue(tdf_1._same_data(dat, mdb_dat))
+
 _scratchDir = TestAccdb.__name__ + "_scratch"
 
 # Run the tests.

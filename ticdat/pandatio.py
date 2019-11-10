@@ -74,11 +74,12 @@ class JsonPanFactory(freezable_factory(object, "_isFrozen")):
 
         :return: a PanDat object populated by the matching tables.
 
-        caveats: Missing tables always throw an Exception.
+        caveats: Missing tables always resolve to an empty table.
+
                  Table names are matched with case-space insensitivity, but spaces
                  are respected for field names.
+
                  (ticdat supports whitespace in field names but not table names).
-                 +- "inf", "-inf" strings will be converted to +-float("inf")
         """
         if os.path.exists(path_or_buf):
             verify(os.path.isfile(path_or_buf), "%s appears to be a directory and not a file." % path_or_buf)
@@ -101,18 +102,21 @@ class JsonPanFactory(freezable_factory(object, "_isFrozen")):
                 rtn[t][f] = self.pan_dat_factory.default_values[t][f]
         verify(fill_missing_fields or not missing_fields,
                "The following (table, field) pairs are missing fields.\n%s" % [(t, f) for t,f in missing_fields])
-        for v in rtn.values():
-            v.replace("inf", float("inf"), inplace=True)
-            v.replace("-inf", -float("inf"), inplace=True)
+        missing_tables = sorted(set(self.pan_dat_factory.all_tables).difference(rtn))
+        if missing_tables:
+            print("The following table names could not be found in the SQLite database.\n%s\n" %
+                  "\n".join(missing_tables))
         return _clean_pandat_creator(self.pan_dat_factory, rtn)
 
     def _get_table_names(self, loaded_dict):
         rtn = {}
         for table in self.pan_dat_factory.all_tables:
             rtn[table] = [c for c in loaded_dict if c.lower().replace(" ", "_") == table.lower()]
-            verify(len(rtn[table]) >= 1, "Unable to recognize table %s" % table)
             verify(len(rtn[table]) <= 1, "Multiple dictionary key choices found for table %s" % table)
-            rtn[table] = rtn[table][0]
+            if rtn[table]:
+                rtn[table] = rtn[table][0]
+            else:
+                rtn.pop(table)
         return rtn
     def write_file(self, pan_dat, json_file_path, case_space_table_names=False, orient='split',
                    index=False, indent=None, sort_keys=False, **kwargs):
@@ -138,8 +142,6 @@ class JsonPanFactory(freezable_factory(object, "_isFrozen")):
         :param kwargs: additional named arguments to pass to pandas.to_json
 
         :return:
-
-        caveats:  +-float("inf") will be converted to "inf", "-inf"
         """
         msg = []
         verify(self.pan_dat_factory.good_pan_dat_object(pan_dat, msg.append),
@@ -310,8 +312,8 @@ class SqlPanFactory(freezable_factory(object, "_isFrozen")):
 
         :return: a PanDat object populated by the matching tables.
 
-        caveats: Missing tables always resolve to an empty table, but missing fields on matching tables.
-                 (NEEDS FIXING!! #33)
+        caveats: Missing tables always resolve to an empty table, but missing fields on matching tables throw
+                 an exception (unless fill_missing_fields is truthy).
 
                  Table names are matched with case-space insensitivity, but spaces
                  are respected for field names.
@@ -335,6 +337,10 @@ class SqlPanFactory(freezable_factory(object, "_isFrozen")):
                 rtn[t][f] = self.pan_dat_factory.default_values[t][f]
         verify(fill_missing_fields or not missing_fields,
                "The following are (table, field) pairs missing from the %s file.\n%s" % (db_file_path, missing_fields))
+        missing_tables = sorted(set(self.pan_dat_factory.all_tables).difference(rtn))
+        if missing_tables:
+            print("The following table names could not be found in the SQLite database.\n%s\n" %
+                  "\n".join(missing_tables))
         return _clean_pandat_creator(self.pan_dat_factory, rtn)
 
     def _get_table_names(self, con):
@@ -347,9 +353,11 @@ class SqlPanFactory(freezable_factory(object, "_isFrozen")):
             return True
         for table in self.pan_dat_factory.all_tables:
             rtn[table] = [t for t in all_underscore_replacements(table) if try_name(t)]
-            verify(len(rtn[table]) >= 1, "Unable to recognize table %s" % table)
             verify(len(rtn[table]) <= 1, "Multiple possible tables found for table %s" % table)
-            rtn[table] = rtn[table][0]
+            if rtn[table]:
+                rtn[table] = rtn[table][0]
+            else:
+                rtn.pop(table)
         return rtn
     def write_file(self, pan_dat, db_file_path, con=None, if_exists='replace', case_space_table_names=False):
         """

@@ -283,7 +283,7 @@ class TestSql(unittest.TestCase):
         self.assertTrue(tdf5._same_data(tdf._keyless(ticDat), ticDat5))
         self.assertTrue(callable(ticDat5.a) and callable(ticDat5.c) and not callable(ticDat5.b))
 
-        self.assertTrue("table d" in self.firesException(lambda  : tdf6.sql.create_tic_dat(filePath)))
+        self.assertTrue(tdf._same_data(ticDat, tdf6.sql.create_tic_dat(filePath)))
         ticDat.a["theboger"] = (1, None, 12)
         if am_on_windows:
             filePath = filePath.replace("silly.db", "silly_2.db") # working around issue ticdat/ticdat#1
@@ -421,6 +421,17 @@ class TestSql(unittest.TestCase):
         dat_ = tdf.sql.create_tic_dat(filePath+".db")
         self.assertTrue(tdf._same_data(dat, dat_))
 
+    def test_missing_tables(self):
+        path = os.path.join(_scratchDir, "missing")
+        tdf_1 = TicDatFactory(this = [["Something"],["Another"]])
+        tdf_2 = TicDatFactory(**dict(tdf_1.schema(), that=[["What", "Ever"],[]]))
+        dat = tdf_1.TicDat(this=[["a", 2],["b", 3],["c", 5]])
+        tdf_1.sql.write_sql_file(dat, path+".sql")
+        sql_dat = tdf_2.sql.create_tic_dat_from_sql(path+".sql")
+        self.assertTrue(tdf_1._same_data(dat, sql_dat))
+        tdf_1.sql.write_db_data(dat, path+".db")
+        sql_dat = tdf_2.sql.create_tic_dat(path+".db")
+        self.assertTrue(tdf_1._same_data(dat, sql_dat))
 
 _scratchDir = TestSql.__name__ + "_scratch"
 

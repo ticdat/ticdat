@@ -146,6 +146,18 @@ class TestIO(unittest.TestCase):
             dat_1.categories.loc[protein, "maxNutrition"] = float("inf")
             self.assertTrue(pdf._same_data(dat, dat_1, epsilon=1e-5))
 
+    def test_missing_tables(self):
+        core_path = os.path.join(_scratchDir, "missing_tables")
+        pdf_1 = PanDatFactory(this = [["Something"],["Another"]])
+        pdf_2 = PanDatFactory(**dict(pdf_1.schema(), that=[["What", "Ever"],[]]))
+        dat = pdf_1.PanDat(this={"Something": ["a", "b", "c"], "Another": [2, 3, 5]})
+        for attr, path in [["sql", core_path+".db"], ["csv", core_path+"_csv"], ["json", core_path+".json"],
+                           ["xls", core_path+".xlsx"]]:
+            func = "write_directory" if attr == "csv" else "write_file"
+            getattr(getattr(pdf_1, attr), func)(dat, path)
+            dat_1 = getattr(pdf_2, attr).create_pan_dat(path)
+            self.assertTrue(pdf_1._same_data(dat, dat_1))
+
     def test_parameters(self):
         core_path = os.path.join(_scratchDir, "parameters")
         pdf = PanDatFactory(parameters=[["Key"], ["Value"]])

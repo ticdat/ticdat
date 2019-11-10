@@ -88,6 +88,8 @@ class SQLiteTicFactory(freezable_factory(object, "_isFrozen")) :
         caveats : "inf" and "-inf" (case insensitive) are read as floats, unless the infinity_io_flag
                   is being applied.
                   "true"/"false" (case insensitive) are read as booleans booleans.
+                  Tables that don't find a match are interpreted as an empty table.
+                  Missing fields on matching tables throw an exception.
         """
         verify(sql, "sqlite3 needs to be installed to use this subroutine")
         return self._Rtn(freeze_it)(**self._create_tic_dat(db_file_path))
@@ -155,11 +157,12 @@ class SQLiteTicFactory(freezable_factory(object, "_isFrozen")) :
                 return True
             for table in tables:
                 rtn[table] = [t for t in all_underscore_replacements(table) if try_name(t)]
-                verify(len(rtn[table]) >= 1, "Unable to recognize table %s in SQLite file %s"%
-                                  (table, db_file_path))
                 verify(len(rtn[table]) <= 1, "Duplicate tables found for table %s in SQLite file %s"%
                                   (table, db_file_path))
-                rtn[table] = rtn[table][0]
+                if rtn[table]:
+                    rtn[table] = rtn[table][0]
+                else:
+                    rtn.pop(table)
         return rtn
     def _check_tables_fields(self, db_file_path, tables):
         tdf = self.tic_dat_factory
@@ -172,11 +175,11 @@ class SQLiteTicFactory(freezable_factory(object, "_isFrozen")) :
             raise TDE("Unable to open %s as SQLite file : %s"%(db_file_path, e))
         table_names = self._get_table_names(db_file_path, tables)
         with sql.connect(db_file_path) as con:
-            for table in tables :
+            for table, sql_table in table_names.items():
                 for field in tdf.primary_key_fields.get(table, ()) + \
                              tdf.data_fields.get(table, ()):
                     try :
-                        con.execute("Select [%s] from [%s]"%(field,table_names[table]))
+                        con.execute("Select [%s] from [%s]"%(field, sql_table))
                     except :
                         raise TDE("Unable to recognize field %s in table %s for file %s"%
                                   (field, table, db_file_path))
@@ -204,13 +207,18 @@ class SQLiteTicFactory(freezable_factory(object, "_isFrozen")) :
         table_names = self._check_tables_fields(db_file_path, tdf.all_tables)
         with sql.connect(db_file_path) as con:
             rtn = self._create_tic_dat_from_con(con, table_names)
-        for table in tdf.generator_tables :
-            rtn[table] = self._create_gen_obj(db_file_path, table, table_names[table])
+        for table in tdf.generator_tables:
+            if table in table_names:
+                rtn[table] = self._create_gen_obj(db_file_path, table, table_names[table])
         return rtn
     def _create_tic_dat_from_con(self, con, table_names):
+        missing_tables = sorted(set(self.tic_dat_factory.all_tables).difference(table_names))
+        if missing_tables:
+            print("The following table names could not be found in the SQLite database.\n%s\n" %
+                  "\n".join(missing_tables))
         tdf = self.tic_dat_factory
         rtn = {}
-        for table in set(tdf.all_tables).difference(tdf.generator_tables) :
+        for table in set(tdf.all_tables).difference(tdf.generator_tables).difference(missing_tables):
             fields = tdf.primary_key_fields.get(table, ()) + tdf.data_fields.get(table, ())
             if not fields:
                 assert table in tdf.generic_tables
@@ -339,7 +347,7 @@ class SQLiteTicFactory(freezable_factory(object, "_isFrozen")) :
         table_names = self._check_tables_fields(db_file_path, self.tic_dat_factory.all_tables)
         with _sql_con(db_file_path, foreign_keys=False) as con:
             for t in self.tic_dat_factory.all_tables:
-                verify(table_names[t] == t, "Failed to find table %s in path %s"%
+                verify(table_names.get(t) == t, "Failed to find table %s in path %s"%
                                             (t, db_file_path))
                 verify(allow_overwrite or not any(True for _ in  con.execute("Select * from [%s]"%t)),
                         "allow_overwrite is False, but there are already data records in %s"%t)

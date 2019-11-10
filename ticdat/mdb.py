@@ -103,7 +103,9 @@ class MdbTicFactory(freezable_factory(object, "_isFrozen")) :
 
         :return: a TicDat object populated by the matching tables.
 
-        caveats : See infinity_io_flag
+        caveats : Tables that don't find a match are interpreted as an empty table.
+                  Missing fields on matching tables throw an exception.
+                  Also, see infinity_io_flag
         """
         _standard_verify(self.tic_dat_factory.generic_tables)
         rtn = self.tic_dat_factory.TicDat(**self._create_tic_dat(mdb_file_path))
@@ -140,11 +142,12 @@ class MdbTicFactory(freezable_factory(object, "_isFrozen")) :
                 return True
             for table in tables:
                 rtn[table] = [t for t in all_underscore_replacements(table) if try_name(t)]
-                verify(len(rtn[table]) >= 1, "Unable to recognize table %s in MS Access file %s"%
-                                  (table, db_file_path))
                 verify(len(rtn[table]) <= 1, "Duplicate tables found for table %s in MS Access file %s"%
                                   (table, db_file_path))
-                rtn[table] = rtn[table][0]
+                if rtn[table]:
+                    rtn[table] = rtn[table][0]
+                else:
+                    rtn.pop(table)
         return rtn
     def _check_tables_fields(self, mdb_file_path, tables):
         tdf = self.tic_dat_factory
@@ -157,9 +160,9 @@ class MdbTicFactory(freezable_factory(object, "_isFrozen")) :
             raise TDE("Unable to open %s as MS Access file : %s"%(mdb_file_path, e))
         table_names = self._get_table_names(mdb_file_path, tables)
         with _connect(_connection_str(mdb_file_path)) as con:
-            for table in tables:
+            for table, mdb_table in table_names.items():
               with con.cursor() as cur:
-                cur.execute("Select * from [%s]"%table_names[table])
+                cur.execute("Select * from [%s]"%mdb_table)
                 fields = set(_[0].lower() for _ in cur.description)
                 for field in tdf.primary_key_fields.get(table, ()) + tdf.data_fields.get(table, ()):
                     verify(field.lower() in fields,
@@ -181,9 +184,13 @@ class MdbTicFactory(freezable_factory(object, "_isFrozen")) :
     def _create_tic_dat(self, mdbFilePath):
         tdf = self.tic_dat_factory
         table_names = self._check_tables_fields(mdbFilePath, tdf.all_tables)
+        missing_tables = sorted(set(self.tic_dat_factory.all_tables).difference(table_names))
+        if missing_tables:
+            print("The following table names could not be found in the %s Access database.\n%s\n" %
+                  (mdbFilePath, "\n".join(missing_tables)))
         rtn = {}
         with _connect(_connection_str(mdbFilePath)) as con:
-            for table in set(tdf.all_tables).difference(tdf.generator_tables) :
+            for table in set(tdf.all_tables).difference(tdf.generator_tables).difference(missing_tables):
                 fields = tdf.primary_key_fields.get(table, ()) + tdf.data_fields.get(table, ())
                 rtn[table]= {} if tdf.primary_key_fields.get(table, ())  else []
                 with con.cursor() as cur :
@@ -197,7 +204,7 @@ class MdbTicFactory(freezable_factory(object, "_isFrozen")) :
                             rtn[table][pk[0] if len(pk) == 1 else tuple(pk)] = data
                         else :
                             rtn[table].append(data)
-        for table in tdf.generator_tables :
+        for table in set(tdf.generator_tables).difference(missing_tables):
             rtn[table] = self._create_gen_obj(mdbFilePath, table, table_names[table])
         return rtn
     @property
@@ -299,8 +306,7 @@ class MdbTicFactory(freezable_factory(object, "_isFrozen")) :
             for t in self.tic_dat_factory.all_tables:
                 def write_data(f, x):
                     return self.tic_dat_factory._infinity_flag_write_cell(t, f, x)
-                verify(table_names[t] == t, "Failed to find table %s in path %s"%
-                                            (t, mdb_file_path))
+                verify(table_names.get(t) == t, "Failed to find table %s in path %s"%(t, mdb_file_path))
                 if not allow_overwrite :
                     with con.cursor() as cur :
                         cur.execute("Select * from %s"%t)
