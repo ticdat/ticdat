@@ -1010,6 +1010,7 @@ class TestUtils(unittest.TestCase):
             tdf = _class.create_from_full_schema(simple_sch)
             new_sch = tdf.schema(include_ancillary_info=True)
             self.assertFalse(new_sch.pop("parameters"))
+            self.assertTrue(new_sch.pop("infinity_io_flag") == "N/A")
             new_sch = json.loads(json.dumps(new_sch))
             new_sch["foreign_keys"] = sorted(new_sch["foreign_keys"])
             self.assertTrue(new_sch == simple_sch)
