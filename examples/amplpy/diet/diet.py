@@ -73,7 +73,7 @@ def solve(dat):
     assert not input_schema.find_data_row_failures(dat)
 
     # build the AMPL math model
-    if AMPL is None:
+    if AMPL is None: # even if you don't have amplpy installed, you can still import this file for other uses
         print("*****\namplpy needs to be installed for this example code to solve!\n*****\n")
     ampl = AMPL()
     ampl.setOption('solver', 'gurobi')
