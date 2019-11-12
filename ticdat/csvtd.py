@@ -85,7 +85,7 @@ class CsvTicFactory(freezable_factory(object, "_isFrozen")) :
             # reminder - data fields have a default default of zero, primary keys don't get a default default
             dv = self.tic_dat_factory.default_values.get(table, {}).get(field, ["LIST", "NOT", "POSSIBLE"])
             dt = self.tic_dat_factory.data_types.get(table, {}).get(field)
-            if x == "" and ((dt and dt.nullable) or (not dt and dv is None) or
+            if x == "" and ((dt and dt.nullable) or (dt and not dt.valid_data(x)) or (not dt and dv is None) or
                             numericish(self.tic_dat_factory._infinity_flag_read_cell(table, field, None))):
                 return None
             should_try_float = (dt and dt.number_allowed) or (not dt and numericish(dv)) or \

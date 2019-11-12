@@ -21,7 +21,7 @@ milk,protein,8
 macaroni,fat,10
 salad,fat,12
 hot dog,fat,32
-chicken,fat,10
+chicken,fat,
 chicken,protein,32
 fries,protein,4
 pizza,fat,12
@@ -29,7 +29,7 @@ milk,calories,100
 ice cream,sodium,180
 chicken,calories,420
 hamburger,sodium,730
-macaroni,calories,320
+macaroni,calories,
 fries,fat,19
 hot dog,calories,560
 hot dog,protein,20
