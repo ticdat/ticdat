@@ -117,7 +117,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
         params = full_schema.get("parameters", {})
         if params:
             verify(dictish(params) and all(map(utils.stringish, params)), "parameters not well formatted")
-            verify(all(len(v) == 2 and (v[0] is None or len(v[0]) == 8)
+            verify(all(len(v) == 2 and (v[0] is None or len(v[0]) in [8, 9])
                        and not containerish(v[1]) for v in params.values()),
                    "parameters improperly formatted")
         rtn = TicDatFactory(**full_schema["tables_fields"])
@@ -152,7 +152,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
                                 for t,vd in self._data_types.items()})
     def set_data_type(self, table, field, number_allowed = True,
                       inclusive_min = True, inclusive_max = False, min = 0, max = float("inf"),
-                      must_be_int = False, strings_allowed= (), nullable = False):
+                      must_be_int = False, strings_allowed= (), nullable = False, datetime = False):
         """
         sets the data type for a field. By default, fields don't have types. Adding a data type doesn't block
         data of the wrong type from being entered. Data types are useful for recognizing errant data entries
@@ -180,6 +180,9 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
 
         :param nullable : boolean : can this value contain null (aka None)
 
+
+        :param datetime: If truthy, then number_allowed through strings_allowed are ignored. Should the data either
+                         be a datetime.datetime object or a string that can be parsed into a datetime.datetime object?
         :return:
         """
         verify(not self._has_been_used,
@@ -190,7 +193,8 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
                "%s does not refer to a field for %s"%(field, table))
 
         self._data_types[table][field] = TypeDictionary.safe_creator(number_allowed, inclusive_min, inclusive_max,
-                                                                     min, max, must_be_int, strings_allowed, nullable)
+                                                                     min, max, must_be_int, strings_allowed, nullable,
+                                                                     datetime)
 
     def clear_data_type(self, table, field):
         """
@@ -250,7 +254,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
     def add_parameter(self, name, default_value, number_allowed = True,
                       inclusive_min = True, inclusive_max = False, min = 0, max = float("inf"),
                       must_be_int = False, strings_allowed= (), nullable = False,
-                      enforce_type_rules = True):
+                      datetime = False, enforce_type_rules = True):
         """
         Add (or reset) a parameters option. Requires that a parameters table with one primary key field and one
         data field already be present. The legal parameters options will be enforced as part of find_data_row_failures
@@ -266,7 +270,10 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
                                 The empty collection prohibits strings.
                                 If a "*", then any string is accepted.
         :param nullable:  boolean : can this parameter be set to null (aka None)
-        :param enforce_type_rules: boolean: ignore all of number_allowed through nullabe, and only
+        :param datetime: If truthy, then number_allowed through strings_allowed are ignored.
+                         Should the data either be a datetime.datetime object or a string that can be parsed into a
+                         datetime.datetime object?
+        :param enforce_type_rules: boolean: ignore all of number_allowed through nullable, and only
                                    enforce the parameter names and default values
         :return:
         """
@@ -278,7 +285,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
         td = None
         if enforce_type_rules:
             td = TypeDictionary.safe_creator(number_allowed, inclusive_min, inclusive_max,
-                                             min, max, must_be_int, strings_allowed, nullable)
+                                             min, max, must_be_int, strings_allowed, nullable, datetime)
             verify(td.valid_data(default_value), f"{default_value} is not a legal default value for parameter {name}")
         ParameterInfo = namedtuple("ParameterInfo", ["type_dictionary", "default_value"])
         self._parameters[name] = ParameterInfo(td, default_value)
@@ -867,7 +874,8 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
         data_field = self.data_fields["parameters"][0]
         for k, v in list(dat.parameters.items()):
             number_allowed = True
-            if k in self.parameters and not self.parameters[k].type_dictionary.number_allowed:
+            if k in self.parameters and self.parameters[k].type_dictionary and \
+               not self.parameters[k].type_dictionary.number_allowed:
                 number_allowed = False
             if number_allowed:
                 number_v = utils.safe_apply(float)(v[data_field])

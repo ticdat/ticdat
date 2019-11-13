@@ -10,6 +10,13 @@ import getopt
 import sys
 import os
 from collections import namedtuple
+import datetime as datetime_
+try:
+    import dateutil
+    dateutil_parser = dateutil.parser.parse
+except:
+    dateutil = None
+    dateutil_parser = lambda x: None
 
 try:
     import pandas as pd
@@ -34,8 +41,10 @@ def all_fields(tpdf, tbl):
 # can I get away with ordering this consistently with the function? hopefully I can!
 class TypeDictionary(namedtuple("TypeDictionary",
                     ("number_allowed", "inclusive_min", "inclusive_max", "min",
-                      "max", "must_be_int", "strings_allowed", "nullable",))):
+                      "max", "must_be_int", "strings_allowed", "nullable", "datetime"))):
     def valid_data(self, data):
+        if self.datetime:
+            return isinstance(data, datetime_.datetime) or dateutil_parser(data) is not None
         if numericish(data):
             if not self.number_allowed:
                 return False
@@ -59,7 +68,12 @@ class TypeDictionary(namedtuple("TypeDictionary",
         return False
     @staticmethod
     def safe_creator(number_allowed, inclusive_min, inclusive_max, min, max,
-                      must_be_int, strings_allowed, nullable):
+                      must_be_int, strings_allowed, nullable, datetime=False):
+        verify(dateutil or not datetime, "dateutil package needs to be installed in order to use datetime data type")
+        if datetime:
+            return TypeDictionary(number_allowed=False, strings_allowed=(), nullable=bool(nullable),
+                                  min=0, max=float("inf"), inclusive_min=True, inclusive_max=True, must_be_int=False,
+                                  datetime=True)
         verify((strings_allowed == '*') or
                (containerish(strings_allowed) and all(stringish(x) for x in strings_allowed)),
                """The strings_allowed argument should be a container of strings, or the single '*' character.""")
@@ -71,9 +85,10 @@ class TypeDictionary(namedtuple("TypeDictionary",
             verify(max >= min, "max cannot be smaller than min")
             return TypeDictionary(number_allowed=True, strings_allowed=strings_allowed, nullable=bool(nullable),
                                   min=min, max=max, inclusive_min=bool(inclusive_min),inclusive_max=bool(inclusive_max),
-                                  must_be_int=bool(must_be_int))
+                                  must_be_int=bool(must_be_int), datetime=False)
         return TypeDictionary(number_allowed=False, strings_allowed=strings_allowed, nullable=bool(nullable),
-                              min=0, max=float("inf"), inclusive_min=True, inclusive_max=True, must_be_int=False)
+                              min=0, max=float("inf"), inclusive_min=True, inclusive_max=True, must_be_int=False,
+                              datetime=False)
 
 class ForeignKey(namedtuple("ForeignKey", ("native_table", "foreign_table", "mapping", "cardinality"))) :
     def nativefields(self):

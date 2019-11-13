@@ -227,9 +227,11 @@ class PanDatFactory(object):
         if self.parameters:
             [key_fld], [val_fld] = self.schema()["parameters"]
             _can_parameter_have_number = lambda k : False if k in self.parameters and \
+                                                    self.parameters[k].type_dictionary and \
                                                     not self.parameters[k].type_dictionary.number_allowed else True
             _can_parameter_have_data = lambda k, data: False if k in self.parameters and \
-                                                       not self.parameters[k].type_dictionary.valid_data(data) else True
+                                                    self.parameters[k].type_dictionary and \
+                                                    not self.parameters[k].type_dictionary.valid_data(data) else True
             def fix_value(row):
                 key, value = [row[_] for _ in [key_fld, val_fld]]
                 if not _can_parameter_have_number(key):
