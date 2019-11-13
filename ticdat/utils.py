@@ -43,6 +43,8 @@ class TypeDictionary(namedtuple("TypeDictionary",
                     ("number_allowed", "inclusive_min", "inclusive_max", "min",
                       "max", "must_be_int", "strings_allowed", "nullable", "datetime"))):
     def valid_data(self, data):
+        if data is None:
+            return bool(self.nullable)
         if self.datetime:
             return isinstance(data, datetime_.datetime) or dateutil_parser(data) is not None
         if numericish(data):
@@ -63,8 +65,6 @@ class TypeDictionary(namedtuple("TypeDictionary",
                 return True
             assert containerish(self.strings_allowed)
             return data in self.strings_allowed
-        if data is None:
-            return bool(self.nullable)
         return False
     @staticmethod
     def safe_creator(number_allowed, inclusive_min, inclusive_max, min, max,
