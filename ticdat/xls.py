@@ -264,10 +264,10 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
             if utils.numericish(rtn) and utils.safe_apply(int)(rtn) == rtn and dt and dt.must_be_int:
                 rtn = int(rtn)
             if rtn == "":
-                try_rtn = self.tic_dat_factory._infinity_flag_read_cell(table, field, None)
+                try_rtn = self.tic_dat_factory._general_read_cell(table, field, None)
                 if utils.numericish(try_rtn):
                     return try_rtn
-            return self.tic_dat_factory._infinity_flag_read_cell(table, field, rtn)
+            return self.tic_dat_factory._general_read_cell(table, field, rtn)
         def rtn(x) :
             if len(fields) == 1 :
                 return _read_cell(x, fields[0])

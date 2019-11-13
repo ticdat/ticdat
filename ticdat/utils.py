@@ -13,10 +13,8 @@ from collections import namedtuple
 import datetime as datetime_
 try:
     import dateutil
-    dateutil_parser = dateutil.parser.parse
 except:
     dateutil = None
-    dateutil_parser = lambda x: None
 
 try:
     import pandas as pd
@@ -30,6 +28,13 @@ except:
     drm = None
 
 import inspect
+
+def dateutil_adjuster(x):
+    if not dateutil:
+        return None
+    if isinstance(x, datetime_.datetime):
+        return x
+    return safe_apply(dateutil.parser.parse)(x)
 
 def acceptable_default(v) :
     return numericish(v) or stringish(v) or (v is None)
@@ -46,7 +51,7 @@ class TypeDictionary(namedtuple("TypeDictionary",
         if data is None:
             return bool(self.nullable)
         if self.datetime:
-            return isinstance(data, datetime_.datetime) or dateutil_parser(data) is not None
+            return isinstance(data, datetime_.datetime) or dateutil_adjuster(data) is not None
         if numericish(data):
             if not self.number_allowed:
                 return False

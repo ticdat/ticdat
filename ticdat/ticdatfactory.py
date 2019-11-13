@@ -183,6 +183,8 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
 
         :param datetime: If truthy, then number_allowed through strings_allowed are ignored. Should the data either
                          be a datetime.datetime object or a string that can be parsed into a datetime.datetime object?
+                         Note that the various readers will try to coerce strings into datetime.datetime objects
+                         on read for fields with datetime data types.
         :return:
         """
         verify(not self._has_been_used,
@@ -814,7 +816,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
            "infinity_io_flag needs to be 'N/A' (to indicate it isn't being used), or None, or a positive finite number")
         self._infinity_io_flag[0] = value
 
-    def _infinity_flag_read_cell(self, t, f, x):
+    def _general_read_cell(self, t, f, x):
         '''
         we expect other routines inside ticdat to access this routine, even though it starts with _
         :param t: table name
@@ -825,6 +827,9 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
         assert t in self.all_tables
         if t == "parameters": # infinity flagging doesn't apply to parameters table, see set_infinity_flag __doc__
             return x
+        if self._data_types.get(t, {}).get(f) and self.data_types[t][f].datetime and \
+           utils.dateutil_adjuster(x) is not None:
+            return utils.dateutil_adjuster(x)
         if utils.numericish(self.infinity_io_flag) and utils.numericish(x):
             if x >= self.infinity_io_flag:
                 return float("inf")
@@ -873,15 +878,20 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
             return dat
         data_field = self.data_fields["parameters"][0]
         for k, v in list(dat.parameters.items()):
-            number_allowed = True
             if k in self.parameters and self.parameters[k].type_dictionary and \
-               not self.parameters[k].type_dictionary.number_allowed:
-                number_allowed = False
-            if number_allowed:
-                number_v = utils.safe_apply(float)(v[data_field])
-                if number_v is not None and utils.safe_apply(int)(number_v) == number_v:
-                    number_v = int(number_v)
-                dat.parameters[k] = number_v if number_v is not None else v[data_field]
+                self.parameters[k].type_dictionary.datetime:
+                datetime_v = utils.dateutil_adjuster(v[data_field])
+                dat.parameters[k] = datetime_v if datetime_v is not None else v[data_field]
+            else:
+                number_allowed = True
+                if k in self.parameters and self.parameters[k].type_dictionary and \
+                   not self.parameters[k].type_dictionary.number_allowed:
+                    number_allowed = False
+                if number_allowed:
+                    number_v = utils.safe_apply(float)(v[data_field])
+                    if number_v is not None and utils.safe_apply(int)(number_v) == number_v:
+                        number_v = int(number_v)
+                    dat.parameters[k] = number_v if number_v is not None else v[data_field]
         return dat
 
     def _allFields(self, table):

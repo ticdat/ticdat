@@ -85,8 +85,8 @@ class CsvTicFactory(freezable_factory(object, "_isFrozen")) :
             # reminder - data fields have a default default of zero, primary keys don't get a default default
             dv = self.tic_dat_factory.default_values.get(table, {}).get(field, ["LIST", "NOT", "POSSIBLE"])
             dt = self.tic_dat_factory.data_types.get(table, {}).get(field)
-            if x == "" and ((dt and dt.nullable) or (dt and not dt.valid_data(x)) or (not dt and dv is None) or
-                            numericish(self.tic_dat_factory._infinity_flag_read_cell(table, field, None))):
+            if x == "" and ((dt and dt.nullable) or (not dt and dv is None) or
+                            numericish(self.tic_dat_factory._general_read_cell(table, field, None))):
                 return None
             should_try_float = (dt and dt.number_allowed) or (not dt and numericish(dv)) or \
                                (table in self.tic_dat_factory.generic_tables)
@@ -98,7 +98,7 @@ class CsvTicFactory(freezable_factory(object, "_isFrozen")) :
                 except:
                     return x
             return x
-        return self.tic_dat_factory._infinity_flag_read_cell(table, field, _inner_rtn(x))
+        return self.tic_dat_factory._general_read_cell(table, field, _inner_rtn(x))
     def _create_tic_dat(self, dir_path, dialect, headers_present):
         verify(dialect in csv.list_dialects(), "Invalid dialect %s"%dialect)
         verify(os.path.isdir(dir_path), "Invalid directory path %s"%dir_path)

@@ -230,7 +230,7 @@ class PostgresTicFactory(_PostgresFactory):
         super().__init__(tic_dat_factory)
 
     def _read_data_cell(self, t, f, x):
-        return self.tdf._infinity_flag_read_cell(t, f, x)
+        return self.tdf._general_read_cell(t, f, x)
 
     def _write_data_cell(self, t, f, x):
         return self.tdf._infinity_flag_write_cell(t, f, x)

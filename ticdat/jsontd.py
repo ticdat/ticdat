@@ -134,9 +134,9 @@ class JsonTicFactory(freezable_factory(object, "_isFrozen")) :
                 rtn[t] = []
                 for row in rows:
                     if dictish(row):
-                        rtn[t].append({f: tdf._infinity_flag_read_cell(t, f, x) for f,x in row.items()})
+                        rtn[t].append({f: tdf._general_read_cell(t, f, x) for f, x in row.items()})
                     else:
-                        rtn[t].append([tdf._infinity_flag_read_cell(t, f, x) for f, x in zip(all_fields, row)])
+                        rtn[t].append([tdf._general_read_cell(t, f, x) for f, x in zip(all_fields, row)])
         return rtn
     def write_file(self, tic_dat, json_file_path, allow_overwrite = False, verbose = False):
         """

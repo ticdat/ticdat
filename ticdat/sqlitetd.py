@@ -192,7 +192,7 @@ class SQLiteTicFactory(freezable_factory(object, "_isFrozen")) :
             return True
         if stringish(x) and x.lower() == "false":
             return False
-        return self.tic_dat_factory._infinity_flag_read_cell(t, f, x)
+        return self.tic_dat_factory._general_read_cell(t, f, x)
     def _create_gen_obj(self, db_file_path, table, table_name):
         tdf = self.tic_dat_factory
         def tableObj() :
