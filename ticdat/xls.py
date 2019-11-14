@@ -8,6 +8,7 @@ import os
 from collections import defaultdict
 from itertools import product
 from ticdat.pandatfactory import PanDatFactory
+import datetime
 try:
     import xlrd
 except:
@@ -345,7 +346,9 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
     def _xls_write(self, tic_dat, file_path, tbl_name_mapping):
         verify(xlwt, "Can't write .xls files because xlwt package isn't installed.")
         tdf = self.tic_dat_factory
-        def clean_inf(t, f, x):
+        def clean_for_write(t, f, x):
+            if isinstance(x, datetime.datetime):
+                return str(x)
             return self.tic_dat_factory._infinity_flag_write_cell(t, f, x)
         book = xlwt.Workbook()
         for t in  sorted(sorted(tdf.all_tables),
@@ -359,11 +362,11 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
                 for row_ind, (p_key, data) in enumerate(_t.items()) :
                     for field_ind, cell in enumerate( (p_key if containerish(p_key) else (p_key,)) +
                                         tuple(data[_f] for _f in tdf.data_fields.get(t, ()))):
-                        sheet.write(row_ind+1, field_ind, clean_inf(t, all_flds[field_ind], cell))
+                        sheet.write(row_ind+1, field_ind, clean_for_write(t, all_flds[field_ind], cell))
             else :
                 for row_ind, data in enumerate(_t if containerish(_t) else _t()) :
                     for field_ind, cell in enumerate(tuple(data[_f] for _f in tdf.data_fields[t])) :
-                        sheet.write(row_ind+1, field_ind, clean_inf(t, all_flds[field_ind], cell))
+                        sheet.write(row_ind+1, field_ind, clean_for_write(t, all_flds[field_ind], cell))
         if os.path.exists(file_path):
             os.remove(file_path)
         book.save(file_path)
@@ -373,11 +376,11 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
         if os.path.exists(file_path):
             os.remove(file_path)
         book = xlsx.Workbook(file_path)
-        def clean_inf(t, field_index, x):
+        def clean_for_write(t, f, x):
             if self.tic_dat_factory.infinity_io_flag != "N/A" or \
                (t == "parameters" and self.tic_dat_factory.parameters):
                 return self.tic_dat_factory._infinity_flag_write_cell(t, f, x)
-            if x in [float("inf"), -float("inf")]:
+            if x in [float("inf"), -float("inf")] or isinstance(x, datetime.datetime):
                 return str(x)
             return x
         for t in sorted(sorted(tdf.all_tables),
@@ -391,9 +394,9 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
                 for row_ind, (p_key, data) in enumerate(_t.items()) :
                     for field_ind, cell in enumerate( (p_key if containerish(p_key) else (p_key,)) +
                                         tuple(data[_f] for _f in tdf.data_fields.get(t, ()))):
-                        sheet.write(row_ind+1, field_ind, clean_inf(t, all_flds[field_ind], cell))
+                        sheet.write(row_ind+1, field_ind, clean_for_write(t, all_flds[field_ind], cell))
             else :
                 for row_ind, data in enumerate(_t if containerish(_t) else _t()) :
                     for field_ind, cell in enumerate(tuple(data[_f] for _f in tdf.data_fields[t])) :
-                        sheet.write(row_ind+1, field_ind, clean_inf(t, all_flds[field_ind], cell))
+                        sheet.write(row_ind+1, field_ind, clean_for_write(t, all_flds[field_ind], cell))
         book.close()

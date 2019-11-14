@@ -848,7 +848,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
         """
         if t == "parameters":
             # I will assume a parameters table without parameters specification is just a naive developer
-            return str(x) if self.parameters else x
+            return str(x) if self.parameters and utils.numericish(x) else x
         if self.infinity_io_flag is None and (self._none_as_infinity_bias(t, f) or float("nan"))*float("inf") == x:
             return None
         if utils.numericish(self.infinity_io_flag) and utils.numericish(x):
@@ -878,14 +878,15 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
             return dat
         data_field = self.data_fields["parameters"][0]
         for k, v in list(dat.parameters.items()):
-            if k in self.parameters and self.parameters[k].type_dictionary and \
-                self.parameters[k].type_dictionary.datetime:
+            td = getattr(self.parameters.get(k, None), "type_dictionary", None)
+            if td and td.nullable and v[data_field] == "" and not td.valid_data(v[data_field]):
+                dat.parameters[k] = None
+            elif td and td.datetime:
                 datetime_v = utils.dateutil_adjuster(v[data_field])
                 dat.parameters[k] = datetime_v if datetime_v is not None else v[data_field]
             else:
                 number_allowed = True
-                if k in self.parameters and self.parameters[k].type_dictionary and \
-                   not self.parameters[k].type_dictionary.number_allowed:
+                if td and not td.number_allowed:
                     number_allowed = False
                 if number_allowed:
                     number_v = utils.safe_apply(float)(v[data_field])
@@ -1775,3 +1776,4 @@ def freeze_me(x) :
         x._freeze()
     assert x._isFrozen
     return x
+
