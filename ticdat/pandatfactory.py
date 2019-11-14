@@ -276,7 +276,7 @@ class PanDatFactory(object):
         return rtn
     def set_data_type(self, table, field, number_allowed = True,
                       inclusive_min = True, inclusive_max = False, min = 0, max = float("inf"),
-                      must_be_int = False, strings_allowed= (), nullable = False):
+                      must_be_int = False, strings_allowed= (), nullable = False, datetime = False):
         """
         sets the data type for a field. By default, fields don't have types. Adding a data type doesn't block
         data of the wrong type from being entered. Data types are useful for recognizing errant data entries
@@ -303,6 +303,11 @@ class PanDatFactory(object):
                                 If a "*", then any string is accepted.
         :param nullable : boolean : can this value contain null (aka None aka nan (since pandas treats null as nan))
 
+        :param datetime: If truthy, then number_allowed through strings_allowed are ignored. Should the data either
+                         be a datetime.datetime object or a string that can be parsed into a datetime.datetime object?
+                         Note that the various readers will try to coerce strings into datetime.datetime objects
+                         on read for fields with datetime data types.
+
         :return:
         """
         verify(not self._has_been_used,
@@ -313,7 +318,7 @@ class PanDatFactory(object):
                "%s does not refer to a field for %s"%(field, table))
 
         self._data_types[table][field] = TypeDictionary.safe_creator(number_allowed, inclusive_min, inclusive_max,
-                                                                     min, max, must_be_int, strings_allowed, nullable)
+                                            min, max, must_be_int, strings_allowed, nullable, datetime)
 
     def clear_data_type(self, table, field):
         """
