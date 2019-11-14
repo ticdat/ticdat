@@ -184,7 +184,8 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
         :param datetime: If truthy, then number_allowed through strings_allowed are ignored. Should the data either
                          be a datetime.datetime object or a string that can be parsed into a datetime.datetime object?
                          Note that the various readers will try to coerce strings into datetime.datetime objects
-                         on read for fields with datetime data types.
+                         on read for fields with datetime data types. pandas.Timestamp is itself a datetime.datetime,
+                         and the bias will be to create such an object.
         :return:
         """
         verify(not self._has_been_used,

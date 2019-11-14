@@ -30,10 +30,18 @@ except:
 import inspect
 
 def dateutil_adjuster(x):
-    if not dateutil:
-        return None
     if isinstance(x, datetime_.datetime):
         return x
+    # note that pd.Timestamp tends to create NaT from Falsey, which is not what we want
+    # also not that pd.Timestamp's ability to generate Timestamps from numbers is
+    # currently judged to be too OP for default behavior.
+    if pd and x and stringish(x):
+        rtn = safe_apply(pd.Timestamp)(x)
+        if rtn is None and dateutil:
+            return safe_apply(dateutil.parser.parse)(x)
+        return rtn
+    if not dateutil:
+        return None
     return safe_apply(dateutil.parser.parse)(x)
 
 def acceptable_default(v) :
@@ -74,7 +82,8 @@ class TypeDictionary(namedtuple("TypeDictionary",
     @staticmethod
     def safe_creator(number_allowed, inclusive_min, inclusive_max, min, max,
                       must_be_int, strings_allowed, nullable, datetime=False):
-        verify(dateutil or not datetime, "dateutil package needs to be installed in order to use datetime data type")
+        verify(dateutil or pd or not datetime,
+               "dateutil or pandas needs to be installed in order to use datetime data type")
         if datetime:
             return TypeDictionary(number_allowed=False, strings_allowed=(), nullable=bool(nullable),
                                   min=0, max=float("inf"), inclusive_min=True, inclusive_max=True, must_be_int=False,
