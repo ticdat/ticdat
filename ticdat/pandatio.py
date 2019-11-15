@@ -11,6 +11,10 @@ from ticdat.utils import all_underscore_replacements, stringish, dictish
 from itertools import product, chain
 from collections import defaultdict
 import inspect
+try:
+    import numpy
+except:
+    numpy = None
 
 _longest_sheet = 30 # seems to be an Excel limit with pandas
 
@@ -157,8 +161,20 @@ class JsonPanFactory(freezable_factory(object, "_isFrozen")):
                                  len(set(self.pan_dat_factory.all_tables)) == \
                                  len(set(map(case_space_to_pretty, self.pan_dat_factory.all_tables)))
         rtn = {}
+        from ticdat.pandatfactory import _faster_df_apply
         for t in self.pan_dat_factory.all_tables:
-            df = getattr(pan_dat, t).replace(float("inf"), "inf").replace(-float("inf"), "-inf")
+            df = getattr(pan_dat, t).copy(deep=True).replace(float("inf"), "inf").replace(-float("inf"), "-inf")
+            for f in df.columns:
+                dt = self.pan_dat_factory.data_types.get(t, {}).get(f, None)
+                if dt and dt.datetime:
+                    # pandas can be a real PIA when trying to mix types in a column
+                    def fixed(row): # this might not always fix things
+                        if isinstance(row[f], (pd.Timestamp, numpy.datetime64)):
+                            return str(row[f])
+                        if pd.isnull(row[f]):
+                            return None
+                        return row[f]
+                    df[f] = _faster_df_apply(df, fixed)
             k = case_space_to_pretty(t) if case_space_table_names else t
             rtn[k] = json.loads(df.to_json(path_or_buf=None, orient=orient, **kwargs))
             if orient == 'split' and not index:
