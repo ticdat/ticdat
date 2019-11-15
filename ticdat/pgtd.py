@@ -106,6 +106,8 @@ class _PostgresFactory(freezable_factory(object, "_isFrozen"),):
             fld_type = self.tdf.data_types.get(t, {}).get(f)
             if not fld_type:
                 return default_type
+            if fld_type.datetime:
+                return "timestamp"
             verify(not (fld_type.number_allowed and fld_type.strings_allowed),
                    f"Select one of string or numeric for {t}.{f} if declaring type and using postgres")
             if fld_type.strings_allowed:
