@@ -5,7 +5,6 @@ Read/write ticDat objects from PostGres database. Requires the sqlalchemy module
 from collections import defaultdict
 from ticdat.utils import freezable_factory, TicDatError, verify, dictish, FrozenDict, find_duplicates
 from ticdat.utils import create_duplicate_focused_tdf
-import datetime
 
 try:
     import sqlalchemy as sa
@@ -129,12 +128,6 @@ class _PostgresFactory(freezable_factory(object, "_isFrozen"),):
                 return "NULL"
             return rtn
 
-        def default_sql_str(t, f, default_type):
-            verify(not isinstance(db_default(t, f), datetime.datetime), "weird case not handled yet")
-            if get_fld_type(t, f, default_type) == "timestamp":
-                return ""
-            return f" DEFAULT {db_default(t, f)}"
-
         def nullable(t, f):
             fld_type = self.tdf.data_types.get(t, {}).get(f)
             if not fld_type:
@@ -148,8 +141,8 @@ class _PostgresFactory(freezable_factory(object, "_isFrozen"),):
             strl = [f"{_pg_name(f)} " + get_fld_type(t, f, 'text') for f in
                     self.tdf.primary_key_fields.get(t, ())] + \
                    [f"{_pg_name(f)} " + get_fld_type(t, f, 'float') +
-                    (f"{' NOT NULL' if not nullable(t,f) else ''}") +
-                    default_sql_str(t, f, 'text')
+                    f"{' NOT NULL' if not nullable(t,f) else ''}"
+                    f" DEFAULT {db_default(t, f)}"
                     for f in self.tdf.data_fields.get(t, ())]
             if self.tdf.primary_key_fields.get(t):
                 strl.append(f"PRIMARY KEY ({','.join(map(_pg_name, self.tdf.primary_key_fields[t]))})")
@@ -437,7 +430,7 @@ class PostgresPanFactory(_PostgresFactory):
         rtn = self.tdf.PanDat(**rtn)
         msg = []
         assert self.tdf.good_pan_dat_object(rtn, msg.append), str(msg)
-        return self.tdf._infinity_flag_post_read_adjustment(rtn)
+        return self.tdf._general_post_read_adjustment(rtn)
 
     def write_data(self, pan_dat, engine, schema, pre_existing_rows=None):
         '''

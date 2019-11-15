@@ -36,7 +36,7 @@ def _clean_pandat_creator(pdf, df_dict, push_parameters_to_be_valid=True):
         setattr(pandat, t, getattr(pandat, t)[flds])
     msg = []
     assert pdf.good_pan_dat_object(pandat, msg.append), str(msg)
-    return pdf._infinity_flag_post_read_adjustment(pandat, push_parameters_to_be_valid=push_parameters_to_be_valid)
+    return pdf._general_post_read_adjustment(pandat, push_parameters_to_be_valid=push_parameters_to_be_valid)
 
 class JsonPanFactory(freezable_factory(object, "_isFrozen")):
     """
