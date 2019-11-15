@@ -117,7 +117,7 @@ class PanDatFactory(object):
         params = full_schema.get("parameters", {})
         if params:
             verify(dictish(params) and all(map(utils.stringish, params)), "parameters not well formatted")
-            verify(all(len(v) == 2 and (v[0] is None or len(v[0]) == 8)
+            verify(all(len(v) == 2 and (v[0] is None or len(v[0]) in [8, 9])
                        and not containerish(v[1]) for v in params.values()),
                    "parameters improperly formatted")
 
