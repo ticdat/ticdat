@@ -213,15 +213,7 @@ class PanDatFactory(object):
         :return: dat, after being adjusted to handle infinity flagging
 
         '''
-        import math # kill me!!!!!
         apply = _faster_df_apply
-        flag_str_none = "this is a weird string 945495849584911122221" # working around some pandas weirdness
-        flag_str_nan = "another weird string 945495849584911122221"
-        def handle_flag_strings(df, f):
-            fixme = apply(df, lambda row: row[f] == flag_str_none)
-            df.loc[fixme, f] = None
-            fixme = apply(df, lambda row: row[f] == flag_str_nan)
-            df.loc[fixme, f] = float("nan")
         for t in set(self.all_tables).difference(["parameters"]): # parameters table is handled differently
             df = getattr(dat, t)
             for f in self.primary_key_fields.get(t, ()) + self.data_fields.get(t, ()):
@@ -236,15 +228,10 @@ class PanDatFactory(object):
                 dt = self.data_types.get(t, {}).get(f, None)
                 if dt and dt.datetime:
                     def fixed_row(row):
-                        if row[f] is None:
-                            return flag_str_none
-                        if safe_apply(math.isnan)(row[f]):
-                            return flag_str_nan
                         if utils.stringish(row[f]) and row[f] and utils.dateutil_adjuster(row[f]) is not None:
                             return utils.dateutil_adjuster(row[f])
                         return row[f]
                     df[f] = apply(df, fixed_row)
-                    handle_flag_strings(df, f)
 
         # this is the logic that is used in lieu of infinity_io_flag logic for the parameters table
         # it is predicated on the assumption that the parameters table will be serialized to a string/string table
@@ -255,10 +242,6 @@ class PanDatFactory(object):
             _can_parameter_have_data = lambda k, data: False if td(k) and not td(k).valid_data(data) else True
             def fix_value(row):
                 key, value = [row[_] for _ in [key_fld, val_fld]]
-                if td(key) and td(key).datetime and value is None:
-                    return flag_str_none
-                if td(key) and td(key).datetime and safe_apply(math.isnan)(value):
-                    return flag_str_nan
                 if td(key) and td(key).datetime and stringish(value) and \
                     (utils.dateutil_adjuster(value) is not None) and \
                     _can_parameter_have_data(key, utils.dateutil_adjuster(value)) and \
@@ -274,7 +257,6 @@ class PanDatFactory(object):
                     number_v = int(number_v)
                 return value if number_v is None else number_v
             dat.parameters[val_fld] = _faster_df_apply(dat.parameters, lambda row: fix_value(row))
-            handle_flag_strings(dat.parameters, val_fld)
         return dat
     def _infinity_flag_pre_write_adjustment(self, dat):
         '''
