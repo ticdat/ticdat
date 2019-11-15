@@ -19,12 +19,6 @@ try:
 except:
     amplpy = None
 
-# !!!!!!!!!!!!!!!!
-# THE isnan checks are all wrong - use isnull instead !!!!!!!!!!!
-# !!!!!!!!!!!!!!!!
-import math
-from math import isnan
-
 pd, DataFrame = utils.pd, utils.DataFrame # if pandas not installed will be falsey
 
 def _faster_df_apply(df, func):
@@ -219,6 +213,7 @@ class PanDatFactory(object):
         :return: dat, after being adjusted to handle infinity flagging
 
         '''
+        import math # kill me!!!!!
         apply = _faster_df_apply
         flag_str_none = "this is a weird string 945495849584911122221" # working around some pandas weirdness
         flag_str_nan = "another weird string 945495849584911122221"
@@ -387,7 +382,7 @@ class PanDatFactory(object):
 
         **pandas will render None as nan.**
 
-        **Don't check for None in your predicate functions, use math.isnan instead**
+        **Don't check for None in your predicate functions, use pandas.isnull instead**
 
         !!!!!!!!!!
 
@@ -805,15 +800,13 @@ class PanDatFactory(object):
                "pan_dat not a good object for this factory : %s"%"\n".join(msg))
 
         rtn = {}
-        safe_isnan = safe_apply(isnan)
         TableField = clt.namedtuple("TableField", ["table", "field"])
         for table, type_row in self._data_types.items():
             _table = getattr(pan_dat, table)
             for field, data_type in type_row.items():
                 def bad_row(row):
                     data = row[field]
-                    # pandas turns None into nan
-                    return not data_type.valid_data(None if safe_isnan(data) else data)
+                    return not data_type.valid_data(None if isnull(data) else data)
                 where_bad_rows = _faster_df_apply(_table, bad_row)
                 if where_bad_rows.any():
                     rtn[TableField(table, field)] = _table[where_bad_rows].copy() if as_table else where_bad_rows
@@ -843,7 +836,7 @@ class PanDatFactory(object):
             def good_parameter(row):
                 k = row[self.primary_key_fields["parameters"][0]]
                 v = row[self.data_fields["parameters"][0]]
-                v = None if safe_apply(isnan)(v) else v
+                v = None if isnull(v) else v
                 chk = self._parameters.get(k)
                 return chk and (chk.type_dictionary is None or chk.type_dictionary.valid_data(v))
             _ = "Good Name/Value Check"
