@@ -1072,7 +1072,9 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
                     return False
                 for _k in r1:
                     if r1[_k] != r2[_k] and not _n_s(r1[_k], r2[_k]) and \
-                        not (nans_are_same_for_data_rows and all(map(safe_apply(math.isnan), [r1[_k], r2[_k]]))):
+                        not (nans_are_same_for_data_rows and
+                             (all(map(safe_apply(math.isnan), [r1[_k], r2[_k]])) or
+                             (pd and all(map(pd.isnull, [r1[_k], r2[_k]]))))):
                         return False
                 return True
             if dictish(r2) and not dictish(r1) :

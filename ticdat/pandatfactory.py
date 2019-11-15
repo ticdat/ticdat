@@ -730,6 +730,8 @@ class PanDatFactory(object):
             print("--> Warning: duplicate rows will force copy_to_tic_dat to return an object with fewer total rows")
         rtn = self._copy_to_tic_dat(pan_dat)
         from ticdat import TicDatFactory
+        # note - this has a minor problem in that it might downcast pandas.Timestamp to numpy.datetime64
+        # in the primary key entries.
         tdf = TicDatFactory(**self.schema())
         return tdf.freeze_me(rtn) if freeze_it else rtn
     def _copy_to_tic_dat(self, pan_dat, keep_generics_as_df=True):

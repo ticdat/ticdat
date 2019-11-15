@@ -594,14 +594,18 @@ class TestPostres(unittest.TestCase):
         tdf.pgsql.write_schema(self.engine, schema)
         tdf.pgsql.write_data(dat, self.engine, schema)
         dat_1 = tdf.pgsql.create_tic_dat(self.engine, schema)
-        self.assertFalse(tdf._same_data(dat, dat_1))
+        self.assertFalse(tdf._same_data(dat, dat_1,  nans_are_same_for_data_rows=True))
         self.assertTrue(isinstance(dat_1.parameters["p1"]["b"], datetime.datetime))
         self.assertTrue(all(isinstance(_, datetime.datetime) for _ in dat_1.table_with_stuffs))
         self.assertTrue(all(isinstance(_, datetime.datetime) or _ is None for v in dat_1.table_with_stuffs.values()
                             for _ in v.values()))
         pdf = PanDatFactory.create_from_full_schema(tdf.schema(include_ancillary_info=True))
-        dat_2 = pdf.copy_to_tic_dat(pdf.pgsql.create_pan_dat(self.engine, schema))
-        self.assertTrue(tdf._same_data(dat_1, dat_2))
+        pan_dat = pdf.pgsql.create_pan_dat(self.engine, schema)
+        dat_2 = pdf.copy_to_tic_dat(pan_dat)
+        # pandas can be a real PIA sometimes, hacking around some weird downcasting
+        for k in list(dat_2.table_with_stuffs):
+            dat_2.table_with_stuffs[pd.Timestamp(k)] = dat_2.table_with_stuffs.pop(k)
+        self.assertTrue(tdf._same_data(dat_1, dat_2, nans_are_same_for_data_rows=True))
 
 test_schema = 'test'
 db_dict = {'drivername': 'postgresql', 'username': 'postgres', 'password': '',
