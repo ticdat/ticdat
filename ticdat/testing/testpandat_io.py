@@ -12,8 +12,9 @@ import os
 import json
 try:
     import numpy
+    import pandas as pd
 except:
-    numpy = None
+    numpy = pd = None
 import math
 try:
     import dateutil
@@ -192,11 +193,17 @@ class TestIO(unittest.TestCase):
             self.assertFalse(pdf._same_data(dat, dat_1))
             self.assertFalse(pdf.find_data_type_failures(dat_1) or pdf.find_data_row_failures(dat_1))
             dat_1 = pdf.copy_to_tic_dat(dat_1)
-            self.assertTrue(isinstance(dat_1.parameters["p1"]["b"], datetime.datetime))
-            self.assertTrue(all(isinstance(_, (datetime.datetime, numpy.datetime64)) for _ in dat_1.table_with_stuffs))
+            self.assertTrue(set(dat_1.parameters) == {'p1', 'p2'})
+            self.assertTrue(isinstance(dat_1.parameters["p1"]["b"], (datetime.datetime, numpy.datetime64))
+                            and not pd.isnull(dat_1.parameters["p1"]["b"]))
+            self.assertTrue(pd.isnull(dat_1.parameters["p2"]["b"]))
+            self.assertTrue(all(isinstance(_, (datetime.datetime, numpy.datetime64)) and not pd.isnull(_)
+                                for _ in dat_1.table_with_stuffs))
             self.assertTrue(all(isinstance(_, (datetime.datetime, numpy.datetime64)) or _ is None
                                 or utils.safe_apply(math.isnan)(_) for v in dat_1.table_with_stuffs.values()
                                 for _ in v.values()))
+            self.assertTrue({pd.isnull(_) for v in dat_1.table_with_stuffs.values() for _ in v.values()} ==
+                            {True, False})
 
     def test_parameters(self):
         core_path = os.path.join(_scratchDir, "parameters")

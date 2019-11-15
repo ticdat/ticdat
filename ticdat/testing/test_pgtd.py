@@ -594,12 +594,14 @@ class TestPostres(unittest.TestCase):
         tdf.pgsql.write_schema(self.engine, schema)
         tdf.pgsql.write_data(dat, self.engine, schema)
         dat_1 = tdf.pgsql.create_tic_dat(self.engine, schema)
-        #self.assertTrue(tdf._same_data(dat_1, dat_2))
         self.assertFalse(tdf._same_data(dat, dat_1))
         self.assertTrue(isinstance(dat_1.parameters["p1"]["b"], datetime.datetime))
         self.assertTrue(all(isinstance(_, datetime.datetime) for _ in dat_1.table_with_stuffs))
         self.assertTrue(all(isinstance(_, datetime.datetime) or _ is None for v in dat_1.table_with_stuffs.values()
                             for _ in v.values()))
+        pdf = PanDatFactory.create_from_full_schema(tdf.schema(include_ancillary_info=True))
+        dat_2 = pdf.copy_to_tic_dat(pdf.pgsql.create_pan_dat(self.engine, schema))
+        self.assertTrue(tdf._same_data(dat_1, dat_2))
 
 test_schema = 'test'
 db_dict = {'drivername': 'postgresql', 'username': 'postgres', 'password': '',

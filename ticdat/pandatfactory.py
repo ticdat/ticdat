@@ -19,12 +19,6 @@ try:
 except:
     amplpy = None
 
-# !!!!!!!!!!!!!!!!
-# THE isnan checks are all wrong - use isnull instead !!!!!!!!!!!
-# !!!!!!!!!!!!!!!!
-import math
-from math import isnan
-
 pd, DataFrame = utils.pd, utils.DataFrame # if pandas not installed will be falsey
 
 def _faster_df_apply(df, func):
@@ -123,7 +117,7 @@ class PanDatFactory(object):
         params = full_schema.get("parameters", {})
         if params:
             verify(dictish(params) and all(map(utils.stringish, params)), "parameters not well formatted")
-            verify(all(len(v) == 2 and (v[0] is None or len(v[0]) == 8)
+            verify(all(len(v) == 2 and (v[0] is None or len(v[0]) in [8, 9])
                        and not containerish(v[1]) for v in params.values()),
                    "parameters improperly formatted")
 
@@ -220,13 +214,6 @@ class PanDatFactory(object):
 
         '''
         apply = _faster_df_apply
-        flag_str_none = "this is a weird string 945495849584911122221" # working around some pandas weirdness
-        flag_str_nan = "another weird string 945495849584911122221"
-        def handle_flag_strings(df, f):
-            fixme = apply(df, lambda row: row[f] == flag_str_none)
-            df.loc[fixme, f] = None
-            fixme = apply(df, lambda row: row[f] == flag_str_nan)
-            df.loc[fixme, f] = float("nan")
         for t in set(self.all_tables).difference(["parameters"]): # parameters table is handled differently
             df = getattr(dat, t)
             for f in self.primary_key_fields.get(t, ()) + self.data_fields.get(t, ()):
@@ -241,15 +228,10 @@ class PanDatFactory(object):
                 dt = self.data_types.get(t, {}).get(f, None)
                 if dt and dt.datetime:
                     def fixed_row(row):
-                        if row[f] is None:
-                            return flag_str_none
-                        if safe_apply(math.isnan)(row[f]):
-                            return flag_str_nan
                         if utils.stringish(row[f]) and row[f] and utils.dateutil_adjuster(row[f]) is not None:
                             return utils.dateutil_adjuster(row[f])
                         return row[f]
                     df[f] = apply(df, fixed_row)
-                    handle_flag_strings(df, f)
 
         # this is the logic that is used in lieu of infinity_io_flag logic for the parameters table
         # it is predicated on the assumption that the parameters table will be serialized to a string/string table
@@ -260,10 +242,6 @@ class PanDatFactory(object):
             _can_parameter_have_data = lambda k, data: False if td(k) and not td(k).valid_data(data) else True
             def fix_value(row):
                 key, value = [row[_] for _ in [key_fld, val_fld]]
-                if td(key) and td(key).datetime and value is None:
-                    return flag_str_none
-                if td(key) and td(key).datetime and safe_apply(math.isnan)(value):
-                    return flag_str_nan
                 if td(key) and td(key).datetime and stringish(value) and \
                     (utils.dateutil_adjuster(value) is not None) and \
                     _can_parameter_have_data(key, utils.dateutil_adjuster(value)) and \
@@ -279,7 +257,6 @@ class PanDatFactory(object):
                     number_v = int(number_v)
                 return value if number_v is None else number_v
             dat.parameters[val_fld] = _faster_df_apply(dat.parameters, lambda row: fix_value(row))
-            handle_flag_strings(dat.parameters, val_fld)
         return dat
     def _infinity_flag_pre_write_adjustment(self, dat):
         '''
@@ -387,7 +364,7 @@ class PanDatFactory(object):
 
         **pandas will render None as nan.**
 
-        **Don't check for None in your predicate functions, use math.isnan instead**
+        **Don't check for None in your predicate functions, use pandas.isnull instead**
 
         !!!!!!!!!!
 
@@ -805,15 +782,13 @@ class PanDatFactory(object):
                "pan_dat not a good object for this factory : %s"%"\n".join(msg))
 
         rtn = {}
-        safe_isnan = safe_apply(isnan)
         TableField = clt.namedtuple("TableField", ["table", "field"])
         for table, type_row in self._data_types.items():
             _table = getattr(pan_dat, table)
             for field, data_type in type_row.items():
                 def bad_row(row):
                     data = row[field]
-                    # pandas turns None into nan
-                    return not data_type.valid_data(None if safe_isnan(data) else data)
+                    return not data_type.valid_data(None if isnull(data) else data)
                 where_bad_rows = _faster_df_apply(_table, bad_row)
                 if where_bad_rows.any():
                     rtn[TableField(table, field)] = _table[where_bad_rows].copy() if as_table else where_bad_rows
@@ -843,7 +818,7 @@ class PanDatFactory(object):
             def good_parameter(row):
                 k = row[self.primary_key_fields["parameters"][0]]
                 v = row[self.data_fields["parameters"][0]]
-                v = None if safe_apply(isnan)(v) else v
+                v = None if isnull(v) else v
                 chk = self._parameters.get(k)
                 return chk and (chk.type_dictionary is None or chk.type_dictionary.valid_data(v))
             _ = "Good Name/Value Check"
