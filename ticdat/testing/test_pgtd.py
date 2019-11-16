@@ -595,10 +595,13 @@ class TestPostres(unittest.TestCase):
         tdf.pgsql.write_data(dat, self.engine, schema)
         dat_1 = tdf.pgsql.create_tic_dat(self.engine, schema)
         self.assertFalse(tdf._same_data(dat, dat_1,  nans_are_same_for_data_rows=True))
+        self.assertTrue(all(len(getattr(dat, t)) == len(getattr(dat_1, t)) for t in tdf.all_tables))
         self.assertTrue(isinstance(dat_1.parameters["p1"]["b"], datetime.datetime))
         self.assertTrue(all(isinstance(_, datetime.datetime) for _ in dat_1.table_with_stuffs))
-        self.assertTrue(all(isinstance(_, datetime.datetime) or _ is None for v in dat_1.table_with_stuffs.values()
+        self.assertTrue(len([_ for _ in dat_1.table_with_stuffs if pd.isnull(_)]) == 0)
+        self.assertTrue(all(isinstance(_, datetime.datetime) or pd.isnull(_) for v in dat_1.table_with_stuffs.values()
                             for _ in v.values()))
+        self.assertTrue(len([_ for v in dat_1.table_with_stuffs.values() for _ in v.values() if pd.isnull(_)]) == 1)
         pdf = PanDatFactory.create_from_full_schema(tdf.schema(include_ancillary_info=True))
         pan_dat = pdf.pgsql.create_pan_dat(self.engine, schema)
         dat_2 = pdf.copy_to_tic_dat(pan_dat)
@@ -606,6 +609,12 @@ class TestPostres(unittest.TestCase):
         for k in list(dat_2.table_with_stuffs):
             dat_2.table_with_stuffs[pd.Timestamp(k)] = dat_2.table_with_stuffs.pop(k)
         self.assertTrue(tdf._same_data(dat_1, dat_2, nans_are_same_for_data_rows=True))
+
+        pdf.pgsql.write_data(pan_dat, self.engine, schema)
+        dat_3 = pdf.copy_to_tic_dat(pdf.pgsql.create_pan_dat(self.engine, schema))
+        for k in list(dat_3.table_with_stuffs):
+            dat_3.table_with_stuffs[pd.Timestamp(k)] = dat_3.table_with_stuffs.pop(k)
+        self.assertTrue(tdf._same_data(dat_1, dat_3, nans_are_same_for_data_rows=True))
 
 test_schema = 'test'
 db_dict = {'drivername': 'postgresql', 'username': 'postgres', 'password': '',
