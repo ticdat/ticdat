@@ -455,6 +455,7 @@ class TestSql(unittest.TestCase):
         tdf.sql.write_db_data(dat, path)
         dat_1 = tdf.sql.create_tic_dat(path)
         self.assertFalse(tdf._same_data(dat, dat_1))
+        self.assertFalse(tdf.find_data_type_failures(dat_1) or tdf.find_data_row_failures(dat_1))
         self.assertTrue(isinstance(dat_1.parameters["p1"]["b"], datetime.datetime))
         self.assertTrue(all(isinstance(_, datetime.datetime) for _ in dat_1.table_with_stuffs))
         self.assertTrue(all(isinstance(_, datetime.datetime) or _ is None for v in dat_1.table_with_stuffs.values()

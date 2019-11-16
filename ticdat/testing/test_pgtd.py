@@ -596,6 +596,7 @@ class TestPostres(unittest.TestCase):
         dat_1 = tdf.pgsql.create_tic_dat(self.engine, schema)
         self.assertFalse(tdf._same_data(dat, dat_1,  nans_are_same_for_data_rows=True))
         self.assertTrue(all(len(getattr(dat, t)) == len(getattr(dat_1, t)) for t in tdf.all_tables))
+        self.assertFalse(tdf.find_data_type_failures(dat_1) or tdf.find_data_row_failures(dat_1))
         self.assertTrue(isinstance(dat_1.parameters["p1"]["b"], datetime.datetime))
         self.assertTrue(all(isinstance(_, datetime.datetime) for _ in dat_1.table_with_stuffs))
         self.assertTrue(len([_ for _ in dat_1.table_with_stuffs if pd.isnull(_)]) == 0)

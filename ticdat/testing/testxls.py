@@ -561,6 +561,7 @@ class TestXls(unittest.TestCase):
         dat_1 = tdf.xls.create_tic_dat(file_one)
         dat_2 = tdf.xls.create_tic_dat(file_two)
         self.assertTrue(tdf._same_data(dat_1, dat_2))
+        self.assertFalse(tdf.find_data_type_failures(dat_1) or tdf.find_data_row_failures(dat_1))
         self.assertFalse(tdf._same_data(dat, dat_1))
         self.assertTrue(isinstance(dat_1.parameters["p1"]["b"], datetime.datetime))
         self.assertTrue(all(isinstance(_, datetime.datetime) for _ in dat_1.table_with_stuffs))
