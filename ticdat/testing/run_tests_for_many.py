@@ -12,9 +12,10 @@ from ticdat.testing.testpandat_io import TestIO
 import ticdat.testing.testpandat_utils
 TestPandatUtils = ticdat.testing.testpandat_utils.TestUtils
 from ticdat.testing.testsql import TestSql
+from ticdat.testing.test_pgtd import TestPostres
 
 the_classes = [TestSql, TestPandatUtils, TestIO, TestJson, TestUtils, TestSql, TestPandatUtils, TestCsv, TestXls,
-               TestPandas]
+               TestPandas, TestPostres]
 
 for c in the_classes:
     print(f"\n--------{c}")
