@@ -7,7 +7,7 @@ from collections import defaultdict
 from ticdat.utils import freezable_factory, TicDatError, verify, stringish, dictish, containerish, numericish
 from ticdat.utils import FrozenDict, all_underscore_replacements, find_duplicates
 from ticdat.utils import create_duplicate_focused_tdf, create_generic_free, safe_apply
-
+import datetime
 try:
     import sqlite3 as sql
 except:
@@ -34,7 +34,7 @@ def _insert_format(x) :
     # note that [1==True, 0==False, 1 is not True, 0 is not False] is all part of Python
     if stringish(x):
         return "'%s'"%_fix_str(x)
-    if x in (float("inf"), -float("inf")):
+    if x in (float("inf"), -float("inf")) or isinstance(x, datetime.datetime):
         return "'%s'"%x
     if x is None:
         return "null"
@@ -192,7 +192,7 @@ class SQLiteTicFactory(freezable_factory(object, "_isFrozen")) :
             return True
         if stringish(x) and x.lower() == "false":
             return False
-        return self.tic_dat_factory._infinity_flag_read_cell(t, f, x)
+        return self.tic_dat_factory._general_read_cell(t, f, x)
     def _create_gen_obj(self, db_file_path, table, table_name):
         tdf = self.tic_dat_factory
         def tableObj() :

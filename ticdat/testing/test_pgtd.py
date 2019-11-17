@@ -577,6 +577,46 @@ class TestPostres(unittest.TestCase):
         dat_ = pdf.pgsql.create_pan_dat(self.engine, schema)
         self.assertTrue(pdf._same_data(dat, dat_))
 
+    def testDateTime(self):
+        schema = test_schema + "_datetime"
+        tdf = TicDatFactory(table_with_stuffs = [["field one"], ["field two"]],
+                            parameters = [["a"],["b"]])
+        tdf.add_parameter("p1", "Dec 15 1970", datetime=True)
+        tdf.add_parameter("p2", None, datetime=True, nullable=True)
+        tdf.set_data_type("table_with_stuffs", "field one", datetime=True)
+        tdf.set_data_type("table_with_stuffs", "field two", datetime=True, nullable=True)
+
+        dat = tdf.TicDat(table_with_stuffs = [[dateutil.parser.parse("July 11 1972"), None],
+                                              [datetime.datetime.now(), dateutil.parser.parse("Sept 11 2011")]],
+                         parameters = [["p1", "7/11/1911"], ["p2", None]])
+        self.assertFalse(tdf.find_data_type_failures(dat) or tdf.find_data_row_failures(dat))
+
+        tdf.pgsql.write_schema(self.engine, schema)
+        tdf.pgsql.write_data(dat, self.engine, schema)
+        dat_1 = tdf.pgsql.create_tic_dat(self.engine, schema)
+        self.assertFalse(tdf._same_data(dat, dat_1,  nans_are_same_for_data_rows=True))
+        self.assertTrue(all(len(getattr(dat, t)) == len(getattr(dat_1, t)) for t in tdf.all_tables))
+        self.assertFalse(tdf.find_data_type_failures(dat_1) or tdf.find_data_row_failures(dat_1))
+        self.assertTrue(isinstance(dat_1.parameters["p1"]["b"], datetime.datetime))
+        self.assertTrue(all(isinstance(_, datetime.datetime) for _ in dat_1.table_with_stuffs))
+        self.assertTrue(len([_ for _ in dat_1.table_with_stuffs if pd.isnull(_)]) == 0)
+        self.assertTrue(all(isinstance(_, datetime.datetime) or pd.isnull(_) for v in dat_1.table_with_stuffs.values()
+                            for _ in v.values()))
+        self.assertTrue(len([_ for v in dat_1.table_with_stuffs.values() for _ in v.values() if pd.isnull(_)]) == 1)
+        pdf = PanDatFactory.create_from_full_schema(tdf.schema(include_ancillary_info=True))
+        pan_dat = pdf.pgsql.create_pan_dat(self.engine, schema)
+        dat_2 = pdf.copy_to_tic_dat(pan_dat)
+        # pandas can be a real PIA sometimes, hacking around some weird downcasting
+        for k in list(dat_2.table_with_stuffs):
+            dat_2.table_with_stuffs[pd.Timestamp(k)] = dat_2.table_with_stuffs.pop(k)
+        self.assertTrue(tdf._same_data(dat_1, dat_2, nans_are_same_for_data_rows=True))
+
+        pdf.pgsql.write_data(pan_dat, self.engine, schema)
+        dat_3 = pdf.copy_to_tic_dat(pdf.pgsql.create_pan_dat(self.engine, schema))
+        for k in list(dat_3.table_with_stuffs):
+            dat_3.table_with_stuffs[pd.Timestamp(k)] = dat_3.table_with_stuffs.pop(k)
+        self.assertTrue(tdf._same_data(dat_1, dat_3, nans_are_same_for_data_rows=True))
+
 test_schema = 'test'
 db_dict = {'drivername': 'postgresql', 'username': 'postgres', 'password': '',
            'host': '127.0.0.1', 'port': '5432', 'database': 'postgres'}

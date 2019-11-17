@@ -10,6 +10,11 @@ import getopt
 import sys
 import os
 from collections import namedtuple
+import datetime as datetime_
+try:
+    import dateutil
+except:
+    dateutil = None
 
 try:
     import pandas as pd
@@ -24,6 +29,21 @@ except:
 
 import inspect
 
+def dateutil_adjuster(x):
+    if isinstance(x, datetime_.datetime):
+        return x
+    # note that pd.Timestamp tends to create NaT from Falsey, which is not what we want
+    # also not that pd.Timestamp's ability to generate Timestamps from numbers is
+    # currently judged to be too OP for default behavior.
+    if pd and x and stringish(x):
+        rtn = safe_apply(pd.Timestamp)(x)
+        if rtn is None and dateutil:
+            return safe_apply(dateutil.parser.parse)(x)
+        return rtn
+    if not dateutil:
+        return None
+    return safe_apply(dateutil.parser.parse)(x)
+
 def acceptable_default(v) :
     return numericish(v) or stringish(v) or (v is None)
 
@@ -34,8 +54,12 @@ def all_fields(tpdf, tbl):
 # can I get away with ordering this consistently with the function? hopefully I can!
 class TypeDictionary(namedtuple("TypeDictionary",
                     ("number_allowed", "inclusive_min", "inclusive_max", "min",
-                      "max", "must_be_int", "strings_allowed", "nullable",))):
+                      "max", "must_be_int", "strings_allowed", "nullable", "datetime"))):
     def valid_data(self, data):
+        if data is None:
+            return bool(self.nullable)
+        if self.datetime:
+            return isinstance(data, datetime_.datetime) or dateutil_adjuster(data) is not None
         if numericish(data):
             if not self.number_allowed:
                 return False
@@ -54,12 +78,16 @@ class TypeDictionary(namedtuple("TypeDictionary",
                 return True
             assert containerish(self.strings_allowed)
             return data in self.strings_allowed
-        if data is None:
-            return bool(self.nullable)
         return False
     @staticmethod
     def safe_creator(number_allowed, inclusive_min, inclusive_max, min, max,
-                      must_be_int, strings_allowed, nullable):
+                      must_be_int, strings_allowed, nullable, datetime=False):
+        verify(dateutil or pd or not datetime,
+               "dateutil or pandas needs to be installed in order to use datetime data type")
+        if datetime:
+            return TypeDictionary(number_allowed=False, strings_allowed=(), nullable=bool(nullable),
+                                  min=0, max=float("inf"), inclusive_min=True, inclusive_max=True, must_be_int=False,
+                                  datetime=True)
         verify((strings_allowed == '*') or
                (containerish(strings_allowed) and all(stringish(x) for x in strings_allowed)),
                """The strings_allowed argument should be a container of strings, or the single '*' character.""")
@@ -71,9 +99,10 @@ class TypeDictionary(namedtuple("TypeDictionary",
             verify(max >= min, "max cannot be smaller than min")
             return TypeDictionary(number_allowed=True, strings_allowed=strings_allowed, nullable=bool(nullable),
                                   min=min, max=max, inclusive_min=bool(inclusive_min),inclusive_max=bool(inclusive_max),
-                                  must_be_int=bool(must_be_int))
+                                  must_be_int=bool(must_be_int), datetime=False)
         return TypeDictionary(number_allowed=False, strings_allowed=strings_allowed, nullable=bool(nullable),
-                              min=0, max=float("inf"), inclusive_min=True, inclusive_max=True, must_be_int=False)
+                              min=0, max=float("inf"), inclusive_min=True, inclusive_max=True, must_be_int=False,
+                              datetime=False)
 
 class ForeignKey(namedtuple("ForeignKey", ("native_table", "foreign_table", "mapping", "cardinality"))) :
     def nativefields(self):

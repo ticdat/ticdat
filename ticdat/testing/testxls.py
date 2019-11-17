@@ -8,6 +8,11 @@ from ticdat.testing.ticdattestutils import makeCleanPath, sillyMeDataTwoTables
 from ticdat.xls import _can_unit_test
 import shutil
 import unittest
+import datetime
+try:
+    import dateutil
+except:
+    dateutil=None
 
 #uncomment decorator to drop into debugger for assertTrue, assertFalse failures
 #@fail_to_debugger
@@ -535,6 +540,33 @@ class TestXls(unittest.TestCase):
         dat_inf = tdf.TicDat(table = [[float("-inf"), 100], [200, 109], [0, 300], [300, -float("inf")], [400, 0]])
         self.assertTrue(tdf._same_data(dat_inf, dat_1))
         self.assertTrue(tdf._same_data(dat_inf, dat_2))
+
+    def testDateTime(self):
+        tdf = TicDatFactory(table_with_stuffs = [["field one"], ["field two"]],
+                            parameters = [["a"],["b"]])
+        tdf.add_parameter("p1", "Dec 15 1970", datetime=True)
+        tdf.add_parameter("p2", None, datetime=True, nullable=True)
+        tdf.set_data_type("table_with_stuffs", "field one", datetime=True)
+        tdf.set_data_type("table_with_stuffs", "field two", datetime=True, nullable=True)
+
+        dat = tdf.TicDat(table_with_stuffs = [["July 11 1972", None],
+                                              [datetime.datetime.now(), dateutil.parser.parse("Sept 11 2011")]],
+                         parameters = [["p1", "7/11/1911"], ["p2", None]])
+        self.assertFalse(tdf.find_data_type_failures(dat) or tdf.find_data_row_failures(dat))
+
+        file_one = os.path.join(_scratchDir, "datetime.xls")
+        file_two = os.path.join(_scratchDir, "datetime.xlsx")
+        tdf.xls.write_file(dat, file_one)
+        tdf.xls.write_file(dat, file_two)
+        dat_1 = tdf.xls.create_tic_dat(file_one)
+        dat_2 = tdf.xls.create_tic_dat(file_two)
+        self.assertTrue(tdf._same_data(dat_1, dat_2))
+        self.assertFalse(tdf.find_data_type_failures(dat_1) or tdf.find_data_row_failures(dat_1))
+        self.assertFalse(tdf._same_data(dat, dat_1))
+        self.assertTrue(isinstance(dat_1.parameters["p1"]["b"], datetime.datetime))
+        self.assertTrue(all(isinstance(_, datetime.datetime) for _ in dat_1.table_with_stuffs))
+        self.assertTrue(all(isinstance(_, datetime.datetime) or _ is None for v in dat_1.table_with_stuffs.values()
+                            for _ in v.values()))
 
 _scratchDir = TestXls.__name__ + "_scratch"
 

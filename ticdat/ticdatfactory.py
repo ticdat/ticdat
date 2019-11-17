@@ -117,7 +117,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
         params = full_schema.get("parameters", {})
         if params:
             verify(dictish(params) and all(map(utils.stringish, params)), "parameters not well formatted")
-            verify(all(len(v) == 2 and (v[0] is None or len(v[0]) == 8)
+            verify(all(len(v) == 2 and (v[0] is None or len(v[0]) in [8, 9])
                        and not containerish(v[1]) for v in params.values()),
                    "parameters improperly formatted")
         rtn = TicDatFactory(**full_schema["tables_fields"])
@@ -152,7 +152,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
                                 for t,vd in self._data_types.items()})
     def set_data_type(self, table, field, number_allowed = True,
                       inclusive_min = True, inclusive_max = False, min = 0, max = float("inf"),
-                      must_be_int = False, strings_allowed= (), nullable = False):
+                      must_be_int = False, strings_allowed= (), nullable = False, datetime = False):
         """
         sets the data type for a field. By default, fields don't have types. Adding a data type doesn't block
         data of the wrong type from being entered. Data types are useful for recognizing errant data entries
@@ -180,6 +180,12 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
 
         :param nullable : boolean : can this value contain null (aka None)
 
+
+        :param datetime: If truthy, then number_allowed through strings_allowed are ignored. Should the data either
+                         be a datetime.datetime object or a string that can be parsed into a datetime.datetime object?
+                         Note that the various readers will try to coerce strings into datetime.datetime objects
+                         on read for fields with datetime data types. pandas.Timestamp is itself a datetime.datetime,
+                         and the bias will be to create such an object.
         :return:
         """
         verify(not self._has_been_used,
@@ -190,7 +196,8 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
                "%s does not refer to a field for %s"%(field, table))
 
         self._data_types[table][field] = TypeDictionary.safe_creator(number_allowed, inclusive_min, inclusive_max,
-                                                                     min, max, must_be_int, strings_allowed, nullable)
+                                                                     min, max, must_be_int, strings_allowed, nullable,
+                                                                     datetime)
 
     def clear_data_type(self, table, field):
         """
@@ -250,7 +257,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
     def add_parameter(self, name, default_value, number_allowed = True,
                       inclusive_min = True, inclusive_max = False, min = 0, max = float("inf"),
                       must_be_int = False, strings_allowed= (), nullable = False,
-                      enforce_type_rules = True):
+                      datetime = False, enforce_type_rules = True):
         """
         Add (or reset) a parameters option. Requires that a parameters table with one primary key field and one
         data field already be present. The legal parameters options will be enforced as part of find_data_row_failures
@@ -266,7 +273,10 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
                                 The empty collection prohibits strings.
                                 If a "*", then any string is accepted.
         :param nullable:  boolean : can this parameter be set to null (aka None)
-        :param enforce_type_rules: boolean: ignore all of number_allowed through nullabe, and only
+        :param datetime: If truthy, then number_allowed through strings_allowed are ignored.
+                         Should the data either be a datetime.datetime object or a string that can be parsed into a
+                         datetime.datetime object?
+        :param enforce_type_rules: boolean: ignore all of number_allowed through nullable, and only
                                    enforce the parameter names and default values
         :return:
         """
@@ -278,7 +288,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
         td = None
         if enforce_type_rules:
             td = TypeDictionary.safe_creator(number_allowed, inclusive_min, inclusive_max,
-                                             min, max, must_be_int, strings_allowed, nullable)
+                                             min, max, must_be_int, strings_allowed, nullable, datetime)
             verify(td.valid_data(default_value), f"{default_value} is not a legal default value for parameter {name}")
         ParameterInfo = namedtuple("ParameterInfo", ["type_dictionary", "default_value"])
         self._parameters[name] = ParameterInfo(td, default_value)
@@ -807,7 +817,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
            "infinity_io_flag needs to be 'N/A' (to indicate it isn't being used), or None, or a positive finite number")
         self._infinity_io_flag[0] = value
 
-    def _infinity_flag_read_cell(self, t, f, x):
+    def _general_read_cell(self, t, f, x):
         '''
         we expect other routines inside ticdat to access this routine, even though it starts with _
         :param t: table name
@@ -818,6 +828,9 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
         assert t in self.all_tables
         if t == "parameters": # infinity flagging doesn't apply to parameters table, see set_infinity_flag __doc__
             return x
+        if self._data_types.get(t, {}).get(f) and self.data_types[t][f].datetime and \
+           utils.dateutil_adjuster(x) is not None:
+            return utils.dateutil_adjuster(x)
         if utils.numericish(self.infinity_io_flag) and utils.numericish(x):
             if x >= self.infinity_io_flag:
                 return float("inf")
@@ -834,9 +847,9 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
         :param x: cell value which might need to be adjusted
         :return: x, adjusted as required
         """
-        if t == "parameters":
+        if t == "parameters" and self.parameters:
             # I will assume a parameters table without parameters specification is just a naive developer
-            return str(x) if self.parameters else x
+            return None if x is None or (utils.pd and utils.pd.isnull(x)) else str(x)
         if self.infinity_io_flag is None and (self._none_as_infinity_bias(t, f) or float("nan"))*float("inf") == x:
             return None
         if utils.numericish(self.infinity_io_flag) and utils.numericish(x):
@@ -866,14 +879,21 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
             return dat
         data_field = self.data_fields["parameters"][0]
         for k, v in list(dat.parameters.items()):
-            number_allowed = True
-            if k in self.parameters and not self.parameters[k].type_dictionary.number_allowed:
-                number_allowed = False
-            if number_allowed:
-                number_v = utils.safe_apply(float)(v[data_field])
-                if number_v is not None and utils.safe_apply(int)(number_v) == number_v:
-                    number_v = int(number_v)
-                dat.parameters[k] = number_v if number_v is not None else v[data_field]
+            td = getattr(self.parameters.get(k, None), "type_dictionary", None)
+            if td and td.nullable and v[data_field] == "" and not td.valid_data(v[data_field]):
+                dat.parameters[k] = None
+            elif td and td.datetime:
+                datetime_v = utils.dateutil_adjuster(v[data_field])
+                dat.parameters[k] = datetime_v if datetime_v is not None else v[data_field]
+            else:
+                number_allowed = True
+                if td and not td.number_allowed:
+                    number_allowed = False
+                if number_allowed:
+                    number_v = utils.safe_apply(float)(v[data_field])
+                    if number_v is not None and utils.safe_apply(int)(number_v) == number_v:
+                        number_v = int(number_v)
+                    dat.parameters[k] = number_v if number_v is not None else v[data_field]
         return dat
 
     def _allFields(self, table):
@@ -1052,7 +1072,9 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
                     return False
                 for _k in r1:
                     if r1[_k] != r2[_k] and not _n_s(r1[_k], r2[_k]) and \
-                        not (nans_are_same_for_data_rows and all(map(safe_apply(math.isnan), [r1[_k], r2[_k]]))):
+                        not (nans_are_same_for_data_rows and
+                             (all(map(safe_apply(math.isnan), [r1[_k], r2[_k]])) or
+                             (pd and all(map(pd.isnull, [r1[_k], r2[_k]]))))):
                         return False
                 return True
             if dictish(r2) and not dictish(r1) :
@@ -1757,3 +1779,4 @@ def freeze_me(x) :
         x._freeze()
     assert x._isFrozen
     return x
+

@@ -7,6 +7,11 @@ from ticdat.testing.ticdattestutils import makeCleanPath, addNetflowForeignKeys,
 from ticdat.testing.ticdattestutils import spacesData, spacesSchema, dietSchemaWeirdCase, dietSchemaWeirdCase2
 from ticdat.testing.ticdattestutils import copyDataDietWeirdCase, copyDataDietWeirdCase2, am_on_windows
 from ticdat.sqlitetd import _can_unit_test, sql
+import datetime
+try:
+    import dateutil
+except:
+    dateutil=None
 
 import shutil
 import unittest
@@ -432,6 +437,36 @@ class TestSql(unittest.TestCase):
         tdf_1.sql.write_db_data(dat, path+".db")
         sql_dat = tdf_2.sql.create_tic_dat(path+".db")
         self.assertTrue(tdf_1._same_data(dat, sql_dat))
+
+    def testDateTime(self):
+        tdf = TicDatFactory(table_with_stuffs = [["field one"], ["field two"]],
+                            parameters = [["a"],["b"]])
+        tdf.add_parameter("p1", "Dec 15 1970", datetime=True)
+        tdf.add_parameter("p2", None, datetime=True, nullable=True)
+        tdf.set_data_type("table_with_stuffs", "field one", datetime=True)
+        tdf.set_data_type("table_with_stuffs", "field two", datetime=True, nullable=True)
+
+        dat = tdf.TicDat(table_with_stuffs = [["July 11 1972", None],
+                                              [datetime.datetime.now(), dateutil.parser.parse("Sept 11 2011")]],
+                         parameters = [["p1", "7/11/1911"], ["p2", None]])
+        self.assertFalse(tdf.find_data_type_failures(dat) or tdf.find_data_row_failures(dat))
+
+        path = os.path.join(_scratchDir, "datetime.db")
+        tdf.sql.write_db_data(dat, path)
+        dat_1 = tdf.sql.create_tic_dat(path)
+        self.assertFalse(tdf._same_data(dat, dat_1))
+        self.assertFalse(tdf.find_data_type_failures(dat_1) or tdf.find_data_row_failures(dat_1))
+        self.assertTrue(isinstance(dat_1.parameters["p1"]["b"], datetime.datetime))
+        self.assertTrue(all(isinstance(_, datetime.datetime) for _ in dat_1.table_with_stuffs))
+        self.assertTrue(all(isinstance(_, datetime.datetime) or _ is None for v in dat_1.table_with_stuffs.values()
+                            for _ in v.values()))
+        path = os.path.join(_scratchDir, "datetime.sql")
+        tdf.sql.write_sql_file(dat, path)
+        dat_2 = tdf.sql.create_tic_dat_from_sql(path)
+        self.assertTrue(tdf._same_data(dat_1, dat_2))
+
+
+
 
 _scratchDir = TestSql.__name__ + "_scratch"
 

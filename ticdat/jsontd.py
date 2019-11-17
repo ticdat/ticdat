@@ -6,6 +6,7 @@ import os
 from collections import defaultdict
 from ticdat.utils import freezable_factory, TicDatError, verify, stringish, dictish, containerish
 from ticdat.utils import find_duplicates_from_dict_ticdat
+import datetime
 
 try:
     import json
@@ -23,6 +24,8 @@ def _standard_verify(tdf):
 def make_json_dict(tdf, tic_dat, verbose=False, use_infinity_io_flag_if_provided=False):
     assert tdf.good_tic_dat_object(tic_dat)
     def write_cell(t, f, x):
+        if isinstance(x, datetime.datetime):
+            return str(x)
         return x if not use_infinity_io_flag_if_provided else tdf._infinity_flag_write_cell(t, f, x)
     jdict = defaultdict(list)
     for t in tdf.all_tables:
@@ -127,16 +130,15 @@ class JsonTicFactory(freezable_factory(object, "_isFrozen")) :
             if len(table_keys[t]) >= 1:
                 verify(len(table_keys[t]) < 2, "Found duplicate matching keys for table %s"%t)
                 rtn[t] = jdict[table_keys[t][0]]
-        if tdf.infinity_io_flag != "N/A":
-            orig_rtn, rtn = rtn, {}
-            for t, rows in orig_rtn.items():
-                all_fields = tdf.primary_key_fields.get(t, ()) + tdf.data_fields.get(t, ())
-                rtn[t] = []
-                for row in rows:
-                    if dictish(row):
-                        rtn[t].append({f: tdf._infinity_flag_read_cell(t, f, x) for f,x in row.items()})
-                    else:
-                        rtn[t].append([tdf._infinity_flag_read_cell(t, f, x) for f, x in zip(all_fields, row)])
+        orig_rtn, rtn = rtn, {}
+        for t, rows in orig_rtn.items():
+            all_fields = tdf.primary_key_fields.get(t, ()) + tdf.data_fields.get(t, ())
+            rtn[t] = []
+            for row in rows:
+                if dictish(row):
+                    rtn[t].append({f: tdf._general_read_cell(t, f, x) for f, x in row.items()})
+                else:
+                    rtn[t].append([tdf._general_read_cell(t, f, x) for f, x in zip(all_fields, row)])
         return rtn
     def write_file(self, tic_dat, json_file_path, allow_overwrite = False, verbose = False):
         """

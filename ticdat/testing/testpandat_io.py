@@ -10,6 +10,17 @@ import ticdat.pandatio as pandatio
 import shutil
 import os
 import json
+try:
+    import numpy
+    import pandas as pd
+except:
+    numpy = pd = None
+import math
+try:
+    import dateutil
+except:
+    dateutil = None
+import datetime
 
 def _deep_anonymize(x)  :
     if not hasattr(x, "__contains__") or utils.stringish(x):
@@ -157,6 +168,42 @@ class TestIO(unittest.TestCase):
             getattr(getattr(pdf_1, attr), func)(dat, path)
             dat_1 = getattr(pdf_2, attr).create_pan_dat(path)
             self.assertTrue(pdf_1._same_data(dat, dat_1))
+
+    def test_datetime(self):
+        core_path = os.path.join(_scratchDir, "parameters")
+        pdf = PanDatFactory(table_with_stuffs = [["field one"], ["field two"]],
+                            parameters = [["a"],["b"]])
+        pdf.add_parameter("p1", "Dec 15 1970", datetime=True)
+        pdf.add_parameter("p2", None, datetime=True, nullable=True)
+        pdf.set_data_type("table_with_stuffs", "field one", datetime=True)
+        pdf.set_data_type("table_with_stuffs", "field two", datetime=True, nullable=True)
+        dat = TicDatFactory(**pdf.schema()).TicDat(
+            table_with_stuffs =[[dateutil.parser.parse("July 11 1972"), None],
+                                [datetime.datetime.now(), dateutil.parser.parse("Sept 11 2011")]],
+        parameters = [["p1", "7/11/1911"], ["p2", None]]
+        )
+        dat = TicDatFactory(**pdf.schema()).copy_to_pandas(dat, drop_pk_columns=False)
+        self.assertFalse(pdf.find_data_type_failures(dat) or pdf.find_data_row_failures(dat))
+
+        for attr, path in [["csv", core_path+"_csv"], ["xls", core_path+".xlsx"], ["sql", core_path+".db"],
+                           ["json", core_path+".json"]]:
+            func = "write_directory" if attr == "csv" else "write_file"
+            getattr(getattr(pdf, attr), func)(dat, path)
+            dat_1 = getattr(pdf, attr).create_pan_dat(path)
+            self.assertFalse(pdf._same_data(dat, dat_1))
+            self.assertFalse(pdf.find_data_type_failures(dat_1) or pdf.find_data_row_failures(dat_1))
+            dat_1 = pdf.copy_to_tic_dat(dat_1)
+            self.assertTrue(set(dat_1.parameters) == {'p1', 'p2'})
+            self.assertTrue(isinstance(dat_1.parameters["p1"]["b"], (datetime.datetime, numpy.datetime64))
+                            and not pd.isnull(dat_1.parameters["p1"]["b"]))
+            self.assertTrue(pd.isnull(dat_1.parameters["p2"]["b"]))
+            self.assertTrue(all(isinstance(_, (datetime.datetime, numpy.datetime64)) and not pd.isnull(_)
+                                for _ in dat_1.table_with_stuffs))
+            self.assertTrue(all(isinstance(_, (datetime.datetime, numpy.datetime64)) or _ is None
+                                or utils.safe_apply(math.isnan)(_) for v in dat_1.table_with_stuffs.values()
+                                for _ in v.values()))
+            self.assertTrue({pd.isnull(_) for v in dat_1.table_with_stuffs.values() for _ in v.values()} ==
+                            {True, False})
 
     def test_parameters(self):
         core_path = os.path.join(_scratchDir, "parameters")

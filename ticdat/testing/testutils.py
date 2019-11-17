@@ -11,6 +11,11 @@ import os
 import itertools
 import shutil
 import json
+try:
+    import dateutil
+except:
+    dateutil = None
+import datetime
 
 def _deep_anonymize(x)  :
     if not hasattr(x, "__contains__") or utils.stringish(x):
@@ -1014,6 +1019,22 @@ class TestUtils(unittest.TestCase):
             new_sch = json.loads(json.dumps(new_sch))
             new_sch["foreign_keys"] = sorted(new_sch["foreign_keys"])
             self.assertTrue(new_sch == simple_sch)
+
+    def testTwentyTwo(self):
+        tdf = TicDatFactory(table_with_stuffs = [["field one"], ["field two"]],
+                            parameters = [["a"],["b"]])
+        tdf.set_data_type("table_with_stuffs", "field one", datetime=True)
+        tdf.set_data_type("table_with_stuffs", "field two", datetime=True, nullable=True)
+        tdf.add_parameter("p1", "Dec 15 1970", datetime=True)
+        tdf.add_parameter("p2", None, datetime=True, nullable=True)
+        dat = tdf.TicDat(table_with_stuffs = [["July 11 1972", None],
+                                              [datetime.datetime.now(), dateutil.parser.parse("Sept 11 2011")]],
+                         parameters = [["p1", "7/11/1911"], ["p2", None]])
+        self.assertFalse(tdf.find_data_type_failures(dat) or tdf.find_data_row_failures(dat))
+        dat.table_with_stuffs["Nov 22 1963"] = dat.table_with_stuffs["Nov 222 1963"] = datetime.datetime.now()
+        dat.parameters["p2"] = 100
+        self.assertTrue(set(map(len, [tdf.find_data_type_failures(dat), tdf.find_data_row_failures(dat)])) == {1})
+
 
 
 _scratchDir = TestUtils.__name__ + "_scratch"

@@ -311,6 +311,9 @@ class TestAccdb(unittest.TestCase):
         mdb_dat = tdf_2.mdb.create_tic_dat(path)
         self.assertTrue(tdf_1._same_data(dat, mdb_dat))
 
+    # def testDateTime(self):
+    # SKIPPING FOR NOW - see issue 38
+
 _scratchDir = TestAccdb.__name__ + "_scratch"
 
 # Run the tests.

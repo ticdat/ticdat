@@ -179,7 +179,7 @@ class MdbTicFactory(freezable_factory(object, "_isFrozen")) :
                 cur.execute("Select %s from [%s]"%(", ".join(_brackets(tdf.data_fields[table])),
                                                    table_name))
                 for row in cur.fetchall():
-                  yield [tdf._infinity_flag_read_cell(table, f, x) for f, x in zip(tdf.data_fields[table], row)]
+                  yield [tdf._general_read_cell(table, f, x) for f, x in zip(tdf.data_fields[table], row)]
         return tableObj
     def _create_tic_dat(self, mdbFilePath):
         tdf = self.tic_dat_factory
@@ -197,7 +197,7 @@ class MdbTicFactory(freezable_factory(object, "_isFrozen")) :
                     cur.execute("Select %s from [%s]"%(", ".join(_brackets(fields)),
                                  table_names[table]))
                     for row_ in cur.fetchall():
-                        row = [tdf._infinity_flag_read_cell(table, f, x) for f, x in zip(fields, row_)]
+                        row = [tdf._general_read_cell(table, f, x) for f, x in zip(fields, row_)]
                         pk = row[:len(tdf.primary_key_fields.get(table, ()))]
                         data = row[len(tdf.primary_key_fields.get(table, ())):]
                         if dictish(rtn[table]) :

@@ -8,13 +8,17 @@ from ticdat.utils import ForeignKey, ForeignKeyMapping, TypeDictionary, verify, 
 from ticdat.utils import lupish, deep_freeze, containerish, FrozenDict, safe_apply, stringish
 import ticdat.pandatio as pandatio
 from itertools import count
-from math import isnan
+try:
+    from pandas import isnull
+except:
+    isnull = None
 import collections as clt
 from ticdat.pgtd import PostgresPanFactory
 try:
     import amplpy
 except:
     amplpy = None
+
 pd, DataFrame = utils.pd, utils.DataFrame # if pandas not installed will be falsey
 
 def _faster_df_apply(df, func):
@@ -113,7 +117,7 @@ class PanDatFactory(object):
         params = full_schema.get("parameters", {})
         if params:
             verify(dictish(params) and all(map(utils.stringish, params)), "parameters not well formatted")
-            verify(all(len(v) == 2 and (v[0] is None or len(v[0]) == 8)
+            verify(all(len(v) == 2 and (v[0] is None or len(v[0]) in [8, 9])
                        and not containerish(v[1]) for v in params.values()),
                    "parameters improperly formatted")
 
@@ -200,13 +204,13 @@ class PanDatFactory(object):
             for rtn in [1, -1]:
                 if fld_type.valid_data(rtn * float("inf")):
                     return rtn
-    def _infinity_flag_post_read_adjustment(self, dat, push_parameters_to_be_valid=False):
+    def _general_post_read_adjustment(self, dat, push_parameters_to_be_valid=False):
         '''
         we expect other routines inside ticdat to access this routine, even though it starts with _
         :param dat: PanDat object that was just read from an external data source. dat will be side-effected
         :param push_parameters_to_be_valid : needed for certain file formats, where pandas makes pushy assumptions
                                              about type that might need to be undone
-        :return: dat, after being adjusted to handly infinity flagging
+        :return: dat, after being adjusted to handle infinity flagging
 
         '''
         apply = _faster_df_apply
@@ -221,17 +225,28 @@ class PanDatFactory(object):
                 elif utils.numericish(self._none_as_infinity_bias(t, f)):
                     assert self.infinity_io_flag is None
                     df[f].fillna(value=self._none_as_infinity_bias(t, f) * float("inf"), inplace=True)
+                dt = self.data_types.get(t, {}).get(f, None)
+                if dt and dt.datetime:
+                    def fixed_row(row):
+                        if utils.stringish(row[f]) and row[f] and utils.dateutil_adjuster(row[f]) is not None:
+                            return utils.dateutil_adjuster(row[f])
+                        return row[f]
+                    df[f] = apply(df, fixed_row)
 
         # this is the logic that is used in lieu of infinity_io_flag logic for the parameters table
         # it is predicated on the assumption that the parameters table will be serialized to a string/string table
         if self.parameters:
             [key_fld], [val_fld] = self.schema()["parameters"]
-            _can_parameter_have_number = lambda k : False if k in self.parameters and \
-                                                    not self.parameters[k].type_dictionary.number_allowed else True
-            _can_parameter_have_data = lambda k, data: False if k in self.parameters and \
-                                                       not self.parameters[k].type_dictionary.valid_data(data) else True
+            td = lambda k : getattr(self.parameters.get(k, None), "type_dictionary", None)
+            _can_parameter_have_number = lambda k : False if td(k) and not td(k).number_allowed else True
+            _can_parameter_have_data = lambda k, data: False if td(k) and not td(k).valid_data(data) else True
             def fix_value(row):
                 key, value = [row[_] for _ in [key_fld, val_fld]]
+                if td(key) and td(key).datetime and stringish(value) and \
+                    (utils.dateutil_adjuster(value) is not None) and \
+                    _can_parameter_have_data(key, utils.dateutil_adjuster(value)) and \
+                    push_parameters_to_be_valid:
+                    return utils.dateutil_adjuster(value)
                 if not _can_parameter_have_number(key):
                     if push_parameters_to_be_valid and not _can_parameter_have_data(key, value) and \
                        _can_parameter_have_data(key, str(value)):
@@ -255,7 +270,8 @@ class PanDatFactory(object):
         rtn = self.copy_pan_dat(dat)
         if self.parameters: # Assuming a parameters table without parameters specification is just a naive developer
             fld = self.data_fields["parameters"][0]
-            rtn.parameters[fld] = _faster_df_apply(rtn.parameters, lambda row: str(row[fld]))
+            rtn.parameters[fld] = _faster_df_apply(rtn.parameters,
+                                                   lambda row: None if isnull(row[fld]) else str(row[fld]))
         if self.infinity_io_flag == "N/A":
             return rtn
         apply = _faster_df_apply
@@ -274,7 +290,7 @@ class PanDatFactory(object):
         return rtn
     def set_data_type(self, table, field, number_allowed = True,
                       inclusive_min = True, inclusive_max = False, min = 0, max = float("inf"),
-                      must_be_int = False, strings_allowed= (), nullable = False):
+                      must_be_int = False, strings_allowed= (), nullable = False, datetime = False):
         """
         sets the data type for a field. By default, fields don't have types. Adding a data type doesn't block
         data of the wrong type from being entered. Data types are useful for recognizing errant data entries
@@ -301,6 +317,12 @@ class PanDatFactory(object):
                                 If a "*", then any string is accepted.
         :param nullable : boolean : can this value contain null (aka None aka nan (since pandas treats null as nan))
 
+        :param datetime: If truthy, then number_allowed through strings_allowed are ignored. Should the data either
+                         be a datetime.datetime object or a string that can be parsed into a datetime.datetime object?
+                         Note that the various readers will try to coerce strings into datetime.datetime objects
+                         on read for fields with datetime data types. pandas.Timestamp is itself a datetime.datetime,
+                         and the bias will be to create such an object.
+
         :return:
         """
         verify(not self._has_been_used,
@@ -311,7 +333,7 @@ class PanDatFactory(object):
                "%s does not refer to a field for %s"%(field, table))
 
         self._data_types[table][field] = TypeDictionary.safe_creator(number_allowed, inclusive_min, inclusive_max,
-                                                                     min, max, must_be_int, strings_allowed, nullable)
+                                            min, max, must_be_int, strings_allowed, nullable, datetime)
 
     def clear_data_type(self, table, field):
         """
@@ -342,7 +364,7 @@ class PanDatFactory(object):
 
         **pandas will render None as nan.**
 
-        **Don't check for None in your predicate functions, use math.isnan instead**
+        **Don't check for None in your predicate functions, use pandas.isnull instead**
 
         !!!!!!!!!!
 
@@ -376,7 +398,7 @@ class PanDatFactory(object):
 
     def add_parameter(self, name, default_value, number_allowed = True,
                       inclusive_min = True, inclusive_max = False, min = 0, max = float("inf"),
-                      must_be_int = False, strings_allowed= (), nullable = False,
+                      must_be_int = False, strings_allowed= (), nullable = False, datetime = False,
                       enforce_type_rules = True):
         """
         Add (or reset) a parameters option. Requires that a parameters table with one primary key field and one
@@ -393,7 +415,12 @@ class PanDatFactory(object):
                                 The empty collection prohibits strings.
                                 If a "*", then any string is accepted.
         :param nullable:  boolean : can this parameter be set to null (aka None)
-        :param enforce_type_rules: boolean: ignore all of number_allowed through nullabe, and only
+        :param datetime: If truthy, then number_allowed through strings_allowed are ignored. Should the data either
+                         be a datetime.datetime object or a string that can be parsed into a datetime.datetime object?
+                         Note that the various readers will try to coerce strings into datetime.datetime objects
+                         on read for parameters with datetime data types. pandas.Timestamp is itself a datetime.datetime,
+                         and the bias will be to create such an object.
+        :param enforce_type_rules: boolean: ignore all of number_allowed through datetime, and only
                                    enforce the parameter names and default values
         :return:
         """
@@ -405,7 +432,7 @@ class PanDatFactory(object):
         td = None
         if enforce_type_rules:
             td = TypeDictionary.safe_creator(number_allowed, inclusive_min, inclusive_max,
-                                             min, max, must_be_int, strings_allowed, nullable)
+                                             min, max, must_be_int, strings_allowed, nullable, datetime)
             verify(td.valid_data(default_value), f"{default_value} is not a legal default value for parameter {name}")
         ParameterInfo = clt.namedtuple("ParameterInfo", ["type_dictionary", "default_value"])
         self._parameters[name] = ParameterInfo(td, default_value)
@@ -703,6 +730,8 @@ class PanDatFactory(object):
             print("--> Warning: duplicate rows will force copy_to_tic_dat to return an object with fewer total rows")
         rtn = self._copy_to_tic_dat(pan_dat)
         from ticdat import TicDatFactory
+        # note - this has a minor problem in that it might downcast pandas.Timestamp to numpy.datetime64
+        # in the primary key entries.
         tdf = TicDatFactory(**self.schema())
         return tdf.freeze_me(rtn) if freeze_it else rtn
     def _copy_to_tic_dat(self, pan_dat, keep_generics_as_df=True):
@@ -755,15 +784,13 @@ class PanDatFactory(object):
                "pan_dat not a good object for this factory : %s"%"\n".join(msg))
 
         rtn = {}
-        safe_isnan = safe_apply(isnan)
         TableField = clt.namedtuple("TableField", ["table", "field"])
         for table, type_row in self._data_types.items():
             _table = getattr(pan_dat, table)
             for field, data_type in type_row.items():
                 def bad_row(row):
                     data = row[field]
-                    # pandas turns None into nan
-                    return not data_type.valid_data(None if safe_isnan(data) else data)
+                    return not data_type.valid_data(None if isnull(data) else data)
                 where_bad_rows = _faster_df_apply(_table, bad_row)
                 if where_bad_rows.any():
                     rtn[TableField(table, field)] = _table[where_bad_rows].copy() if as_table else where_bad_rows
@@ -793,6 +820,7 @@ class PanDatFactory(object):
             def good_parameter(row):
                 k = row[self.primary_key_fields["parameters"][0]]
                 v = row[self.data_fields["parameters"][0]]
+                v = None if isnull(v) else v
                 chk = self._parameters.get(k)
                 return chk and (chk.type_dictionary is None or chk.type_dictionary.valid_data(v))
             _ = "Good Name/Value Check"

@@ -10,6 +10,11 @@ from ticdat.testing.ticdattestutils import makeCleanDir, dietSchemaWeirdCase2, c
 from ticdat.testing.ticdattestutils import flagged_as_run_alone
 import unittest
 from ticdat.csvtd import _can_unit_test
+import datetime
+try:
+    import dateutil
+except:
+    dateutil=None
 
 #@fail_to_debugger
 class TestCsv(unittest.TestCase):
@@ -388,6 +393,29 @@ class TestCsv(unittest.TestCase):
         tdf = TicDatFactory(**dietSchema())
         dat_1 = tdf.csv.create_tic_dat(path)
         self.assertFalse(tdf._same_data(dat, dat_1))
+
+    def testDateTime(self):
+        tdf = TicDatFactory(table_with_stuffs = [["field one"], ["field two"]],
+                            parameters = [["a"],["b"]])
+        tdf.add_parameter("p1", "Dec 15 1970", datetime=True)
+        tdf.add_parameter("p2", None, datetime=True, nullable=True)
+        tdf.set_data_type("table_with_stuffs", "field one", datetime=True)
+        tdf.set_data_type("table_with_stuffs", "field two", datetime=True, nullable=True)
+
+        dat = tdf.TicDat(table_with_stuffs = [["July 11 1972", None],
+                                              [datetime.datetime.now(), dateutil.parser.parse("Sept 11 2011")]],
+                         parameters = [["p1", "7/11/1911"], ["p2", None]])
+        self.assertFalse(tdf.find_data_type_failures(dat) or tdf.find_data_row_failures(dat))
+
+        path = os.path.join(_scratchDir, "datetime")
+        tdf.csv.write_directory(dat, path)
+        dat_1 = tdf.csv.create_tic_dat(path)
+        self.assertFalse(tdf._same_data(dat, dat_1))
+        self.assertFalse(tdf.find_data_type_failures(dat_1) or tdf.find_data_row_failures(dat_1))
+        self.assertTrue(isinstance(dat_1.parameters["p1"]["b"], datetime.datetime))
+        self.assertTrue(all(isinstance(_, datetime.datetime) for _ in dat_1.table_with_stuffs))
+        self.assertTrue(all(isinstance(_, datetime.datetime) or _ is None for v in dat_1.table_with_stuffs.values()
+                            for _ in v.values()))
 
 
 _scratchDir = TestCsv.__name__ + "_scratch"

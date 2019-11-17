@@ -106,6 +106,8 @@ class _PostgresFactory(freezable_factory(object, "_isFrozen"),):
             fld_type = self.tdf.data_types.get(t, {}).get(f)
             if not fld_type:
                 return default_type
+            if fld_type.datetime:
+                return "timestamp"
             verify(not (fld_type.number_allowed and fld_type.strings_allowed),
                    f"Select one of string or numeric for {t}.{f} if declaring type and using postgres")
             if fld_type.strings_allowed:
@@ -134,13 +136,18 @@ class _PostgresFactory(freezable_factory(object, "_isFrozen"),):
                 return True
             return fld_type.nullable
 
+        def default_sql_str(t, f):
+            fld_type = self.tdf.data_types.get(t, {}).get(f)
+            if fld_type and fld_type.datetime:
+                return ""
+            return f" DEFAULT {db_default(t, f)}"
+
         for t in [_ for _ in self._ordered_tables() if _ in tables]:
             str = f"CREATE TABLE {schema}.{t} (\n"
             strl = [f"{_pg_name(f)} " + get_fld_type(t, f, 'text') for f in
                     self.tdf.primary_key_fields.get(t, ())] + \
                    [f"{_pg_name(f)} " + get_fld_type(t, f, 'float') +
-                    f"{' NOT NULL' if not nullable(t,f) else ''}"
-                    f" DEFAULT {db_default(t, f)}"
+                    (f"{' NOT NULL' if not nullable(t,f) else ''}") + default_sql_str(t, f)
                     for f in self.tdf.data_fields.get(t, ())]
             if self.tdf.primary_key_fields.get(t):
                 strl.append(f"PRIMARY KEY ({','.join(map(_pg_name, self.tdf.primary_key_fields[t]))})")
@@ -230,7 +237,7 @@ class PostgresTicFactory(_PostgresFactory):
         super().__init__(tic_dat_factory)
 
     def _read_data_cell(self, t, f, x):
-        return self.tdf._infinity_flag_read_cell(t, f, x)
+        return self.tdf._general_read_cell(t, f, x)
 
     def _write_data_cell(self, t, f, x):
         return self.tdf._infinity_flag_write_cell(t, f, x)
@@ -428,7 +435,7 @@ class PostgresPanFactory(_PostgresFactory):
         rtn = self.tdf.PanDat(**rtn)
         msg = []
         assert self.tdf.good_pan_dat_object(rtn, msg.append), str(msg)
-        return self.tdf._infinity_flag_post_read_adjustment(rtn)
+        return self.tdf._general_post_read_adjustment(rtn, push_parameters_to_be_valid=True)
 
     def write_data(self, pan_dat, engine, schema, pre_existing_rows=None):
         '''
