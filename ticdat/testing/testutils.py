@@ -1035,7 +1035,11 @@ class TestUtils(unittest.TestCase):
         dat.parameters["p2"] = 100
         self.assertTrue(set(map(len, [tdf.find_data_type_failures(dat), tdf.find_data_row_failures(dat)])) == {1})
 
-
+        all_params = tdf.create_full_parameters_dict(tdf.TicDat())
+        pdf = PanDatFactory.create_from_full_schema(tdf.schema(include_ancillary_info=True))
+        all_params_2 = pdf.create_full_parameters_dict(pdf.PanDat())
+        self.assertTrue(all_params == all_params_2 and len(all_params) == 2)
+        self.assertTrue(all_params["p1"] ==  dateutil.parser.parse("Dec 15 1970") and utils.pd.isnull(all_params["p2"]))
 
 _scratchDir = TestUtils.__name__ + "_scratch"
 
