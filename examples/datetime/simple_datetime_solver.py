@@ -5,10 +5,10 @@
 # Command line interface works like this
 #    python simple_datetime_solver.py -i sample_data -o solution_directory
 #
-# This is a very simply app that datetime functionality that might be useful for a routing application.
+# This is a very simple app that demos datetime functionality that might be useful for a routing application.
 # A parameter defines the start of the model, and each order has a "Deliver By" time requirement. The solution
 # (which is just diagnostic information) is the time elapsed (in days) between the start time of the model and the
-# "Delvery By time for each order
+# "Delvery By" time for each order
 
 from ticdat import PanDatFactory, standard_main
 # ------------------------ define the input schema --------------------------------
