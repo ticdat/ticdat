@@ -463,10 +463,7 @@ class TestSql(unittest.TestCase):
         path = os.path.join(_scratchDir, "datetime.sql")
         tdf.sql.write_sql_file(dat, path)
         dat_2 = tdf.sql.create_tic_dat_from_sql(path)
-        self.assertTrue(tdf._same_data(dat_1, dat_2))
-
-
-
+        self.assertTrue(tdf._same_data(dat_1, dat_2, nans_are_same_for_data_rows=True))
 
 _scratchDir = TestSql.__name__ + "_scratch"
 
