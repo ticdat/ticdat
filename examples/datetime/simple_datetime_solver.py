@@ -15,7 +15,7 @@ from ticdat import PanDatFactory, standard_main
 input_schema = PanDatFactory(parameters=[["Name"],["Value"]],
                              orders=[["Name"], ["Deliver By"]])
 input_schema.set_data_type("orders", "Deliver By", datetime=True)
-input_schema.add_parameter("Start Of Model", "Jan 1 2019", datetime=True)
+input_schema.add_parameter("Start Of Model", "Jan 1 2019 8 AM", datetime=True)
 # ---------------------------------------------------------------------------------
 
 # ------------------------ define the output schema -------------------------------
