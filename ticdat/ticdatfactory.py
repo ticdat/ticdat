@@ -828,7 +828,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
         assert t in self.all_tables
         if t == "parameters": # infinity flagging doesn't apply to parameters table, see set_infinity_flag __doc__
             return x
-        if self._data_types.get(t, {}).get(f) and self.data_types[t][f].datetime and \
+        if self._data_types.get(t, {}).get(f) and self.data_types[t][f].datetime and utils.stringish(x) and \
            utils.dateutil_adjuster(x) is not None:
             return utils.dateutil_adjuster(x)
         if utils.numericish(self.infinity_io_flag) and utils.numericish(x):

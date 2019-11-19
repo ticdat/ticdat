@@ -205,6 +205,16 @@ class TestIO(unittest.TestCase):
             self.assertTrue({pd.isnull(_) for v in dat_1.table_with_stuffs.values() for _ in v.values()} ==
                             {True, False})
 
+    def testDateTimeTwo(self):
+        file = os.path.join(_scratchDir, "datetime_pd.xls")
+        df = utils.pd.DataFrame({"a":list(map(utils.pd.Timestamp,
+            ["June 13 1960 4:30PM", "Dec 11 1970 1AM", "Sept 11 2001 9:30AM"]))})
+        df.to_excel(file, "Cool Runnings")
+        pdf = PanDatFactory(cool_runnings = [["a"],[]])
+        pdf.set_data_type("cool_runnings", "a", datetime=True)
+        dat = pdf.xls.create_pan_dat(file)
+        self.assertTrue(set(dat.cool_runnings["a"]) == set(df["a"]))
+
     def test_parameters(self):
         core_path = os.path.join(_scratchDir, "parameters")
         pdf = PanDatFactory(parameters=[["Key"], ["Value"]])

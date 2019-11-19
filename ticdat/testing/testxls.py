@@ -560,13 +560,23 @@ class TestXls(unittest.TestCase):
         tdf.xls.write_file(dat, file_two)
         dat_1 = tdf.xls.create_tic_dat(file_one)
         dat_2 = tdf.xls.create_tic_dat(file_two)
-        self.assertTrue(tdf._same_data(dat_1, dat_2))
+        self.assertTrue(tdf._same_data(dat_1, dat_2, nans_are_same_for_data_rows=True))
         self.assertFalse(tdf.find_data_type_failures(dat_1) or tdf.find_data_row_failures(dat_1))
-        self.assertFalse(tdf._same_data(dat, dat_1))
+        self.assertFalse(tdf._same_data(dat, dat_1, nans_are_same_for_data_rows=True))
         self.assertTrue(isinstance(dat_1.parameters["p1"]["b"], datetime.datetime))
         self.assertTrue(all(isinstance(_, datetime.datetime) for _ in dat_1.table_with_stuffs))
         self.assertTrue(all(isinstance(_, datetime.datetime) or _ is None for v in dat_1.table_with_stuffs.values()
                             for _ in v.values()))
+
+    def testDateTimeTwo(self):
+        file = os.path.join(_scratchDir, "datetime_pd.xls")
+        df = utils.pd.DataFrame({"a":list(map(utils.pd.Timestamp,
+            ["June 13 1960 4:30PM", "Dec 11 1970 1AM", "Sept 11 2001 9:30AM"]))})
+        df.to_excel(file, "Cool Runnings")
+        tdf = TicDatFactory(cool_runnings = [["a"],[]])
+        tdf.set_data_type("cool_runnings", "a", datetime=True)
+        dat = tdf.xls.create_tic_dat(file)
+        self.assertTrue(set(dat.cool_runnings) == set(df["a"]))
 
 _scratchDir = TestXls.__name__ + "_scratch"
 

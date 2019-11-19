@@ -228,7 +228,7 @@ class PanDatFactory(object):
                 dt = self.data_types.get(t, {}).get(f, None)
                 if dt and dt.datetime:
                     def fixed_row(row):
-                        if utils.stringish(row[f]) and row[f] and utils.dateutil_adjuster(row[f]) is not None:
+                        if utils.stringish(row[f]) and utils.dateutil_adjuster(row[f]) is not None:
                             return utils.dateutil_adjuster(row[f])
                         return row[f]
                     df[f] = apply(df, fixed_row)

@@ -32,10 +32,9 @@ import inspect
 def dateutil_adjuster(x):
     if isinstance(x, datetime_.datetime):
         return x
-    # note that pd.Timestamp tends to create NaT from Falsey, which is not what we want
-    # also not that pd.Timestamp's ability to generate Timestamps from numbers is
-    # currently judged to be too OP for default behavior.
-    if pd and x and stringish(x):
+    # note that pd.Timestamp tends to create NaT from Falsey, this might be problematic
+    # also, pd.Timestampp can do weird things making Timestamps from numbers, so not enabling that.
+    if pd and not numericish(x):
         rtn = safe_apply(pd.Timestamp)(x)
         if rtn is None and dateutil:
             return safe_apply(dateutil.parser.parse)(x)
