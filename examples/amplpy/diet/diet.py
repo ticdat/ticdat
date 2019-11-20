@@ -14,7 +14,7 @@
 # to solution_data.xlsx.
 #
 
-try:
+try: # if you don't have amplpy installed, the code will still load and then fail on solve
     from amplpy import AMPL
 except:
     AMPL = None

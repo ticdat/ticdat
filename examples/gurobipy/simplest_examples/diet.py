@@ -1,6 +1,9 @@
 # Simplest diet example using gurobipy and ticdat
 
-import gurobipy as gu
+try: # if you don't have gurobipy installed, the code will still load and then fail on solve
+    import gurobipy as gu
+except:
+    gu = None
 from ticdat import TicDatFactory, standard_main
 
 input_schema = TicDatFactory (

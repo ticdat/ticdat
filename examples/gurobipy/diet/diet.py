@@ -15,7 +15,11 @@
 
 # this version of the file uses Gurobi
 
-import gurobipy as gu
+try: # if you don't have gurobipy installed, the code will still load and then fail on solve
+    import gurobipy as gu
+except:
+    gu = None
+
 from ticdat import TicDatFactory, standard_main
 
 # ------------------------ define the input schema --------------------------------
@@ -71,6 +75,8 @@ def solve(dat):
     assert not input_schema.find_data_type_failures(dat)
     assert not input_schema.find_data_row_failures(dat)
 
+    if gu is None: # even if you don't have gurobipy installed, you can still import this file for other uses
+        print("*****\ngurobipy needs to be installed for this example code to solve!\n*****\n")
     mdl = gu.Model("diet")
 
     nutrition = {c:mdl.addVar(lb=n["Min Nutrition"], ub=n["Max Nutrition"], name=c)

@@ -16,7 +16,10 @@
 # This version of the netflow example takes extra precautions to avoid generating
 # unneeded constraints. See the simplest_examples directory for a simpler version of this model.
 
-import gurobipy as gu
+try: # if you don't have gurobipy installed, the code will still load and then fail on solve
+    import gurobipy as gu
+except:
+    gu = None
 from ticdat import TicDatFactory, standard_main, Slicer
 
 # ------------------------ define the input schema --------------------------------
