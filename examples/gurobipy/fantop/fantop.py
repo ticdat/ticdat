@@ -19,8 +19,10 @@
 from ticdat import TicDatFactory, standard_main
 
 
-# this version of the file uses Gurobi
-import gurobipy as gu
+try: # if you don't have gurobipy installed, the code will still load and then fail on solve
+    import gurobipy as gu
+except:
+    gu = None
 
 # ------------------------ define the input schema --------------------------------
 input_schema = TicDatFactory (
