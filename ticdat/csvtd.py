@@ -36,7 +36,7 @@ class CsvTicFactory(freezable_factory(object, "_isFrozen")) :
         self.tic_dat_factory = tic_dat_factory
         self._isFrozen = True
     def create_tic_dat(self, dir_path, dialect='excel', headers_present = True,
-                       freeze_it = False):
+                       freeze_it = False, encoding=None):
         """
         Create a TicDat object from the csv files in a directory
 
@@ -46,6 +46,8 @@ class CsvTicFactory(freezable_factory(object, "_isFrozen")) :
 
         :param headers_present: Boolean. Does the first row of data contain the
                                 column headers?
+
+        :param encoding: see docstring for the Python.open function
 
         :param freeze_it: boolean. should the returned object be frozen?
 
@@ -73,7 +75,7 @@ class CsvTicFactory(freezable_factory(object, "_isFrozen")) :
         verify(DataFrame or not tdf.generic_tables,
                "Strange absence of pandas despite presence of generic tables")
         rtn = self.tic_dat_factory.TicDat(**self._create_tic_dat(dir_path, dialect,
-                                                                  headers_present))
+                                                                  headers_present, encoding))
         rtn = self.tic_dat_factory._parameter_table_post_read_adjustment(rtn)
         if freeze_it:
             return self.tic_dat_factory.freeze_me(rtn)
@@ -99,26 +101,28 @@ class CsvTicFactory(freezable_factory(object, "_isFrozen")) :
                     return x
             return x
         return self.tic_dat_factory._general_read_cell(table, field, _inner_rtn(x))
-    def _create_tic_dat(self, dir_path, dialect, headers_present):
+    def _create_tic_dat(self, dir_path, dialect, headers_present, encoding):
         verify(dialect in csv.list_dialects(), "Invalid dialect %s"%dialect)
         verify(os.path.isdir(dir_path), "Invalid directory path %s"%dir_path)
-        rtn =  {t : self._create_table(dir_path, t, dialect, headers_present)
+        rtn =  {t : self._create_table(dir_path, t, dialect, headers_present, encoding)
                 for t in self.tic_dat_factory.all_tables}
         missing_tables = {t for t in self.tic_dat_factory.all_tables if not rtn[t]}
         if missing_tables:
             print ("The following table names could not be found in the %s directory.\n%s\n"%
                    (dir_path,"\n".join(missing_tables)))
         return {k:v for k,v in rtn.items() if v}
-    def find_duplicates(self, dir_path, dialect='excel', headers_present = True):
+    def find_duplicates(self, dir_path, dialect='excel', headers_present = True, encoding=None):
         """
         Find the row counts for duplicated rows.
 
         :param dir_path: the directory containing .csv files.
-
+    
         :param dialect: the csv dialect. Consult csv documentation for details.
 
         :param headers_present: Boolean. Does the first row of data contain
                                 the column headers?
+
+        :param encoding: see docstring for the Python.open function
 
         :return: A dictionary whose keys are the table names for the primary key tables.
                  Each value of the return dictionary is itself a dictionary.
@@ -137,7 +141,7 @@ class CsvTicFactory(freezable_factory(object, "_isFrozen")) :
         rtn = {t:defaultdict(int) for t,_ in tdf.primary_key_fields.items()
                if _ and self._get_file_path(dir_path, t)}
         for t in rtn:
-            with open(self._get_file_path(dir_path, t)) as csvfile:
+            with open(self._get_file_path(dir_path, t), encoding=encoding) as csvfile:
                 for r in self._get_data(csvfile, t, dialect, headers_present):
                     p_key = r[tdf.primary_key_fields[t][0]] \
                             if len(tdf.primary_key_fields[t])==1 else \
@@ -177,19 +181,19 @@ class CsvTicFactory(freezable_factory(object, "_isFrozen")) :
                            "Duplicate field names found for field %s table %s"%(f, table))
                 yield {f: self._read_cell(table, f, row[key_matching[f][0]]) for f in fieldnames}
 
-    def _create_table(self, dir_path, table, dialect, headers_present):
+    def _create_table(self, dir_path, table, dialect, headers_present, encoding):
         file_path = self._get_file_path(dir_path, table)
         if not (file_path and  os.path.isfile(file_path)) :
             return
         tdf = self.tic_dat_factory
         if table in tdf.generator_tables:
             def rtn() :
-                with open(file_path) as csvfile:
+                with open(file_path, encoding=encoding) as csvfile:
                     for r in self._get_data(csvfile, table, dialect, headers_present):
                         yield tuple(r[_] for _ in tdf.data_fields[table])
         else:
             rtn = {} if tdf.primary_key_fields.get(table) else []
-            with open(file_path) as csvfile:
+            with open(file_path, encoding=encoding) as csvfile:
                 for r in self._get_data(csvfile, table, dialect, headers_present) :
                     if tdf.primary_key_fields.get(table) :
                         p_key = r[tdf.primary_key_fields[table][0]] \
