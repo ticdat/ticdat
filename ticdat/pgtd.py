@@ -4,8 +4,10 @@ Read/write ticDat objects from PostGres database. Requires the sqlalchemy module
 
 from collections import defaultdict
 from ticdat.utils import freezable_factory, TicDatError, verify, dictish, FrozenDict, find_duplicates
-from ticdat.utils import create_duplicate_focused_tdf
-
+from ticdat.utils import create_duplicate_focused_tdf, dictish
+import os
+import json
+import sys
 try:
     import sqlalchemy as sa
 except:
@@ -19,6 +21,14 @@ try:
     import pandas as pd
 except:
     pd = None
+
+try:
+    from framework_utils.ticdat_deployer import TicDatDeployer
+except:
+    try:
+        from enframe_ticdat_deployer import TicDatDeployer
+    except:
+        TicDatDeployer = None
 
 _can_unit_test = bool(sa)
 
@@ -459,3 +469,45 @@ class PostgresPanFactory(_PostgresFactory):
             fields = self.tdf.primary_key_fields.get(table, ()) + self.tdf.data_fields.get(table, ())
             df.rename(columns={f: _pg_name(f) for f in fields}, inplace=True)
             df.to_sql(name=table, schema=schema, con=engine, if_exists="append", index=False)
+
+class EnframeOfflineHandler(object):
+    def __init__(self, confg_file, input_schema, solution_schema, solve):
+        verify(TicDatDeployer, "Need some local package that can find TicDatDeployer.")
+        verify(sa, "sqlalchemy needs to be installed to use PostGres")
+        verify(os.path.isfile(confg_file), f"{confg_file} isn't a valid file path")
+        with open(confg_file, "r") as _:
+            d = json.load(_)
+        verify(dictish(d), f"{confg_file} doesn't resolve to a dict")
+        self._config_dict = d
+        self._config_file = confg_file
+        self._engine_dicts = {}
+        m = sys.modules[solve.__module__]
+        if m.__package__:
+            m = sys.modules[m.__package__]
+        for n, o in [["input_schema", input_schema], ["solution_schema", solution_schema], ["solve", solve]]:
+            verify(getattr(m, n, None) is o, f"failure to resolve {n}")
+        self._tdd = TicDatDeployer.duck_type_create(m)
+
+    def __enter__(self):
+        pass
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        for v in self._engine_dicts.values():
+            v.dispose()
+
+    def _get_engine_and_schema(self, config_type):
+        # this code needs rewriting
+        assert config_type in ["input", "output"]
+        verify(f"{config_type} schema" in self._config_dict, f"'{config_type} schema' not found in {self._config_file}")
+        schema = self._config_dict[f"{config_type} schema"]
+        engine_fail, engine_url = "", ""
+        if config_type in self._engine_dicts:
+            engine = self._engine_dicts[config_type]
+        else:
+            verify(f"{config_type} url" in self._config_dict, f"'{config_type} url' not found in {self._config_file}")
+            engine_url = self._config_dict[f"{config_type} url"]
+            try:
+                engine = sa.create_engine(engine_url)
+            except Exception as e:
+                engine_fail = str(e)
+        verify(not engine_fail, f"Failed to create postgres engine\nURL : {engine_url}\nException : {engine_fail}")
+        return engine, schema
