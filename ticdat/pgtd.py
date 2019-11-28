@@ -22,14 +22,6 @@ try:
 except:
     pd = None
 
-try:
-    from framework_utils.ticdat_deployer import TicDatDeployer
-except:
-    try:
-        from enframe_ticdat_deployer import TicDatDeployer
-    except:
-        TicDatDeployer = None
-
 _can_unit_test = bool(sa)
 
 # Seems to be required in postgres.
@@ -472,42 +464,46 @@ class PostgresPanFactory(_PostgresFactory):
 
 class EnframeOfflineHandler(object):
     def __init__(self, confg_file, input_schema, solution_schema, solve):
+        try:
+            from framework_utils.ticdat_deployer import TicDatDeployer
+        except :
+            try:
+                from enframe_ticdat_deployer import TicDatDeployer
+            except:
+                TicDatDeployer = None
+        self._engine = None
         verify(TicDatDeployer, "Need some local package that can find TicDatDeployer.")
         verify(sa, "sqlalchemy needs to be installed to use PostGres")
         verify(os.path.isfile(confg_file), f"{confg_file} isn't a valid file path")
         with open(confg_file, "r") as _:
             d = json.load(_)
         verify(dictish(d), f"{confg_file} doesn't resolve to a dict")
-        self._config_dict = d
-        self._config_file = confg_file
-        self._engine_dicts = {}
+        recognized_keys = {"postgres_url", "postgres_schema", "solve_type"}
+        ignored_keys = set(d).difference(recognized_keys)
+        if ignored_keys:
+            print(f"\n****\nThe following entries from {confg_file} will be ignored.\n{ignored_keys}\n****\n")
+        missing_keys = recognized_keys.difference(d)
+        verify(not missing_keys, f"following keys missing from {confg_file}\n{missing_keys}")
+        self._postgres_url = d["postgres_url"]
+        self._postgres_schema = d["postgres_schema"]
+        self.solve_type = d["solve_type"]
+        verify(self.solve_type in ["Proxy Enframe Solve", "Copy Input To Postgres"],
+               "solve_type must be 'Proxy Enframe Solve' or 'Copy Input To Postgres'")
         m = sys.modules[solve.__module__]
         if m.__package__:
             m = sys.modules[m.__package__]
         for n, o in [["input_schema", input_schema], ["solution_schema", solution_schema], ["solve", solve]]:
-            verify(getattr(m, n, None) is o, f"failure to resolve {n}")
+            verify(getattr(m, n, None) is o, f"failure to resolve {n} as a proper attribute of the engine")
         self._tdd = TicDatDeployer.duck_type_create(m)
-
+        engine_fail = ""
+        try:
+            self._engine = sa.create_engine(self._postgres_url)
+        except Exception as e:
+            engine_fail = str(e)
+        verify(not engine_fail, "Failed to create postgres engine\n" +
+               f"URL : {self._postgres_url}\nException : {engine_fail}")
     def __enter__(self):
         pass
     def __exit__(self, exc_type, exc_val, exc_tb):
-        for v in self._engine_dicts.values():
-            v.dispose()
-
-    def _get_engine_and_schema(self, config_type):
-        # this code needs rewriting
-        assert config_type in ["input", "output"]
-        verify(f"{config_type} schema" in self._config_dict, f"'{config_type} schema' not found in {self._config_file}")
-        schema = self._config_dict[f"{config_type} schema"]
-        engine_fail, engine_url = "", ""
-        if config_type in self._engine_dicts:
-            engine = self._engine_dicts[config_type]
-        else:
-            verify(f"{config_type} url" in self._config_dict, f"'{config_type} url' not found in {self._config_file}")
-            engine_url = self._config_dict[f"{config_type} url"]
-            try:
-                engine = sa.create_engine(engine_url)
-            except Exception as e:
-                engine_fail = str(e)
-        verify(not engine_fail, f"Failed to create postgres engine\nURL : {engine_url}\nException : {engine_fail}")
-        return engine, schema
+        if self._engine:
+            self._engine.dispose()
