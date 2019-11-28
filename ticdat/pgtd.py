@@ -495,6 +495,7 @@ class EnframeOfflineHandler(object):
         for n, o in [["input_schema", input_schema], ["solution_schema", solution_schema], ["solve", solve]]:
             verify(getattr(m, n, None) is o, f"failure to resolve {n} as a proper attribute of the engine")
         self._tdd = TicDatDeployer.duck_type_create(m)
+        self._engine = m
         engine_fail = ""
         try:
             self._engine = sa.create_engine(self._postgres_url)
@@ -507,3 +508,11 @@ class EnframeOfflineHandler(object):
     def __exit__(self, exc_type, exc_val, exc_tb):
         if self._engine:
             self._engine.dispose()
+    def _write_schema_as_needed(self, pgsql):
+        missing_tables = pgsql.check_tables_fields(self._engine, self._postgres_schema, error_on_missing_table=False)
+        if missing_tables:
+            pgsql.write_schema(self._engine, self._postgres_schema)
+    def copy_input_dat(self, dat):
+       self._write_schema_as_needed(self._tdd._input_pgtd)
+
+
