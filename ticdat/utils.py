@@ -173,6 +173,7 @@ def _extra_input_file_check_str(input_file):
     return ""
 
 def _standard_main_pandat(input_schema, solution_schema, solve):
+    # TODO: look for enframe.json file here as well
     file_name = sys.argv[0]
     def usage():
         print ("python %s --help --input <input file or dir> --output <output file or dir>"%
@@ -231,15 +232,15 @@ def _standard_main_pandat(input_schema, solution_schema, solve):
 def _standard_main_ticdat(input_schema, solution_schema, solve):
     file_name = sys.argv[0]
     def usage():
-        print ("python %s --help --input <input file or dir> --output <output file or dir>"%
-               file_name)
+        print ("python %s --help --input <input file or dir> --output <output file or dir>"%file_name +
+               " --enframe enframe_config.json")
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "hi:o:", ["help", "input=", "output="])
+        opts, args = getopt.getopt(sys.argv[1:], "hi:o:e:", ["help", "input=", "output=", "enframe="])
     except getopt.GetoptError as err:
         print (str(err))  # will print something like "option -a not recognized"
         usage()
         sys.exit(2)
-    input_file, output_file = "input.xlsx", "output.xlsx"
+    input_file, output_file, enframe_config, enframe_handler = "input.xlsx", "output.xlsx", "", None
     for o, a in opts:
         if o in ("-h", "--help"):
             usage()
@@ -248,8 +249,18 @@ def _standard_main_ticdat(input_schema, solution_schema, solve):
             input_file = a
         elif o in ("-o", "--output"):
             output_file = a
+        elif o in ("-e", "--enframe"):
+            enframe_config = a
         else:
             verify(False, "unhandled option")
+    if enframe_config:
+        from ticdat.pgtd import EnframeOfflineHandler
+        enframe_handler = EnframeOfflineHandler(enframe_config, input_schema, solution_schema, solve)
+        if enframe_handler.solve_type == "Proxy Enframe Solve":
+            enframe_handler.proxy_enframe_solve()
+            print(f"Enframe proxy solve executed with {enframe_config}")
+            return
+
     file_or_dir = lambda f :"file" if any(f.endswith(_) for _ in
                             (".json", ".xls", ".xlsx", ".db", ".sql", ".mdb", ".accdb")) \
                   else "directory"
@@ -279,6 +290,10 @@ def _standard_main_ticdat(input_schema, solution_schema, solve):
             assert not input_schema.csv.find_duplicates(input_file), "duplicate rows found"
             dat = input_schema.csv.create_tic_dat(input_file)
         verify(dat, f"Failed to read from and/or recognize {input_file}{_extra_input_file_check_str(input_file)}")
+        if enframe_handler:
+            enframe_handler.copy_input_dat(dat)
+            print(f"Input data copied from {input_file} to the postgres DB defined by  {enframe_config}")
+            return
         sln = solve(dat)
         if sln:
             print("%s output %s %s"%("Overwriting" if os.path.exists(output_file) else "Creating",

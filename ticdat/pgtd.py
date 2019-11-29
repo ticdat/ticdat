@@ -5,6 +5,7 @@ Read/write ticDat objects from PostGres database. Requires the sqlalchemy module
 from collections import defaultdict
 from ticdat.utils import freezable_factory, TicDatError, verify, dictish, FrozenDict, find_duplicates
 from ticdat.utils import create_duplicate_focused_tdf, dictish
+import time
 import os
 import json
 import sys
@@ -463,6 +464,7 @@ class PostgresPanFactory(_PostgresFactory):
             df.to_sql(name=table, schema=schema, con=engine, if_exists="append", index=False)
 
 class EnframeOfflineHandler(object):
+    # TODO: this should all be unit tested!
     def __init__(self, confg_file, input_schema, solution_schema, solve):
         try:
             from framework_utils.ticdat_deployer import TicDatDeployer
@@ -495,7 +497,7 @@ class EnframeOfflineHandler(object):
         for n, o in [["input_schema", input_schema], ["solution_schema", solution_schema], ["solve", solve]]:
             verify(getattr(m, n, None) is o, f"failure to resolve {n} as a proper attribute of the engine")
         self._tdd = TicDatDeployer.duck_type_create(m)
-        self._engine = m
+        self._python_engine = m
         engine_fail = ""
         try:
             self._engine = sa.create_engine(self._postgres_url)
@@ -509,10 +511,59 @@ class EnframeOfflineHandler(object):
         if self._engine:
             self._engine.dispose()
     def _write_schema_as_needed(self, pgsql):
-        missing_tables = pgsql.check_tables_fields(self._engine, self._postgres_schema, error_on_missing_table=False)
-        if missing_tables:
-            pgsql.write_schema(self._engine, self._postgres_schema)
+        from ticdat.utils import TicDatError
+        has_schema = True
+        try:
+            pgsql.check_tables_fields(self._engine, self._postgres_schema, error_on_missing_table=True)
+        except TicDatError:
+            has_schema = False
+        if not has_schema:
+            pgsql.write_schema(self._engine, self._postgres_schema, include_ancillary_info=False)
     def copy_input_dat(self, dat):
+       assert self.solve_type == "Copy Input To Postgres"
        self._write_schema_as_needed(self._tdd._input_pgtd)
+       self._write_schema_as_needed(self._tdd._small_integrity_pgtd)
+       tdf = self._python_engine.input_schema
+       from ticdat import TicDatFactory
+       if isinstance(tdf, TicDatFactory):
+            assert tdf.good_tic_dat_object(dat)
+            renamed_dat = self._tdd._input_pgtd.tdf.TicDat()
+            for t in tdf.all_tables:
+                setattr(renamed_dat, self._tdd._input_renamings[t], getattr(dat, t))
+            # TODO: writing might be slowed down because we have no DSN - can make that optional and add it later
+            self._tdd._input_pgtd.write_data(renamed_dat, self._engine, self._postgres_schema)
+       else:
+            assert tdf.good_pan_dat_object(dat)
+            renamed_dat = self._tdd._input_pgtd.PanDat()
+            for t in tdf.all_tables:
+                setattr(renamed_dat, self._tdd._input_renamings[t], getattr(dat, t))
+            self._tdd._input_pgtd.write_data(renamed_dat, self._engine, self._postgres_schema)
+    def proxy_enframe_solve(self):
+        _time = time.time()
+        seconds = lambda: "{0:.2f}".format(time.time() - _time)
+        class MockDb(object):
+            engine = self._engine
+            schema = self._postgres_schema
+        result_type, result = self._tdd.get_input_dat_with_integrity_checking(MockDb())
+        if result_type == "Integrity Failures":
+            print("Various data integrity problems were found.")
+            for k, v in result.items():
+                print(k.ljust(30) + " : " + str(v))
+            return
+        assert result_type in ["TicDat Data Object", "PanDat Data Object"]
+        dat = result
+        print(f"-->Launch-to-dat time {seconds()} seconds.")
+        # TODO: a bunch of cool stuff I could put here - progress and dumping log tables to .csv files specifically
+        sln = self._python_engine.solve(dat)
+        print(f"--> Launch-to-solve time {seconds()} seconds.")
+        if sln: # writing might be slowed down because we have no DSN - can make that optional and add it later
+            self._write_schema_as_needed(self._tdd._solution_pgtd)
+            self._tdd.write_solution_dat_to_postgres(sln, self._engine, self._postgres_schema)
+        else:
+            print("No solution found")
+
+
+
+
 
 
