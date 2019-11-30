@@ -530,14 +530,21 @@ class EnframeOfflineHandler(object):
             renamed_dat = self._tdd._input_pgtd.tdf.TicDat()
             for t in tdf.all_tables:
                 setattr(renamed_dat, self._tdd._input_renamings[t], getattr(dat, t))
-            # TODO: writing might be slowed down because we have no DSN - can make that optional and add it later
-            self._tdd._input_pgtd.write_data(renamed_dat, self._engine, self._postgres_schema)
+            self._tdd._input_pgtd.write_data(renamed_dat, self._engine, self._postgres_schema, dsn=self._try_get_dsn())
        else:
             assert tdf.good_pan_dat_object(dat)
             renamed_dat = self._tdd._input_pgtd.PanDat()
             for t in tdf.all_tables:
                 setattr(renamed_dat, self._tdd._input_renamings[t], getattr(dat, t))
             self._tdd._input_pgtd.write_data(renamed_dat, self._engine, self._postgres_schema)
+    def _try_get_dsn(self):
+        if not psycopg2:
+            return None
+        try:
+            rtn = psycopg2.connect(self._postgres_url).get_dsn_parameters()
+        except:
+            return None
+        return rtn
     def proxy_enframe_solve(self):
         _time = time.time()
         seconds = lambda: "{0:.2f}".format(time.time() - _time)
@@ -558,7 +565,7 @@ class EnframeOfflineHandler(object):
         print(f"--> Launch-to-solve time {seconds()} seconds.")
         if sln: # writing might be slowed down because we have no DSN - can make that optional and add it later
             self._write_schema_as_needed(self._tdd._solution_pgtd)
-            self._tdd.write_solution_dat_to_postgres(sln, self._engine, self._postgres_schema)
+            self._tdd.write_solution_dat_to_postgres(sln, self._engine, self._postgres_schema, dsn=self._try_get_dsn())
         else:
             print("No solution found")
 

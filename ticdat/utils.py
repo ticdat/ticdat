@@ -172,6 +172,11 @@ def _extra_input_file_check_str(input_file):
         return "\nTo load data from .csv files, pass the parent directory containing the .csv files as the -i argument."
     return ""
 
+# example enframe.json file
+# {"postgres_url": "postgresql://postgres@127.0.0.1:64452/test",
+# "postgres_schema": "test_schema",
+# "solve_type" : "Copy Input To Postgres"}
+
 def _standard_main_pandat(input_schema, solution_schema, solve):
     # TODO: look for enframe.json file here as well
     file_name = sys.argv[0]
@@ -227,7 +232,6 @@ def _standard_main_pandat(input_schema, solution_schema, solve):
                 solution_schema.csv.write_directory(sln, output_file, case_space_table_names=True)
         else:
             print("No solution was created!")
-
 
 def _standard_main_ticdat(input_schema, solution_schema, solve):
     file_name = sys.argv[0]
@@ -292,7 +296,7 @@ def _standard_main_ticdat(input_schema, solution_schema, solve):
         verify(dat, f"Failed to read from and/or recognize {input_file}{_extra_input_file_check_str(input_file)}")
         if enframe_handler:
             enframe_handler.copy_input_dat(dat)
-            print(f"Input data copied from {input_file} to the postgres DB defined by  {enframe_config}")
+            print(f"Input data copied from {input_file} to the postgres DB defined by {enframe_config}")
             return
         sln = solve(dat)
         if sln:
