@@ -271,8 +271,7 @@ def _standard_main_ticdat(input_schema, solution_schema, solve):
     if not (os.path.exists(input_file)):
         print("%s is not a valid input file or directory"%input_file)
     else:
-        print("input %s %s : output %s %s"%(file_or_dir(input_file), input_file,
-                                            file_or_dir(output_file), output_file))
+        print("input %s %s"%(file_or_dir(input_file), input_file))
         dat = None
         if os.path.isfile(input_file) and file_or_dir(input_file) == "file":
             if input_file.endswith(".json"):
@@ -298,6 +297,7 @@ def _standard_main_ticdat(input_schema, solution_schema, solve):
             enframe_handler.copy_input_dat(dat)
             print(f"Input data copied from {input_file} to the postgres DB defined by {enframe_config}")
             return
+        print("output %s %s"%(file_or_dir(output_file), output_file))
         sln = solve(dat)
         if sln:
             print("%s output %s %s"%("Overwriting" if os.path.exists(output_file) else "Creating",
