@@ -319,6 +319,10 @@ try:
 except:
     gu = None
 
+# Our experience was that for a production license the following needed to be truthy, but when running unit tests
+# with a development license, it needed to be disabled. See test_kehaar for example.
+gurobi_env_explicit_creation_enabled = True
+
 def gurobi_env(*args, **kwargs):
     """
     Return an object that can be passed to gurobipy.Model() as the env argument.
@@ -330,6 +334,8 @@ def gurobi_env(*args, **kwargs):
     verify(gu, "gurobipy is not installed")
     if drm:
         return drm.gurobi_env()
+    if gurobi_env_explicit_creation_enabled:
+        return gu.Env()
 
 try:
     import docplex.mp.progress as cplexprogress
