@@ -1,11 +1,15 @@
 import ticdat.utils as utils
 from ticdat import TicDatFactory, PanDatFactory
 from ticdat.testing.ticdattestutils import pan_dat_maker
-from ticdat.pgtd import _can_unit_test, PostgresTicFactory, PostgresPanFactory, _pg_name
+from ticdat.pgtd import _can_unit_test, PostgresTicFactory, PostgresPanFactory, _pg_name, EnframeOfflineHandler
 from ticdat.testing.ticdattestutils import flagged_as_run_alone, fail_to_debugger
 import time
 import datetime
 import math
+import shutil
+import os
+import json
+from ticdat.testing.ticdattestutils import makeCleanDir
 
 import unittest
 try:
@@ -107,11 +111,13 @@ class TestPostres(unittest.TestCase):
             print(f"!!!!Engine failed to load due to {self.engine_fail}")
         if self.engine and utils.safe_apply(lambda: test_schema in sa.inspect(self.engine).get_schema_names())():
             self.engine.execute(sa.schema.DropSchema(test_schema, cascade=True))
+        makeCleanDir(_scratchDir)
 
     def tearDown(self):
         if self.postgresql:
             self.engine.dispose()
             self.postgresql.stop()
+        shutil.rmtree(_scratchDir)
 
     def test_diet_dsn(self):
         if not self.can_run:
@@ -617,9 +623,67 @@ class TestPostres(unittest.TestCase):
             dat_3.table_with_stuffs[pd.Timestamp(k)] = dat_3.table_with_stuffs.pop(k)
         self.assertTrue(tdf._same_data(dat_1, dat_3, nans_are_same_for_data_rows=True))
 
+
+    def test_ticdat_deployer(self):
+        # this won't work unless there is some enframe specific packaging installed.
+        class MockEngine(object):
+            input_schema = diet_schema
+            solution_schema = diet_schema
+            def solve(self, x):
+                return x
+        def make_the_json(solve_type):
+            d = {"postgres_url": self.postgresql.url(),  "postgres_schema": "test_ticdat_enframe",
+                 "solve_type": solve_type}
+            rtn = os.path.join(_scratchDir, "ticdat_enframe.json")
+            with open(rtn, "w") as f:
+                json.dump(d, f, indent=2)
+            return rtn
+        engine = MockEngine()
+        enframe = EnframeOfflineHandler(make_the_json("Copy Input To Postgres"), engine.input_schema,
+                                        engine.solution_schema, engine.solve, engine_object=engine)
+        enframe.copy_input_dat(diet_dat)
+        enframe = EnframeOfflineHandler(make_the_json("Proxy Enframe Solve"), engine.input_schema,
+                                        engine.solution_schema, engine.solve, engine_object=engine)
+        enframe.proxy_enframe_solve()
+        sln = enframe._tdd_data.solution_pgtd.create_tic_dat(self.engine, "test_ticdat_enframe")
+        sln_ = diet_schema.TicDat(**{t: getattr(sln, "s_"+t) for t in diet_schema.all_tables})
+        self.assertTrue(diet_schema._same_data(diet_dat, sln_))
+
+        dat = diet_schema.copy_tic_dat(diet_dat)
+        dat.foods.pop("pizza") # make a FK failure
+        enframe = EnframeOfflineHandler(make_the_json("Copy Input To Postgres"), engine.input_schema,
+                                        engine.solution_schema, engine.solve, engine_object=engine)
+        enframe.copy_input_dat(dat)
+        enframe = EnframeOfflineHandler(make_the_json("Proxy Enframe Solve"), engine.input_schema,
+                                        engine.solution_schema, engine.solve, engine_object=engine)
+        enframe.proxy_enframe_solve() # this exercises a FK failure
+        fails = enframe._tdd_data.small_integrity_pgtd.create_tic_dat(self.engine, "test_ticdat_enframe")
+        self.assertTrue(len(fails.tdi_data_integrity_details) == 4)
+
+        pdf = PanDatFactory.create_from_full_schema(diet_schema.schema(include_ancillary_info=True))
+        pan_dat = diet_schema.copy_to_pandas(diet_dat, drop_pk_columns=False)
+        class MockEngine(object):
+            input_schema = pdf
+            solution_schema = pdf
+            def solve(self, x):
+                return x
+        engine = MockEngine()
+        enframe = EnframeOfflineHandler(make_the_json("Copy Input To Postgres"), engine.input_schema,
+                                        engine.solution_schema, engine.solve, engine_object=engine)
+        enframe.copy_input_dat(pan_dat)
+        enframe = EnframeOfflineHandler(make_the_json("Proxy Enframe Solve"), engine.input_schema,
+                                        engine.solution_schema, engine.solve, engine_object=engine)
+        enframe.proxy_enframe_solve()
+        sln = enframe._tdd_data.solution_pgtd.create_pan_dat(self.engine, "test_ticdat_enframe")
+        sln_ = pdf.PanDat(**{t: getattr(sln, "s_"+t) for t in diet_schema.all_tables})
+        self.assertTrue(pdf._same_data(pan_dat, sln_))
+
+
 test_schema = 'test'
-db_dict = {'drivername': 'postgresql', 'username': 'postgres', 'password': '',
-           'host': '127.0.0.1', 'port': '5432', 'database': 'postgres'}
+
+
+_scratchDir = TestPostres.__name__ + "_scratch"
+
 
 # Run the tests.
 if __name__ == "__main__":
