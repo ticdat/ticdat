@@ -545,7 +545,7 @@ class EnframeOfflineHandler(object):
                                                  dsn=self._try_get_dsn())
        else:
             assert tdf.good_pan_dat_object(dat)
-            renamed_dat = self._tdd_data.input_pgtd.PanDat()
+            renamed_dat = self._tdd_data.input_pgtd.tdf.PanDat()
             for t in tdf.all_tables:
                 setattr(renamed_dat, self._tdd_data.input_renamings[t], getattr(dat, t))
             self._tdd_data.input_pgtd.write_data(renamed_dat, self._engine, self._postgres_schema)

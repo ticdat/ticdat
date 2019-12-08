@@ -645,6 +645,38 @@ class TestPostres(unittest.TestCase):
         enframe = EnframeOfflineHandler(make_the_json("Proxy Enframe Solve"), engine.input_schema,
                                         engine.solution_schema, engine.solve, engine_object=engine)
         enframe.proxy_enframe_solve()
+        sln = enframe._tdd_data.solution_pgtd.create_tic_dat(self.engine, "test_ticdat_enframe")
+        sln_ = diet_schema.TicDat(**{t: getattr(sln, "s_"+t) for t in diet_schema.all_tables})
+        self.assertTrue(diet_schema._same_data(diet_dat, sln_))
+
+        dat = diet_schema.copy_tic_dat(diet_dat)
+        dat.foods.pop("pizza") # make a FK failure
+        enframe = EnframeOfflineHandler(make_the_json("Copy Input To Postgres"), engine.input_schema,
+                                        engine.solution_schema, engine.solve, engine_object=engine)
+        enframe.copy_input_dat(dat)
+        enframe = EnframeOfflineHandler(make_the_json("Proxy Enframe Solve"), engine.input_schema,
+                                        engine.solution_schema, engine.solve, engine_object=engine)
+        enframe.proxy_enframe_solve() # this exercises a FK failure
+        fails = enframe._tdd_data.small_integrity_pgtd.create_tic_dat(self.engine, "test_ticdat_enframe")
+        self.assertTrue(len(fails.tdi_data_integrity_details) == 4)
+
+        pdf = PanDatFactory.create_from_full_schema(diet_schema.schema(include_ancillary_info=True))
+        pan_dat = diet_schema.copy_to_pandas(diet_dat, drop_pk_columns=False)
+        class MockEngine(object):
+            input_schema = pdf
+            solution_schema = pdf
+            def solve(self, x):
+                return x
+        engine = MockEngine()
+        enframe = EnframeOfflineHandler(make_the_json("Copy Input To Postgres"), engine.input_schema,
+                                        engine.solution_schema, engine.solve, engine_object=engine)
+        enframe.copy_input_dat(pan_dat)
+        enframe = EnframeOfflineHandler(make_the_json("Proxy Enframe Solve"), engine.input_schema,
+                                        engine.solution_schema, engine.solve, engine_object=engine)
+        enframe.proxy_enframe_solve()
+        sln = enframe._tdd_data.solution_pgtd.create_pan_dat(self.engine, "test_ticdat_enframe")
+        sln_ = pdf.PanDat(**{t: getattr(sln, "s_"+t) for t in diet_schema.all_tables})
+        self.assertTrue(pdf._same_data(pan_dat, sln_))
 
 
 test_schema = 'test'
