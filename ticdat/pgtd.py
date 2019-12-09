@@ -468,6 +468,11 @@ class EnframeOfflineHandler(object):
     def __init__(self, confg_file, input_schema, solution_schema, solve, engine_object=None):
         """
         :param confg_file: an appropriate json file
+            example enframe.json file. Note the presence of both "solve_type" and "_solve_type" for easy toggling.
+            {"postgres_url": "postgresql://postgres@127.0.0.1:64452/test",
+             "postgres_schema": "test_schema",
+             "solve_type" : "Copy Input To Postgres",
+             "_solve_type": "Proxy Enframe Solve"}
         :param input_schema: the input_schema
         :param solution_schema: the solution_schema
         :param solve: the solve function

@@ -172,10 +172,11 @@ def _extra_input_file_check_str(input_file):
         return "\nTo load data from .csv files, pass the parent directory containing the .csv files as the -i argument."
     return ""
 
-# example enframe.json file
+# example enframe.json file. Note the presence of both "solve_type" and "_solve_type" for easy toggling.
 # {"postgres_url": "postgresql://postgres@127.0.0.1:64452/test",
 # "postgres_schema": "test_schema",
-# "solve_type" : "Copy Input To Postgres"}
+# "solve_type" : "Copy Input To Postgres",
+# "_solve_type": "Proxy Enframe Solve"}
 
 def _standard_main_pandat(input_schema, solution_schema, solve):
     file_name = sys.argv[0]
