@@ -678,6 +678,57 @@ class TestPostres(unittest.TestCase):
         sln_ = pdf.PanDat(**{t: getattr(sln, "s_"+t) for t in diet_schema.all_tables})
         self.assertTrue(pdf._same_data(pan_dat, sln_))
 
+    def test_ticdat_deployer_two(self):
+        # this won't work unless there is some enframe specific packaging installed.
+        tdf = TicDatFactory(table=[[],["a", "b", "c"]], parameters = [["Me"],["My"]])
+        tdf.add_parameter("A Number", 10)
+        tdf.add_parameter("A String", "boo", number_allowed=False, strings_allowed='*')
+        dat = tdf.TicDat(table=[[1, 2, 3], [10, 11, 12]],
+                         parameters=[["A Number", 101], ["A String", "goo"]])
+        class MockEngine(object):
+            input_schema = tdf
+            solution_schema = TicDatFactory(**tdf.schema())
+            def solve(self, x):
+                return x
+        def make_the_json(solve_type):
+            d = {"postgres_url": self.postgresql.url(),  "postgres_schema": "test_ticdat_enframe_two",
+                 "solve_type": solve_type}
+            rtn = os.path.join(_scratchDir, "ticdat_enframe.json")
+            with open(rtn, "w") as f:
+                json.dump(d, f, indent=2)
+            return rtn
+        engine = MockEngine()
+        enframe = EnframeOfflineHandler(make_the_json("Copy Input To Postgres"), engine.input_schema,
+                                        engine.solution_schema, engine.solve, engine_object=engine)
+        enframe.copy_input_dat(dat)
+        enframe = EnframeOfflineHandler(make_the_json("Proxy Enframe Solve"), engine.input_schema,
+                                        engine.solution_schema, engine.solve, engine_object=engine)
+        enframe._write_schema_as_needed(enframe._tdd_data.solution_pgtd, {("s_parameters", "My"): "text"})
+        enframe.proxy_enframe_solve()
+        sln = enframe._tdd_data.solution_pgtd.create_tic_dat(self.engine, "test_ticdat_enframe_two")
+        sln_ = tdf.TicDat(**{t: getattr(sln, "s_"+t) for t in tdf.all_tables})
+        sln_.parameters['A Number'] = int(sln_.parameters['A Number']['My'])
+        self.assertTrue(tdf._same_data(dat, sln_))
+
+        pdf = PanDatFactory.create_from_full_schema(tdf.schema(include_ancillary_info=True))
+        pan_dat = tdf.copy_to_pandas(dat, drop_pk_columns=False)
+        class MockEngine(object):
+            input_schema = pdf
+            solution_schema = PanDatFactory(**pdf.schema())
+            def solve(self, x):
+                return x
+        engine = MockEngine()
+        enframe = EnframeOfflineHandler(make_the_json("Copy Input To Postgres"), engine.input_schema,
+                                        engine.solution_schema, engine.solve, engine_object=engine)
+        enframe.copy_input_dat(pan_dat)
+        enframe = EnframeOfflineHandler(make_the_json("Proxy Enframe Solve"), engine.input_schema,
+                                        engine.solution_schema, engine.solve, engine_object=engine)
+        enframe._write_schema_as_needed(enframe._tdd_data.solution_pgtd, {("s_parameters", "My"): "text"})
+        enframe.proxy_enframe_solve()
+        sln = enframe._tdd_data.solution_pgtd.create_pan_dat(self.engine, "test_ticdat_enframe_two")
+        sln_ = pdf.PanDat(**{t: getattr(sln, "s_"+t) for t in pdf.all_tables})
+        pan_dat.parameters.loc[pan_dat.parameters['My'] == 101, 'My'] = '101'
+        self.assertTrue(pdf._same_data(pan_dat, sln_))
 
 test_schema = 'test'
 

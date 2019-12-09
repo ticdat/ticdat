@@ -178,18 +178,17 @@ def _extra_input_file_check_str(input_file):
 # "solve_type" : "Copy Input To Postgres"}
 
 def _standard_main_pandat(input_schema, solution_schema, solve):
-    # TODO: look for enframe.json file here as well
     file_name = sys.argv[0]
     def usage():
-        print ("python %s --help --input <input file or dir> --output <output file or dir>"%
-               file_name)
+        print ("python %s --help --input <input file or dir> --output <output file or dir>"%file_name +
+               " --enframe enframe_config.json")
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "hi:o:", ["help", "input=", "output="])
+        opts, args = getopt.getopt(sys.argv[1:], "hi:o:e:", ["help", "input=", "output=", "enframe="])
     except getopt.GetoptError as err:
         print (str(err))  # will print something like "option -a not recognized"
         usage()
         sys.exit(2)
-    input_file, output_file = "input.xlsx", "output.xlsx"
+    input_file, output_file, enframe_config, enframe_handler = "input.xlsx", "output.xlsx", "", None
     for o, a in opts:
         if o in ("-h", "--help"):
             usage()
@@ -198,15 +197,24 @@ def _standard_main_pandat(input_schema, solution_schema, solve):
             input_file = a
         elif o in ("-o", "--output"):
             output_file = a
+        elif o in ("-e", "--enframe"):
+            enframe_config = a
         else:
             verify(False, "unhandled option")
+    if enframe_config:
+        from ticdat.pgtd import EnframeOfflineHandler
+        enframe_handler = EnframeOfflineHandler(enframe_config, input_schema, solution_schema, solve)
+        if enframe_handler.solve_type == "Proxy Enframe Solve":
+            enframe_handler.proxy_enframe_solve()
+            print(f"Enframe proxy solve executed with {enframe_config}")
+            return
+
     file_or_dir = lambda f :"file" if any(f.endswith(_) for _ in (".json", ".xls", ".xlsx", ".db")) \
                   else "directory"
     if not (os.path.exists(input_file)):
         print("%s is not a valid input file or directory"%input_file)
     else:
-        print("input %s %s : output %s %s"%(file_or_dir(input_file), input_file,
-                                            file_or_dir(output_file), output_file))
+        print("input %s %s"%(file_or_dir(input_file), input_file))
         dat = None
         if os.path.isfile(input_file) and file_or_dir(input_file) == "file":
             if input_file.endswith(".json"):
@@ -218,6 +226,11 @@ def _standard_main_pandat(input_schema, solution_schema, solve):
         elif os.path.isdir(input_file) and file_or_dir(input_file) == "directory":
             dat = input_schema.csv.create_pan_dat(input_file)
         verify(dat, f"Failed to read from and/or recognize {input_file}{_extra_input_file_check_str(input_file)}")
+        if enframe_handler:
+            enframe_handler.copy_input_dat(dat)
+            print(f"Input data copied from {input_file} to the postgres DB defined by {enframe_config}")
+            return
+        print("output %s %s"%(file_or_dir(output_file), output_file))
         sln = solve(dat)
         if sln:
             print("%s output %s %s"%("Overwriting" if os.path.exists(output_file) else "Creating",

@@ -190,9 +190,10 @@ class _PostgresFactory(freezable_factory(object, "_isFrozen"),):
             for t, dts in self.tdf.data_types.items():
                 for f, dt in dts.items():
                     tdf.set_data_type(t, f, *dt)
-            return PostgresTicFactory(tdf).write_schema(engine, schema,
-                 dict({(t, f): "text" for t, (pks, dfs) in self.tdf.schema().items() for f in pks
-                       if f not in tdf.data_types.get(t, {})}, **forced_field_types))
+            forced_field_types_ = {(t, f): "text" for t, (pks, dfs) in self.tdf.schema().items() for f in pks
+                       if f not in tdf.data_types.get(t, {})}
+            forced_field_types_.update(forced_field_types)
+            return PostgresTicFactory(tdf).write_schema(engine, schema, forced_field_types_)
 
         verify(not getattr(self.tdf, "generic_tables", None),
                "TicDat for postgres does not yet support generic tables")
@@ -521,7 +522,7 @@ class EnframeOfflineHandler(object):
     def __exit__(self, exc_type, exc_val, exc_tb):
         if self._engine:
             self._engine.dispose()
-    def _write_schema_as_needed(self, pgsql):
+    def _write_schema_as_needed(self, pgsql, forced_field_types=None):
         from ticdat.utils import TicDatError
         has_schema = True
         try:
@@ -529,25 +530,38 @@ class EnframeOfflineHandler(object):
         except TicDatError:
             has_schema = False
         if not has_schema:
-            pgsql.write_schema(self._engine, self._postgres_schema, include_ancillary_info=False)
+            pgsql.write_schema(self._engine, self._postgres_schema, include_ancillary_info=False,
+                               forced_field_types=forced_field_types)
     def copy_input_dat(self, dat):
        assert self.solve_type == "Copy Input To Postgres"
-       self._write_schema_as_needed(self._tdd_data.input_pgtd)
-       self._write_schema_as_needed(self._tdd_data.small_integrity_pgtd)
        tdf = self._python_engine.input_schema
+       parameters_schema = tdf.schema().get("parameters")
+       renamed_parameters_schema = self._tdd_data.input_pgtd.tdf.schema().get("parameters")
+       # framework_utils issue 117 will have something more to say about how to create the local schema
+       self._write_schema_as_needed(self._tdd_data.input_pgtd, forced_field_types=(None if not parameters_schema else
+                                         {("parameters", renamed_parameters_schema[1][0]):"text"}))
+       self._write_schema_as_needed(self._tdd_data.small_integrity_pgtd)
        from ticdat import TicDatFactory
        if isinstance(tdf, TicDatFactory):
             assert tdf.good_tic_dat_object(dat)
             renamed_dat = self._tdd_data.input_pgtd.tdf.TicDat()
             for t in tdf.all_tables:
-                setattr(renamed_dat, self._tdd._input_renamings[t], getattr(dat, t))
+                if t == "parameters":
+                    for k ,v in dat.parameters.items():
+                        renamed_dat.parameters[k] = next(iter(v.values()))
+                else:
+                    setattr(renamed_dat, self._tdd._input_renamings[t], getattr(dat, t))
             self._tdd_data.input_pgtd.write_data(renamed_dat, self._engine, self._postgres_schema,
                                                  dsn=self._try_get_dsn())
        else:
             assert tdf.good_pan_dat_object(dat)
             renamed_dat = self._tdd_data.input_pgtd.tdf.PanDat()
             for t in tdf.all_tables:
-                setattr(renamed_dat, self._tdd_data.input_renamings[t], getattr(dat, t))
+                if t == "parameters":
+                    renamed_dat.parameters = dat.parameters.rename(columns={e[0]:t[0] for e,t in zip(
+                        parameters_schema, renamed_parameters_schema)})
+                else:
+                    setattr(renamed_dat, self._tdd_data.input_renamings[t], getattr(dat, t))
             self._tdd_data.input_pgtd.write_data(renamed_dat, self._engine, self._postgres_schema)
     def _try_get_dsn(self):
         if not psycopg2:
