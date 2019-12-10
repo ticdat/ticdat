@@ -527,14 +527,27 @@ class EnframeOfflineHandler(object):
     def __exit__(self, exc_type, exc_val, exc_tb):
         if self._engine:
             self._engine.dispose()
+    def _get_forced_field_types(self, config_type):
+        pgsql, tdf, renamings = {
+            "input": (self._tdd_data.input_pgtd, self._python_engine.input_schema, self._tdd_data.input_renamings),
+            "output": (self._tdd_data.solution_pgtd, self._python_engine.solution_schema,
+                       self._tdd_data.solution_renamings)}[config_type]
+        forced_field_types = {}
+        mapping_dict = {"text":"text", "int":"integer", "float":"float", "datetime":"timestamp"}
+        for t in tdf.all_tables:
+            for f in tdf.schema()[t][0] + tdf.schema()[t][1]:
+                forced_field_types[renamings[t], f] = mapping_dict[self._tdd.get_data_type(t, f, config_type)]
+        return forced_field_types
     def _write_schema_as_needed(self, pgsql, forced_field_types=None):
         from ticdat.utils import TicDatError
+
         has_schema = True
         try:
             pgsql.check_tables_fields(self._engine, self._postgres_schema, error_on_missing_table=True)
         except TicDatError:
             has_schema = False
         if not has_schema:
+
             pgsql.write_schema(self._engine, self._postgres_schema, include_ancillary_info=False,
                                forced_field_types=forced_field_types)
     def copy_input_dat(self, dat):
@@ -542,9 +555,7 @@ class EnframeOfflineHandler(object):
        tdf = self._python_engine.input_schema
        parameters_schema = tdf.schema().get("parameters")
        renamed_parameters_schema = self._tdd_data.input_pgtd.tdf.schema().get("parameters")
-       # framework_utils issue 117 will have something more to say about how to create the local schema
-       self._write_schema_as_needed(self._tdd_data.input_pgtd, forced_field_types=(None if not parameters_schema else
-                                         {("parameters", renamed_parameters_schema[1][0]):"text"}))
+       self._write_schema_as_needed(self._tdd_data.input_pgtd, forced_field_types=self._get_forced_field_types("input"))
        self._write_schema_as_needed(self._tdd_data.small_integrity_pgtd)
        from ticdat import TicDatFactory
        if isinstance(tdf, TicDatFactory):
@@ -595,7 +606,7 @@ class EnframeOfflineHandler(object):
         sln = self._python_engine.solve(dat)
         print(f"--> Launch-to-solve time {seconds()} seconds.")
         if sln: # writing might be slowed down because we have no DSN - can make that optional and add it later
-            self._write_schema_as_needed(self._tdd_data.solution_pgtd)
+            self._write_schema_as_needed(self._tdd_data.solution_pgtd, self._get_forced_field_types("output"))
             self._tdd.write_solution_dat_to_postgres(sln, self._engine, self._postgres_schema, dsn=self._try_get_dsn())
         else:
             print("No solution found")
