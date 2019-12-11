@@ -623,7 +623,6 @@ class TestPostres(unittest.TestCase):
             dat_3.table_with_stuffs[pd.Timestamp(k)] = dat_3.table_with_stuffs.pop(k)
         self.assertTrue(tdf._same_data(dat_1, dat_3, nans_are_same_for_data_rows=True))
 
-
     def test_ticdat_deployer(self):
         # this won't work unless there is some enframe specific packaging installed.
         class MockEngine(object):
@@ -681,15 +680,18 @@ class TestPostres(unittest.TestCase):
     def test_ticdat_deployer_two(self):
         # this won't work unless there is some enframe specific packaging installed.
         tdf = TicDatFactory(table=[[],["a", "b", "c"]], parameters = [["Me"],["My"]])
+        tdf.set_data_type("table", "a", strings_allowed='*', number_allowed=True)
         tdf.add_parameter("A Number", 10)
         tdf.add_parameter("A String", "boo", number_allowed=False, strings_allowed='*')
         dat = tdf.TicDat(table=[[1, 2, 3], [10, 11, 12]],
                          parameters=[["A Number", 101], ["A String", "goo"]])
         class MockEngine(object):
+            enframe_input_config = {"type_for_complex_fields": "float"}
             input_schema = tdf
             solution_schema = TicDatFactory(**tdf.schema())
             def solve(self, x):
                 return x
+
         def make_the_json(solve_type):
             d = {"postgres_url": self.postgresql.url(),  "postgres_schema": "test_ticdat_enframe_two",
                  "solve_type": solve_type}
@@ -698,9 +700,9 @@ class TestPostres(unittest.TestCase):
                 json.dump(d, f, indent=2)
             return rtn
         engine = MockEngine()
-        enframe = EnframeOfflineHandler(make_the_json("Copy Input To Postgres"), engine.input_schema,
-                                        engine.solution_schema, engine.solve, engine_object=engine)
-        enframe.copy_input_dat(dat)
+        with EnframeOfflineHandler(make_the_json("Copy Input To Postgres"), engine.input_schema,
+                                        engine.solution_schema, engine.solve, engine_object=engine) as enframe:
+            enframe.copy_input_dat(dat)
         enframe = EnframeOfflineHandler(make_the_json("Proxy Enframe Solve"), engine.input_schema,
                                         engine.solution_schema, engine.solve, engine_object=engine)
         enframe._write_schema_as_needed(enframe._tdd_data.solution_pgtd, {("s_parameters", "My"): "text"})

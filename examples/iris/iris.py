@@ -27,8 +27,6 @@ input_schema.add_parameter("Number of Clusters", default_value=4, inclusive_min=
 # ------------------------ define the output schema -------------------------------
 solution_schema = PanDatFactory(iris=[[],['Sepal Length', 'Sepal Width', 'Petal Length', 'Petal Width', 'Species',
                                           'Cluster ID']])
-# generally setting the data type not required for a report table, but for string fields, it can be helpful
-solution_schema.set_data_type("iris", 'Species', number_allowed=False, strings_allowed='*')
 # ---------------------------------------------------------------------------------
 
 # ------------------------ create a solve function --------------------------------

@@ -523,7 +523,7 @@ class EnframeOfflineHandler(object):
         verify(not engine_fail, "Failed to create postgres engine\n" +
                f"URL : {self._postgres_url}\nException : {engine_fail}")
     def __enter__(self):
-        pass
+        return self
     def __exit__(self, exc_type, exc_val, exc_tb):
         if self._engine:
             self._engine.dispose()
@@ -532,11 +532,16 @@ class EnframeOfflineHandler(object):
             "input": (self._tdd_data.input_pgtd, self._python_engine.input_schema, self._tdd_data.input_renamings),
             "output": (self._tdd_data.solution_pgtd, self._python_engine.solution_schema,
                        self._tdd_data.solution_renamings)}[config_type]
+        kwarg = {}
+        enframe_attr = getattr(self._python_engine, {"input": "enframe_input_config",
+                                                     "output": "enframe_output_config"}[config_type], {})
+        if "type_for_complex_fields" in enframe_attr:
+            kwarg = {"type_for_complex_fields": enframe_attr["type_for_complex_fields"]}
         forced_field_types = {}
         mapping_dict = {"text":"text", "int":"integer", "float":"float", "datetime":"timestamp"}
         for t in tdf.all_tables:
             for f in tdf.schema()[t][0] + tdf.schema()[t][1]:
-                forced_field_types[renamings[t], f] = mapping_dict[self._tdd.get_data_type(t, f, config_type)]
+                forced_field_types[renamings[t], f] = mapping_dict[self._tdd.get_data_type(config_type, t, f, **kwarg)]
         return forced_field_types
     def _write_schema_as_needed(self, pgsql, forced_field_types=None):
         from ticdat.utils import TicDatError
@@ -555,7 +560,10 @@ class EnframeOfflineHandler(object):
        tdf = self._python_engine.input_schema
        parameters_schema = tdf.schema().get("parameters")
        renamed_parameters_schema = self._tdd_data.input_pgtd.tdf.schema().get("parameters")
-       self._write_schema_as_needed(self._tdd_data.input_pgtd, forced_field_types=self._get_forced_field_types("input"))
+       ffd = {k:v for k, v in self._get_forced_field_types("input").items() if k[0] != "parameters"}
+       if parameters_schema:
+           ffd.update({("parameters", _[0]):"text" for _ in renamed_parameters_schema})
+       self._write_schema_as_needed(self._tdd_data.input_pgtd, forced_field_types=ffd)
        self._write_schema_as_needed(self._tdd_data.small_integrity_pgtd)
        from ticdat import TicDatFactory
        if isinstance(tdf, TicDatFactory):
