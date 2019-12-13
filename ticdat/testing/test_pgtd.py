@@ -679,14 +679,17 @@ class TestPostres(unittest.TestCase):
 
     def test_ticdat_deployer_two(self):
         # this won't work unless there is some enframe specific packaging installed.
-        tdf = TicDatFactory(table=[[],["a", "b", "c"]], parameters = [["Me"],["My"]])
+        tdf = TicDatFactory(table=[[],["a", "b", "c", "d"]], parameters = [["Me"],["My"]])
         tdf.set_data_type("table", "a", strings_allowed='*', number_allowed=True)
         tdf.add_parameter("A Number", 10)
         tdf.add_parameter("A String", "boo", number_allowed=False, strings_allowed='*')
-        dat = tdf.TicDat(table=[[1, 2, 3], [10, 11, 12]],
+        dat = tdf.TicDat(table=[[1, 2, 3, "a"], [10, 11, 12, "b"]],
                          parameters=[["A Number", 101], ["A String", "goo"]])
         class MockEngine(object):
             enframe_input_config = {"type_for_complex_fields": "float"}
+            enframe_kwargs = {"input_field_type_overrides": {("table", "d"): "text"},
+                "solution_field_type_overrides": {("table", "d"): "text", ("table", "a"): "int",
+                                                  ("parameters", "My"): "text"}}
             input_schema = tdf
             solution_schema = TicDatFactory(**tdf.schema())
             def solve(self, x):
@@ -705,7 +708,6 @@ class TestPostres(unittest.TestCase):
             enframe.copy_input_dat(dat)
         enframe = EnframeOfflineHandler(make_the_json("Proxy Enframe Solve"), engine.input_schema,
                                         engine.solution_schema, engine.solve, engine_object=engine)
-        enframe._write_schema_as_needed(enframe._tdd_data.solution_pgtd, {("s_parameters", "My"): "text"})
         enframe.proxy_enframe_solve()
         sln = enframe._tdd_data.solution_pgtd.create_tic_dat(self.engine, "test_ticdat_enframe_two")
         sln_ = tdf.TicDat(**{t: getattr(sln, "s_"+t) for t in tdf.all_tables})
@@ -725,7 +727,6 @@ class TestPostres(unittest.TestCase):
         enframe.copy_input_dat(pan_dat)
         enframe = EnframeOfflineHandler(make_the_json("Proxy Enframe Solve"), engine.input_schema,
                                         engine.solution_schema, engine.solve, engine_object=engine)
-        enframe._write_schema_as_needed(enframe._tdd_data.solution_pgtd, {("s_parameters", "My"): "text"})
         enframe.proxy_enframe_solve()
         sln = enframe._tdd_data.solution_pgtd.create_pan_dat(self.engine, "test_ticdat_enframe_two")
         sln_ = pdf.PanDat(**{t: getattr(sln, "s_"+t) for t in pdf.all_tables})
