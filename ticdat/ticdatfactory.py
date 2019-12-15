@@ -1501,7 +1501,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
          and pks tells you which table rows will have their field entry changed if you call
          replace_data_type_failures().
 
-         Note that for primary key fields (but not data fields) with no explicit data type, a temporary data type
+         Note that for primary key fields (but not data fields) with no explicit data type, a temporary filter
          that excludes only Null will be applied. If you want primary key fields to allow Null, you must explicitly
          opt-in by calling set_data_type appropriately.
          See issue https://github.com/ticdat/ticdat/issues/46 for more info.
@@ -1516,7 +1516,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
                 if pk not in self._data_types.get(t, ()):
                     tmp_tdf.set_data_type(t, pk, number_allowed=True,
                       inclusive_min=True, inclusive_max=True, min=-float("inf"), max=float("inf"),
-                      must_be_int=False, strings_allowed='*', nullable = False, datetime=False)
+                      must_be_int=False, strings_allowed='*', nullable=False, datetime=False)
 
         for table, type_row in tmp_tdf._data_types.items():
             _table = getattr(tic_dat, table)

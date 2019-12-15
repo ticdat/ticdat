@@ -1057,6 +1057,13 @@ class TestUtils(unittest.TestCase):
         dat = makeIt()
         self.assertTrue({tuple(k):tuple(v.bad_values) for k, v in tdf.find_data_type_failures(dat).items()} ==
                         {('foods', 'name'): (None,), ('nutritionQuantities', 'food'): (None,)})
+        tdf = TicDatFactory(**dietSchema())
+        tdf.set_data_type("foods", "name", nullable=True, strings_allowed='*')
+        tdf.set_data_type("nutritionQuantities", "food", nullable=True, strings_allowed='*')
+        self.assertFalse(tdf.find_data_type_failures(dat))
+        tdf.set_data_type("foods", "cost", nullable=False)
+        self.assertTrue({tuple(k):tuple(v.bad_values) for k, v in tdf.find_data_type_failures(dat).items()} ==
+                        {('foods', 'cost'): (None,)})
 
 _scratchDir = TestUtils.__name__ + "_scratch"
 
