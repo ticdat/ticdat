@@ -1041,6 +1041,23 @@ class TestUtils(unittest.TestCase):
         self.assertTrue(all_params == all_params_2 and len(all_params) == 2)
         self.assertTrue(all_params["p1"] ==  dateutil.parser.parse("Dec 15 1970") and utils.pd.isnull(all_params["p2"]))
 
+    def testTwentyThree(self):
+        tdf = TicDatFactory(**dietSchema())
+        def makeIt() :
+            rtn = tdf.TicDat()
+            rtn.foods["a"] = 12
+            rtn.foods["b"] = None
+            rtn.foods[None] = 101
+            rtn.categories["1"] = {"maxNutrition":100, "minNutrition":40}
+            rtn.categories["2"] = [10,20]
+            for f, p in itertools.product(rtn.foods, rtn.categories):
+                rtn.nutritionQuantities[f,p] = 5
+            rtn.nutritionQuantities['a', 2] = 12
+            return tdf.freeze_me(rtn)
+        dat = makeIt()
+        self.assertTrue({tuple(k):tuple(v.bad_values) for k, v in tdf.find_data_type_failures(dat).items()} ==
+                        {('foods', 'name'): (None,), ('nutritionQuantities', 'food'): (None,)})
+
 _scratchDir = TestUtils.__name__ + "_scratch"
 
 
