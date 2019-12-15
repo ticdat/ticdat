@@ -108,6 +108,38 @@ class TestUtils(unittest.TestCase):
         self.assertTrue(set({(v["source"], v["destination"])
                              for v in failed['arcs', 'capacity'].T.to_dict().values()}) == {("Detroit", "New York")})
 
+    def testDataTypes_two(self):
+        tdf = TicDatFactory(**dietSchema())
+        pdf = PanDatFactory(**tdf.schema())
+        def makeIt() :
+            rtn = tdf.TicDat()
+            rtn.foods["a"] = 12
+            rtn.foods["b"] = None
+            rtn.foods[None] = 101
+            rtn.categories["1"] = {"maxNutrition":100, "minNutrition":40}
+            rtn.categories["2"] = [10,20]
+            for f, p in itertools.product(rtn.foods, rtn.categories):
+                rtn.nutritionQuantities[f,p] = 5
+            rtn.nutritionQuantities['a', 2] = 12
+            return tdf.copy_to_pandas(rtn, drop_pk_columns=False)
+        dat = makeIt()
+        errs = pdf.find_data_type_failures(dat)
+        self.assertTrue(len(errs) == 2)
+        from pandas import isnull
+        def noneify(iter_of_tuples):
+            return {tuple(None if isnull(_) else _ for _ in tuple_) for tuple_ in iter_of_tuples}
+        self.assertTrue(noneify(errs['nutritionQuantities', 'food'].itertuples(index=False)) ==
+                        {(None, "1", 5), (None, "2", 5)})
+        self.assertTrue(noneify(errs['foods', 'name'].itertuples(index=False)) == {(None, 101)})
+        pdf = PanDatFactory(**tdf.schema())
+        pdf.set_data_type("foods", "name", nullable=True, strings_allowed='*')
+        pdf.set_data_type("nutritionQuantities", "food", nullable=True, strings_allowed='*')
+        self.assertFalse(pdf.find_data_type_failures(dat))
+        pdf.set_data_type("foods", "cost", nullable=False)
+        errs = pdf.find_data_type_failures(dat)
+        self.assertTrue(len(errs) == 1)
+        self.assertTrue(noneify(errs['foods', 'cost'].itertuples(index=False)) == {('b', None)})
+
     def testDataPredicates(self):
         if not self.canRun:
             return
