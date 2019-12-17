@@ -31,7 +31,7 @@ class _DummyContextManager(object):
     def __exit__(self, *excinfo) :
         pass
 
-def _clean_pandat_creator(pdf, df_dict, push_parameters_to_be_valid=True, push_numbers_to_be_txt=False):
+def _clean_pandat_creator(pdf, df_dict, push_parameters_to_be_valid=True):
     # note that pandas built in IO routines tend to be a bit overy pushy with the typing, hence
     # the push_parameters_to_be_valid argument
     pandat = pdf.PanDat(**df_dict)
@@ -40,8 +40,7 @@ def _clean_pandat_creator(pdf, df_dict, push_parameters_to_be_valid=True, push_n
         setattr(pandat, t, getattr(pandat, t)[flds])
     msg = []
     assert pdf.good_pan_dat_object(pandat, msg.append), str(msg)
-    return pdf._general_post_read_adjustment(pandat, push_parameters_to_be_valid=push_parameters_to_be_valid,
-                                             push_numbers_to_be_txt=push_numbers_to_be_txt)
+    return pdf._general_post_read_adjustment(pandat, push_parameters_to_be_valid=push_parameters_to_be_valid)
 
 class JsonPanFactory(freezable_factory(object, "_isFrozen")):
     """
@@ -230,11 +229,19 @@ class CsvPanFactory(freezable_factory(object, "_isFrozen")):
             df.to_csv("something.csv")
             df2 = pd.read_csv("something.csv")
 
-        results in a numeric column in df2. This is one of the many reasons why JSON is a better file format.
+        results in a numeric column in df2. To address this, you need to either use set_data_type for your
+        PanDatFactory, or specify "dtype" in kwargs. (The former is obviously better).
+
+        This problem is even worse with df = pd.DataFrame({"a":["0100", "1200", "2300"]})
         """
         verify(os.path.isdir(dir_path), "%s not a directory path"%dir_path)
         tbl_names = self._get_table_names(dir_path)
-        rtn = {t: pd.read_csv(f, **kwargs) for t,f in tbl_names.items()}
+        rtn = {}
+        for t, f in tbl_names.items():
+            kwargs_ = dict(kwargs)
+            if "dtype" not in kwargs_:
+                kwargs_["dtype"] = self.pan_dat_factory._dtypes_for_pandas_read(t)
+            rtn[t] = pd.read_csv(f, **kwargs_)
         missing_tables = {t for t in self.pan_dat_factory.all_tables if t not in rtn}
         if missing_tables:
             print ("The following table names could not be found in the %s directory.\n%s\n"%
@@ -247,7 +254,7 @@ class CsvPanFactory(freezable_factory(object, "_isFrozen")):
         verify(fill_missing_fields or not missing_fields,
                "The following (table, file_name, field) triplets are missing fields.\n%s" %
                [(t, os.path.basename(tbl_names[t]), f) for t,f in missing_fields])
-        return _clean_pandat_creator(self.pan_dat_factory, rtn, push_numbers_to_be_txt=True)
+        return _clean_pandat_creator(self.pan_dat_factory, rtn)
 
     def _get_table_names(self, dir_path):
         rtn = {}
@@ -458,10 +465,21 @@ class XlsPanFactory(freezable_factory(object, "_isFrozen")):
                  Table names are matched to sheets with with case-space insensitivity, but spaces and
                  case are respected for field names.
                  (ticdat supports whitespace in field names but not table names).
+
+        Note that if you save a DataFrame to excel and then recover it, the type of data might change. For example
+
+            df = pd.DataFrame({"a":["100", "200", "300"]})
+            df.to_excel("something.xlsx")
+            df2 = pd.read_excel("something.xlsx")
+
+        results in a numeric column in df2. To address this, you need to either use set_data_type for your
+        PanDatFactory.
+
+        This problem is even worse with df = pd.DataFrame({"a":["0100", "1200", "2300"]})
         """
         rtn = {}
         for t, s in self._get_sheet_names(xls_file_path).items():
-            rtn[t] = pd.read_excel(xls_file_path, s)
+            rtn[t] = pd.read_excel(xls_file_path, s, dtype=self.pan_dat_factory._dtypes_for_pandas_read(t))
         missing_tables = {t for t in self.pan_dat_factory.all_tables if t not in rtn}
         if missing_tables:
             print ("The following table names could not be found in the %s file.\n%s\n"%
@@ -473,7 +491,7 @@ class XlsPanFactory(freezable_factory(object, "_isFrozen")):
                 rtn[t][f] = self.pan_dat_factory.default_values[t][f]
         verify(fill_missing_fields or not missing_fields,
                "The following are (table, field) pairs missing from the %s file.\n%s" % (xls_file_path, missing_fields))
-        return _clean_pandat_creator(self.pan_dat_factory, rtn, push_numbers_to_be_txt=True)
+        return _clean_pandat_creator(self.pan_dat_factory, rtn)
 
     def _get_sheet_names(self, xls_file_path):
         sheets = defaultdict(list)

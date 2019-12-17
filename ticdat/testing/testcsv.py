@@ -417,6 +417,21 @@ class TestCsv(unittest.TestCase):
         self.assertTrue(all(isinstance(_, datetime.datetime) or _ is None for v in dat_1.table_with_stuffs.values()
                             for _ in v.values()))
 
+    def testIssue45(self):
+        raw_tdf = TicDatFactory(data=[["a"], ["b"]])
+        tdf_nums = TicDatFactory(data=[["a"], ["b"]])
+        tdf_nums.set_data_type("data", "a")
+        tdf_strs = TicDatFactory(data=[["a"], ["b"]])
+        tdf_strs.set_data_type("data", "b", strings_allowed='*', number_allowed=False)
+        dat_nums = tdf_nums.TicDat(data = [[1,2],[3,4], [22, 44]])
+        dat_strs = tdf_nums.TicDat(data = [["1","2"],["3","4"], ["022", "0044"]])
+        dirs = [os.path.join(_scratchDir, _) for _ in ["dat_nums_csv", "dat_strs_csv"]]
+        raw_tdf.csv.write_directory(dat_nums, dirs[0])
+        dat_nums_2 = tdf_nums.csv.create_tic_dat(dirs[0])
+        raw_tdf.csv.write_directory(dat_strs, dirs[1])
+        dat_strs_2 = tdf_strs.csv.create_tic_dat(dirs[1])
+        self.assertTrue(raw_tdf._same_data(dat_nums, dat_nums_2))
+        self.assertTrue(raw_tdf._same_data(dat_strs, dat_strs_2))
 
 _scratchDir = TestCsv.__name__ + "_scratch"
 
