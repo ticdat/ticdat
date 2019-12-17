@@ -669,6 +669,10 @@ class TestIO(unittest.TestCase):
         self.assertTrue(pdf._same_data(dat_nums_2, dat_strs_2))
         self.assertTrue(pdf._same_data(dat_nums_2, dat_mixed))
 
+    # need something better for issue_45 - see here https://bit.ly/2YT8gpL
+    # address the leading zeros issues for Excel and CSV. This is a way to make pandas shine.
+
+
 
 _scratchDir = TestIO.__name__ + "_scratch"
 
