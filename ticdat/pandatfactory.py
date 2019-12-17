@@ -204,12 +204,13 @@ class PanDatFactory(object):
             for rtn in [1, -1]:
                 if fld_type.valid_data(rtn * float("inf")):
                     return rtn
-    def _general_post_read_adjustment(self, dat, push_parameters_to_be_valid=False):
+    def _general_post_read_adjustment(self, dat, push_parameters_to_be_valid=False, push_numbers_to_be_txt=False):
         '''
         we expect other routines inside ticdat to access this routine, even though it starts with _
         :param dat: PanDat object that was just read from an external data source. dat will be side-effected
         :param push_parameters_to_be_valid : needed for certain file formats, where pandas makes pushy assumptions
                                              about type that might need to be undone
+        :param push_numbers_to_be_txt: needed for certain file formats, similar to push_parameters_to_be_valid
         :return: dat, after being adjusted to handle infinity flagging
 
         '''
@@ -230,6 +231,13 @@ class PanDatFactory(object):
                     def fixed_row(row):
                         if utils.stringish(row[f]) and utils.dateutil_adjuster(row[f]) is not None:
                             return utils.dateutil_adjuster(row[f])
+                        return row[f]
+                    df[f] = apply(df, fixed_row)
+                if push_numbers_to_be_txt and dt and not dt.datetime and not dt.number_allowed \
+                   and dt.strings_allowed == '*':
+                    def fixed_row(row):
+                        if utils.numericish(row[f]):
+                            return str(row[f])
                         return row[f]
                     df[f] = apply(df, fixed_row)
 
