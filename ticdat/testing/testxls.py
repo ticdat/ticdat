@@ -578,6 +578,18 @@ class TestXls(unittest.TestCase):
         dat = tdf.xls.create_tic_dat(file)
         self.assertTrue(set(dat.cool_runnings) == set(df["a"]))
 
+    def testIssue45(self):
+        tdf = TicDatFactory(data=[["a"], ["b"]])
+        dat_nums = tdf.TicDat(data = [[1,2],[3,4]])
+        dat_strs = tdf.TicDat(data = [["1","2"],["3","4"]])
+        files = [os.path.join(_scratchDir, _) for _ in ["dat_nums.xlsx", "dat_strs.xlsx"]]
+        tdf.xls.write_file(dat_nums, files[0])
+        tdf.xls.write_file(dat_strs, files[1])
+        dat_nums_2, dat_strs_2 = [tdf.xls.create_tic_dat(_) for _ in files]
+        self.assertTrue(tdf._same_data(dat_nums, dat_nums_2))
+        self.assertTrue(tdf._same_data(dat_strs, dat_strs_2))
+        # my hands are sort of tied here, xlrd has a disturbing tendency to read data as floats when it reads numbers
+
 _scratchDir = TestXls.__name__ + "_scratch"
 
 # Run the tests.

@@ -265,7 +265,7 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
             if utils.numericish(rtn) and utils.safe_apply(int)(rtn) == rtn and dt and dt.must_be_int:
                 rtn = int(rtn)
             if rtn == "":
-                try_rtn = self.tic_dat_factory._general_read_cell(table, field, None)
+                try_rtn = self.tic_dat_factory._general_read_cell(table, field, None) # None as infinity flagging
                 if utils.numericish(try_rtn):
                     return try_rtn
             if utils.numericish(rtn) and dt and dt.datetime:
