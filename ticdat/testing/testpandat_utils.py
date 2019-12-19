@@ -545,6 +545,23 @@ class TestUtils(unittest.TestCase):
         self.assertTrue(pdf.create_full_parameters_dict(dat) ==
                         {"Something": 90, "Another thing": 5, "Last": "boo", "Untyped thing": "whatever"})
 
+    def testVariousCoverages(self):
+        pdf = PanDatFactory(**dietSchema())
+        _d = dict(categories={"minNutrition": 0, "maxNutrition": float("inf")},
+                               foods={"cost": 0}, nutritionQuantities={"qty": 0})
+        pdf.set_default_values(**_d)
+        self.assertTrue(pdf._default_values == _d)
+        pdf = PanDatFactory(**netflowSchema())
+        addNetflowForeignKeys(pdf)
+        pdf.clear_foreign_keys("arcs")
+        self.assertTrue({_[0] for _ in pdf._foreign_keys} == {"cost", "inflow"})
+
+        pdf.add_data_row_predicate("arcs", lambda row: True)
+        pdf.add_data_row_predicate("arcs", lambda row: True, "dummy")
+        pdf.add_data_row_predicate("arcs", None, 0)
+        pdf = pdf.clone()
+        self.assertTrue(set(pdf._data_row_predicates["arcs"]) == {"dummy"})
+
 # Run the tests.
 if __name__ == "__main__":
     if not DataFrame :

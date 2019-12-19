@@ -733,6 +733,45 @@ class TestPostres(unittest.TestCase):
         pan_dat.parameters.loc[pan_dat.parameters['My'] == 101, 'My'] = '101'
         self.assertTrue(pdf._same_data(pan_dat, sln_))
 
+    def test_nullables(self):
+        schema = test_schema + "nullables"
+        pdf = PanDatFactory(table_with_stuffs = [["field one"], ["field two"]])
+        pdf.set_data_type("table_with_stuffs", "field one")
+        pdf.set_data_type("table_with_stuffs", "field two", number_allowed=False, strings_allowed='*', nullable=True)
+        tdf = TicDatFactory.create_from_full_schema(pdf.schema(include_ancillary_info=True))
+        tic_dat = tdf.TicDat(table_with_stuffs=[[101, "022"], [202, None], [303, "111"]])
+        dat = tdf.copy_to_pandas(tic_dat, drop_pk_columns=False)
+        self.assertFalse(tdf.find_data_type_failures(tic_dat))
+        self.assertFalse(pdf.find_data_type_failures(dat))
+
+        pdf.pgsql.write_schema(self.engine, schema)
+        pdf.pgsql.write_data(dat, self.engine, schema)
+        dat_1 = pdf.pgsql.create_pan_dat(self.engine, schema)
+        self.assertTrue(pdf._same_data(dat, dat_1,  nans_are_same_for_data_rows=True))
+        tic_dat_1 = tdf.pgsql.create_tic_dat(self.engine, schema)
+        self.assertTrue(tdf._same_data(tic_dat, tic_dat_1, nans_are_same_for_data_rows=True))
+
+    def testIssue45(self):
+        schema = test_schema + "issue45"
+        pdf = PanDatFactory(data=[["a"], ["b"]])
+        pdf.set_data_type("data", "b", number_allowed=False, strings_allowed='*')
+        tdf = TicDatFactory.create_from_full_schema(pdf.schema(include_ancillary_info=True))
+        tic_dat = tdf.TicDat(data = [[2,"1"],[4,"3"], [44,"022"]])
+        dat = tdf.copy_to_pandas(tic_dat, drop_pk_columns=False)
+        self.assertFalse(tdf.find_data_type_failures(tic_dat))
+        self.assertFalse(pdf.find_data_type_failures(dat))
+        pdf.pgsql.write_schema(self.engine, schema, forced_field_types={("data", "a"): "integer"})
+        pdf.pgsql.write_data(dat, self.engine, schema)
+        def two_checks():
+            dat_1 = pdf.pgsql.create_pan_dat(self.engine, schema)
+            self.assertTrue(pdf._same_data(dat, dat_1))
+            tic_dat_1 = tdf.pgsql.create_tic_dat(self.engine, schema)
+            self.assertTrue(tdf._same_data(tic_dat, tic_dat_1))
+        two_checks()
+        tdf.pgsql.write_data(tic_dat, self.engine, schema)
+        two_checks()
+
+
 test_schema = 'test'
 
 

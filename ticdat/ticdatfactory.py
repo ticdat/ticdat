@@ -1581,15 +1581,8 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
 
         for (table, field), (vals, pks) in replacements_needed.items() :
             if (table, field) in real_replacements:
-                if pks is not None :
-                    for pk in pks:
-                        getattr(tic_dat, table)[pk][field] = real_replacements[table, field]
-                else :
-                    vals = set(vals)
-                    for row in getattr(tic_dat, table):
-                        if row[field] in vals:
-                            row[field] = real_replacements[table, field]
-
+                for pk in pks:
+                    getattr(tic_dat, table)[pk][field] = real_replacements[table, field]
         assert not set(self.find_data_type_failures(tic_dat)).intersection(real_replacements)
         return tic_dat
 

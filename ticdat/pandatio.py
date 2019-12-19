@@ -31,7 +31,7 @@ class _DummyContextManager(object):
     def __exit__(self, *excinfo) :
         pass
 
-def _clean_pandat_creator(pdf, df_dict, push_parameters_to_be_valid=True):
+def _clean_pandat_creator(pdf, df_dict, push_parameters_to_be_valid=True, json_read=False):
     # note that pandas built in IO routines tend to be a bit overy pushy with the typing, hence
     # the push_parameters_to_be_valid argument
     pandat = pdf.PanDat(**df_dict)
@@ -40,7 +40,8 @@ def _clean_pandat_creator(pdf, df_dict, push_parameters_to_be_valid=True):
         setattr(pandat, t, getattr(pandat, t)[flds])
     msg = []
     assert pdf.good_pan_dat_object(pandat, msg.append), str(msg)
-    return pdf._general_post_read_adjustment(pandat, push_parameters_to_be_valid=push_parameters_to_be_valid)
+    return pdf._general_post_read_adjustment(pandat, json_read=json_read,
+                                             push_parameters_to_be_valid=push_parameters_to_be_valid)
 
 class JsonPanFactory(freezable_factory(object, "_isFrozen")):
     """
@@ -84,6 +85,11 @@ class JsonPanFactory(freezable_factory(object, "_isFrozen")):
                  are respected for field names.
 
                  (ticdat supports whitespace in field names but not table names).
+
+        Note that if you save a DataFrame to json and then recover it, the type of data might change.
+        Specifically, text that looks numeric might be recovered as a number, to include the loss of leading zeros.
+        To address this, you need to either use set_data_type for your
+        PanDatFactory, or specify "dtype" in kwargs. (The former is obviously better).
         """
         if os.path.exists(path_or_buf):
             verify(os.path.isfile(path_or_buf), "%s appears to be a directory and not a file." % path_or_buf)
@@ -92,13 +98,18 @@ class JsonPanFactory(freezable_factory(object, "_isFrozen")):
         else:
             verify(stringish(path_or_buf), "%s isn't a string" % path_or_buf)
             loaded_dict = json.loads(path_or_buf)
-        verify(dictish(loaded_dict), "path_or_buf to json.load as a dict")
+        verify(dictish(loaded_dict), "the json.load result doesn't resolve to a dictionary")
         verify(all(map(dictish, loaded_dict.values())),
                "the json.load result doesn't resolve to a dictionary whose values are themselves dictionaries")
 
         tbl_names = self._get_table_names(loaded_dict)
         verify("orient" not in kwargs, "orient should be passed as a non-kwargs argument")
-        rtn = {t: pd.read_json(json.dumps(loaded_dict[f]), orient=orient, **kwargs) for t,f in tbl_names.items()}
+        rtn = {}
+        for t, f in tbl_names.items():
+            kwargs_ = dict(kwargs)
+            if "dtype" not in kwargs_:
+                kwargs_["dtype"] = self.pan_dat_factory._dtypes_for_pandas_read(t)
+            rtn[t] = pd.read_json(json.dumps(loaded_dict[f]), orient=orient, **kwargs_)
         missing_fields = {(t, f) for t in rtn for f in all_fields(self.pan_dat_factory, t)
                           if f not in rtn[t].columns}
         if fill_missing_fields:
@@ -110,7 +121,7 @@ class JsonPanFactory(freezable_factory(object, "_isFrozen")):
         if missing_tables:
             print("The following table names could not be found in the SQLite database.\n%s\n" %
                   "\n".join(missing_tables))
-        return _clean_pandat_creator(self.pan_dat_factory, rtn)
+        return _clean_pandat_creator(self.pan_dat_factory, rtn, json_read=True)
 
     def _get_table_names(self, loaded_dict):
         rtn = {}
@@ -229,11 +240,19 @@ class CsvPanFactory(freezable_factory(object, "_isFrozen")):
             df.to_csv("something.csv")
             df2 = pd.read_csv("something.csv")
 
-        results in a numeric column in df2. This is one of the many reasons why JSON is a better file format.
+        results in a numeric column in df2. To address this, you need to either use set_data_type for your
+        PanDatFactory, or specify "dtype" in kwargs. (The former is obviously better).
+
+        This problem is even worse with df = pd.DataFrame({"a":["0100", "1200", "2300"]})
         """
         verify(os.path.isdir(dir_path), "%s not a directory path"%dir_path)
         tbl_names = self._get_table_names(dir_path)
-        rtn = {t: pd.read_csv(f, **kwargs) for t,f in tbl_names.items()}
+        rtn = {}
+        for t, f in tbl_names.items():
+            kwargs_ = dict(kwargs)
+            if "dtype" not in kwargs_:
+                kwargs_["dtype"] = self.pan_dat_factory._dtypes_for_pandas_read(t)
+            rtn[t] = pd.read_csv(f, **kwargs_)
         missing_tables = {t for t in self.pan_dat_factory.all_tables if t not in rtn}
         if missing_tables:
             print ("The following table names could not be found in the %s directory.\n%s\n"%
@@ -457,10 +476,21 @@ class XlsPanFactory(freezable_factory(object, "_isFrozen")):
                  Table names are matched to sheets with with case-space insensitivity, but spaces and
                  case are respected for field names.
                  (ticdat supports whitespace in field names but not table names).
+
+        Note that if you save a DataFrame to excel and then recover it, the type of data might change. For example
+
+            df = pd.DataFrame({"a":["100", "200", "300"]})
+            df.to_excel("something.xlsx")
+            df2 = pd.read_excel("something.xlsx")
+
+        results in a numeric column in df2. To address this, you need to either use set_data_type for your
+        PanDatFactory.
+
+        This problem is even worse with df = pd.DataFrame({"a":["0100", "1200", "2300"]})
         """
         rtn = {}
         for t, s in self._get_sheet_names(xls_file_path).items():
-            rtn[t] = pd.read_excel(xls_file_path, s)
+            rtn[t] = pd.read_excel(xls_file_path, s, dtype=self.pan_dat_factory._dtypes_for_pandas_read(t))
         missing_tables = {t for t in self.pan_dat_factory.all_tables if t not in rtn}
         if missing_tables:
             print ("The following table names could not be found in the %s file.\n%s\n"%

@@ -1065,6 +1065,16 @@ class TestUtils(unittest.TestCase):
         self.assertTrue({tuple(k):tuple(v.bad_values) for k, v in tdf.find_data_type_failures(dat).items()} ==
                         {('foods', 'cost'): (None,)})
 
+    def testTwentyFour(self):
+        tdf = TicDatFactory(data =[[], ["field one", "field two"]])
+        tdf.set_data_type("data", "field one")
+        dat = tdf.TicDat(data=[["a", "a"], ["b", "b"]])
+        tdf.replace_data_type_failures(dat)
+        tdf.replace_data_type_failures(dat) # coverage
+        self.assertTrue(tdf._same_data(dat, tdf.TicDat(data=[[0, "a"], [0, "b"]])))
+
+
+
 _scratchDir = TestUtils.__name__ + "_scratch"
 
 

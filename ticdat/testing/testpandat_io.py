@@ -228,6 +228,16 @@ class TestIO(unittest.TestCase):
             getattr(getattr(pdf, attr), func)(dat, path)
             dat_1 = getattr(pdf, attr).create_pan_dat(path)
             self.assertTrue(pdf._same_data(dat, dat_1))
+        core_path = os.path.join(_scratchDir, "parameters_two")
+        dat = TicDatFactory(**pdf.schema()).TicDat(parameters = [["Something",float("inf")], ["Different", "05701"]])
+        dat = TicDatFactory(**pdf.schema()).copy_to_pandas(dat, drop_pk_columns=False)
+        for attr, path in [["sql", core_path+".db"], ["csv", core_path+"_csv"], ["xls", core_path+".xlsx"],
+                           ["json", core_path + ".json"]]:
+            func = "write_directory" if attr == "csv" else "write_file"
+            getattr(getattr(pdf, attr), func)(dat, path)
+            dat_1 = getattr(pdf, attr).create_pan_dat(path)
+            self.assertTrue(pdf._same_data(dat, dat_1))
+
 
     def testInfFlagging(self):
         pdf = PanDatFactory(table=[["field one"], ["field two"]])
@@ -629,6 +639,61 @@ class TestIO(unittest.TestCase):
         panDat4 = pdf.PanDat(**dicted)
         self.assertTrue(pdf._same_data(panDat, panDat4, epsilon=1e-5))
 
+    def testIssue45(self):
+        pdf = PanDatFactory(data=[["a"], ["b"]])
+        tdf = TicDatFactory(**pdf.schema())
+        dat_nums = tdf.copy_to_pandas(tdf.TicDat(data = [[1,2],[3,4], [22, 44]]), drop_pk_columns=False)
+        dat_strs = tdf.copy_to_pandas(tdf.TicDat(data = [["1","2"],["3","4"], ["022", "0044"]]), drop_pk_columns=False)
+        files = [os.path.join(_scratchDir, _) for _ in ["dat_nums.xlsx", "dat_strs.xlsx"]]
+        pdf.xls.write_file(dat_nums, files[0])
+        pdf.xls.write_file(dat_strs, files[1])
+        dat_nums_2, dat_strs_2 = [pdf.xls.create_pan_dat(_) for _ in files]
+        self.assertTrue(pdf._same_data(dat_nums, dat_nums_2))
+        # this is pandas pushing things to be numeric
+        self.assertFalse(pdf._same_data(dat_strs, dat_strs_2))
+        self.assertTrue(pdf._same_data(dat_nums, dat_strs_2))
+
+        pdf = PanDatFactory(data=[["a"], ["b"]])
+        pdf.set_data_type("data", "a", number_allowed=False, strings_allowed='*')
+        dat_mixed = tdf.copy_to_pandas(tdf.TicDat(data = [["1",2],["3",4], ["022", 44]]), drop_pk_columns=False)
+        dat_nums_2, dat_strs_2 = [pdf.xls.create_pan_dat(_) for _ in files]
+        self.assertFalse(pdf._same_data(dat_nums, dat_nums_2))
+        self.assertFalse(pdf._same_data(dat_strs, dat_strs_2))
+        self.assertFalse(pdf._same_data(dat_nums_2, dat_mixed))
+        self.assertTrue(pdf._same_data(dat_strs_2, dat_mixed))
+
+        pdf = PanDatFactory(data=[["a"], ["b"]])
+        csv_dirs = [os.path.join(_scratchDir, _) for _ in ["dat_nums_csv", "dat_strs_csv"]]
+        pdf.csv.write_directory(dat_nums, csv_dirs[0])
+        pdf.csv.write_directory(dat_strs, csv_dirs[1])
+        dat_nums_2, dat_strs_2 = [pdf.csv.create_pan_dat(_) for _ in csv_dirs]
+        self.assertTrue(pdf._same_data(dat_nums, dat_nums_2))
+        # this is pandas pushing things to be numeric
+        self.assertFalse(pdf._same_data(dat_strs, dat_strs_2))
+        self.assertTrue(pdf._same_data(dat_nums, dat_strs_2))
+        pdf = PanDatFactory(data=[["a"], ["b"]])
+        pdf.set_data_type("data", "a", number_allowed=False, strings_allowed='*')
+        dat_nums_2, dat_strs_2 = [pdf.csv.create_pan_dat(_) for _ in csv_dirs]
+        self.assertFalse(pdf._same_data(dat_nums, dat_nums_2))
+        self.assertFalse(pdf._same_data(dat_strs, dat_strs_2))
+        self.assertFalse(pdf._same_data(dat_nums_2, dat_strs_2))
+        self.assertTrue(pdf._same_data(dat_strs_2, dat_mixed))
+
+    def test_nullables(self):
+        core_path = os.path.join(_scratchDir, "nullables")
+        pdf = PanDatFactory(table_with_stuffs = [["field one"], ["field two"]])
+        pdf.set_data_type("table_with_stuffs", "field one")
+        pdf.set_data_type("table_with_stuffs", "field two", number_allowed=False, strings_allowed='*', nullable=True)
+        dat = TicDatFactory(**pdf.schema()).TicDat(table_with_stuffs=[[101, "022"], [202, None], [303, "111"]])
+        dat = TicDatFactory(**pdf.schema()).copy_to_pandas(dat, drop_pk_columns=False)
+        self.assertFalse(pdf.find_data_type_failures(dat))
+
+        for attr, path in [["csv", core_path+"_csv"], ["xls", core_path+".xlsx"], ["sql", core_path+".db"],
+                           ["json", core_path+".json"]]:
+            func = "write_directory" if attr == "csv" else "write_file"
+            getattr(getattr(pdf, attr), func)(dat, path)
+            dat_1 = getattr(pdf, attr).create_pan_dat(path)
+            self.assertTrue(pdf._same_data(dat, dat_1, nans_are_same_for_data_rows=True))
 
 _scratchDir = TestIO.__name__ + "_scratch"
 
