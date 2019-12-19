@@ -31,7 +31,7 @@ class _DummyContextManager(object):
     def __exit__(self, *excinfo) :
         pass
 
-def _clean_pandat_creator(pdf, df_dict, push_parameters_to_be_valid=True):
+def _clean_pandat_creator(pdf, df_dict, push_parameters_to_be_valid=True, json_read=False):
     # note that pandas built in IO routines tend to be a bit overy pushy with the typing, hence
     # the push_parameters_to_be_valid argument
     pandat = pdf.PanDat(**df_dict)
@@ -40,7 +40,8 @@ def _clean_pandat_creator(pdf, df_dict, push_parameters_to_be_valid=True):
         setattr(pandat, t, getattr(pandat, t)[flds])
     msg = []
     assert pdf.good_pan_dat_object(pandat, msg.append), str(msg)
-    return pdf._general_post_read_adjustment(pandat, push_parameters_to_be_valid=push_parameters_to_be_valid)
+    return pdf._general_post_read_adjustment(pandat, json_read=json_read,
+                                             push_parameters_to_be_valid=push_parameters_to_be_valid)
 
 class JsonPanFactory(freezable_factory(object, "_isFrozen")):
     """
@@ -84,6 +85,11 @@ class JsonPanFactory(freezable_factory(object, "_isFrozen")):
                  are respected for field names.
 
                  (ticdat supports whitespace in field names but not table names).
+
+        Note that if you save a DataFrame to json and then recover it, the type of data might change.
+        Specifically, text that looks numeric might be recovered as a number, to include the loss of leading zeros.
+        To address this, you need to either use set_data_type for your
+        PanDatFactory, or specify "dtype" in kwargs. (The former is obviously better).
         """
         if os.path.exists(path_or_buf):
             verify(os.path.isfile(path_or_buf), "%s appears to be a directory and not a file." % path_or_buf)
@@ -92,13 +98,18 @@ class JsonPanFactory(freezable_factory(object, "_isFrozen")):
         else:
             verify(stringish(path_or_buf), "%s isn't a string" % path_or_buf)
             loaded_dict = json.loads(path_or_buf)
-        verify(dictish(loaded_dict), "path_or_buf to json.load as a dict")
+        verify(dictish(loaded_dict), "the json.load result doesn't resolve to a dictionary")
         verify(all(map(dictish, loaded_dict.values())),
                "the json.load result doesn't resolve to a dictionary whose values are themselves dictionaries")
 
         tbl_names = self._get_table_names(loaded_dict)
         verify("orient" not in kwargs, "orient should be passed as a non-kwargs argument")
-        rtn = {t: pd.read_json(json.dumps(loaded_dict[f]), orient=orient, **kwargs) for t,f in tbl_names.items()}
+        rtn = {}
+        for t, f in tbl_names.items():
+            kwargs_ = dict(kwargs)
+            if "dtype" not in kwargs_:
+                kwargs_["dtype"] = self.pan_dat_factory._dtypes_for_pandas_read(t)
+            rtn[t] = pd.read_json(json.dumps(loaded_dict[f]), orient=orient, **kwargs_)
         missing_fields = {(t, f) for t in rtn for f in all_fields(self.pan_dat_factory, t)
                           if f not in rtn[t].columns}
         if fill_missing_fields:
@@ -110,7 +121,7 @@ class JsonPanFactory(freezable_factory(object, "_isFrozen")):
         if missing_tables:
             print("The following table names could not be found in the SQLite database.\n%s\n" %
                   "\n".join(missing_tables))
-        return _clean_pandat_creator(self.pan_dat_factory, rtn)
+        return _clean_pandat_creator(self.pan_dat_factory, rtn, json_read=True)
 
     def _get_table_names(self, loaded_dict):
         rtn = {}

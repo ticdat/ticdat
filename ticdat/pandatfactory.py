@@ -215,14 +215,20 @@ class PanDatFactory(object):
         for f, dt in self.data_types.get(table, {}).items():
             if not dt.datetime and not dt.number_allowed and dt.strings_allowed:
                 rtn[f] = str
+        if self.parameters and table == "parameters":
+            for fld_singleton in self.schema()["parameters"]:
+                if fld_singleton[0] not in rtn:
+                    rtn[fld_singleton[0]] = str
         return rtn
-    def _general_post_read_adjustment(self, dat, push_parameters_to_be_valid=False):
+    def _general_post_read_adjustment(self, dat, push_parameters_to_be_valid=False, json_read=False):
         '''
         we expect other routines inside ticdat to access this routine, even though it starts with _
         :param dat: PanDat object that was just read from an external data source. dat will be side-effected
         :param push_parameters_to_be_valid : needed for certain file formats, where pandas makes pushy assumptions
                                              about type that might need to be undone
+        :param json_read: special 'None'->None override needed for pandas json reader
         '''
+        assert push_parameters_to_be_valid or not json_read, "json_read should always push_parameters_to_be_valid"
         apply = _faster_df_apply
         for t in set(self.all_tables).difference(["parameters"]): # parameters table is handled differently
             df = getattr(dat, t)
@@ -242,6 +248,14 @@ class PanDatFactory(object):
                             return utils.dateutil_adjuster(row[f])
                         return row[f]
                     df[f] = apply(df, fixed_row)
+                if json_read and self._dtypes_for_pandas_read(t).get(f) == str:
+                    assert dt, "assumed because _dtypes_for_pandas_read result"
+                    if dt.nullable:
+                        def fixed_row(row):
+                            if utils.stringish(row[f]) and row[f].lower() == "none":
+                                return None
+                            return row[f]
+                        df[f] = apply(df, fixed_row)
 
         # this is the logic that is used in lieu of infinity_io_flag logic for the parameters table
         # it is predicated on the assumption that the parameters table will be serialized to a string/string table
@@ -257,6 +271,9 @@ class PanDatFactory(object):
                     _can_parameter_have_data(key, utils.dateutil_adjuster(value)) and \
                     push_parameters_to_be_valid:
                     return utils.dateutil_adjuster(value)
+                if json_read and utils.stringish(value) and value.lower() == "none" and \
+                    _can_parameter_have_data(key, None):
+                    return None
                 if not _can_parameter_have_number(key):
                     if push_parameters_to_be_valid and not _can_parameter_have_data(key, value) and \
                        _can_parameter_have_data(key, str(value)):
@@ -353,7 +370,7 @@ class PanDatFactory(object):
 
         :param table: table in the schema
 
-        :param field:
+        :param field: one of table's fields.
 
         :return:
         """
@@ -467,30 +484,30 @@ class PanDatFactory(object):
         verify(utils.acceptable_default(default_value), "%s can not be used as a default value"%default_value)
         self._default_values[table][field] = default_value
 
-    def set_default_values(self, **tableDefaults):
+    def set_default_values(self, **table_defaults):
         """
         sets the default values for the fields
 
-        :param tableDefaults:
+        :param table_defaults:
              A dictionary of named arguments. Each argument name (i.e. each key) should be a table name
              Each value should itself be a dictionary mapping data field names to default values
 
         Ex:
 
-        ```tdf.set_default_values(categories = {"minNutrition":0, "maxNutrition":float("inf")},
+        ```pdf.set_default_values(categories = {"minNutrition":0, "maxNutrition":float("inf")},
                          foods = {"cost":0}, nutritionQuantities = {"qty":0})```
 
         :return:
         """
         verify(not self._has_been_used,
                "The default values can't be changed after a PanDatFactory has been used.")
-        for k,v in tableDefaults.items():
+        for k,v in table_defaults.items():
             verify(k in self.all_tables, "Unrecognized table name %s"%k)
             verify(dictish(v) and set(v).issubset(self.data_fields[k] + self.primary_key_fields[k]),
                 "Default values for %s should be a dictionary mapping field names to values"
                 %k)
-            verify(all(utils.acceptable_default(_v) for _v in v.values()), "some default values are unacceptable")
-            self._default_values[k] = dict(self._default_values[k], **v)
+            for f, dv in v.items():
+                self.set_default_value(k, f, dv)
 
     def clear_foreign_keys(self, native_table = None):
         """
@@ -527,11 +544,6 @@ class PanDatFactory(object):
                 rtn.append(ForeignKey(native, foreign, mappings, cardinality))
         assert len(rtn) == len(set(rtn))
         return tuple(rtn)
-    def _foreign_keys_by_native(self):
-        rtn = clt.defaultdict(list)
-        for fk in self.foreign_keys:
-            rtn[fk.native_table].append(fk)
-        return utils.FrozenDict({k:frozenset(v) for k,v in rtn.items()})
     def _all_fields(self, table):
         assert table in self.all_tables
         return tuple(_ for _ in self.primary_key_fields.get(table, ()) + self.data_fields.get(table, ()))
@@ -573,16 +585,6 @@ class PanDatFactory(object):
             verify(v in self._all_fields(foreign_table),
                    "%s does not refer to one of %s 's fields"%(v, foreign_table))
         self._foreign_keys[native_table, foreign_table].add(tuple(_mappings.items()))
-    def _simple_fk(self, ftbl, fk):
-        assert ftbl in self.all_tables
-        ftbl_pks = set(self.primary_key_fields.get(ftbl,()))
-        assert lupish(fk) and all(lupish(_) and len(_) == 2 for _ in fk)
-        ffs = {_[1] for _ in fk}
-        assert ffs.issubset(ftbl_pks.union(self.data_fields.get(ftbl,())))
-        return ftbl_pks == ffs
-    def _complex_fks(self):
-        return tuple((native, foreign, fk) for (native, foreign), fks in self._foreign_keys.items()
-                    for fk in fks if not self._simple_fk(foreign, fk))
     def _trigger_has_been_used(self):
         self._has_been_used = True
     def __init__(self, **init_fields):
