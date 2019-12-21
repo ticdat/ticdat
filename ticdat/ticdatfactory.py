@@ -261,6 +261,8 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
         """
         Add (or reset) a parameters option. Requires that a parameters table with one primary key field and one
         data field already be present. The legal parameters options will be enforced as part of find_data_row_failures
+        Note that if you are using this function, then you would typically read from the parameters table indirectly,
+        by using the dictionary returned by create_full_parameters_dict.
         :param name: name of the parameter to add or reset
         :param default_value: default value for the parameter (used for create_full_parameters_dict)
         :param number_allowed: boolean does this parameter allow numbers?
