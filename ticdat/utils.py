@@ -32,16 +32,19 @@ import inspect
 def dateutil_adjuster(x):
     if isinstance(x, datetime_.datetime):
         return x
-    # note that pd.Timestamp tends to create NaT from Falsey, this might be problematic
+    # note that pd.Timestamp tends to create NaT from Falsey, this is ok so long as you check for null using pd.isnull
     # also, pd.Timestampp can do weird things making Timestamps from numbers, so not enabling that.
-    if pd and not numericish(x):
-        rtn = safe_apply(pd.Timestamp)(x)
-        if rtn is None and dateutil:
-            return safe_apply(dateutil.parser.parse)(x)
+    def _try_to_timestamp(y):
+        if pd and not numericish(y):
+            rtn = safe_apply(pd.Timestamp)(y)
+            if rtn is not None:
+                return rtn
+        if dateutil:
+            return safe_apply(dateutil.parser.parse)(y)
+    rtn = _try_to_timestamp(x)
+    if rtn is not None:
         return rtn
-    if not dateutil:
-        return None
-    return safe_apply(dateutil.parser.parse)(x)
+    return _try_to_timestamp(str(x))
 
 def acceptable_default(v) :
     return numericish(v) or stringish(v) or (v is None)
@@ -55,7 +58,7 @@ class TypeDictionary(namedtuple("TypeDictionary",
                     ("number_allowed", "inclusive_min", "inclusive_max", "min",
                       "max", "must_be_int", "strings_allowed", "nullable", "datetime"))):
     def valid_data(self, data):
-        if data is None:
+        if pd.isnull(data):
             return bool(self.nullable)
         if self.datetime:
             return isinstance(data, datetime_.datetime) or dateutil_adjuster(data) is not None

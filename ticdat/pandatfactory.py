@@ -244,9 +244,8 @@ class PanDatFactory(object):
                 dt = self.data_types.get(t, {}).get(f, None)
                 if dt and dt.datetime:
                     def fixed_row(row):
-                        if utils.stringish(row[f]) and utils.dateutil_adjuster(row[f]) is not None:
-                            return utils.dateutil_adjuster(row[f])
-                        return row[f]
+                        new_row_f = utils.dateutil_adjuster(row[f])
+                        return new_row_f if new_row_f is not None else row[f]
                     df[f] = apply(df, fixed_row)
                 if json_read and self._dtypes_for_pandas_read(t).get(f) == str:
                     assert dt, "assumed because _dtypes_for_pandas_read result"
