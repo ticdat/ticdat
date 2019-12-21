@@ -119,6 +119,17 @@ class TestPostres(unittest.TestCase):
             self.postgresql.stop()
         shutil.rmtree(_scratchDir)
 
+    def test_wtf(self):
+        schema = "wtf"
+        tdf = TicDatFactory(table_one=[["Cost per Distance", "Cost per Hr. (in-transit)"], ["Stuff"]],
+                            table_two=[["This", "That"], ["Tho"]])
+        tdf.pgsql.write_schema(self.engine, schema)
+        data = [["a", "b", 1], ["dd", "ee", 10], ["023", "210", 102.1]]
+        tic_dat = tdf.TicDat(table_one=data, table_two=data)
+        tdf.pgsql.write_data(tic_dat, self.engine, schema, dsn=self.postgresql.dsn())
+        pg_tic_dat = tdf.pgsql.create_tic_dat(self.engine, schema)
+        self.assertTrue(tdf._same_data(tic_dat, pg_tic_dat))
+
     def test_diet_dsn(self):
         if not self.can_run:
             return

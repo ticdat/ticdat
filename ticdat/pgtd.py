@@ -27,7 +27,8 @@ _can_unit_test = bool(sa)
 
 # Seems to be required in postgres.
 def _pg_name(name):
-    return name.replace(' ', '_').lower()
+    rtn_ = [_ if _.isalnum() else "_" for _ in name.lower()]
+    return "".join(rtn_)
 
 class _PostgresFactory(freezable_factory(object, "_isFrozen"),):
     def __init__(self, tdf):
@@ -226,7 +227,8 @@ class PostgresTicFactory(_PostgresFactory):
     https://bit.ly/2xWLZL3.
     You **are** encouraged to continue to use field names like "Min Nutrition" in your ticdat Python code, and the
     pgtd code here will match such fields up with postgres field names like min_nutrition when reading/writing from
-    a postgres DB.
+    a postgres DB. (Non alphamnumeric characters in general, and not just spaces, are replaced with underscores
+    for generating PGSQL field names)
     """
     def __init__(self, tic_dat_factory):
         """
@@ -407,7 +409,8 @@ class PostgresPanFactory(_PostgresFactory):
     https://bit.ly/2xWLZL3.
     You **are** encouraged to continue to use field names like "Min Nutrition" in your ticdat Python code, and the
     pgtd code here will match such fields up with postgres field names like min_nutrition when reading/writing from
-    a postgres DB.
+    a postgres DB. (Non alphamnumeric characters in general, and not just spaces, are replaced with underscores
+    for generating PGSQL field names).
     """
     def __init__(self, pan_dat_factory):
         """
