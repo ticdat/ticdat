@@ -44,7 +44,8 @@ def dateutil_adjuster(x):
     rtn = _try_to_timestamp(x)
     if rtn is not None:
         return rtn
-    return _try_to_timestamp(str(x))
+    if not numericish(x):
+        return _try_to_timestamp(str(x))
 
 def acceptable_default(v) :
     return numericish(v) or stringish(v) or (v is None)
