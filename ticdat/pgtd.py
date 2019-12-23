@@ -3,7 +3,7 @@ Read/write ticDat objects from PostGres database. Requires the sqlalchemy module
 """
 
 from collections import defaultdict
-from ticdat.utils import freezable_factory, TicDatError, verify, dictish, FrozenDict, find_duplicates
+from ticdat.utils import freezable_factory, TicDatError, verify, stringish, FrozenDict, find_duplicates
 from ticdat.utils import create_duplicate_focused_tdf, dictish
 import time
 import os
@@ -471,11 +471,14 @@ class EnframeOfflineHandler(object):
     def __init__(self, confg_file, input_schema, solution_schema, solve, engine_object=None):
         """
         :param confg_file: an appropriate json file
-            example enframe.json file. Note the presence of both "solve_type" and "_solve_type" for easy toggling.
+            example enframe.json file.
             {"postgres_url": "postgresql://postgres@127.0.0.1:64452/test",
-             "postgres_schema": "test_schema",
-             "solve_type" : "Copy Input To Postgres",
-             "_solve_type": "Proxy Enframe Solve"}
+             "postgres_schema": "test_schema"}
+            Optional enframe.json keys
+            -> solve_type : can be "Proxy Enframe Solve", "Copy Input To Postgres" or "Copy Input to Postgres and Solve"
+                            defaults to "Copy Input to Postgres and Solve"
+            -> master_schema: can be any string. If an empty string, then a master_schema isn't used. Defaults to
+                              "reports".
         :param input_schema: the input_schema
         :param solution_schema: the solution_schema
         :param solve: the solve function
@@ -495,17 +498,17 @@ class EnframeOfflineHandler(object):
         with open(confg_file, "r") as _:
             d = json.load(_)
         verify(dictish(d), f"{confg_file} doesn't resolve to a dict")
-        recognized_keys = {"postgres_url", "postgres_schema", "solve_type"}
+        recognized_keys = {"postgres_url", "postgres_schema", "solve_type", "master_schema"}
         ignored_keys = set(d).difference(recognized_keys)
         if ignored_keys:
             print(f"\n****\nThe following entries from {confg_file} will be ignored.\n{ignored_keys}\n****\n")
-        missing_keys = recognized_keys.difference(d)
-        verify(not missing_keys, f"following keys missing from {confg_file}\n{missing_keys}")
         self._postgres_url = d["postgres_url"]
         self._postgres_schema = d["postgres_schema"]
-        self.solve_type = d["solve_type"]
-        verify(self.solve_type in ["Proxy Enframe Solve", "Copy Input To Postgres"],
-               "solve_type must be 'Proxy Enframe Solve' or 'Copy Input To Postgres'")
+        self.solve_type = d.get("solve_type", "Copy Input to Postgres and Solve")
+        verify(self.solve_type in ["Proxy Enframe Solve", "Copy Input To Postgres", "Copy Input to Postgres and Solve"],
+           "solve_type must be 'Proxy Enframe Solve', 'Copy Input To Postgres' or 'Copy Input to Postgres and Solve'")
+        self._master_schema = d.get("master_schema", "reports")
+        verify(stringish(self._master_schema), "master_schema should refer to a string")
         if engine_object:
             m = engine_object
         else:
