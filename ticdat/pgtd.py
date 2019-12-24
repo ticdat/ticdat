@@ -25,7 +25,7 @@ except:
 
 _can_unit_test = bool(sa)
 
-# Seems to be required in postgres.
+# CUIDADO CUIDADO CUIDADO I wrote some ticdat_deployer code that referred to the following private function
 def _pg_name(name):
     rtn_ = [_ if _.isalnum() else "_" for _ in name.lower()]
     return "".join(rtn_)
@@ -504,11 +504,14 @@ class EnframeOfflineHandler(object):
             print(f"\n****\nThe following entries from {confg_file} will be ignored.\n{ignored_keys}\n****\n")
         self._postgres_url = d["postgres_url"]
         self._postgres_schema = d["postgres_schema"]
+        verify(stringish(self._postgres_schema) and self._postgres_schema,
+               "postgres_schema should refer to a non-empty string")
         self.solve_type = d.get("solve_type", "Copy Input to Postgres and Solve")
         verify(self.solve_type in ["Proxy Enframe Solve", "Copy Input To Postgres", "Copy Input to Postgres and Solve"],
            "solve_type must be 'Proxy Enframe Solve', 'Copy Input To Postgres' or 'Copy Input to Postgres and Solve'")
         self._master_schema = d.get("master_schema", "reports")
         verify(stringish(self._master_schema), "master_schema should refer to a string")
+        verify(self._master_schema != self._postgres_schema, "master_schema should not refer to postgres_schema")
         if engine_object:
             m = engine_object
         else:
