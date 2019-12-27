@@ -1,7 +1,7 @@
 import ticdat.utils as utils
 from ticdat import TicDatFactory, PanDatFactory
 from ticdat.testing.ticdattestutils import pan_dat_maker
-from ticdat.pgtd import _can_unit_test, PostgresTicFactory, PostgresPanFactory, _pg_name, EnframeOfflineHandler
+from ticdat.pgtd import _can_unit_test, PostgresTicFactory, PostgresPanFactory, _pg_name
 from ticdat.testing.ticdattestutils import flagged_as_run_alone, fail_to_debugger
 import time
 import datetime
