@@ -27,6 +27,14 @@ try:
 except:
     drm = None
 
+try:
+    from framework_utils.ticdat_deployer import EnframeOfflineHandler
+except:
+    try:
+        from enframe_offline_handler import EnframeOfflineHandler
+    except:
+        EnframeOfflineHandler = None
+
 import inspect
 
 def dateutil_adjuster(x):
@@ -176,10 +184,7 @@ def _extra_input_file_check_str(input_file):
         return "\nTo load data from .csv files, pass the parent directory containing the .csv files as the -i argument."
     return ""
 
-# example enframe.json file. solve_type and master_schema are optional. See EnframeOfflineHandler for more details
-# {"postgres_url": "postgresql://postgres@127.0.0.1:64452/test",
-#  "postgres_schema": "test_schema"}
-
+# See EnframeOfflineHandler for  details for how to configure the enframe.json file
 def _standard_main_pandat(input_schema, solution_schema, solve):
     file_name = sys.argv[0]
     def usage():
@@ -205,7 +210,8 @@ def _standard_main_pandat(input_schema, solution_schema, solve):
         else:
             verify(False, "unhandled option")
     if enframe_config:
-        from ticdat.pgtd import EnframeOfflineHandler
+        verify(EnframeOfflineHandler,
+               "-e/--enframe command line functionality requires additional Enframe specific package")
         enframe_handler = EnframeOfflineHandler(enframe_config, input_schema, solution_schema, solve)
         if enframe_handler.solve_type == "Proxy Enframe Solve":
             enframe_handler.proxy_enframe_solve()
@@ -232,7 +238,9 @@ def _standard_main_pandat(input_schema, solution_schema, solve):
         if enframe_handler:
             enframe_handler.copy_input_dat(dat)
             print(f"Input data copied from {input_file} to the postgres DB defined by {enframe_config}")
-            return
+            if enframe_handler.solve_type == "Copy Input to Postgres and Solve":
+                enframe_handler.proxy_enframe_solve()
+                return
         print("output %s %s"%(file_or_dir(output_file), output_file))
         sln = solve(dat)
         if sln:
@@ -274,7 +282,8 @@ def _standard_main_ticdat(input_schema, solution_schema, solve):
         else:
             verify(False, "unhandled option")
     if enframe_config:
-        from ticdat.pgtd import EnframeOfflineHandler
+        verify(EnframeOfflineHandler,
+               "-e/--enframe command line functionality requires additional Enframe specific package")
         enframe_handler = EnframeOfflineHandler(enframe_config, input_schema, solution_schema, solve)
         if enframe_handler.solve_type == "Proxy Enframe Solve":
             enframe_handler.proxy_enframe_solve()
