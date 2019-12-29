@@ -6,10 +6,6 @@ from ticdat.testing.ticdattestutils import flagged_as_run_alone, fail_to_debugge
 import time
 import datetime
 import math
-import shutil
-import os
-import json
-from ticdat.testing.ticdattestutils import makeCleanDir
 
 import unittest
 try:
