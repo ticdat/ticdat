@@ -3,12 +3,8 @@ Read/write ticDat objects from PostGres database. Requires the sqlalchemy module
 """
 
 from collections import defaultdict
-from ticdat.utils import freezable_factory, TicDatError, verify, dictish, FrozenDict, find_duplicates
+from ticdat.utils import freezable_factory, TicDatError, verify, stringish, FrozenDict, find_duplicates
 from ticdat.utils import create_duplicate_focused_tdf, dictish
-import time
-import os
-import json
-import sys
 try:
     import sqlalchemy as sa
 except:
@@ -17,7 +13,6 @@ try:
     import psycopg2
 except:
     psycopg2 = None
-
 try:
     import pandas as pd
 except:
@@ -25,7 +20,7 @@ except:
 
 _can_unit_test = bool(sa)
 
-# Seems to be required in postgres.
+# CUIDADO CUIDADO CUIDADO I wrote some ticdat_deployer code that referred to the following private function
 def _pg_name(name):
     rtn_ = [_ if _.isalnum() else "_" for _ in name.lower()]
     return "".join(rtn_)
@@ -467,160 +462,6 @@ class PostgresPanFactory(_PostgresFactory):
             df.rename(columns={f: _pg_name(f) for f in fields}, inplace=True)
             df.to_sql(name=table, schema=schema, con=engine, if_exists="append", index=False)
 
-class EnframeOfflineHandler(object):
-    def __init__(self, confg_file, input_schema, solution_schema, solve, engine_object=None):
-        """
-        :param confg_file: an appropriate json file
-            example enframe.json file. Note the presence of both "solve_type" and "_solve_type" for easy toggling.
-            {"postgres_url": "postgresql://postgres@127.0.0.1:64452/test",
-             "postgres_schema": "test_schema",
-             "solve_type" : "Copy Input To Postgres",
-             "_solve_type": "Proxy Enframe Solve"}
-        :param input_schema: the input_schema
-        :param solution_schema: the solution_schema
-        :param solve: the solve function
-        :param engine_object: this will be passed only for unit testing, normally it is deduced from solve
-        """
-        try:
-            from framework_utils.ticdat_deployer import TicDatDeployer
-        except :
-            try:
-                from enframe_ticdat_deployer import TicDatDeployer
-            except:
-                TicDatDeployer = None
-        self._engine = None
-        verify(TicDatDeployer, "Need some local package that can find TicDatDeployer.")
-        verify(sa, "sqlalchemy needs to be installed to use PostGres")
-        verify(os.path.isfile(confg_file), f"{confg_file} isn't a valid file path")
-        with open(confg_file, "r") as _:
-            d = json.load(_)
-        verify(dictish(d), f"{confg_file} doesn't resolve to a dict")
-        recognized_keys = {"postgres_url", "postgres_schema", "solve_type"}
-        ignored_keys = set(d).difference(recognized_keys)
-        if ignored_keys:
-            print(f"\n****\nThe following entries from {confg_file} will be ignored.\n{ignored_keys}\n****\n")
-        missing_keys = recognized_keys.difference(d)
-        verify(not missing_keys, f"following keys missing from {confg_file}\n{missing_keys}")
-        self._postgres_url = d["postgres_url"]
-        self._postgres_schema = d["postgres_schema"]
-        self.solve_type = d["solve_type"]
-        verify(self.solve_type in ["Proxy Enframe Solve", "Copy Input To Postgres"],
-               "solve_type must be 'Proxy Enframe Solve' or 'Copy Input To Postgres'")
-        if engine_object:
-            m = engine_object
-        else:
-            m = sys.modules[solve.__module__]
-            if m.__package__:
-                m = sys.modules[m.__package__]
-        for n, o in [["input_schema", input_schema], ["solution_schema", solution_schema], ["solve", solve]]:
-            verify(getattr(m, n, None) is o or (engine_object and n == "solve"),
-                   f"failure to resolve {n} as a proper attribute of the engine")
-        self._tdd = TicDatDeployer.duck_type_create(m)
-        self._tdd_data = self._tdd.ticdat_helpful_data()
-        self._python_engine = m
-        engine_fail = ""
-        try:
-            self._engine = sa.create_engine(self._postgres_url)
-        except Exception as e:
-            engine_fail = str(e)
-        verify(not engine_fail, "Failed to create postgres engine\n" +
-               f"URL : {self._postgres_url}\nException : {engine_fail}")
-    def __enter__(self):
-        return self
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        if self._engine:
-            self._engine.dispose()
-    def _get_forced_field_types(self, config_type):
-        pgsql, tdf, renamings = {
-            "input": (self._tdd_data.input_pgtd, self._python_engine.input_schema, self._tdd_data.input_renamings),
-            "output": (self._tdd_data.solution_pgtd, self._python_engine.solution_schema,
-                       self._tdd_data.solution_renamings)}[config_type]
-        kwarg = {}
-        enframe_attr = getattr(self._python_engine, {"input": "enframe_input_config",
-                                                     "output": "enframe_output_config"}[config_type], {})
-        if "type_for_complex_fields" in enframe_attr:
-            kwarg = {"type_for_complex_fields": enframe_attr["type_for_complex_fields"]}
-        forced_field_types = {}
-        mapping_dict = {"text":"text", "int":"integer", "float":"float", "datetime":"timestamp"}
-        for t in tdf.all_tables:
-            for f in tdf.schema()[t][0] + tdf.schema()[t][1]:
-                forced_field_types[renamings[t], f] = mapping_dict[self._tdd.get_data_type(config_type, t, f, **kwarg)]
-        return forced_field_types
-    def _write_schema_as_needed(self, pgsql, forced_field_types=None):
-        from ticdat.utils import TicDatError
-
-        has_schema = True
-        try:
-            pgsql.check_tables_fields(self._engine, self._postgres_schema, error_on_missing_table=True)
-        except TicDatError:
-            has_schema = False
-        if not has_schema:
-
-            pgsql.write_schema(self._engine, self._postgres_schema, include_ancillary_info=False,
-                               forced_field_types=forced_field_types)
-    def copy_input_dat(self, dat):
-       assert self.solve_type == "Copy Input To Postgres"
-       tdf = self._python_engine.input_schema
-       parameters_schema = tdf.schema().get("parameters")
-       renamed_parameters_schema = self._tdd_data.input_pgtd.tdf.schema().get("parameters")
-       ffd = {k:v for k, v in self._get_forced_field_types("input").items() if k[0] != "parameters"}
-       if parameters_schema:
-           ffd.update({("parameters", _[0]):"text" for _ in renamed_parameters_schema})
-       self._write_schema_as_needed(self._tdd_data.input_pgtd, forced_field_types=ffd)
-       self._write_schema_as_needed(self._tdd_data.small_integrity_pgtd)
-       from ticdat import TicDatFactory
-       if isinstance(tdf, TicDatFactory):
-            assert tdf.good_tic_dat_object(dat)
-            renamed_dat = self._tdd_data.input_pgtd.tdf.TicDat()
-            for t in tdf.all_tables:
-                if t == "parameters":
-                    for k ,v in dat.parameters.items():
-                        renamed_dat.parameters[k] = next(iter(v.values()))
-                else:
-                    setattr(renamed_dat, self._tdd._input_renamings[t], getattr(dat, t))
-            self._tdd_data.input_pgtd.write_data(renamed_dat, self._engine, self._postgres_schema,
-                                                 dsn=self._try_get_dsn())
-       else:
-            assert tdf.good_pan_dat_object(dat)
-            renamed_dat = self._tdd_data.input_pgtd.tdf.PanDat()
-            for t in tdf.all_tables:
-                if t == "parameters":
-                    renamed_dat.parameters = dat.parameters.rename(columns={e[0]:t[0] for e,t in zip(
-                        parameters_schema, renamed_parameters_schema)})
-                else:
-                    setattr(renamed_dat, self._tdd_data.input_renamings[t], getattr(dat, t))
-            self._tdd_data.input_pgtd.write_data(renamed_dat, self._engine, self._postgres_schema)
-    def _try_get_dsn(self):
-        if not psycopg2:
-            return None
-        try:
-            rtn = psycopg2.connect(self._postgres_url).get_dsn_parameters()
-        except:
-            return None
-        return rtn
-    def proxy_enframe_solve(self):
-        _time = time.time()
-        seconds = lambda: "{0:.2f}".format(time.time() - _time)
-        class MockDb(object):
-            engine = self._engine
-            schema = self._postgres_schema
-        result_type, result = self._tdd.get_input_dat_with_integrity_checking(MockDb())
-        if result_type == "Integrity Failures":
-            print("Various data integrity problems were found.")
-            for k, v in result.items():
-                print(k.ljust(30) + " : " + str(v))
-            return
-        assert result_type in ["TicDat Data Object", "PanDat Data Object"]
-        dat = result
-        print(f"-->Launch-to-dat time {seconds()} seconds.")
-        # at some point could add a bunch of cool stuff  here - progress and dumping log tables to .csv files for ex
-        sln = self._python_engine.solve(dat)
-        print(f"--> Launch-to-solve time {seconds()} seconds.")
-        if sln: # writing might be slowed down because we have no DSN - can make that optional and add it later
-            self._write_schema_as_needed(self._tdd_data.solution_pgtd, self._get_forced_field_types("output"))
-            self._tdd.write_solution_dat_to_postgres(sln, self._engine, self._postgres_schema, dsn=self._try_get_dsn())
-        else:
-            print("No solution found")
 
 
 
