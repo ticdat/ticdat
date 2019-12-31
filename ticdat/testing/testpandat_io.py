@@ -607,6 +607,21 @@ class TestIO(unittest.TestCase):
         panDat4 = pdf.PanDat(**dicted)
         self.assertTrue(pdf._same_data(panDat, panDat4, epsilon=1e-5))
 
+    def testJsonCross(self):
+        if not self.can_run:
+            return
+        tdf = TicDatFactory(**dietSchema())
+        pdf = PanDatFactory(**dietSchema())
+        ticDat = tdf.freeze_me(tdf.TicDat(**{t: getattr(dietData(),t) for t in tdf.primary_key_fields}))
+        panDat = pan_dat_maker(dietSchema(), ticDat)
+        filePath = os.path.join(_scratchDir, "diet_cross.json")
+        pdf.json.write_file(panDat, filePath)
+        ticDat2 = tdf.json.create_tic_dat(filePath, from_pandas=True)
+        self.assertTrue(tdf._same_data(ticDat, ticDat2, epsilon=0.0001))
+        tdf.json.write_file(ticDat, filePath, allow_overwrite=True, to_pandas=True)
+        panDat2 = pdf.json.create_pan_dat(filePath)
+        self.assertTrue(pdf._same_data(panDat, panDat2, epsilon=0.0001))
+
     def testJsonSpacey(self):
         if not self.can_run:
             return

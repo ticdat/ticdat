@@ -118,6 +118,8 @@ class TestJson(unittest.TestCase):
         for verbose in [True, False]:
             tdf = TicDatFactory(**netflowSchema())
             ticDat = tdf.TicDat(**{t:getattr(netflowData(),t) for t in tdf.primary_key_fields})
+            self.assertTrue(tdf._same_data(ticDat, tdf.json.create_tic_dat(
+                            tdf.json.write_file(ticDat, "")), epsilon=0.0001))
 
             writePath = os.path.join(makeCleanDir(os.path.join(_scratchDir, "netflow")), "file.json")
             tdf.json.write_file(ticDat, writePath, verbose=verbose)
