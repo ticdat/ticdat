@@ -60,14 +60,17 @@ class JsonTicFactory(freezable_factory(object, "_isFrozen")) :
         """
         self.tic_dat_factory = tic_dat_factory
         self._isFrozen = True
-    def create_tic_dat(self, json_file_path, freeze_it = False):
+    def create_tic_dat(self, json_file_path, freeze_it = False, from_pandas = False):
         """
         Create a TicDat object from a json file
 
         :param json_file_path: A json file path. It should encode a dictionary
-                               with table names as keys.
+                               with table names as keys. Could also be an actual JSON string
 
         :param freeze_it: boolean. should the returned object be frozen?
+
+        :param from_pandas: boolean.  If truthy, then use pandas json readers. See
+                            PanDatFactory json readers for more details.
 
         :return: a TicDat object populated by the matching tables.
 
@@ -77,6 +80,11 @@ class JsonTicFactory(freezable_factory(object, "_isFrozen")) :
                  Dictionary keys that don't match any table are ignored.
         """
         _standard_verify(self.tic_dat_factory)
+        if from_pandas:
+            from ticdat import PanDatFactory
+            pdf = PanDatFactory.create_from_full_schema(self.tic_dat_factory.schema(include_ancillary_info=True))
+            _rtn = pdf.json.create_pan_dat(json_file_path)
+            return pdf.copy_to_tic_dat(_rtn)
         jdict = self._create_jdict(json_file_path)
         tic_dat_dict = self._create_tic_dat_dict(jdict)
         missing_tables = set(self.tic_dat_factory.all_tables).difference(tic_dat_dict)
@@ -88,12 +96,15 @@ class JsonTicFactory(freezable_factory(object, "_isFrozen")) :
         if freeze_it:
             return self.tic_dat_factory.freeze_me(rtn)
         return rtn
-    def find_duplicates(self, json_file_path):
+    def find_duplicates(self, json_file_path, from_pandas = False):
         """
         Find the row counts for duplicated rows.
 
         :param json_file_path: A json file path. It should encode a dictionary
                                with table names as keys.
+
+        :param from_pandas: boolean.  If truthy, then use pandas json readers. See
+                            PanDatFactory json readers for more details.
 
         :return: A dictionary whose keys are table names for the primary-ed key tables.
                  Each value of the return dictionary is itself a dictionary.
@@ -102,22 +113,39 @@ class JsonTicFactory(freezable_factory(object, "_isFrozen")) :
                  Row counts smaller than 2 are pruned off, as they aren't duplicates
         """
         _standard_verify(self.tic_dat_factory)
-        jdict = self._create_jdict(json_file_path)
+        if from_pandas:
+            from ticdat import PanDatFactory
+            pdf = PanDatFactory.create_from_full_schema(self.tic_dat_factory.schema(include_ancillary_info=True))
+            _rtn = pdf.json.create_pan_dat(json_file_path)
+            jdict = {t: [tuple(_) for _ in getattr(_rtn, t).itertuples(index=False)] for t in pdf.all_tables}
+        else:
+            jdict = self._create_jdict(json_file_path)
         rtn = find_duplicates_from_dict_ticdat(self.tic_dat_factory, jdict)
         return rtn or {}
-    def _create_jdict(self, json_file_path):
-        verify(os.path.isfile(json_file_path), "json_file_path is not a valid file path.")
-        try :
-            with open(json_file_path, "r") as fp:
-                jdict = json.load(fp)
-        except Exception as e:
-            raise TicDatError("Unable to interpret %s as json file : %s"%
-                              (json_file_path, e))
-        verify(dictish(jdict), "%s failed to load a dictionary"%json_file_path)
+    def _create_jdict(self, path_or_buf):
+        if stringish(path_or_buf) and os.path.exists(path_or_buf):
+            reasonble_string = path_or_buf
+            verify(os.path.isfile(path_or_buf), "json_file_path is not a valid file path.")
+            try :
+                with open(path_or_buf, "r") as fp:
+                    jdict = json.load(fp)
+            except Exception as e:
+                raise TicDatError("Unable to interpret %s as json file : %s" %
+                                  (path_or_buf, e))
+        else:
+            verify(stringish(path_or_buf), "%s isn't a string" % path_or_buf)
+            reasonble_string = path_or_buf[:10]
+            try:
+                jdict = json.loads(path_or_buf)
+            except Exception as e:
+                raise TicDatError("Unable to interpret %s as json string : %s" %
+                                  (reasonble_string, e))
+
+        verify(dictish(jdict), "%s failed to load a dictionary" % reasonble_string)
         verify(all(map(stringish, jdict)),
-               "The dictionary loaded from %s isn't indexed by strings"%json_file_path)
+               "The dictionary loaded from %s isn't indexed by strings" % reasonble_string)
         verify(all(map(containerish, jdict.values())),
-               "The dictionary loaded from %s doesn't have containers as values"%json_file_path)
+               "The dictionary loaded from %s doesn't have containers as values" % reasonble_string)
         return jdict
     def _create_tic_dat_dict(self, jdict):
         tdf = self.tic_dat_factory
@@ -140,13 +168,14 @@ class JsonTicFactory(freezable_factory(object, "_isFrozen")) :
                 else:
                     rtn[t].append([tdf._general_read_cell(t, f, x) for f, x in zip(all_fields, row)])
         return rtn
-    def write_file(self, tic_dat, json_file_path, allow_overwrite = False, verbose = False):
+    def write_file(self, tic_dat, json_file_path, allow_overwrite = False, verbose = False, to_pandas = False,
+                   to_str = False):
         """
         write the ticDat data to an excel file
 
         :param tic_dat: the data object to write (typically a TicDat)
 
-        :param json_file_path: The file path of the json file to create.
+        :param json_file_path: The file path of the json file to create. If empty string, then return a JSON string.
 
         :param allow_overwrite: boolean - are we allowed to overwrite an
                                 existing file?
@@ -154,14 +183,24 @@ class JsonTicFactory(freezable_factory(object, "_isFrozen")) :
         :param verbose: boolean. Verbose mode writes the data rows as dicts
                         keyed by field name. Otherwise, they are lists.
 
+        :param to_pandas: boolean. if truthy, then use the PanDatFactory method of writing to json.
+
         :return:
         """
         _standard_verify(self.tic_dat_factory)
-        verify(not (os.path.exists(json_file_path) and not allow_overwrite),
+        verify(not (to_pandas and verbose), "verbose argument is inconsistent with to_pandas")
+        verify(not (json_file_path and os.path.exists(json_file_path) and not allow_overwrite),
                "%s exists and allow_overwrite is not enabled"%json_file_path)
+        if to_pandas:
+            from ticdat import PanDatFactory
+            pdf = PanDatFactory.create_from_full_schema(self.tic_dat_factory.schema(include_ancillary_info=True))
+            return pdf.json.write_file(self.tic_dat_factory.copy_to_pandas(tic_dat, drop_pk_columns=False),
+                                       json_file_path)
         msg = []
         if not self.tic_dat_factory.good_tic_dat_object(tic_dat, lambda m : msg.append(m)) :
             raise TicDatError("Not a valid TicDat object for this schema : " + " : ".join(msg))
         jdict = make_json_dict(self.tic_dat_factory, tic_dat, verbose, use_infinity_io_flag_if_provided=True)
+        if not json_file_path:
+            return json.dumps(jdict, sort_keys=True, indent=2)
         with open(json_file_path, "w") as fp:
             json.dump(jdict, fp, sort_keys=True, indent=2)

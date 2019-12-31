@@ -118,6 +118,8 @@ class TestJson(unittest.TestCase):
         for verbose in [True, False]:
             tdf = TicDatFactory(**netflowSchema())
             ticDat = tdf.TicDat(**{t:getattr(netflowData(),t) for t in tdf.primary_key_fields})
+            self.assertTrue(tdf._same_data(ticDat, tdf.json.create_tic_dat(
+                            tdf.json.write_file(ticDat, "")), epsilon=0.0001))
 
             writePath = os.path.join(makeCleanDir(os.path.join(_scratchDir, "netflow")), "file.json")
             tdf.json.write_file(ticDat, writePath, verbose=verbose)
@@ -141,7 +143,7 @@ class TestJson(unittest.TestCase):
     def testDups(self):
         if not self.can_run:
             return
-        for verbose in [True, False]:
+        for kwargs in [{"verbose":True}, {}, {"to_pandas": True}]:
             tdf = TicDatFactory(one = [["a"],["b", "c"]],
                                 two = [["a", "b"],["c"]],
                                 three = [["a", "b", "c"],[]])
@@ -149,8 +151,8 @@ class TestJson(unittest.TestCase):
             td = tdf2.TicDat(**{t:[[1, 2, 1], [1, 2, 2], [2, 1, 3], [2, 2, 3], [1, 2, 2], ["new", 1, 2]]
                                 for t in tdf.all_tables})
             writePath = os.path.join(makeCleanDir(os.path.join(_scratchDir, "dups")), "file.json")
-            tdf2.json.write_file(td, writePath, verbose=verbose)
-            dups = tdf.json.find_duplicates(writePath)
+            tdf2.json.write_file(td, writePath, **kwargs)
+            dups = tdf.json.find_duplicates(writePath, from_pandas=kwargs.get("to_pandas", False))
             self.assertTrue(dups == {'three': {(1, 2, 2): 2}, 'two': {(1, 2): 3}, 'one': {1: 3, 2: 2}})
 
     def testSilly(self):

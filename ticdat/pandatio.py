@@ -91,7 +91,7 @@ class JsonPanFactory(freezable_factory(object, "_isFrozen")):
         To address this, you need to either use set_data_type for your
         PanDatFactory, or specify "dtype" in kwargs. (The former is obviously better).
         """
-        if os.path.exists(path_or_buf):
+        if stringish(path_or_buf) and os.path.exists(path_or_buf):
             verify(os.path.isfile(path_or_buf), "%s appears to be a directory and not a file." % path_or_buf)
             with open(path_or_buf, "r") as f:
                 loaded_dict = json.load(f)
@@ -134,7 +134,7 @@ class JsonPanFactory(freezable_factory(object, "_isFrozen")):
                 rtn.pop(table)
         return rtn
     def write_file(self, pan_dat, json_file_path, case_space_table_names=False, orient='split',
-                   index=False, indent=None, sort_keys=False, **kwargs):
+                   index=False, indent=2, sort_keys=False, **kwargs):
         """
         write the PanDat data to a collection of csv files
 
@@ -150,7 +150,7 @@ class JsonPanFactory(freezable_factory(object, "_isFrozen")):
 
         :param index: boolean - whether or not to write the index.
 
-        :param indent: None. See json.dumps
+        :param indent: 2. See json.dumps
 
         :param sort_keys: See json.dumps
 
