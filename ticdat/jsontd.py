@@ -96,12 +96,15 @@ class JsonTicFactory(freezable_factory(object, "_isFrozen")) :
         if freeze_it:
             return self.tic_dat_factory.freeze_me(rtn)
         return rtn
-    def find_duplicates(self, json_file_path):
+    def find_duplicates(self, json_file_path, from_pandas = False):
         """
         Find the row counts for duplicated rows.
 
         :param json_file_path: A json file path. It should encode a dictionary
                                with table names as keys.
+
+        :param from_pandas: boolean.  If truthy, then use pandas json readers. See
+                            PanDatFactory json readers for more details.
 
         :return: A dictionary whose keys are table names for the primary-ed key tables.
                  Each value of the return dictionary is itself a dictionary.
@@ -110,7 +113,13 @@ class JsonTicFactory(freezable_factory(object, "_isFrozen")) :
                  Row counts smaller than 2 are pruned off, as they aren't duplicates
         """
         _standard_verify(self.tic_dat_factory)
-        jdict = self._create_jdict(json_file_path)
+        if from_pandas:
+            from ticdat import PanDatFactory
+            pdf = PanDatFactory.create_from_full_schema(self.tic_dat_factory.schema(include_ancillary_info=True))
+            _rtn = pdf.json.create_pan_dat(json_file_path)
+            jdict = {t: [tuple(_) for _ in getattr(_rtn, t).itertuples(index=False)] for t in pdf.all_tables}
+        else:
+            jdict = self._create_jdict(json_file_path)
         rtn = find_duplicates_from_dict_ticdat(self.tic_dat_factory, jdict)
         return rtn or {}
     def _create_jdict(self, path_or_buf):
