@@ -362,6 +362,7 @@ class PostgresTicFactory(_PostgresFactory):
 
         :param dsn: optional - if truthy, a dict that can be unpacked as arguments to
                     psycopg2.connect. Will speed up bulk writing compared to engine.execute
+                    If truthy and not a dict, then will be passed directly to psycopg2.connect as the sole argument.
 
         :param pre_existing_rows: if provided, a dict mapping table name to either "delete" or "append"
                                   default behavior is "delete"
@@ -372,7 +373,6 @@ class PostgresTicFactory(_PostgresFactory):
         verify(engine.name=='postgresql',
                "a sqlalchemy engine with drivername='postgres' is required")
         verify(not dsn or psycopg2, "need psycopg2 to use the faster dsn write option")
-        verify(dictish(dsn or {}), "if provided - dsn needs to be a dict")
         self._check_good_pgtd_compatible_table_field_names()
         msg = []
         if not self.tdf.good_tic_dat_object(tic_dat, lambda m: msg.append(m)):
@@ -382,7 +382,9 @@ class PostgresTicFactory(_PostgresFactory):
         self.check_tables_fields(engine, schema, error_on_missing_table=True) # call self.write_schema as needed
         self._handle_prexisting_rows(engine, schema, pre_existing_rows or {})
         if dsn:
-            with psycopg2.connect(**dsn) as db:
+            connect_kwargs = dsn if dsn and dictish(dsn) else {}
+            connect_args = [dsn] if dsn and not dictish(dsn) else []
+            with psycopg2.connect(*connect_args, **connect_kwargs) as db:
                 with db.cursor() as cursor:
                     for k, v in self._get_data(tic_dat, schema, dump_format="dict").items():
                         psycopg2.extras.execute_values(cursor, k, v)

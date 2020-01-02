@@ -237,6 +237,32 @@ class TestPostres(unittest.TestCase):
         pg_tic_dat = pgtf.create_tic_dat(self.engine, test_schema)
         self.assertTrue(diet_schema._same_data(med_dat, pg_tic_dat))
 
+    def test_big_diet_two(self):
+        now = time.time()
+        if not self.can_run:
+            return
+        pgtf = diet_schema.pgsql
+        big_dat = diet_schema.copy_tic_dat(diet_dat)
+        for k in range(int(1e5)):
+            big_dat.categories[str(k)] = [0,100]
+        pgtf.write_schema(self.engine, test_schema)
+        pgtf.write_data(big_dat, self.engine, test_schema, dsn=self.postgresql.url())
+        print(f"**!!*{time.time()-now}*!!   *")
+        now = time.time()
+        self.assertFalse(pgtf.find_duplicates(self.engine, test_schema))
+        pg_tic_dat = pgtf.create_tic_dat(self.engine, test_schema)
+        print(f"****{time.time()-now}****")
+        self.assertTrue(diet_schema._same_data(big_dat, pg_tic_dat))
+
+        med_dat = diet_schema.copy_tic_dat(diet_dat)
+        for k in range(int(2e3)):
+            med_dat.categories[str(k)] = [0,100]
+        # big enough to trigger a warning message if writing out without dsn
+        pgtf.write_data(med_dat, self.engine, test_schema)
+        self.assertFalse(pgtf.find_duplicates(self.engine, test_schema))
+        pg_tic_dat = pgtf.create_tic_dat(self.engine, test_schema)
+        self.assertTrue(diet_schema._same_data(med_dat, pg_tic_dat))
+
     def test_schema(self):
         if not self.can_run:
             return
