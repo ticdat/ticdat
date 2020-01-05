@@ -1,7 +1,10 @@
 # Simplest multi-commodity flow example using amplpy and ticdat
 
 from ticdat import PanDatFactory, standard_main
-from amplpy import AMPL
+try: # if you don't have amplpy installed, the code will still load and then fail on solve
+    from amplpy import AMPL
+except:
+    AMPL = None
 
 input_schema = PanDatFactory (
     commodities=[["Name"], ["Volume"]],

@@ -9,9 +9,9 @@
 #
 # Provides command line interface via ticdat.standard_main
 # For example, typing
-#   python diet.py -i diet_sample_data.sql -o diet_solution_data.sql
-# will read from a model stored in the file diet_sample_data.sql and write the solution
-# to diet_solution_data.sql.
+#   python diet.py -i diet_sample_data -o diet_solution_data
+# will read from a model stored in the directory diet_sample_data and write the solution
+# to a directory called diet_solution_data. These data directories contain .csv files.
 
 # this version of the file uses Gurobi
 

@@ -17,8 +17,10 @@
 # before solving to prevent strange errors or garbage-in, garbage-out problems.
 
 from ticdat import PanDatFactory, standard_main
-from amplpy import AMPL
-
+try: # if you don't have amplpy installed, the code will still load and then fail on solve
+    from amplpy import AMPL
+except:
+    AMPL = None
 # ------------------------ define the input schema --------------------------------
 input_schema = PanDatFactory(
     parameters=[["Parameter"], ["Value"]],
@@ -44,7 +46,8 @@ input_schema.set_data_type("players", "Average Draft Position", min=0, max=float
 input_schema.set_data_type("players", "Expected Points", min=-float("inf"), max=float("inf"),
                           inclusive_min=False, inclusive_max=False)
 input_schema.set_data_type("players", "Draft Status",
-                          strings_allowed= ["Un-drafted", "Drafted By Me", "Drafted By Someone Else"])
+                          strings_allowed= ["Un-drafted", "Drafted By Me", "Drafted By Someone Else"],
+                          number_allowed= False)
 for fld in ("Min Num Starters",  "Min Num Reserve"):
     input_schema.set_data_type("roster_requirements", fld, min=0, max=float("inf"),
                           inclusive_min=True, inclusive_max=False, must_be_int=True)
@@ -65,6 +68,8 @@ input_schema.add_parameter("Starter Weight", default_value=1.2, min=0, max=float
                            inclusive_min=False, inclusive_max=False)
 input_schema.add_parameter("Reserve Weight", default_value=0.9, min=0, max=float("inf"),
                            inclusive_min=False, inclusive_max=False)
+input_schema.add_parameter("Maximum Number of Flex Starters", default_value=float("inf"), min=0, max=float("inf"),
+                           inclusive_min=True, inclusive_max=True)
 # ---------------------------------------------------------------------------------
 
 
@@ -171,8 +176,8 @@ def solve(dat):
                          })
     input_schema.set_ampl_data(ampl_dat, ampl, {"players":"PLAYERS", "my_draft_positions":"MY_DRAFT_POSITIONS",
                                                 "roster_requirements": "POSITIONS"})
-    ampl.param['max_number_of_flex_starters'] = parameters.get('Maximum Number of Flex Starters',
-                                                len(dat.my_draft_positions))
+    ampl.param['max_number_of_flex_starters'] = min(parameters['Maximum Number of Flex Starters'],
+                                                    len(dat.my_draft_positions))
     ampl.param['starter_weight'] = parameters['Starter Weight']
     ampl.param['reserve_weight'] = parameters['Reserve Weight']
 

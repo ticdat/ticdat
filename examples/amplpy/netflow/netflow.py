@@ -17,8 +17,10 @@
 # unneeded constraints. See the simplest_examples directory for a simpler version of this model.
 
 from ticdat import PanDatFactory, standard_main
-from amplpy import AMPL
-
+try: # if you don't have amplpy installed, the code will still load and then fail on solve
+    from amplpy import AMPL
+except:
+    AMPL = None
 # ------------------------ define the input schema --------------------------------
 input_schema = PanDatFactory (
     commodities=[["Name"], ["Volume"]],

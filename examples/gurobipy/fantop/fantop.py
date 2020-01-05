@@ -39,17 +39,13 @@ input_schema = TicDatFactory (
 input_schema.add_foreign_key("players", "roster_requirements", ['Position', 'Position'])
 
 # set data types (optional, but helps with preventing garbage-in, garbage-out)
-input_schema.set_data_type("parameters", "Parameter", number_allowed = False,
-                          strings_allowed = ["Starter Weight", "Reserve Weight",
-                                             "Maximum Number of Flex Starters"])
-input_schema.set_data_type("parameters", "Value", min=0, max=float("inf"),
-                          inclusive_min = True, inclusive_max = False)
 input_schema.set_data_type("players", "Average Draft Position", min=0, max=float("inf"),
                           inclusive_min = False, inclusive_max = False)
 input_schema.set_data_type("players", "Expected Points", min=-float("inf"), max=float("inf"),
                           inclusive_min = False, inclusive_max = False)
 input_schema.set_data_type("players", "Draft Status",
-                          strings_allowed = ["Un-drafted", "Drafted By Me", "Drafted By Someone Else"])
+                          strings_allowed = ["Un-drafted", "Drafted By Me", "Drafted By Someone Else"],
+                          number_allowed = False)
 for fld in ("Min Num Starters",  "Min Num Reserve", "Max Num Reserve"):
     input_schema.set_data_type("roster_requirements", fld, min=0, max=float("inf"),
                           inclusive_min = True, inclusive_max = False, must_be_int = True)
@@ -69,6 +65,8 @@ input_schema.add_parameter("Starter Weight", default_value=1.2, min=0, max=float
                            inclusive_min=False, inclusive_max=False)
 input_schema.add_parameter("Reserve Weight", default_value=0.9, min=0, max=float("inf"),
                            inclusive_min=False, inclusive_max=False)
+input_schema.add_parameter("Maximum Number of Flex Starters", default_value=float("inf"), min=0, max=float("inf"),
+                           inclusive_min=True, inclusive_max=True)
 # ---------------------------------------------------------------------------------
 
 
@@ -139,14 +137,13 @@ def solve(dat):
         m.addConstr(reserves >= row["Min Num Reserve"], name = "min_reserve_%s"%position)
         m.addConstr(reserves <= row["Max Num Reserve"], name = "max_reserve_%s"%position)
 
-    if "Maximum Number of Flex Starters" in dat.parameters:
-        players = {player_name for player_name in can_be_drafted_by_me if
-                   dat.roster_requirements[dat.players[player_name]["Position"]]["Flex Status"] == "Flex Eligible"}
-        m.addConstr(gu.quicksum(my_starters[player_name] for player_name in players)
-                    <= dat.parameters["Maximum Number of Flex Starters"]["Value"],
-                    name = "max_flex")
-
     parameters = input_schema.create_full_parameters_dict(dat)
+    flex_players = {player_name for player_name in can_be_drafted_by_me if
+                    dat.roster_requirements[dat.players[player_name]["Position"]]["Flex Status"] == "Flex Eligible"}
+    m.addConstr(gu.quicksum(my_starters[player_name] for player_name in flex_players)
+                <= parameters["Maximum Number of Flex Starters"],
+                name = "max_flex")
+
     starter_weight = parameters["Starter Weight"]
     reserve_weight = parameters["Reserve Weight"]
     m.setObjective(gu.quicksum(dat.players[player_name]["Expected Points"] *

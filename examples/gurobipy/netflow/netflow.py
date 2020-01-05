@@ -9,9 +9,9 @@
 #
 # Provides command line interface via ticdat.standard_main
 # For example, typing
-#   python netflow.py -i netflow_sample_data.sql -o netflow_solution.sql
-# will read from the model stored in netflow_sample_data.sql
-# and write the solution to netflow_solution.sql
+#   python netflow.py -i netflow_sample_data -o netflow_solution
+# will read from the model stored in the netflow_sample_data directory
+# and write the solution to a netflow_solution directory.  These data directories contain .csv files.
 #
 # This version of the netflow example takes extra precautions to avoid generating
 # unneeded constraints. See the simplest_examples directory for a simpler version of this model.
