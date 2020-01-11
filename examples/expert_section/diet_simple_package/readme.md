@@ -6,7 +6,7 @@ Note that the name of the package is `diet_simple_package`, because that's the n
 
 Of course this example is so small that splitting it into seperate files is a bit silly. But some
 engines will be large enough that putting all the code into one file will be troublesome, and a package
-is the standard Python tool for multi-file solutions. 
+is the standard Python idiom for multi-file solutions. 
 
 Don't forget to use the -m argument when running from the command line. E.g.
 
