@@ -15,6 +15,9 @@
 # Uses the ticdat package to simplify file IO and provide command line functionality.
 # Can read from .csv, JSON, Excel or SQLite files. Self validates the input data
 # before solving to prevent strange errors or garbage-in, garbage-out problems.
+#
+# Run like
+#  python fantop.py -i fantop_sample_data -o fantop_solution_data
 
 from ticdat import PanDatFactory, standard_main
 try: # if you don't have amplpy installed, the code will still load and then fail on solve
@@ -100,6 +103,10 @@ def solve(dat):
     dat.players.reset_index(drop=False, inplace=True) # turn the sequential index into a column
     dat.players["Expected Draft Position"] = dat.players["index"] + 1
     dat.players.drop(["index", "_temp_sort_column"], inplace=True, axis=1)
+
+    # BE CAREFUL - this is https://github.com/ticdat/ticdat/issues/54 Not sure why this is needed
+    dat.my_draft_positions.sort_values("Draft Position", inplace=True)
+
     assert list(dat.players["Expected Draft Position"]) == list(range(1, len(dat.players)+1))
 
     ampl = AMPL()
