@@ -114,7 +114,7 @@ def solve(dat):
             df.rename(columns = {df.columns[0]: "Load Amount", df.columns[1]: "Number Of Visits"}, inplace=True)
             df["Number One Way Trips"] = number_trips
             df["Amount Leftover"] = amount_leftover
-            load_amount_details = load_amount_details.append(df[df["Number Of Visits"] > 0])
+            load_amount_details = load_amount_details.append(df[df["Number Of Visits"] > 0], sort=False)
 
     # pandas has amazing convenience routines for sorting and sub-totaling
     load_amount_details.sort_values(by=["Number One Way Trips", "Amount Leftover", "Load Amount"], inplace=True)
