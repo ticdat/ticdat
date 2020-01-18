@@ -692,6 +692,11 @@ class TestPostres(unittest.TestCase):
         tdf.pgsql.write_data(tic_dat, self.engine, schema)
         two_checks()
 
+    def testIssue55(self):
+        schema = test_schema + "issue45"
+        tdf = TicDatFactory(boger=[["A Fields"], ["556f"]])
+        tdf.pgsql.write_schema(self.engine, schema)
+
 
 test_schema = 'test'
 

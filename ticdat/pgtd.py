@@ -22,8 +22,10 @@ _can_unit_test = bool(sa)
 
 # CUIDADO CUIDADO CUIDADO I wrote some ticdat_deployer code that referred to the following private function
 def _pg_name(name):
-    rtn_ = [_ if _.isalnum() else "_" for _ in name.lower()]
-    return "".join(rtn_)
+    rtn = [_ if _.isalnum() else "_" for _ in name.lower()]
+    if rtn and rtn[0].isdigit():
+        rtn[0] = "_"
+    return "".join(rtn)
 
 class _PostgresFactory(freezable_factory(object, "_isFrozen"),):
     def __init__(self, tdf):
