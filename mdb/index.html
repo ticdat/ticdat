@@ -263,8 +263,9 @@ do something with it.</p>
 <p>:param mdb_file_path: An Access db with a consistent schema.</p>
 <p>:param freeze_it: boolean. should the returned object be frozen?</p>
 <p>:return: a TicDat object populated by the matching tables.</p>
-<p>caveats : Numbers with absolute values larger than 1e+100 will
-          be read as float("inf") or float("-inf")</p>
+<p>caveats : Tables that don't find a match are interpreted as an empty table.
+          Missing fields on matching tables throw an exception.
+          Also, see infinity_io_flag</p>
 <h2 id="ticdat.mdb.MdbTicFactory.find_duplicates">find_duplicates</h2>
 
 <pre><code class="python">MdbTicFactory.find_duplicates(self, mdb_file_path)
@@ -300,8 +301,7 @@ do something with it.</p>
 <p>:param mdb_file_path: the file path of the SQLite database to populate</p>
 <p>:param allow_overwrite: boolean - are we allowed to overwrite pre-existing data</p>
 <p>:return:</p>
-<p>caveats : Numbers with absolute values larger than 1e+100 will
-          be written as 1e+100 or -1e+100</p>
+<p>caveats : See infinity_io_flag</p>
 <p>NB - thrown Exceptions of the form "Data type mismatch in criteria expression"
      generally result either from Access's inability to store different data
      types in the same field, or from a mismatch between the data object

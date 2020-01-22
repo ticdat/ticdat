@@ -264,6 +264,14 @@ PanDatFactory.</p>
          Table names are matched with case-space insensitivity, but spaces
          are respected for field names.
          (ticdat supports whitespace in field names but not table names).</p>
+<p>Note that if you save a DataFrame to csv and then recover it, the type of data might change. For example</p>
+<pre><code>df = pd.DataFrame({"a":["100", "200", "300"]})
+df.to_csv("something.csv")
+df2 = pd.read_csv("something.csv")
+</code></pre>
+<p>results in a numeric column in df2. To address this, you need to either use set_data_type for your
+PanDatFactory, or specify "dtype" in kwargs. (The former is obviously better).</p>
+<p>This problem is even worse with df = pd.DataFrame({"a":["0100", "1200", "2300"]})</p>
 <h2 id="ticdat.pandatio.CsvPanFactory.write_directory">write_directory</h2>
 
 <pre><code class="python">CsvPanFactory.write_directory(self, pan_dat, dir_path, case_space_table_names=False, index=False, **kwargs)
@@ -301,14 +309,19 @@ PanDatFactory.</p>
 <p>:param orient: Indication of expected JSON string format. See pandas.read_json for more details.</p>
 <p>:param kwargs: additional named arguments to pass to pandas.read_json</p>
 <p>:return: a PanDat object populated by the matching tables.</p>
-<p>caveats: Missing tables always throw an Exception.
-         Table names are matched with case-space insensitivity, but spaces
-         are respected for field names.
-         (ticdat supports whitespace in field names but not table names).
-         +- "inf", "-inf" strings will be converted to +-float("inf")</p>
+<p>caveats: Missing tables always resolve to an empty table.</p>
+<pre><code>     Table names are matched with case-space insensitivity, but spaces
+     are respected for field names.
+
+     (ticdat supports whitespace in field names but not table names).
+</code></pre>
+<p>Note that if you save a DataFrame to json and then recover it, the type of data might change.
+Specifically, text that looks numeric might be recovered as a number, to include the loss of leading zeros.
+To address this, you need to either use set_data_type for your
+PanDatFactory, or specify "dtype" in kwargs. (The former is obviously better).</p>
 <h2 id="ticdat.pandatio.JsonPanFactory.write_file">write_file</h2>
 
-<pre><code class="python">JsonPanFactory.write_file(self, pan_dat, json_file_path, case_space_table_names=False, orient='split', index=False, indent=None, sort_keys=False, **kwargs)
+<pre><code class="python">JsonPanFactory.write_file(self, pan_dat, json_file_path, case_space_table_names=False, orient='split', index=False, indent=2, sort_keys=False, **kwargs)
 </code></pre>
 
 <p>write the PanDat data to a collection of csv files</p>
@@ -319,18 +332,16 @@ PanDatFactory.</p>
                                characters to table names</p>
 <p>:param orient: Indication of expected JSON string format. See pandas.to_json for more details.</p>
 <p>:param index: boolean - whether or not to write the index.</p>
-<p>:param indent: None. See json.dumps</p>
+<p>:param indent: 2. See json.dumps</p>
 <p>:param sort_keys: See json.dumps</p>
 <p>:param kwargs: additional named arguments to pass to pandas.to_json</p>
 <p>:return:</p>
-<p>caveats:  +-float("inf") will be converted to "inf", "-inf"</p>
 <h1 id="ticdat.pandatio.SqlPanFactory">SqlPanFactory</h1>
 
 <pre><code class="python">SqlPanFactory(self, pan_dat_factory)
 </code></pre>
 
-<p>Primary class for reading/writing SQLite files
-(and sqlalchemy.engine.Engine objects) with PanDat objects.
+<p>Primary class for reading/writing SQLite files with PanDat objects.
 Don't create this object explicitly. A SqlPanFactory will
 automatically be associated with the sql attribute of the parent
 PanDatFactory.</p>
@@ -341,16 +352,18 @@ PanDatFactory.</p>
 
 <p>Create a PanDat object from a SQLite database file</p>
 <p>:param db_file_path: A SQLite DB File. Set to falsey if using con argument</p>
-<p>:param con: sqlalchemy.engine.Engine or sqlite3.Connection.
+<p>:param con: A connection object that can be passed to pandas read_sql.
             Set to falsey if using db_file_path argument.</p>
 <p>:param fill_missing_fields: boolean. If truthy, missing fields will be filled in
                             with their default value. Otherwise, missing fields
                             throw an Exception.</p>
 <p>:return: a PanDat object populated by the matching tables.</p>
-<p>caveats: Missing tables always throw an Exception.
-         Table names are matched with case-space insensitivity, but spaces
-         are respected for field names.
-         (ticdat supports whitespace in field names but not table names).</p>
+<p>caveats: Missing tables always resolve to an empty table, but missing fields on matching tables throw
+         an exception (unless fill_missing_fields is truthy).</p>
+<pre><code>     Table names are matched with case-space insensitivity, but spaces
+     are respected for field names.
+     (ticdat supports whitespace in field names but not table names).
+</code></pre>
 <h2 id="ticdat.pandatio.SqlPanFactory.write_file">write_file</h2>
 
 <pre><code class="python">SqlPanFactory.write_file(self, pan_dat, db_file_path, con=None, if_exists='replace', case_space_table_names=False)
@@ -360,7 +373,7 @@ PanDatFactory.</p>
 <p>:param pan_dat: the PanDat object to write</p>
 <p>:param db_file_path: The file path of the SQLite file to create.
                      Set to falsey if using con argument.</p>
-<p>:param con: sqlalchemy.engine.Engine or sqlite3.Connection.
+<p>:param con: A connection object that can be passed to pandas to_sql.
             Set to falsey if using db_file_path argument</p>
 <p>:param if_exists: ‘fail’, ‘replace’ or ‘append’. How to behave if the table already exists</p>
 <p>:param case_space_table_names: boolean - make best guesses how to add spaces and upper case
@@ -389,10 +402,18 @@ with the xls attribute of the parent PanDatFactory.</p>
                             throw an Exception.</p>
 <p>:return: a PanDat object populated by the matching sheets.</p>
 <p>caveats: Missing sheets resolve to an empty table, but missing fields
-         on matching sheets throw an Exception (unless fill_missing_fields is falsey).
+         on matching sheets throw an Exception (unless fill_missing_fields is truthy).
          Table names are matched to sheets with with case-space insensitivity, but spaces and
          case are respected for field names.
          (ticdat supports whitespace in field names but not table names).</p>
+<p>Note that if you save a DataFrame to excel and then recover it, the type of data might change. For example</p>
+<pre><code>df = pd.DataFrame({"a":["100", "200", "300"]})
+df.to_excel("something.xlsx")
+df2 = pd.read_excel("something.xlsx")
+</code></pre>
+<p>results in a numeric column in df2. To address this, you need to either use set_data_type for your
+PanDatFactory.</p>
+<p>This problem is even worse with df = pd.DataFrame({"a":["0100", "1200", "2300"]})</p>
 <h2 id="ticdat.pandatio.XlsPanFactory.write_file">write_file</h2>
 
 <pre><code class="python">XlsPanFactory.write_file(self, pan_dat, file_path, case_space_sheet_names=False)

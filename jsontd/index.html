@@ -241,7 +241,7 @@
               
                 <h1 id="ticdat.jsontd.make_json_dict">make_json_dict</h1>
 
-<pre><code class="python">make_json_dict(tdf, tic_dat, verbose=False)
+<pre><code class="python">make_json_dict(tdf, tic_dat, verbose=False, use_infinity_io_flag_if_provided=False)
 </code></pre>
 
 <h1 id="ticdat.jsontd.JsonTicFactory">JsonTicFactory</h1>
@@ -253,13 +253,15 @@
 You need the json package to be installed to use it.</p>
 <h2 id="ticdat.jsontd.JsonTicFactory.create_tic_dat">create_tic_dat</h2>
 
-<pre><code class="python">JsonTicFactory.create_tic_dat(self, json_file_path, freeze_it=False)
+<pre><code class="python">JsonTicFactory.create_tic_dat(self, json_file_path, freeze_it=False, from_pandas=False)
 </code></pre>
 
 <p>Create a TicDat object from a json file</p>
 <p>:param json_file_path: A json file path. It should encode a dictionary
-                       with table names as keys.</p>
+                       with table names as keys. Could also be an actual JSON string</p>
 <p>:param freeze_it: boolean. should the returned object be frozen?</p>
+<p>:param from_pandas: boolean.  If truthy, then use pandas json readers. See
+                    PanDatFactory json readers for more details.</p>
 <p>:return: a TicDat object populated by the matching tables.</p>
 <p>caveats: Table names matches are case insensitive and also
          underscore-space insensitive.
@@ -267,12 +269,14 @@ You need the json package to be installed to use it.</p>
          Dictionary keys that don't match any table are ignored.</p>
 <h2 id="ticdat.jsontd.JsonTicFactory.find_duplicates">find_duplicates</h2>
 
-<pre><code class="python">JsonTicFactory.find_duplicates(self, json_file_path)
+<pre><code class="python">JsonTicFactory.find_duplicates(self, json_file_path, from_pandas=False)
 </code></pre>
 
 <p>Find the row counts for duplicated rows.</p>
 <p>:param json_file_path: A json file path. It should encode a dictionary
                        with table names as keys.</p>
+<p>:param from_pandas: boolean.  If truthy, then use pandas json readers. See
+                    PanDatFactory json readers for more details.</p>
 <p>:return: A dictionary whose keys are table names for the primary-ed key tables.
          Each value of the return dictionary is itself a dictionary.
          The inner dictionary is keyed by the primary key values encountered in the table,
@@ -280,16 +284,17 @@ You need the json package to be installed to use it.</p>
          Row counts smaller than 2 are pruned off, as they aren't duplicates</p>
 <h2 id="ticdat.jsontd.JsonTicFactory.write_file">write_file</h2>
 
-<pre><code class="python">JsonTicFactory.write_file(self, tic_dat, json_file_path, allow_overwrite=False, verbose=False)
+<pre><code class="python">JsonTicFactory.write_file(self, tic_dat, json_file_path, allow_overwrite=False, verbose=False, to_pandas=False, to_str=False)
 </code></pre>
 
 <p>write the ticDat data to an excel file</p>
 <p>:param tic_dat: the data object to write (typically a TicDat)</p>
-<p>:param json_file_path: The file path of the json file to create.</p>
+<p>:param json_file_path: The file path of the json file to create. If empty string, then return a JSON string.</p>
 <p>:param allow_overwrite: boolean - are we allowed to overwrite an
                         existing file?</p>
 <p>:param verbose: boolean. Verbose mode writes the data rows as dicts
                 keyed by field name. Otherwise, they are lists.</p>
+<p>:param to_pandas: boolean. if truthy, then use the PanDatFactory method of writing to json.</p>
 <p>:return:</p>
               
             </div>

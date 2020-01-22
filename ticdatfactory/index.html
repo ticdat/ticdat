@@ -372,7 +372,7 @@ performs a deep copy</p>
 <pre><code class="python">TicDatFactory.copy_to_pandas(self, tic_dat, table_restrictions=None, drop_pk_columns=None)
 </code></pre>
 
-<p>copies the tic_dat object into a new tic_dat object populated with pandas.DataFrame objects
+<p>copies the tic_dat object into a new object populated with pandas.DataFrame objects
 performs a deep copy</p>
 <p>:param tic_dat: a ticdat object</p>
 <p>:param table_restrictions: If truthy, a list of tables to turn into
@@ -381,7 +381,13 @@ performs a deep copy</p>
                         from the data frames after they have been incorporated
                         into the index.
                         If None, then pk fields will be dropped only for tables with data fields</p>
-<p>:return: a deep copy of the tic_dat argument into DataFrames</p>
+<p>:return: a deep copy of the tic_dat argument into DataFrames
+         If table_restrictions is falsey and drop_pk_columns is False, then the return object
+         will be a valid pan_dat object. I.e.
+            assert PanDatFactory(**self.schema()).good_pan_dat_object(rtn)
+         works.</p>
+<pre><code>    Note that None will be converted to nan in the returned object (as is the norm for pandas.DataFrame)
+</code></pre>
 <h1 id="ticdat.ticdatfactory.TicDatFactory.create_from_full_schema">create_from_full_schema</h1>
 
 <pre><code class="python">TicDatFactory.create_from_full_schema(full_schema)
@@ -437,30 +443,10 @@ can slow down TicDat creation.</p>
 <p>That is to say, bad_values tells you which values in field are failing the data type check,
  and pks tells you which table rows will have their field entry changed if you call
  replace_data_type_failures().</p>
-<h1 id="ticdat.ticdatfactory.TicDatFactory.find_denormalized_sub_table_failures">find_denormalized_sub_table_failures</h1>
-
-<pre><code class="python">TicDatFactory.find_denormalized_sub_table_failures(self, tic_dat, table, sub_table_pk_fields, sub_table_data_fields)
-</code></pre>
-
-<p>checks to see if a given table contains a denormalized sub-table
-indexed by pk_fields with data fields data_fields</p>
-<p>:param tic_dat: a ticdat object</p>
-<p>:param table: The name of the table to study.</p>
-<p>:param sub_table_pk_fields: The pk_fields of the sub-table. Needs to be fields
-                            (but not necc primary key fields) of the table.</p>
-<p>:param sub_table_data_fields: The data fields of the sub-table. Needs to be fields
-                             (but not necc data fields) of the table.</p>
-<p>:return: A dictionary indexed by the sub_table_pk_fields values in the table
-         that are associated with improperly denormalized table rows. The
-         values of the return dictionary are themselves dictionaries indexed
-         by sub_table_data_fields. The values of the inner dictionary are
-         tuples of the different distinct values found for the data field
-         at the different rows with common sub_table_pk_fields values.
-         The inner dictionaries are pruned so that only tuples of length &gt;1
-         are included, and the return dictionary is pruned so that only
-         entries with at least one non-pruned inner dictionary is included.
-         Thus, a table that has a properly denormalized (pk_fields, data_fields)
-         sub-table will return an empty dictionary.</p>
+<p>Note that for primary key fields (but not data fields) with no explicit data type, a temporary filter
+ that excludes only Null will be applied. If you want primary key fields to allow Null, you must explicitly
+ opt-in by calling set_data_type appropriately.
+ See issue https://github.com/ticdat/ticdat/issues/46 for more info.</p>
 <h1 id="ticdat.ticdatfactory.TicDatFactory.find_foreign_key_failures">find_foreign_key_failures</h1>
 
 <pre><code class="python">TicDatFactory.find_foreign_key_failures(self, tic_dat, verbosity='High')
@@ -494,7 +480,7 @@ indexed by pk_fields with data fields data_fields</p>
 <p>:return: tic_dat, after it has been frozen</p>
 <h1 id="ticdat.ticdatfactory.TicDatFactory.good_tic_dat_object">good_tic_dat_object</h1>
 
-<pre><code class="python">TicDatFactory.good_tic_dat_object(self, data_obj, bad_message_handler=&lt;function TicDatFactory.&lt;lambda&gt; at 0x1161b1bf8&gt;)
+<pre><code class="python">TicDatFactory.good_tic_dat_object(self, data_obj, bad_message_handler=&lt;function TicDatFactory.&lt;lambda&gt; at 0x11a12dea0&gt;)
 </code></pre>
 
 <p>determines if an object can be can be converted to a TicDat data object.</p>
@@ -503,7 +489,7 @@ indexed by pk_fields with data fields data_fields</p>
 <p>:return: True if the dataObj can be converted to a TicDat data object. False otherwise.</p>
 <h1 id="ticdat.ticdatfactory.TicDatFactory.good_tic_dat_table">good_tic_dat_table</h1>
 
-<pre><code class="python">TicDatFactory.good_tic_dat_table(self, data_table, table_name, bad_message_handler=&lt;function TicDatFactory.&lt;lambda&gt; at 0x1161b1e18&gt;)
+<pre><code class="python">TicDatFactory.good_tic_dat_table(self, data_table, table_name, bad_message_handler=&lt;function TicDatFactory.&lt;lambda&gt; at 0x11a12e158&gt;)
 </code></pre>
 
 <p>determines if an object can be can be converted to a TicDat data table.</p>
@@ -579,7 +565,7 @@ replacement_value.</p>
 :return:</p>
 <h1 id="ticdat.ticdatfactory.TicDatFactory.set_data_type">set_data_type</h1>
 
-<pre><code class="python">TicDatFactory.set_data_type(self, table, field, number_allowed=True, inclusive_min=True, inclusive_max=False, min=0, max=inf, must_be_int=False, strings_allowed=(), nullable=False)
+<pre><code class="python">TicDatFactory.set_data_type(self, table, field, number_allowed=True, inclusive_min=True, inclusive_max=False, min=0, max=inf, must_be_int=False, strings_allowed=(), nullable=False, datetime=False)
 </code></pre>
 
 <p>sets the data type for a field. By default, fields don't have types. Adding a data type doesn't block
@@ -597,7 +583,12 @@ with find_data_type_failures(). Errant data entries can be replaced with replace
                         The empty collection prohibits strings.
                         If a "*", then any string is accepted.</p>
 <p>:param nullable : boolean : can this value contain null (aka None)</p>
-<p>:return:</p>
+<p>:param datetime: If truthy, then number_allowed through strings_allowed are ignored. Should the data either
+                 be a datetime.datetime object or a string that can be parsed into a datetime.datetime object?
+                 Note that the various readers will try to coerce strings into datetime.datetime objects
+                 on read for fields with datetime data types. pandas.Timestamp is itself a datetime.datetime,
+                 and the bias will be to create such an object.
+:return:</p>
 <h1 id="ticdat.ticdatfactory.TicDatFactory.set_default_value">set_default_value</h1>
 
 <pre><code class="python">TicDatFactory.set_default_value(self, table, field, default_value)

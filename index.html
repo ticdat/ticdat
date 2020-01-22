@@ -262,10 +262,9 @@ predefined schema, and facilitates rich integrity checks based on schema defined
 conjunction with <code>gurobipy</code> and using <code>PanDatFactory</code> in conjunction with <code>amplpy</code>. That said, <code>ticdat</code> can also be
 used with libraries like <code>pyomo</code>, <code>pulp</code>, <code>docplex</code> and <code>xpress</code>. It also has functionality to support the OPL and
 LINGO modeling languages, although the AMPL support is far more mature.</p>
-<p><code>ticdat</code>'s association with AMPL is particularly strong. The design goals of <code>ticdat</code> were inspired by AMPL’s pattern
-of cleanly separating model from data, as well as its ability to thoroughly validate input data prior to solving.
-AMPL Optimization has endorsed <code>ticdat</code> as their preferred library for bridging the world’s leading modeling language
-(AMPL) with Python’s most powerful data analysis package (<code>pandas</code>).</p>
+<p><code>ticdat</code> is also useful for machine-learning applications. In this case, one typically uses <code>PanDatFactory</code> to 
+provide ORM-like functionality on top of <code>pandas</code>, as well as to simplify the munging of time stamp data and 
+text columns that contain exclusively numbers. </p>
 <p>The <code>ticdat</code> library is distributed under the BSD2 open source license.</p>
               
             </div>
@@ -317,5 +316,5 @@ AMPL Optimization has endorsed <code>ticdat</code> as their preferred library fo
 
 <!--
 MkDocs version : 1.0.4
-Build Date UTC : 2019-04-21 18:54:54
+Build Date UTC : 2020-01-22 02:56:27
 -->

@@ -253,7 +253,7 @@ automatically be associated with the xls attribute of the parent
 TicDatFactory.</p>
 <h2 id="ticdat.xls.XlsTicFactory.create_tic_dat">create_tic_dat</h2>
 
-<pre><code class="python">XlsTicFactory.create_tic_dat(self, xls_file_path, row_offsets={}, headers_present=True, treat_inf_as_infinity=True, freeze_it=False)
+<pre><code class="python">XlsTicFactory.create_tic_dat(self, xls_file_path, row_offsets=None, headers_present=True, treat_inf_as_infinity=True, freeze_it=False)
 </code></pre>
 
 <p>Create a TicDat object from an Excel file</p>
@@ -313,7 +313,7 @@ TicDatFactory.</p>
                   The latter is capable of writing out larger tables,
                   but the former handles infinity seamlessly.
                   If ".xlsx", then be advised that +/- float("inf") will be replaced
-                  with "inf"/"-inf"</p>
+                  with "inf"/"-inf", unless infinity_io_flag is being applied.</p>
 <p>:param allow_overwrite: boolean - are we allowed to overwrite an
                         existing file?
       case_space_sheet_names: boolean - make best guesses how to add spaces and upper case

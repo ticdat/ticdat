@@ -252,7 +252,7 @@ to diagnose common data integrity failures.</p>
 sources, thus facilitating the "separate model from data" design goal.</p>
 <p>A PanDat object is itself a collection of DataFrames that conform to a predefined schema.</p>
 <p>:param init_fields: a mapping of tables to primary key fields and data fields. Each field listing consists
-                   of two sub lists ... first primary keys fields, than data fields.</p>
+                   of two sub lists ... first primary keys fields, then data fields.</p>
 <p>ex:
    <code>PanDatFactory (categories =  [["name"],["Min Nutrition", "Max Nutrition"]],
                       foods  =  [["Name"],["Cost"]]
@@ -272,7 +272,7 @@ a data type rule. For example, a min_supply column can be verified to be no larg
 a max_supply column.</p>
 <p>!!! NB!!!!</p>
 <p><strong>pandas will render None as nan.</strong></p>
-<p><strong>Don't check for None in your predicate functions, use math.isnan instead</strong></p>
+<p><strong>Don't check for None in your predicate functions, use pandas.isnull instead</strong></p>
 <p>!!!!!!!!!!</p>
 <p>:param table: table in the schema</p>
 <p>:param predicate: A one argument function that accepts a table row as an argument and returns
@@ -308,7 +308,7 @@ to recognize such records (with find_foreign_key_failures()) and to remove such 
 data of the wrong type from being entered. Data types are useful for recognizing errant data entries.
 If no data type is specified (the default) then no errant data will be recognized.</p>
 <p>:param table: table in the schema</p>
-<p>:param field:</p>
+<p>:param field: one of table's fields.</p>
 <p>:return:</p>
 <h1 id="ticdat.pandatfactory.PanDatFactory.clear_foreign_keys">clear_foreign_keys</h1>
 
@@ -413,6 +413,10 @@ for this specific table, predicate pair (or the Series that identifies these row
          with no data type at all are never part of the returned dictionary.
          The values are DataFrames that contain the subset of rows that exhibit data failures
          for this specific table, field pair (or the boolean Series that identifies these rows).</p>
+<p>Note that for primary key fields (but not data fields) with no explicit data type, a temporary filter
+ that excludes only Null will be applied. If you want primary key fields to allow Null, you must explicitly
+ opt-in by calling set_data_type appropriately.
+ See issue https://github.com/ticdat/ticdat/issues/46 for more info.</p>
 <h1 id="ticdat.pandatfactory.PanDatFactory.find_duplicates">find_duplicates</h1>
 
 <pre><code class="python">PanDatFactory.find_duplicates(self, pan_dat, keep='first', as_table=True)
@@ -437,8 +441,8 @@ for this specific table, predicate pair (or the Series that identifies these row
 <p>:param pan_dat: pandat object</p>
 <p>:param verbosity: either "High" or "Low"</p>
 <p>:param as_table: as_table boolean : if truthy then the values of the return dictionary will be the
-       duplicated rows themselves. Otherwise will return the a boolean list that indicates which rows
-       are duplicated rows. (For technical reasons, not returning a boolean Series like the
+       failed rows themselves. Otherwise will return the a boolean list that indicates which rows
+       have failures. (For technical reasons, not returning a boolean Series like the
        other find functions)</p>
 <p>:return: A dictionary constructed as follows:</p>
 <p>The keys are namedtuples with members "native_table", "foreign_table",
@@ -452,7 +456,7 @@ for this specific table, predicate pair (or the Series that identifies these row
  and omits the foreign key cardinality.</p>
 <h1 id="ticdat.pandatfactory.PanDatFactory.good_pan_dat_object">good_pan_dat_object</h1>
 
-<pre><code class="python">PanDatFactory.good_pan_dat_object(self, data_obj, bad_message_handler=&lt;function PanDatFactory.&lt;lambda&gt; at 0x1161f3e18&gt;)
+<pre><code class="python">PanDatFactory.good_pan_dat_object(self, data_obj, bad_message_handler=&lt;function PanDatFactory.&lt;lambda&gt; at 0x119cda048&gt;)
 </code></pre>
 
 <p>determines if an object is a valid PanDat object for this schema</p>
@@ -493,7 +497,7 @@ for this specific table, predicate pair (or the Series that identifies these row
 <p>:return:</p>
 <h1 id="ticdat.pandatfactory.PanDatFactory.set_data_type">set_data_type</h1>
 
-<pre><code class="python">PanDatFactory.set_data_type(self, table, field, number_allowed=True, inclusive_min=True, inclusive_max=False, min=0, max=inf, must_be_int=False, strings_allowed=(), nullable=False)
+<pre><code class="python">PanDatFactory.set_data_type(self, table, field, number_allowed=True, inclusive_min=True, inclusive_max=False, min=0, max=inf, must_be_int=False, strings_allowed=(), nullable=False, datetime=False)
 </code></pre>
 
 <p>sets the data type for a field. By default, fields don't have types. Adding a data type doesn't block
@@ -511,6 +515,11 @@ with find_data_type_failures(). Errant data entries can be replaced with replace
                         The empty collection prohibits strings.
                         If a "*", then any string is accepted.
 :param nullable : boolean : can this value contain null (aka None aka nan (since pandas treats null as nan))</p>
+<p>:param datetime: If truthy, then number_allowed through strings_allowed are ignored. Should the data either
+                 be a datetime.datetime object or a string that can be parsed into a datetime.datetime object?
+                 Note that the various readers will try to coerce strings into datetime.datetime objects
+                 on read for fields with datetime data types. pandas.Timestamp is itself a datetime.datetime,
+                 and the bias will be to create such an object.</p>
 <p>:return:</p>
 <h1 id="ticdat.pandatfactory.PanDatFactory.set_default_value">set_default_value</h1>
 
@@ -524,15 +533,15 @@ with find_data_type_failures(). Errant data entries can be replaced with replace
 <p>:return:</p>
 <h1 id="ticdat.pandatfactory.PanDatFactory.set_default_values">set_default_values</h1>
 
-<pre><code class="python">PanDatFactory.set_default_values(self, **tableDefaults)
+<pre><code class="python">PanDatFactory.set_default_values(self, **table_defaults)
 </code></pre>
 
 <p>sets the default values for the fields</p>
-<p>:param tableDefaults:
+<p>:param table_defaults:
      A dictionary of named arguments. Each argument name (i.e. each key) should be a table name
      Each value should itself be a dictionary mapping data field names to default values</p>
 <p>Ex:</p>
-<p><code>tdf.set_default_values(categories = {"minNutrition":0, "maxNutrition":float("inf")},
+<p><code>pdf.set_default_values(categories = {"minNutrition":0, "maxNutrition":float("inf")},
                  foods = {"cost":0}, nutritionQuantities = {"qty":0})</code></p>
 <p>:return:</p>
               

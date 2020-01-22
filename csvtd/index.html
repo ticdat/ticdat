@@ -250,7 +250,7 @@ Don't create this object explicitly. A CsvTicFactory will
 automatically be associated with the csv attribute of the parent</p>
 <h2 id="ticdat.csvtd.CsvTicFactory.create_tic_dat">create_tic_dat</h2>
 
-<pre><code class="python">CsvTicFactory.create_tic_dat(self, dir_path, dialect='excel', headers_present=True, freeze_it=False)
+<pre><code class="python">CsvTicFactory.create_tic_dat(self, dir_path, dialect='excel', headers_present=True, freeze_it=False, encoding=None)
 </code></pre>
 
 <p>Create a TicDat object from the csv files in a directory</p>
@@ -258,15 +258,23 @@ automatically be associated with the csv attribute of the parent</p>
 <p>:param dialect: the csv dialect. Consult csv documentation for details.</p>
 <p>:param headers_present: Boolean. Does the first row of data contain the
                         column headers?</p>
+<p>:param encoding: see docstring for the Python.open function</p>
 <p>:param freeze_it: boolean. should the returned object be frozen?</p>
 <p>:return: a TicDat object populated by the matching files.</p>
 <p>caveats: Missing files resolve to an empty table, but missing fields on
          matching files throw an Exception.
-         Data field values (but not primary key values) will be coerced
-         into floats if possible.</p>
+         By default, data field values (but not primary key values) will be coerced into floats if possible.
+         This includes coercing "inf" and "-inf" into +/- float("inf")
+         The rules over which fields are/are-not coerced can be controlled  via hints from the default values
+         or data types. Default values and data types can also be used to control whether or not the empty
+         string should be coerced into None.
+         The infinity_io_flag rules are applied subsequent to this coercion.</p>
+<p>Note - pandas doesn't really do a fantastic job handling date types either, since it coerces all columns
+to be the same type. If that's the behavior you want you can use PanDatFactory.</p>
+<p>JSON is just a better file format than csv for a variety of reasons, to include typing of data.</p>
 <h2 id="ticdat.csvtd.CsvTicFactory.find_duplicates">find_duplicates</h2>
 
-<pre><code class="python">CsvTicFactory.find_duplicates(self, dir_path, dialect='excel', headers_present=True)
+<pre><code class="python">CsvTicFactory.find_duplicates(self, dir_path, dialect='excel', headers_present=True, encoding=None)
 </code></pre>
 
 <p>Find the row counts for duplicated rows.</p>
@@ -274,6 +282,7 @@ automatically be associated with the csv attribute of the parent</p>
 <p>:param dialect: the csv dialect. Consult csv documentation for details.</p>
 <p>:param headers_present: Boolean. Does the first row of data contain
                         the column headers?</p>
+<p>:param encoding: see docstring for the Python.open function</p>
 <p>:return: A dictionary whose keys are the table names for the primary key tables.
          Each value of the return dictionary is itself a dictionary.
          The inner dictionary is keyed by the primary key values encountered
@@ -284,7 +293,7 @@ automatically be associated with the csv attribute of the parent</p>
          matching files throw an Exception.</p>
 <h2 id="ticdat.csvtd.CsvTicFactory.write_directory">write_directory</h2>
 
-<pre><code class="python">CsvTicFactory.write_directory(self, tic_dat, dir_path, allow_overwrite=False, dialect='excel', write_header=True)
+<pre><code class="python">CsvTicFactory.write_directory(self, tic_dat, dir_path, allow_overwrite=False, dialect='excel', write_header=True, case_space_table_names=False)
 </code></pre>
 
 <p>write the ticDat data to a collection of csv files</p>
@@ -295,6 +304,8 @@ automatically be associated with the csv attribute of the parent</p>
 <p>:param dialect: the csv dialect. Consult csv documentation for details.</p>
 <p>:param write_header: Boolean. Should the header information be written
                      as the first row?</p>
+<p>:param case_space_table_names: boolean - make best guesses how to add spaces and upper case
+                               characters to table names</p>
 <p>:return:</p>
               
             </div>
