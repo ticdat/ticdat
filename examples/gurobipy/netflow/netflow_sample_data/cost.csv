@@ -1,0 +1,13 @@
+Commodity,Source,Destination,Cost
+Pencils,Denver,Seattle,30
+Pens,Denver,Seattle,30
+Pencils,Detroit,New York,20
+Pens,Detroit,New York,20
+Pens,Detroit,Boston,20
+Pencils,Detroit,Boston,10
+Pens,Detroit,Seattle,80
+Pens,Denver,New York,70
+Pens,Denver,Boston,60
+Pencils,Denver,New York,40
+Pencils,Detroit,Seattle,60
+Pencils,Denver,Boston,40

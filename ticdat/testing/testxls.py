@@ -8,6 +8,11 @@ from ticdat.testing.ticdattestutils import makeCleanPath, sillyMeDataTwoTables
 from ticdat.xls import _can_unit_test
 import shutil
 import unittest
+import datetime
+try:
+    import dateutil
+except:
+    dateutil=None
 
 #uncomment decorator to drop into debugger for assertTrue, assertFalse failures
 #@fail_to_debugger
@@ -27,7 +32,7 @@ class TestXls(unittest.TestCase):
             return str(e)
     def _test_generic_copy(self, ticDat, tdf, skip_tables=None):
         assert all(tdf.primary_key_fields.get(t) for t in tdf.all_tables)
-        path = os.path.join(makeCleanDir(os.path.join(_scratchDir, "generic_copy")), "file.xls")
+        path = os.path.join(makeCleanDir(os.path.join(_scratchDir, "generic_copy")), "file.xlsx")
         replace_name  = lambda f : "name_" if f == "name" else f
         clean_tdf = TicDatFactory(**{t:[list(map(replace_name, pks)), dfs] for t,(pks, dfs)
                                      in tdf.schema().items()})
@@ -434,6 +439,157 @@ class TestXls(unittest.TestCase):
             self.assertFalse(tdf.xls.find_duplicates(filePath))
             ticDat2 = tdf.xls.create_tic_dat(filePath)
             self.assertTrue(tdf._same_data(ticDat, ticDat2))
+
+    def test_empty_text_none(self):
+        # this is a naive data scientist who isn't using the parameters functionality
+        filePath = os.path.join(_scratchDir, "empty.xls")
+        tdf = TicDatFactory(parameters=[["Key"], ["Value"]])
+        dat_n = tdf.TicDat(parameters=[[None, 100], ["b", 10.01], ["three", 200], ["d", None]])
+        dat_s = tdf.TicDat(parameters=[["", 100], ["b", 10.01], ["three", 200], ["d", ""]])
+        def round_trip():
+            tdf.xls.write_file(dat_n, filePath, allow_overwrite=True)
+            return tdf.xls.create_tic_dat(filePath)
+        dat2 = round_trip()
+        self.assertTrue(tdf._same_data(dat_s, dat2) and not tdf._same_data(dat_n, dat2))
+        tdf = TicDatFactory(parameters=[["Key"], ["Value"]])
+        tdf.set_data_type("parameters", "Key", nullable=True)
+        tdf.set_default_value("parameters", "Value", None) # this default alone will mess with number reading
+        dat2 = round_trip()
+        self.assertTrue(not tdf._same_data(dat_s, dat2) and tdf._same_data(dat_n, dat2))
+
+        tdf = TicDatFactory(parameters='*')
+        dat = tdf.xls.create_tic_dat(filePath)
+        self.assertTrue(dat.parameters.shape == (4, 2))
+
+    def test_parameters(self):
+        filePath = os.path.join(_scratchDir, "parameters.xls")
+        tdf = TicDatFactory(parameters=[["Key"], ["Value"]])
+        tdf.add_parameter("Something", 100)
+        tdf.add_parameter("Different", 'boo', strings_allowed='*', number_allowed=False)
+        dat = tdf.TicDat(parameters = [["Something",float("inf")], ["Different", "inf"]])
+        for _ in ["", "x"]:
+            tdf.xls.write_file(dat, filePath+_)
+            dat_ = tdf.xls.create_tic_dat(filePath+_)
+            self.assertTrue(tdf._same_data(dat, dat_))
+
+    def testDietWithInfFlagging(self):
+        tdf = TicDatFactory(**dietSchema())
+        dat = tdf.copy_tic_dat(dietData())
+        tdf.set_infinity_io_flag(999999999)
+        file_one = os.path.join(_scratchDir, "dietInfFlag.xls")
+        file_two = os.path.join(_scratchDir, "dietInfFlag.xlsx")
+        tdf.xls.write_file(dat, file_one)
+        tdf.xls.write_file(dat, file_two)
+        dat_1 = tdf.xls.create_tic_dat(file_one)
+        dat_2 = tdf.xls.create_tic_dat(file_two)
+        self.assertTrue(tdf._same_data(dat, dat_1))
+        self.assertTrue(tdf._same_data(dat, dat_2))
+        tdf = tdf.clone()
+        dat_1 = tdf.xls.create_tic_dat(file_one)
+        self.assertTrue(tdf._same_data(dat, dat_1))
+        tdf = TicDatFactory(**dietSchema())
+        dat_1 = tdf.xls.create_tic_dat(file_one)
+        dat_2 = tdf.xls.create_tic_dat(file_two)
+        self.assertFalse(tdf._same_data(dat, dat_1))
+        self.assertFalse(tdf._same_data(dat, dat_2))
+        self.assertTrue({_.categories["protein"]["maxNutrition"] for _ in [dat_1, dat_2]} == {999999999})
+        for _ in [dat_1, dat_2]:
+            _.categories["protein"]["maxNutrition"] = float("inf")
+        self.assertTrue(tdf._same_data(dat, dat_1))
+        self.assertTrue(tdf._same_data(dat, dat_2))
+
+    def testNulls(self):
+        tdf = TicDatFactory(table=[["field one"], ["field two"]])
+        for f in ["field one", "field two"]:
+            tdf.set_data_type("table", f, nullable=True)
+        dat = tdf.TicDat(table = [[None, 100], [200, 109], [0, 300], [300, None], [400, 0]])
+        file_one = os.path.join(_scratchDir, "boolDefaults.xls")
+        file_two = os.path.join(_scratchDir, "boolDefaults.xlsx")
+        tdf.xls.write_file(dat, file_one)
+        tdf.xls.write_file(dat, file_two)
+        dat_1 = tdf.xls.create_tic_dat(file_one)
+        dat_2 = tdf.xls.create_tic_dat(file_two)
+        self.assertTrue(tdf._same_data(dat, dat_1))
+        self.assertTrue(tdf._same_data(dat, dat_2))
+
+        tdf = TicDatFactory(table=[["field one"], ["field two"]])
+        for f in ["field one", "field two"]:
+            tdf.set_data_type("table", f, max=float("inf"), inclusive_max=True)
+        tdf.set_infinity_io_flag(None)
+        dat_inf = tdf.TicDat(table = [[float("inf"), 100], [200, 109], [0, 300], [300, float("inf")], [400, 0]])
+        dat_1 = tdf.xls.create_tic_dat(file_one)
+        dat_2 = tdf.xls.create_tic_dat(file_two)
+
+        self.assertTrue(tdf._same_data(dat_inf, dat_1))
+        self.assertTrue(tdf._same_data(dat_inf, dat_2))
+        tdf.xls.write_file(dat_inf, file_one, allow_overwrite=True)
+        tdf.xls.write_file(dat_inf, file_two, allow_overwrite=True)
+        dat_1 = tdf.xls.create_tic_dat(file_one)
+        dat_2 = tdf.xls.create_tic_dat(file_two)
+        self.assertTrue(tdf._same_data(dat_inf, dat_1))
+        self.assertTrue(tdf._same_data(dat_inf, dat_2))
+
+        tdf = TicDatFactory(table=[["field one"], ["field two"]])
+        for f in ["field one", "field two"]:
+            tdf.set_data_type("table", f, min=-float("inf"), inclusive_min=True)
+        tdf.set_infinity_io_flag(None)
+        dat_1 = tdf.xls.create_tic_dat(file_one)
+        dat_2 = tdf.xls.create_tic_dat(file_two)
+        self.assertFalse(tdf._same_data(dat_inf, dat_1))
+        self.assertFalse(tdf._same_data(dat_inf, dat_2))
+        dat_inf = tdf.TicDat(table = [[float("-inf"), 100], [200, 109], [0, 300], [300, -float("inf")], [400, 0]])
+        self.assertTrue(tdf._same_data(dat_inf, dat_1))
+        self.assertTrue(tdf._same_data(dat_inf, dat_2))
+
+    def testDateTime(self):
+        tdf = TicDatFactory(table_with_stuffs = [["field one"], ["field two"]],
+                            parameters = [["a"],["b"]])
+        tdf.add_parameter("p1", "Dec 15 1970", datetime=True)
+        tdf.add_parameter("p2", None, datetime=True, nullable=True)
+        tdf.set_data_type("table_with_stuffs", "field one", datetime=True)
+        tdf.set_data_type("table_with_stuffs", "field two", datetime=True, nullable=True)
+
+        dat = tdf.TicDat(table_with_stuffs = [["July 11 1972", None],
+                                              [datetime.datetime.now(), dateutil.parser.parse("Sept 11 2011")]],
+                         parameters = [["p1", "7/11/1911"], ["p2", None]])
+        self.assertFalse(tdf.find_data_type_failures(dat) or tdf.find_data_row_failures(dat))
+
+        file_one = os.path.join(_scratchDir, "datetime.xls")
+        file_two = os.path.join(_scratchDir, "datetime.xlsx")
+        tdf.xls.write_file(dat, file_one)
+        tdf.xls.write_file(dat, file_two)
+        dat_1 = tdf.xls.create_tic_dat(file_one)
+        dat_2 = tdf.xls.create_tic_dat(file_two)
+        self.assertTrue(tdf._same_data(dat_1, dat_2, nans_are_same_for_data_rows=True))
+        self.assertFalse(tdf.find_data_type_failures(dat_1) or tdf.find_data_row_failures(dat_1))
+        self.assertFalse(tdf._same_data(dat, dat_1, nans_are_same_for_data_rows=True))
+        self.assertTrue(isinstance(dat_1.parameters["p1"]["b"], datetime.datetime))
+        self.assertTrue(all(isinstance(_, datetime.datetime) for _ in dat_1.table_with_stuffs))
+        self.assertTrue(all(isinstance(_, datetime.datetime) or _ is None for v in dat_1.table_with_stuffs.values()
+                            for _ in v.values()))
+
+    def testDateTimeTwo(self):
+        file = os.path.join(_scratchDir, "datetime_pd.xls")
+        df = utils.pd.DataFrame({"a":list(map(utils.pd.Timestamp,
+            ["June 13 1960 4:30PM", "Dec 11 1970 1AM", "Sept 11 2001 9:30AM"]))})
+        df.to_excel(file, "Cool Runnings")
+        tdf = TicDatFactory(cool_runnings = [["a"],[]])
+        tdf.set_data_type("cool_runnings", "a", datetime=True)
+        dat = tdf.xls.create_tic_dat(file)
+        self.assertTrue(set(dat.cool_runnings) == set(df["a"]))
+
+    def testIssue45(self):
+        tdf = TicDatFactory(data=[["a"], ["b"]])
+        dat_nums = tdf.TicDat(data = [[1,2],[3,4], [22, 44]])
+        dat_strs = tdf.TicDat(data = [["1","2"],["3","4"], ["022", "0044"]])
+        files = [os.path.join(_scratchDir, _) for _ in ["dat_nums.xlsx", "dat_strs.xlsx"]]
+        tdf.xls.write_file(dat_nums, files[0])
+        tdf.xls.write_file(dat_strs, files[1])
+        dat_nums_2, dat_strs_2 = [tdf.xls.create_tic_dat(_) for _ in files]
+        self.assertTrue(tdf._same_data(dat_nums, dat_nums_2))
+        self.assertTrue(tdf._same_data(dat_strs, dat_strs_2))
+        # my hands are sort of tied here, xlrd has a disturbing tendency to read data as floats when it reads numbers
+        # that said, not sure I really need to do more, since these two tests pass.
 
 _scratchDir = TestXls.__name__ + "_scratch"
 

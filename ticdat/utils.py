@@ -10,6 +10,11 @@ import getopt
 import sys
 import os
 from collections import namedtuple
+import datetime as datetime_
+try:
+    import dateutil
+except:
+    dateutil = None
 
 try:
     import pandas as pd
@@ -21,8 +26,25 @@ try:
     import ocp_ticdat_drm as drm
 except:
     drm = None
-
 import inspect
+
+def dateutil_adjuster(x):
+    if isinstance(x, datetime_.datetime):
+        return x
+    # note that pd.Timestamp tends to create NaT from Falsey, this is ok so long as you check for null using pd.isnull
+    # also, pd.Timestampp can do weird things making Timestamps from numbers, so not enabling that.
+    def _try_to_timestamp(y):
+        if pd and not numericish(y):
+            rtn = safe_apply(pd.Timestamp)(y)
+            if rtn is not None:
+                return rtn
+        if dateutil:
+            return safe_apply(dateutil.parser.parse)(y)
+    rtn = _try_to_timestamp(x)
+    if rtn is not None:
+        return rtn
+    if not numericish(x):
+        return _try_to_timestamp(str(x))
 
 def acceptable_default(v) :
     return numericish(v) or stringish(v) or (v is None)
@@ -34,8 +56,12 @@ def all_fields(tpdf, tbl):
 # can I get away with ordering this consistently with the function? hopefully I can!
 class TypeDictionary(namedtuple("TypeDictionary",
                     ("number_allowed", "inclusive_min", "inclusive_max", "min",
-                      "max", "must_be_int", "strings_allowed", "nullable",))):
+                      "max", "must_be_int", "strings_allowed", "nullable", "datetime"))):
     def valid_data(self, data):
+        if pd.isnull(data):
+            return bool(self.nullable)
+        if self.datetime:
+            return isinstance(data, datetime_.datetime) or dateutil_adjuster(data) is not None
         if numericish(data):
             if not self.number_allowed:
                 return False
@@ -54,9 +80,31 @@ class TypeDictionary(namedtuple("TypeDictionary",
                 return True
             assert containerish(self.strings_allowed)
             return data in self.strings_allowed
-        if data is None:
-            return bool(self.nullable)
         return False
+    @staticmethod
+    def safe_creator(number_allowed, inclusive_min, inclusive_max, min, max,
+                      must_be_int, strings_allowed, nullable, datetime=False):
+        verify(dateutil or pd or not datetime,
+               "dateutil or pandas needs to be installed in order to use datetime data type")
+        if datetime:
+            return TypeDictionary(number_allowed=False, strings_allowed=(), nullable=bool(nullable),
+                                  min=0, max=float("inf"), inclusive_min=True, inclusive_max=True, must_be_int=False,
+                                  datetime=True)
+        verify((strings_allowed == '*') or
+               (containerish(strings_allowed) and all(stringish(x) for x in strings_allowed)),
+               """The strings_allowed argument should be a container of strings, or the single '*' character.""")
+        if containerish(strings_allowed):
+            strings_allowed = tuple(strings_allowed)  # defensive copy
+        if number_allowed:
+            verify(numericish(max), "max should be numeric")
+            verify(numericish(min), "min should be numeric")
+            verify(max >= min, "max cannot be smaller than min")
+            return TypeDictionary(number_allowed=True, strings_allowed=strings_allowed, nullable=bool(nullable),
+                                  min=min, max=max, inclusive_min=bool(inclusive_min),inclusive_max=bool(inclusive_max),
+                                  must_be_int=bool(must_be_int), datetime=False)
+        return TypeDictionary(number_allowed=False, strings_allowed=strings_allowed, nullable=bool(nullable),
+                              min=0, max=float("inf"), inclusive_min=True, inclusive_max=True, must_be_int=False,
+                              datetime=False)
 
 class ForeignKey(namedtuple("ForeignKey", ("native_table", "foreign_table", "mapping", "cardinality"))) :
     def nativefields(self):
@@ -122,19 +170,35 @@ def standard_main(input_schema, solution_schema, solve):
         return _standard_main_ticdat(input_schema, solution_schema, solve)
     return _standard_main_pandat(input_schema, solution_schema, solve)
 
+def _extra_input_file_check_str(input_file):
+    if os.path.isfile(input_file) and input_file.endswith(".csv"):
+        return "\nTo load data from .csv files, pass the parent directory containing the .csv files as the -i argument."
+    return ""
 
+def make_enframe_offline_handler(enframe_config, input_schema, solution_schema, solve):
+    try:
+        from framework_utils.ticdat_deployer import EnframeOfflineHandler
+    except:
+        try:
+            from enframe_offline_handler import EnframeOfflineHandler
+        except:
+            EnframeOfflineHandler = None
+    if EnframeOfflineHandler:
+        return EnframeOfflineHandler(enframe_config, input_schema, solution_schema, solve)
+
+# See EnframeOfflineHandler for  details for how to configure the enframe.json file
 def _standard_main_pandat(input_schema, solution_schema, solve):
     file_name = sys.argv[0]
     def usage():
-        print ("python %s --help --input <input file or dir> --output <output file or dir>"%
-               file_name)
+        print ("python %s --help --input <input file or dir> --output <output file or dir>"%file_name +
+               " --enframe enframe_config.json")
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "hi:o:", ["help", "input=", "output="])
+        opts, args = getopt.getopt(sys.argv[1:], "hi:o:e:", ["help", "input=", "output=", "enframe="])
     except getopt.GetoptError as err:
         print (str(err))  # will print something like "option -a not recognized"
         usage()
         sys.exit(2)
-    input_file, output_file = "input.xlsx", "output.xlsx"
+    input_file, output_file, enframe_config, enframe_handler = "input.xlsx", "output.xlsx", "", None
     for o, a in opts:
         if o in ("-h", "--help"):
             usage()
@@ -143,15 +207,24 @@ def _standard_main_pandat(input_schema, solution_schema, solve):
             input_file = a
         elif o in ("-o", "--output"):
             output_file = a
+        elif o in ("-e", "--enframe"):
+            enframe_config = a
         else:
             verify(False, "unhandled option")
+    if enframe_config:
+        enframe_handler = make_enframe_offline_handler(enframe_config, input_schema, solution_schema, solve)
+        verify(enframe_handler, "-e/--enframe command line functionality requires additional Enframe specific package")
+        if enframe_handler.solve_type == "Proxy Enframe Solve":
+            enframe_handler.proxy_enframe_solve()
+            print(f"Enframe proxy solve executed with {enframe_config}")
+            return
+
     file_or_dir = lambda f :"file" if any(f.endswith(_) for _ in (".json", ".xls", ".xlsx", ".db")) \
                   else "directory"
     if not (os.path.exists(input_file)):
         print("%s is not a valid input file or directory"%input_file)
     else:
-        print("input %s %s : output %s %s"%(file_or_dir(input_file), input_file,
-                                            file_or_dir(output_file), output_file))
+        print("input %s %s"%(file_or_dir(input_file), input_file))
         dat = None
         if os.path.isfile(input_file) and file_or_dir(input_file) == "file":
             if input_file.endswith(".json"):
@@ -162,7 +235,15 @@ def _standard_main_pandat(input_schema, solution_schema, solve):
                 dat = input_schema.sql.create_pan_dat(input_file)
         elif os.path.isdir(input_file) and file_or_dir(input_file) == "directory":
             dat = input_schema.csv.create_pan_dat(input_file)
-        verify(dat, "Failed to read from and/or recognize %s"%input_file)
+        verify(dat, f"Failed to read from and/or recognize {input_file}{_extra_input_file_check_str(input_file)}")
+        if enframe_handler:
+            enframe_handler.copy_input_dat(dat)
+            print(f"Input data copied from {input_file} to the postgres DB defined by {enframe_config}")
+            if enframe_handler.solve_type == "Copy Input to Postgres and Solve":
+                enframe_handler.proxy_enframe_solve()
+                print(f"Enframe proxy solve executed with {enframe_config}")
+            return
+        print("output %s %s"%(file_or_dir(output_file), output_file))
         sln = solve(dat)
         if sln:
             print("%s output %s %s"%("Overwriting" if os.path.exists(output_file) else "Creating",
@@ -178,19 +259,18 @@ def _standard_main_pandat(input_schema, solution_schema, solve):
         else:
             print("No solution was created!")
 
-
 def _standard_main_ticdat(input_schema, solution_schema, solve):
     file_name = sys.argv[0]
     def usage():
-        print ("python %s --help --input <input file or dir> --output <output file or dir>"%
-               file_name)
+        print ("python %s --help --input <input file or dir> --output <output file or dir>"%file_name +
+               " --enframe enframe_config.json")
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "hi:o:", ["help", "input=", "output="])
+        opts, args = getopt.getopt(sys.argv[1:], "hi:o:e:", ["help", "input=", "output=", "enframe="])
     except getopt.GetoptError as err:
         print (str(err))  # will print something like "option -a not recognized"
         usage()
         sys.exit(2)
-    input_file, output_file = "input.xlsx", "output.xlsx"
+    input_file, output_file, enframe_config, enframe_handler = "input.xlsx", "output.xlsx", "", None
     for o, a in opts:
         if o in ("-h", "--help"):
             usage()
@@ -199,16 +279,25 @@ def _standard_main_ticdat(input_schema, solution_schema, solve):
             input_file = a
         elif o in ("-o", "--output"):
             output_file = a
+        elif o in ("-e", "--enframe"):
+            enframe_config = a
         else:
             verify(False, "unhandled option")
+    if enframe_config:
+        enframe_handler = make_enframe_offline_handler(enframe_config, input_schema, solution_schema, solve)
+        verify(enframe_handler, "-e/--enframe command line functionality requires additional Enframe specific package")
+        if enframe_handler.solve_type == "Proxy Enframe Solve":
+            enframe_handler.proxy_enframe_solve()
+            print(f"Enframe proxy solve executed with {enframe_config}")
+            return
+
     file_or_dir = lambda f :"file" if any(f.endswith(_) for _ in
                             (".json", ".xls", ".xlsx", ".db", ".sql", ".mdb", ".accdb")) \
                   else "directory"
     if not (os.path.exists(input_file)):
         print("%s is not a valid input file or directory"%input_file)
     else:
-        print("input %s %s : output %s %s"%(file_or_dir(input_file), input_file,
-                                            file_or_dir(output_file), output_file))
+        print("input %s %s"%(file_or_dir(input_file), input_file))
         dat = None
         if os.path.isfile(input_file) and file_or_dir(input_file) == "file":
             if input_file.endswith(".json"):
@@ -229,7 +318,15 @@ def _standard_main_ticdat(input_schema, solution_schema, solve):
         elif os.path.isdir(input_file) and file_or_dir(input_file) == "directory":
             assert not input_schema.csv.find_duplicates(input_file), "duplicate rows found"
             dat = input_schema.csv.create_tic_dat(input_file)
-        verify(dat, "Failed to read from and/or recognize %s"%input_file)
+        verify(dat, f"Failed to read from and/or recognize {input_file}{_extra_input_file_check_str(input_file)}")
+        if enframe_handler:
+            enframe_handler.copy_input_dat(dat)
+            print(f"Input data copied from {input_file} to the postgres DB defined by {enframe_config}")
+            if enframe_handler.solve_type == "Copy Input to Postgres and Solve":
+                enframe_handler.proxy_enframe_solve()
+                print(f"Enframe proxy solve executed with {enframe_config}")
+            return
+        print("output %s %s"%(file_or_dir(output_file), output_file))
         sln = solve(dat)
         if sln:
             print("%s output %s %s"%("Overwriting" if os.path.exists(output_file) else "Creating",
@@ -246,7 +343,7 @@ def _standard_main_ticdat(input_schema, solution_schema, solve):
             elif output_file.endswith(".mdb") or output_file.endswith(".accdb"):
                 solution_schema.mdb.write_file(sln, output_file, allow_overwrite=True)
             else:
-                solution_schema.csv.write_directory(sln, output_file, allow_overwrite=True)
+                solution_schema.csv.write_directory(sln, output_file, allow_overwrite=True, case_space_table_names=True)
         else:
             print("No solution was created!")
 
@@ -270,18 +367,23 @@ try:
 except:
     gu = None
 
+# Our experience was that for a production license the following needed to be truthy, but when running unit tests
+# with a development license, it needed to be disabled. See test_kehaar for example.
+gurobi_env_explicit_creation_enabled = True
+
 def gurobi_env(*args, **kwargs):
     """
-    Return a gurobipy.Env object for use in constructing gurobipy.Model() objects.
-    On an ordinary Python installation, this is a pass through to gurobipy.Env()
+    Return an object that can be passed to gurobipy.Model() as the env argument.
+    On an ordinary Python installation, just returns None
     Useful for Gurobi licensing/DRM issues.
 
-    :return: A gurobipy.Env object.
+    :return: An object that can be passed to gurobipy.Model as the env argument
     """
     verify(gu, "gurobipy is not installed")
     if drm:
         return drm.gurobi_env()
-    return gu.Env(*args, **kwargs)
+    if gurobi_env_explicit_creation_enabled:
+        return gu.Env()
 
 try:
     import docplex.mp.progress as cplexprogress
@@ -310,64 +412,6 @@ def ampl_format(mod_str, **kwargs):
     rtn = rtn.replace("{", "{{").replace("}", "}}")
     rtn = rtn.replace(left, "{").replace(right, "}")
     return rtn.format(**kwargs)
-
-def find_denormalized_sub_table_failures(table, pk_fields, data_fields):
-    """
-    checks to see if the table argument contains a denormalized sub-table
-    indexed by pk_fields with data fields data_fields
-
-    :param table: The table to study. Can either be a pandas DataFrame or a
-                  or a container of consistent {field_name:value} dictionaries.
-
-    :param pk_fields: The pk_fields of the sub-table. Needs to be fields
-                      (but not necc primary key fields) of the table.
-
-    :param data_fileds: The data fields of the sub-table. Needs to be fields
-                        (but not necc data fields) of the table.
-
-    :return: A dictionary indexed by the pk_fields values in the table
-             that are associated with improperly denormalized table rows. The
-             values of the return dictionary are themselves dictionaries indexed
-             by data fields. The values of the inner dictionary are
-             tuples of the different distinct values found for the data field
-             at the different rows with common primary key field values.
-             The inner dictionaries are pruned so that only tuples of length >1
-             are included, and the return dictionary is pruned so that only
-             entries with at least one non-pruned inner dictionary is included.
-             Thus, a table that has a properly denormalized (pk_fields, data_fields)
-             sub-table will return an empty dictionary.
-    """
-    pk_fields = (pk_fields,) if stringish(pk_fields) else pk_fields
-    data_fields = (data_fields,) if stringish(data_fields) else data_fields
-    verify(containerish(pk_fields) and all(map(stringish, pk_fields)),
-           "pk_fields needs to be either a field name or a container of field names")
-    verify(containerish(data_fields) and all(map(stringish, data_fields)),
-           "data_fields needs to be either a field name or a container of field names")
-    verify(len(set(pk_fields).union(data_fields)) == len(pk_fields) + len(data_fields),
-           "there are duplicate field names amongst pk_fields, data_fields")
-    if DataFrame and isinstance(table, DataFrame):
-        verify(hasattr(table, "columns"), "table missing columns")
-        for f in tuple(pk_fields) + tuple(data_fields):
-            verify(f in table.columns, "%s isn't a column for table"%f)
-        tdf = ticdat.TicDatFactory(t = [[],tuple(pk_fields)+tuple(data_fields)])
-        dat = tdf.TicDat(t = table)
-        return find_denormalized_sub_table_failures(dat.t, pk_fields, data_fields)
-    verify(containerish(table) and all(map(dictish, table)),
-           "table needs to either be a pandas.DataFrame or a container of {field_name:value} dictionaries")
-    rtn = defaultdict(lambda : defaultdict(set))
-    for row in table:
-        for f in tuple(pk_fields) + tuple(data_fields):
-            verify(f in row, "%s isn't a key for one of the inner dictionaries of table"%f)
-            verify(hasattr(row[f], "__hash__"),
-                   "the values for field %s all need to be hashable"%f)
-        pk = row[pk_fields[0]] if len(pk_fields) == 1 else tuple(row[f] for f in pk_fields)
-        for f in data_fields:
-            rtn[pk][f].add(row[f])
-    for k,v in list(rtn.items()):
-        rtn[k] = {f:tuple(s) for f,s in v.items() if len(s) > 1}
-        if not rtn[k]:
-            del(rtn[k])
-    return dict(rtn)
 
 def dict_overlay(d1, d2):
     rtn = dict(d1)
@@ -474,8 +518,6 @@ def change_fields_with_reserved_keywords(tdf, reserved_keywords, undo=False):
         rtn.opl_prepend = tdf.opl_prepend
     if hasattr(tdf,'ampl_prepend'):
         rtn.ampl_prepend = tdf.ampl_prepend
-    if hasattr(tdf,'lingo_prepend'):
-        rtn.lingo_prepend = tdf.lingo_prepend
     return rtn
 
 def create_generic_free(td, tdf):
@@ -562,6 +604,9 @@ def all_underscore_replacements(s):
             s_ = s_[:i] + " " + s_[i+1:]
         rtn.append(s_)
     return rtn
+
+def all_subsets(my_set):
+    return [set(subset) for l in range(len(my_set)+1) for subset in combinations(my_set, l)]
 
 class TicDatError(Exception) :
     pass

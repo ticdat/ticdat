@@ -20,6 +20,7 @@ def _deep_anonymize(x)  :
 #@fail_to_debugger
 class TestUtils(unittest.TestCase):
     canRun = False
+
     def testSimple(self):
         if not self.canRun:
             return
@@ -49,6 +50,10 @@ class TestUtils(unittest.TestCase):
         dat5 = pdf2.copy_pan_dat(dat)
         self.assertTrue(pdf._same_data(dat, dat5))
         self.assertTrue(pdf2._same_data(dat, dat5))
+        dat.commodities = dat.commodities.append(dat.commodities[dat.commodities["name"] == "Pencils"])
+        dat.arcs = dat.arcs.append(dat.arcs[dat.arcs["destination"] == "Boston"])
+        self.assertFalse(pdf2._same_data(dat, dat5))
+        self.assertFalse(pdf._same_data(dat, dat5))
 
     def testDataTypes(self):
         if not self.canRun:
@@ -102,6 +107,38 @@ class TestUtils(unittest.TestCase):
         self.assertTrue(set(failed) == {('arcs', 'capacity')})
         self.assertTrue(set({(v["source"], v["destination"])
                              for v in failed['arcs', 'capacity'].T.to_dict().values()}) == {("Detroit", "New York")})
+
+    def testDataTypes_two(self):
+        tdf = TicDatFactory(**dietSchema())
+        pdf = PanDatFactory(**tdf.schema())
+        def makeIt() :
+            rtn = tdf.TicDat()
+            rtn.foods["a"] = 12
+            rtn.foods["b"] = None
+            rtn.foods[None] = 101
+            rtn.categories["1"] = {"maxNutrition":100, "minNutrition":40}
+            rtn.categories["2"] = [10,20]
+            for f, p in itertools.product(rtn.foods, rtn.categories):
+                rtn.nutritionQuantities[f,p] = 5
+            rtn.nutritionQuantities['a', 2] = 12
+            return tdf.copy_to_pandas(rtn, drop_pk_columns=False)
+        dat = makeIt()
+        errs = pdf.find_data_type_failures(dat)
+        self.assertTrue(len(errs) == 2)
+        from pandas import isnull
+        def noneify(iter_of_tuples):
+            return {tuple(None if isnull(_) else _ for _ in tuple_) for tuple_ in iter_of_tuples}
+        self.assertTrue(noneify(errs['nutritionQuantities', 'food'].itertuples(index=False)) ==
+                        {(None, "1", 5), (None, "2", 5)})
+        self.assertTrue(noneify(errs['foods', 'name'].itertuples(index=False)) == {(None, 101)})
+        pdf = PanDatFactory(**tdf.schema())
+        pdf.set_data_type("foods", "name", nullable=True, strings_allowed='*')
+        pdf.set_data_type("nutritionQuantities", "food", nullable=True, strings_allowed='*')
+        self.assertFalse(pdf.find_data_type_failures(dat))
+        pdf.set_data_type("foods", "cost", nullable=False)
+        errs = pdf.find_data_type_failures(dat)
+        self.assertTrue(len(errs) == 1)
+        self.assertTrue(noneify(errs['foods', 'cost'].itertuples(index=False)) == {('b', None)})
 
     def testDataPredicates(self):
         if not self.canRun:
@@ -467,6 +504,63 @@ class TestUtils(unittest.TestCase):
         panDat4 = pdf.PanDat(**{t:getattr(panDat, t).to_dict(orient="list") for t in pdf.all_tables})
         self.assertTrue(pdf._same_data(panDat, panDat4))
         self.assertTrue(set(panDat4.cost["extra"]) == {"boger"})
+
+    def testParametersTest(self):
+        def make_pdf():
+            pdf = PanDatFactory(data_table = [["a"], ["b", "c"]],
+                                parameters = [["a"], ["b"]])
+            pdf.add_parameter("Something", 100, max=100, inclusive_max=True)
+            pdf.add_parameter("Another thing", 5, must_be_int=True)
+            pdf.add_parameter("Untyped thing", "whatever", enforce_type_rules=False)
+            pdf.add_parameter("Last", 'boo', number_allowed=False, strings_allowed='*')
+            return PanDatFactory.create_from_full_schema(pdf.schema(True))
+
+        pdf = make_pdf()
+
+        dat = pdf.PanDat(data_table = DataFrame({"a":[1, 4], "b":[2, 5], "c":[3, 6]}),
+                         parameters = DataFrame({"a": ["Something", "Another thing", "Last", "Untyped thing"],
+                                                 "b":[100, 200, "goo", -float("inf")]}))
+
+        self.assertFalse(pdf.find_data_row_failures(dat))
+        dat.parameters = DataFrame({"a": ["Something", "Another thing", "Bad P", "Last"],
+                                    "b": [100, 200.1, -float("inf"), 100]})
+        self.assertTrue(set(pdf.find_data_row_failures(dat)) == {("parameters", "Good Name/Value Check")})
+        self.assertTrue(set(next(iter(pdf.find_data_row_failures(dat).values()))["a"])
+                        == {"Another thing", "Last", "Bad P"})
+
+        dat.parameters = DataFrame({"a": ["Something", "Another thing", "Untyped thingy", "Last"],
+                                    "b": [100, 200.1, -float("inf"), 100]})
+        pdf = make_pdf()
+        pdf.add_parameter("Another thing", 5, max=100)
+        pdf.add_data_row_predicate("parameters", lambda row: "thing" in row["a"],
+                                   predicate_name="Good Name/Value Check")
+        pdf.add_data_row_predicate("data_table", lambda row: row["a"] + row["b"] > row["c"], predicate_name="boo")
+        fails = pdf.find_data_row_failures(dat)
+        self.assertTrue({k:len(v) for k,v in fails.items()} ==
+                        {("parameters", "Good Name/Value Check"): 1,
+                         ("parameters", 'Good Name/Value Check_0'): 3, ('data_table', "boo"): 1})
+
+        pdf = make_pdf()
+        dat = pdf.PanDat(parameters = DataFrame({"a": ["Something", "Last"], "b": [90, "boo"]}))
+        self.assertTrue(pdf.create_full_parameters_dict(dat) ==
+                        {"Something": 90, "Another thing": 5, "Last": "boo", "Untyped thing": "whatever"})
+
+    def testVariousCoverages(self):
+        pdf = PanDatFactory(**dietSchema())
+        _d = dict(categories={"minNutrition": 0, "maxNutrition": float("inf")},
+                               foods={"cost": 0}, nutritionQuantities={"qty": 0})
+        pdf.set_default_values(**_d)
+        self.assertTrue(pdf._default_values == _d)
+        pdf = PanDatFactory(**netflowSchema())
+        addNetflowForeignKeys(pdf)
+        pdf.clear_foreign_keys("arcs")
+        self.assertTrue({_[0] for _ in pdf._foreign_keys} == {"cost", "inflow"})
+
+        pdf.add_data_row_predicate("arcs", lambda row: True)
+        pdf.add_data_row_predicate("arcs", lambda row: True, "dummy")
+        pdf.add_data_row_predicate("arcs", None, 0)
+        pdf = pdf.clone()
+        self.assertTrue(set(pdf._data_row_predicates["arcs"]) == {"dummy"})
 
 # Run the tests.
 if __name__ == "__main__":

@@ -7,6 +7,11 @@ from ticdat.testing.ticdattestutils import makeCleanPath, addNetflowForeignKeys,
 from ticdat.testing.ticdattestutils import spacesData, spacesSchema, dietSchemaWeirdCase, dietSchemaWeirdCase2
 from ticdat.testing.ticdattestutils import copyDataDietWeirdCase, copyDataDietWeirdCase2, am_on_windows
 from ticdat.sqlitetd import _can_unit_test, sql
+import datetime
+try:
+    import dateutil
+except:
+    dateutil=None
 
 import shutil
 import unittest
@@ -283,7 +288,7 @@ class TestSql(unittest.TestCase):
         self.assertTrue(tdf5._same_data(tdf._keyless(ticDat), ticDat5))
         self.assertTrue(callable(ticDat5.a) and callable(ticDat5.c) and not callable(ticDat5.b))
 
-        self.assertTrue("table d" in self.firesException(lambda  : tdf6.sql.create_tic_dat(filePath)))
+        self.assertTrue(tdf._same_data(ticDat, tdf6.sql.create_tic_dat(filePath)))
         ticDat.a["theboger"] = (1, None, 12)
         if am_on_windows:
             filePath = filePath.replace("silly.db", "silly_2.db") # working around issue ticdat/ticdat#1
@@ -347,6 +352,118 @@ class TestSql(unittest.TestCase):
 
         self.assertFalse(tdf2._same_data(dat2, dat2_b))
 
+    def testBooleansAndNulls(self):
+        tdf = TicDatFactory(table=[["field one"], ["field two"]])
+        dat = tdf.TicDat(table = [[None, 100], [200, True], [False, 300], [300, None], [400, False]])
+        file_one = os.path.join(_scratchDir, "boolDefaults.sql")
+        file_two = os.path.join(_scratchDir, "boolDefaults.db")
+        tdf.sql.write_sql_file(dat, file_one)
+        tdf.sql.write_db_data(dat, file_two)
+        dat_1 = tdf.sql.create_tic_dat_from_sql(file_one)
+        dat_2 = tdf.sql.create_tic_dat(file_two)
+        self.assertTrue(tdf._same_data(dat, dat_1))
+        self.assertTrue(tdf._same_data(dat, dat_2))
+
+        tdf = TicDatFactory(table=[["field one"], ["field two"]])
+        for f in ["field one", "field two"]:
+            tdf.set_data_type("table", f, max=float("inf"), inclusive_max=True)
+        tdf.set_infinity_io_flag(None)
+        dat_inf = tdf.TicDat(table = [[float("inf"), 100], [200, True], [False, 300], [300, float("inf")],
+                                      [400, False]])
+        dat_1 = tdf.sql.create_tic_dat_from_sql(file_one)
+        dat_2 = tdf.sql.create_tic_dat(file_two)
+        self.assertTrue(tdf._same_data(dat_inf, dat_1))
+        self.assertTrue(tdf._same_data(dat_inf, dat_2))
+        tdf.sql.write_sql_file(dat_inf, makeCleanPath(file_one))
+        tdf.sql.write_db_data(dat_inf, file_two, allow_overwrite=True)
+        dat_1 = tdf.sql.create_tic_dat_from_sql(file_one)
+        dat_2 = tdf.sql.create_tic_dat(file_two)
+        self.assertTrue(tdf._same_data(dat_inf, dat_1))
+        self.assertTrue(tdf._same_data(dat_inf, dat_2))
+
+        tdf = TicDatFactory(table=[["field one"], ["field two"]])
+        for f in ["field one", "field two"]:
+            tdf.set_data_type("table", f, min=-float("inf"), inclusive_min=True)
+        tdf.set_infinity_io_flag(None)
+        dat_1 = tdf.sql.create_tic_dat_from_sql(file_one)
+        dat_2 = tdf.sql.create_tic_dat(file_two)
+        self.assertFalse(tdf._same_data(dat_inf, dat_1))
+        self.assertFalse(tdf._same_data(dat_inf, dat_2))
+        dat_inf = tdf.TicDat(table = [[float("-inf"), 100], [200, True], [False, 300], [300, -float("inf")],
+                                      [400, False]])
+        self.assertTrue(tdf._same_data(dat_inf, dat_1))
+        self.assertTrue(tdf._same_data(dat_inf, dat_2))
+
+    def testDietWithInfFlagging(self):
+        tdf = TicDatFactory(**dietSchema())
+        dat = tdf.copy_tic_dat(dietData())
+        tdf.set_infinity_io_flag(999999999)
+        file_one = os.path.join(_scratchDir, "dietInfFlag.sql")
+        file_two = os.path.join(_scratchDir, "dietInfFlag.db")
+        tdf.sql.write_sql_file(dat, file_one)
+        tdf.sql.write_db_data(dat, file_two)
+        dat_1 = tdf.sql.create_tic_dat_from_sql(file_one)
+        dat_2 = tdf.sql.create_tic_dat(file_two)
+        self.assertTrue(tdf._same_data(dat, dat_1))
+        self.assertTrue(tdf._same_data(dat, dat_2))
+        tdf = tdf.clone()
+        dat_1 = tdf.sql.create_tic_dat_from_sql(file_one)
+        self.assertTrue(tdf._same_data(dat, dat_1))
+        tdf = TicDatFactory(**dietSchema())
+        dat_1 = tdf.sql.create_tic_dat_from_sql(file_one)
+        self.assertFalse(tdf._same_data(dat, dat_1))
+
+    def test_parameters(self):
+        filePath = os.path.join(_scratchDir, "parameters")
+        tdf = TicDatFactory(parameters=[["Key"], ["Value"]])
+        tdf.add_parameter("Something", 100)
+        tdf.add_parameter("Different", 'boo', strings_allowed='*', number_allowed=False)
+        dat = tdf.TicDat(parameters = [["Something",float("inf")], ["Different", "inf"]])
+        tdf.sql.write_sql_file(dat, filePath+".sql")
+        dat_ = tdf.sql.create_tic_dat_from_sql(filePath+".sql")
+        self.assertTrue(tdf._same_data(dat, dat_))
+        tdf.sql.write_db_data(dat, filePath+".db")
+        dat_ = tdf.sql.create_tic_dat(filePath+".db")
+        self.assertTrue(tdf._same_data(dat, dat_))
+
+    def test_missing_tables(self):
+        path = os.path.join(_scratchDir, "missing")
+        tdf_1 = TicDatFactory(this = [["Something"],["Another"]])
+        tdf_2 = TicDatFactory(**dict(tdf_1.schema(), that=[["What", "Ever"],[]]))
+        dat = tdf_1.TicDat(this=[["a", 2],["b", 3],["c", 5]])
+        tdf_1.sql.write_sql_file(dat, path+".sql")
+        sql_dat = tdf_2.sql.create_tic_dat_from_sql(path+".sql")
+        self.assertTrue(tdf_1._same_data(dat, sql_dat))
+        tdf_1.sql.write_db_data(dat, path+".db")
+        sql_dat = tdf_2.sql.create_tic_dat(path+".db")
+        self.assertTrue(tdf_1._same_data(dat, sql_dat))
+
+    def testDateTime(self):
+        tdf = TicDatFactory(table_with_stuffs = [["field one"], ["field two"]],
+                            parameters = [["a"],["b"]])
+        tdf.add_parameter("p1", "Dec 15 1970", datetime=True)
+        tdf.add_parameter("p2", None, datetime=True, nullable=True)
+        tdf.set_data_type("table_with_stuffs", "field one", datetime=True)
+        tdf.set_data_type("table_with_stuffs", "field two", datetime=True, nullable=True)
+
+        dat = tdf.TicDat(table_with_stuffs = [["July 11 1972", None],
+                                              [datetime.datetime.now(), dateutil.parser.parse("Sept 11 2011")]],
+                         parameters = [["p1", "7/11/1911"], ["p2", None]])
+        self.assertFalse(tdf.find_data_type_failures(dat) or tdf.find_data_row_failures(dat))
+
+        path = os.path.join(_scratchDir, "datetime.db")
+        tdf.sql.write_db_data(dat, path)
+        dat_1 = tdf.sql.create_tic_dat(path)
+        self.assertFalse(tdf._same_data(dat, dat_1))
+        self.assertFalse(tdf.find_data_type_failures(dat_1) or tdf.find_data_row_failures(dat_1))
+        self.assertTrue(isinstance(dat_1.parameters["p1"]["b"], datetime.datetime))
+        self.assertTrue(all(isinstance(_, datetime.datetime) for _ in dat_1.table_with_stuffs))
+        self.assertTrue(all(isinstance(_, datetime.datetime) or _ is None for v in dat_1.table_with_stuffs.values()
+                            for _ in v.values()))
+        path = os.path.join(_scratchDir, "datetime.sql")
+        tdf.sql.write_sql_file(dat, path)
+        dat_2 = tdf.sql.create_tic_dat_from_sql(path)
+        self.assertTrue(tdf._same_data(dat_1, dat_2, nans_are_same_for_data_rows=True))
 
 _scratchDir = TestSql.__name__ + "_scratch"
 

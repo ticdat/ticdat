@@ -1,6 +1,9 @@
 # Simplest diet example using amplpy and ticdat
 
-from amplpy import AMPL
+try: # if you don't have amplpy installed, the code will still load and then fail on solve
+    from amplpy import AMPL
+except:
+    AMPL = None
 from ticdat import PanDatFactory, standard_main
 
 input_schema = PanDatFactory (

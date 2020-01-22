@@ -29,9 +29,8 @@ conjunction with `gurobipy` and using `PanDatFactory` in conjunction with `amplp
 used with libraries like `pyomo`, `pulp`, `docplex` and `xpress`. It also has functionality to support the OPL and
 LINGO modeling languages, although the AMPL support is far more mature.
 
-`ticdat`'s association with AMPL is particularly strong. The design goals of `ticdat` were inspired by AMPL’s pattern
-of cleanly separating model from data, as well as its ability to thoroughly validate input data prior to solving.
-AMPL Optimization has endorsed `ticdat` as their preferred library for bridging the world’s leading modeling language
-(AMPL) with Python’s most powerful data analysis package (`pandas`).
+`ticdat` is also useful for machine-learning applications. In this case, one typically uses `PanDatFactory` to 
+provide ORM-like functionality on top of `pandas`, as well as to simplify the munging of time stamp data and 
+text columns that contain exclusively numbers. 
 
 The `ticdat` library is distributed under the BSD2 open source license.

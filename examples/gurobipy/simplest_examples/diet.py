@@ -1,7 +1,10 @@
 # Simplest diet example using gurobipy and ticdat
 
-import gurobipy as gu
-from ticdat import TicDatFactory,  standard_main, gurobi_env
+try: # if you don't have gurobipy installed, the code will still load and then fail on solve
+    import gurobipy as gu
+except:
+    gu = None
+from ticdat import TicDatFactory, standard_main
 
 input_schema = TicDatFactory (
     categories = [["Name"],["Min Nutrition", "Max Nutrition"]],
@@ -16,7 +19,7 @@ solution_schema = TicDatFactory(
 def solve(dat):
     assert input_schema.good_tic_dat_object(dat)
 
-    mdl = gu.Model("diet", env=gurobi_env())
+    mdl = gu.Model("diet")
 
     nutrition = {c:mdl.addVar(lb=n["Min Nutrition"], ub=n["Max Nutrition"], name=c)
                 for c,n in dat.categories.items()}

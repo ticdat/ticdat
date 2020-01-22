@@ -15,10 +15,15 @@
 # Uses the ticdat package to simplify file IO and provide command line functionality.
 # Can read from .csv, JSON, Excel or SQLite files. Self validates the input data
 # before solving to prevent strange errors or garbage-in, garbage-out problems.
+#
+# Run like
+#  python fantop.py -i fantop_sample_data -o fantop_solution_data
 
 from ticdat import PanDatFactory, standard_main
-from amplpy import AMPL
-
+try: # if you don't have amplpy installed, the code will still load and then fail on solve
+    from amplpy import AMPL
+except:
+    AMPL = None
 # ------------------------ define the input schema --------------------------------
 input_schema = PanDatFactory(
     parameters=[["Parameter"], ["Value"]],
@@ -44,7 +49,8 @@ input_schema.set_data_type("players", "Average Draft Position", min=0, max=float
 input_schema.set_data_type("players", "Expected Points", min=-float("inf"), max=float("inf"),
                           inclusive_min=False, inclusive_max=False)
 input_schema.set_data_type("players", "Draft Status",
-                          strings_allowed= ["Un-drafted", "Drafted By Me", "Drafted By Someone Else"])
+                          strings_allowed= ["Un-drafted", "Drafted By Me", "Drafted By Someone Else"],
+                          number_allowed= False)
 for fld in ("Min Num Starters",  "Min Num Reserve"):
     input_schema.set_data_type("roster_requirements", fld, min=0, max=float("inf"),
                           inclusive_min=True, inclusive_max=False, must_be_int=True)
@@ -60,6 +66,13 @@ input_schema.add_data_row_predicate("roster_requirements",
     predicate=lambda row : row["Max Num Starters"] >= row["Min Num Starters"])
 input_schema.add_data_row_predicate("roster_requirements",
     predicate=lambda row : row["Max Num Reserve"] >= row["Min Num Reserve"])
+
+input_schema.add_parameter("Starter Weight", default_value=1.2, min=0, max=float("inf"),
+                           inclusive_min=False, inclusive_max=False)
+input_schema.add_parameter("Reserve Weight", default_value=0.9, min=0, max=float("inf"),
+                           inclusive_min=False, inclusive_max=False)
+input_schema.add_parameter("Maximum Number of Flex Starters", default_value=float("inf"), min=0, max=float("inf"),
+                           inclusive_min=True, inclusive_max=True)
 # ---------------------------------------------------------------------------------
 
 
@@ -78,7 +91,7 @@ def solve(dat):
     assert not input_schema.find_data_type_failures(dat)
     assert not input_schema.find_data_row_failures(dat)
 
-    parameters = {k:v for k,v in dat.parameters.itertuples(index=False)}
+    parameters = input_schema.create_full_parameters_dict(dat)
 
     # for our purposes, its fine to assume all those drafted by someone else are drafted
     # prior to any players drafted by me
@@ -90,6 +103,10 @@ def solve(dat):
     dat.players.reset_index(drop=False, inplace=True) # turn the sequential index into a column
     dat.players["Expected Draft Position"] = dat.players["index"] + 1
     dat.players.drop(["index", "_temp_sort_column"], inplace=True, axis=1)
+
+    # BE CAREFUL - this is https://github.com/ticdat/ticdat/issues/54 Not sure why this is needed
+    dat.my_draft_positions.sort_values("Draft Position", inplace=True)
+
     assert list(dat.players["Expected Draft Position"]) == list(range(1, len(dat.players)+1))
 
     ampl = AMPL()
@@ -166,10 +183,10 @@ def solve(dat):
                          })
     input_schema.set_ampl_data(ampl_dat, ampl, {"players":"PLAYERS", "my_draft_positions":"MY_DRAFT_POSITIONS",
                                                 "roster_requirements": "POSITIONS"})
-    ampl.param['max_number_of_flex_starters'] = parameters.get('Maximum Number of Flex Starters',
-                                                len(dat.my_draft_positions))
-    ampl.param['starter_weight'] = parameters.get('Starter Weight', 1.)
-    ampl.param['reserve_weight'] = parameters.get('Reserve Weight', 1.)
+    ampl.param['max_number_of_flex_starters'] = min(parameters['Maximum Number of Flex Starters'],
+                                                    len(dat.my_draft_positions))
+    ampl.param['starter_weight'] = parameters['Starter Weight']
+    ampl.param['reserve_weight'] = parameters['Reserve Weight']
 
     # solve and recover solutions next
     ampl.solve()

@@ -2,6 +2,18 @@
 Read/write ticDat objects from mdb files. Requires the pypyodbc module
 PEP8
 """
+
+# note that getting ODBC drivers to work with pyodbc or pypyodbc can itself be a non-trivial sys admin task on your
+# computer. pyodbc seems to be most common and useful connector. There can be bitness problems between 64 bit Python
+# and 32 bit Access drives, so you might want to install a 32 bit Python. Bear in mind your installation will
+# configured so that
+#
+#   import pyodbc
+#   file = "whatever_the_file_path_is.accdb"
+#   pyodbc.connect('DRIVER={{Microsoft Access Driver (*.mdb, *.accdb)}};DBQ={};'.format(os.path.abspath(file)))
+#
+# doesn't throw an exception.
+
 import os
 import sys
 import inspect
@@ -53,15 +65,6 @@ def _connection_str(file):
 
 _mdb_inf = 1e+100
 assert _mdb_inf < float("inf"), "sanity check on inf"
-def _write_data(x) :  return max(min(x, _mdb_inf), -_mdb_inf) if numericish(x) else x
-
-def _read_data(x) :
-    if utils.numericish(x) :
-        if x >= _mdb_inf :
-            return float("inf")
-        if x <= -_mdb_inf :
-            return -float("inf")
-    return x
 
 def _brackets(l) :
     return ["[%s]"%_ for _ in l]
@@ -100,11 +103,13 @@ class MdbTicFactory(freezable_factory(object, "_isFrozen")) :
 
         :return: a TicDat object populated by the matching tables.
 
-        caveats : Numbers with absolute values larger than 1e+100 will
-                  be read as float("inf") or float("-inf")
+        caveats : Tables that don't find a match are interpreted as an empty table.
+                  Missing fields on matching tables throw an exception.
+                  Also, see infinity_io_flag
         """
         _standard_verify(self.tic_dat_factory.generic_tables)
-        rtn =  self.tic_dat_factory.TicDat(**self._create_tic_dat(mdb_file_path))
+        rtn = self.tic_dat_factory.TicDat(**self._create_tic_dat(mdb_file_path))
+        rtn = self.tic_dat_factory._parameter_table_post_read_adjustment(rtn)
         if freeze_it:
             return self.tic_dat_factory.freeze_me(rtn)
         return rtn
@@ -137,11 +142,12 @@ class MdbTicFactory(freezable_factory(object, "_isFrozen")) :
                 return True
             for table in tables:
                 rtn[table] = [t for t in all_underscore_replacements(table) if try_name(t)]
-                verify(len(rtn[table]) >= 1, "Unable to recognize table %s in MS Access file %s"%
-                                  (table, db_file_path))
                 verify(len(rtn[table]) <= 1, "Duplicate tables found for table %s in MS Access file %s"%
                                   (table, db_file_path))
-                rtn[table] = rtn[table][0]
+                if rtn[table]:
+                    rtn[table] = rtn[table][0]
+                else:
+                    rtn.pop(table)
         return rtn
     def _check_tables_fields(self, mdb_file_path, tables):
         tdf = self.tic_dat_factory
@@ -154,9 +160,9 @@ class MdbTicFactory(freezable_factory(object, "_isFrozen")) :
             raise TDE("Unable to open %s as MS Access file : %s"%(mdb_file_path, e))
         table_names = self._get_table_names(mdb_file_path, tables)
         with _connect(_connection_str(mdb_file_path)) as con:
-            for table in tables:
+            for table, mdb_table in table_names.items():
               with con.cursor() as cur:
-                cur.execute("Select * from [%s]"%table_names[table])
+                cur.execute("Select * from [%s]"%mdb_table)
                 fields = set(_[0].lower() for _ in cur.description)
                 for field in tdf.primary_key_fields.get(table, ()) + tdf.data_fields.get(table, ()):
                     verify(field.lower() in fields,
@@ -173,28 +179,32 @@ class MdbTicFactory(freezable_factory(object, "_isFrozen")) :
                 cur.execute("Select %s from [%s]"%(", ".join(_brackets(tdf.data_fields[table])),
                                                    table_name))
                 for row in cur.fetchall():
-                  yield list(map(_read_data, row))
+                  yield [tdf._general_read_cell(table, f, x) for f, x in zip(tdf.data_fields[table], row)]
         return tableObj
     def _create_tic_dat(self, mdbFilePath):
         tdf = self.tic_dat_factory
         table_names = self._check_tables_fields(mdbFilePath, tdf.all_tables)
+        missing_tables = sorted(set(self.tic_dat_factory.all_tables).difference(table_names))
+        if missing_tables:
+            print("The following table names could not be found in the %s Access database.\n%s\n" %
+                  (mdbFilePath, "\n".join(missing_tables)))
         rtn = {}
         with _connect(_connection_str(mdbFilePath)) as con:
-            for table in set(tdf.all_tables).difference(tdf.generator_tables) :
+            for table in set(tdf.all_tables).difference(tdf.generator_tables).difference(missing_tables):
                 fields = tdf.primary_key_fields.get(table, ()) + tdf.data_fields.get(table, ())
                 rtn[table]= {} if tdf.primary_key_fields.get(table, ())  else []
                 with con.cursor() as cur :
                     cur.execute("Select %s from [%s]"%(", ".join(_brackets(fields)),
                                  table_names[table]))
-                    for row in cur.fetchall():
+                    for row_ in cur.fetchall():
+                        row = [tdf._general_read_cell(table, f, x) for f, x in zip(fields, row_)]
                         pk = row[:len(tdf.primary_key_fields.get(table, ()))]
-                        data = list(map(_read_data,
-                                    row[len(tdf.primary_key_fields.get(table, ())):]))
+                        data = row[len(tdf.primary_key_fields.get(table, ())):]
                         if dictish(rtn[table]) :
                             rtn[table][pk[0] if len(pk) == 1 else tuple(pk)] = data
                         else :
                             rtn[table].append(data)
-        for table in tdf.generator_tables :
+        for table in set(tdf.generator_tables).difference(missing_tables):
             rtn[table] = self._create_gen_obj(mdbFilePath, table, table_names[table])
         return rtn
     @property
@@ -217,6 +227,7 @@ class MdbTicFactory(freezable_factory(object, "_isFrozen")) :
                             fields are double
         :return:
         """
+
         verify(not self.tic_dat_factory.generic_tables,
                "generic_tables are not compatible with write_schema. " +
                "Use write_file instead.")
@@ -231,7 +242,12 @@ class MdbTicFactory(freezable_factory(object, "_isFrozen")) :
                        "%s isn't a field name for table %s"%(fld, k))
                 verify(type_ in ("text", "double", "int"),
                        "For table %s, field %s, %s isn't one of (text, double, int)"%(k, fld, type_))
-        get_fld_type = lambda tbl, fld, default : field_types.get(tbl, {}).get(fld, default)
+        def get_fld_type(tbl, fld, default):
+            if tbl in field_types and fld in field_types[tbl]:
+                return field_types[tbl][fld]
+            if tbl == "parameters" and self.tic_dat_factory.parameters: # properly formatted parameters table = all text
+                return "text"
+            return default
         if not os.path.exists(mdb_file_path) :
             verify(mdb_file_path.endswith(".mdb") or mdb_file_path.endswith(".accdb"),
                    "For file creation, specify either an .mdb or .accdb file name")
@@ -269,8 +285,7 @@ class MdbTicFactory(freezable_factory(object, "_isFrozen")) :
 
         :return:
 
-        caveats : Numbers with absolute values larger than 1e+100 will
-                  be written as 1e+100 or -1e+100
+        caveats : See infinity_io_flag
 
         NB - thrown Exceptions of the form "Data type mismatch in criteria expression"
              generally result either from Access's inability to store different data
@@ -289,8 +304,9 @@ class MdbTicFactory(freezable_factory(object, "_isFrozen")) :
         table_names = self._check_tables_fields(mdb_file_path, self.tic_dat_factory.all_tables)
         with _connect(_connection_str(mdb_file_path)) as con:
             for t in self.tic_dat_factory.all_tables:
-                verify(table_names[t] == t, "Failed to find table %s in path %s"%
-                                            (t, mdb_file_path))
+                def write_data(f, x):
+                    return self.tic_dat_factory._infinity_flag_write_cell(t, f, x)
+                verify(table_names.get(t) == t, "Failed to find table %s in path %s"%(t, mdb_file_path))
                 if not allow_overwrite :
                     with con.cursor() as cur :
                         cur.execute("Select * from %s"%t)
@@ -303,9 +319,9 @@ class MdbTicFactory(freezable_factory(object, "_isFrozen")) :
                     for pk_row, sql_data_row in _t.items() :
                         _items = tuple(sql_data_row.items())
                         fields = _brackets(primary_keys + tuple(x[0] for x in _items))
-                        data_row = ((pk_row,) if len(primary_keys)==1 else pk_row) + \
-                                  tuple(_write_data(x[1]) for x in _items)
+                        data_row = ((pk_row,) if len(primary_keys)==1 else pk_row) + tuple(x[1] for x in _items)
                         assert len(data_row) == len(fields)
+                        data_row = tuple(write_data(f, x) for f, x in zip(fields, data_row))
                         str = "INSERT INTO %s (%s) VALUES (%s)"%\
                               (t, ",".join(fields), ",".join("?" for _ in fields))
                         con.cursor().execute(str, data_row).commit()
@@ -314,4 +330,5 @@ class MdbTicFactory(freezable_factory(object, "_isFrozen")) :
                         str = "INSERT INTO %s (%s) VALUES (%s)"%(t,
                           ",".join(_brackets(sql_data_row.keys())),
                           ",".join(["?"]*len(sql_data_row)))
-                        con.cursor().execute(str,tuple(map(_write_data, sql_data_row.values())))
+                        data_row = tuple(write_data(f, x) for f, x in sql_data_row.items())
+                        con.cursor().execute(str, data_row)

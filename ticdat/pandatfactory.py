@@ -8,12 +8,17 @@ from ticdat.utils import ForeignKey, ForeignKeyMapping, TypeDictionary, verify, 
 from ticdat.utils import lupish, deep_freeze, containerish, FrozenDict, safe_apply, stringish
 import ticdat.pandatio as pandatio
 from itertools import count
-from math import isnan
+try:
+    from pandas import isnull
+except:
+    isnull = None
 import collections as clt
+from ticdat.pgtd import PostgresPanFactory
 try:
     import amplpy
 except:
     amplpy = None
+
 pd, DataFrame = utils.pd, utils.DataFrame # if pandas not installed will be falsey
 
 def _faster_df_apply(df, func):
@@ -38,7 +43,7 @@ class PanDatFactory(object):
      A PanDat object is itself a collection of DataFrames that conform to a predefined schema.
 
     :param init_fields: a mapping of tables to primary key fields and data fields. Each field listing consists
-                        of two sub lists ... first primary keys fields, than data fields.
+                        of two sub lists ... first primary keys fields, then data fields.
 
         ex:
         ```PanDatFactory (categories =  [["name"],["Min Nutrition", "Max Nutrition"]],
@@ -80,7 +85,9 @@ class PanDatFactory(object):
         return {"tables_fields" : tables_fields,
                 "foreign_keys" : self.foreign_keys,
                 "default_values" : self.default_values,
-                "data_types" : self.data_types}
+                "data_types" : self.data_types,
+                "parameters": self.parameters,
+                "infinity_io_flag": self.infinity_io_flag}
     @staticmethod
     def create_from_full_schema(full_schema):
         """
@@ -93,8 +100,9 @@ class PanDatFactory(object):
         :return: a PanDatFactory reflecting the tables, fields, default values, data types,
                  and foreign keys consistent with the full_schema argument
         """
-        verify(dictish(full_schema) and set(full_schema) == {"tables_fields", "foreign_keys",
-                                                             "default_values", "data_types"},
+        old_schema = {"tables_fields", "foreign_keys", "default_values", "data_types"}
+        verify(dictish(full_schema) and set(full_schema).issuperset(old_schema) and set(full_schema) in
+               utils.all_subsets(old_schema.union({"parameters", "infinity_io_flag"})),
                "full_schema should be the result of calling schema(True) for some PanDatFactory")
         fks = full_schema["foreign_keys"]
         verify( (not fks) or (lupish(fks) and all(lupish(_) and len(_) >= 3 for _ in fks)),
@@ -106,6 +114,12 @@ class PanDatFactory(object):
         dvs = full_schema["default_values"]
         verify( (not dvs) or (dictish(dvs) and all(map(dictish, dvs.values()))),
                 "default_values entry poorly formatted")
+        params = full_schema.get("parameters", {})
+        if params:
+            verify(dictish(params) and all(map(utils.stringish, params)), "parameters not well formatted")
+            verify(all(len(v) == 2 and (v[0] is None or len(v[0]) in [8, 9])
+                       and not containerish(v[1]) for v in params.values()),
+                   "parameters improperly formatted")
 
         rtn = PanDatFactory(**full_schema["tables_fields"])
         for fk in (fks or []):
@@ -116,6 +130,13 @@ class PanDatFactory(object):
         for t,fdvs in (dvs or {}).items():
             for f, dv in fdvs.items():
                 rtn.set_default_value(t,f,dv)
+        for p, (dt, df) in (params or {}).items():
+            if dt is None:
+                rtn.add_parameter(p, df, enforce_type_rules=False)
+            else:
+                rtn.add_parameter(p, *((df,) + tuple(dt)), enforce_type_rules=True)
+        if "infinity_io_flag" in full_schema:
+            rtn.set_infinity_io_flag(full_schema["infinity_io_flag"])
         return rtn
     def clone(self):
         """
@@ -136,9 +157,166 @@ class PanDatFactory(object):
     def data_types(self):
         return utils.FrozenDict({t : utils.FrozenDict({k :v for k,v in vd.items()})
                                 for t,vd in self._data_types.items()})
+    @property
+    def parameters(self):
+        return FrozenDict(self._parameters)
+    @property
+    def infinity_io_flag(self):
+        """
+        see __doc__ for set_infinity_io_flag
+        """
+        return  self._infinity_io_flag[0]
+    def set_infinity_io_flag(self, value):
+        """
+        Set the infinity_io_flag for the TicDatFactory.
+        'N/A' (the default) is recognized as a flag to disable infinity I/O buffering.
+
+        If numeric, when writing data to the file system (or a database), float("inf") will be replaced by the
+        infinity_io_flag and float("-inf") will be replaced by -infinity_io_flag, prior to writing.
+        Similarly, the read data will replace any number >= the infinity_io_flag with float("inf") and any
+        number smaller than float("-inf") with -infinity_io_flag.
+
+        If None, then +/- infinity will be replaced by None prior to writing.
+        Similarly, subsequent to reading, None will be replaced either by float("inf") or float("-inf"), depending
+        on field data types.
+        Note that None flagging will only perform replacements on fields whose data types allow infinity and not None.
+
+        For all cases, these replacements will be done on a temporary copy of the data that is created prior to writing.
+
+        Also note that none of the these replacements will be done on the parameters table. The assumption is the
+        parameters table will be serialized to a string/string database table. Infinity can thus be represented by
+        "inf"/"-inf" in such serializations.
+
+        :param value: a valid infinity_io_flag
+        :return:
+        """
+        verify(value == "N/A" or (utils.numericish(value) and (0 < value < float("inf"))) or (value is None),
+           "infinity_io_flag needs to be 'N/A' (to indicate it isn't being used), or None, or a positive finite number")
+        self._infinity_io_flag[0] = value
+    def _none_as_infinity_bias(self, t, f):
+        if self.infinity_io_flag is not None:
+            return None
+        assert t in self.all_tables
+        fld_type = self.data_types.get(t, {}).get(f)
+        if fld_type and fld_type.number_allowed and not fld_type.valid_data(None):
+            verify(not (fld_type.valid_data(float("inf")) and fld_type.valid_data(-float("inf"))),
+                   f"None cannot be used as an infinity IO flag ")
+            for rtn in [1, -1]:
+                if fld_type.valid_data(rtn * float("inf")):
+                    return rtn
+    def _dtypes_for_pandas_read(self, table):
+        '''
+        we expect other routines inside ticdat to access this routine, even though it starts with _
+        :param table: table in the schema
+        :return valid argument for dtype argument for pandas.read_ routine
+        '''
+        rtn = {}
+        assert table in self.all_tables
+        for f, dt in self.data_types.get(table, {}).items():
+            if not dt.datetime and not dt.number_allowed and dt.strings_allowed:
+                rtn[f] = str
+        if self.parameters and table == "parameters":
+            for fld_singleton in self.schema()["parameters"]:
+                if fld_singleton[0] not in rtn:
+                    rtn[fld_singleton[0]] = str
+        return rtn
+    def _general_post_read_adjustment(self, dat, push_parameters_to_be_valid=False, json_read=False):
+        '''
+        we expect other routines inside ticdat to access this routine, even though it starts with _
+        :param dat: PanDat object that was just read from an external data source. dat will be side-effected
+        :param push_parameters_to_be_valid : needed for certain file formats, where pandas makes pushy assumptions
+                                             about type that might need to be undone
+        :param json_read: special 'None'->None override needed for pandas json reader
+        '''
+        assert push_parameters_to_be_valid or not json_read, "json_read should always push_parameters_to_be_valid"
+        apply = _faster_df_apply
+        for t in set(self.all_tables).difference(["parameters"]): # parameters table is handled differently
+            df = getattr(dat, t)
+            for f in self.primary_key_fields.get(t, ()) + self.data_fields.get(t, ()):
+                if utils.numericish(self.infinity_io_flag):
+                    fixme = apply(df, lambda row: utils.numericish(row[f]) and row[f] >= self.infinity_io_flag)
+                    df.loc[fixme, f] = float("inf")
+                    fixme = apply(df, lambda row: utils.numericish(row[f]) and row[f] <= -self.infinity_io_flag)
+                    df.loc[fixme, f] = -float("inf")
+                elif utils.numericish(self._none_as_infinity_bias(t, f)):
+                    assert self.infinity_io_flag is None
+                    df[f].fillna(value=self._none_as_infinity_bias(t, f) * float("inf"), inplace=True)
+                dt = self.data_types.get(t, {}).get(f, None)
+                if dt and dt.datetime:
+                    def fixed_row(row):
+                        new_row_f = utils.dateutil_adjuster(row[f])
+                        return new_row_f if new_row_f is not None else row[f]
+                    df[f] = apply(df, fixed_row)
+                if json_read and self._dtypes_for_pandas_read(t).get(f) == str:
+                    assert dt, "assumed because _dtypes_for_pandas_read result"
+                    if dt.nullable:
+                        def fixed_row(row):
+                            if utils.stringish(row[f]) and row[f].lower() == "none":
+                                return None
+                            return row[f]
+                        df[f] = apply(df, fixed_row)
+
+        # this is the logic that is used in lieu of infinity_io_flag logic for the parameters table
+        # it is predicated on the assumption that the parameters table will be serialized to a string/string table
+        if self.parameters:
+            [key_fld], [val_fld] = self.schema()["parameters"]
+            td = lambda k : getattr(self.parameters.get(k, None), "type_dictionary", None)
+            _can_parameter_have_number = lambda k : False if td(k) and not td(k).number_allowed else True
+            _can_parameter_have_data = lambda k, data: False if td(k) and not td(k).valid_data(data) else True
+            def fix_value(row):
+                key, value = [row[_] for _ in [key_fld, val_fld]]
+                if td(key) and td(key).datetime and stringish(value) and \
+                    (utils.dateutil_adjuster(value) is not None) and \
+                    _can_parameter_have_data(key, utils.dateutil_adjuster(value)) and \
+                    push_parameters_to_be_valid:
+                    return utils.dateutil_adjuster(value)
+                if json_read and utils.stringish(value) and value.lower() == "none" and \
+                    _can_parameter_have_data(key, None):
+                    return None
+                if not _can_parameter_have_number(key):
+                    if push_parameters_to_be_valid and not _can_parameter_have_data(key, value) and \
+                       _can_parameter_have_data(key, str(value)):
+                        return str(value)
+                    return value
+                number_v = safe_apply(float)(value)
+                if number_v is not None and safe_apply(int)(number_v) == number_v:
+                    number_v = int(number_v)
+                return value if number_v is None else number_v
+            dat.parameters[val_fld] = _faster_df_apply(dat.parameters, lambda row: fix_value(row))
+        return dat
+    def _infinity_flag_pre_write_adjustment(self, dat):
+        '''
+        we expect other routines inside ticdat to access this routine, even though it starts with _
+        :param dat: PanDat object that is just now going to be written to an external data source.
+                    dat will NOT be side affected by this routine
+        :return if adjustment is needed, a deep copy of dat that has the appropriate adjustments
+        '''
+        if self.infinity_io_flag == "N/A" and not self.parameters:
+            return dat
+        rtn = self.copy_pan_dat(dat)
+        if self.parameters: # Assuming a parameters table without parameters specification is just a naive developer
+            fld = self.data_fields["parameters"][0]
+            rtn.parameters[fld] = _faster_df_apply(rtn.parameters,
+                                                   lambda row: None if isnull(row[fld]) else str(row[fld]))
+        if self.infinity_io_flag == "N/A":
+            return rtn
+        apply = _faster_df_apply
+        for t in set(self.all_tables).difference(["parameters"]): # parameters table is handled differently
+            df = getattr(rtn, t)
+            for f in self.primary_key_fields.get(t, ()) + self.data_fields.get(t, ()):
+                if utils.numericish(self.infinity_io_flag):
+                    fixme = apply(df, lambda row: utils.numericish(row[f]) and row[f] >= self.infinity_io_flag)
+                    df.loc[fixme, f] = self.infinity_io_flag
+                    fixme = apply(df, lambda row: utils.numericish(row[f]) and row[f] <= -self.infinity_io_flag)
+                    df.loc[fixme, f] = -self.infinity_io_flag
+                elif utils.numericish(self._none_as_infinity_bias(t, f)):
+                    assert self.infinity_io_flag is None
+                    fixme = apply(df, lambda row: row[f] == float("inf") * self._none_as_infinity_bias(t, f))
+                    df.loc[fixme, f] = None
+        return rtn
     def set_data_type(self, table, field, number_allowed = True,
                       inclusive_min = True, inclusive_max = False, min = 0, max = float("inf"),
-                      must_be_int = False, strings_allowed= (), nullable = False):
+                      must_be_int = False, strings_allowed= (), nullable = False, datetime = False):
         """
         sets the data type for a field. By default, fields don't have types. Adding a data type doesn't block
         data of the wrong type from being entered. Data types are useful for recognizing errant data entries
@@ -165,6 +343,12 @@ class PanDatFactory(object):
                                 If a "*", then any string is accepted.
         :param nullable : boolean : can this value contain null (aka None aka nan (since pandas treats null as nan))
 
+        :param datetime: If truthy, then number_allowed through strings_allowed are ignored. Should the data either
+                         be a datetime.datetime object or a string that can be parsed into a datetime.datetime object?
+                         Note that the various readers will try to coerce strings into datetime.datetime objects
+                         on read for fields with datetime data types. pandas.Timestamp is itself a datetime.datetime,
+                         and the bias will be to create such an object.
+
         :return:
         """
         verify(not self._has_been_used,
@@ -174,24 +358,8 @@ class PanDatFactory(object):
         verify(field in self.data_fields[table] + self.primary_key_fields[table],
                "%s does not refer to a field for %s"%(field, table))
 
-        verify((strings_allowed == '*') or
-               (containerish(strings_allowed) and all(utils.stringish(x) for x in strings_allowed)),
-"""The strings_allowed argument should be a container of strings, or the single '*' character.""")
-        if utils.containerish(strings_allowed):
-            strings_allowed = tuple(strings_allowed) # defensive copy
-        if number_allowed:
-            verify(utils.numericish(max), "max should be numeric")
-            verify(utils.numericish(min), "min should be numeric")
-            verify(max >= min, "max cannot be smaller than min")
-            self._data_types[table][field] = TypeDictionary(number_allowed=True,
-                strings_allowed=strings_allowed,  nullable = bool(nullable),
-                min = min, max = max, inclusive_min= bool(inclusive_min), inclusive_max = bool(inclusive_max),
-                must_be_int = bool(must_be_int))
-        else :
-            self._data_types[table][field] = TypeDictionary(number_allowed=False,
-                strings_allowed=strings_allowed,  nullable = bool(nullable),
-                min = 0, max = float("inf"), inclusive_min= True, inclusive_max = True,
-                must_be_int = False)
+        self._data_types[table][field] = TypeDictionary.safe_creator(number_allowed, inclusive_min, inclusive_max,
+                                            min, max, must_be_int, strings_allowed, nullable, datetime)
 
     def clear_data_type(self, table, field):
         """
@@ -201,7 +369,7 @@ class PanDatFactory(object):
 
         :param table: table in the schema
 
-        :param field:
+        :param field: one of table's fields.
 
         :return:
         """
@@ -222,7 +390,7 @@ class PanDatFactory(object):
 
         **pandas will render None as nan.**
 
-        **Don't check for None in your predicate functions, use math.isnan instead**
+        **Don't check for None in your predicate functions, use pandas.isnull instead**
 
         !!!!!!!!!!
 
@@ -254,6 +422,49 @@ class PanDatFactory(object):
             predicate_name = next(i for i in count() if i not in self._data_row_predicates[table])
         self._data_row_predicates[table][predicate_name] = predicate
 
+    def add_parameter(self, name, default_value, number_allowed = True,
+                      inclusive_min = True, inclusive_max = False, min = 0, max = float("inf"),
+                      must_be_int = False, strings_allowed= (), nullable = False, datetime = False,
+                      enforce_type_rules = True):
+        """
+        Add (or reset) a parameters option. Requires that a parameters table with one primary key field and one
+        data field already be present. The legal parameters options will be enforced as part of find_data_row_failures
+        Note that if you are using this function, then you would typically read from the parameters table indirectly,
+        by using the dictionary returned by create_full_parameters_dict.
+        :param name: name of the parameter to add or reset
+        :param default_value: default value for the parameter (used for create_full_parameters_dict)
+        :param number_allowed: boolean does this parameter allow numbers?
+        :param inclusive_min: if number allowed, is the min inclusive?
+        :param inclusive_max: if number allowed, is the max inclusive?
+        :param min: if number allowed, the minimum value
+        :param max: if number allowed, the maximum value
+        :param must_be_int: boolean : if number allowed, must the number be integral?
+        :param strings_allowed: if a collection - then a list of the strings allowed.
+                                The empty collection prohibits strings.
+                                If a "*", then any string is accepted.
+        :param nullable:  boolean : can this parameter be set to null (aka None)
+        :param datetime: If truthy, then number_allowed through strings_allowed are ignored. Should the data either
+                         be a datetime.datetime object or a string that can be parsed into a datetime.datetime object?
+                         Note that the various readers will try to coerce strings into datetime.datetime objects
+                         on read for parameters with datetime data types. pandas.Timestamp is itself a datetime.datetime,
+                         and the bias will be to create such an object.
+        :param enforce_type_rules: boolean: ignore all of number_allowed through datetime, and only
+                                   enforce the parameter names and default values
+        :return:
+        """
+        verify("parameters" in self.all_tables, "No parameters table")
+        verify(len(self.primary_key_fields.get("parameters", [])) ==
+               len(self.data_fields.get("parameters", [])) == 1, "parameters table is badly formatted")
+        verify(not self._has_been_used,
+               "The parameters can't be changed after a TicDatFactory has been used.")
+        td = None
+        if enforce_type_rules:
+            td = TypeDictionary.safe_creator(number_allowed, inclusive_min, inclusive_max,
+                                             min, max, must_be_int, strings_allowed, nullable, datetime)
+            verify(td.valid_data(default_value), f"{default_value} is not a legal default value for parameter {name}")
+        ParameterInfo = clt.namedtuple("ParameterInfo", ["type_dictionary", "default_value"])
+        self._parameters[name] = ParameterInfo(td, default_value)
+
     def set_default_value(self, table, field, default_value):
         """
         sets the default value for a specific field
@@ -274,30 +485,30 @@ class PanDatFactory(object):
         verify(utils.acceptable_default(default_value), "%s can not be used as a default value"%default_value)
         self._default_values[table][field] = default_value
 
-    def set_default_values(self, **tableDefaults):
+    def set_default_values(self, **table_defaults):
         """
         sets the default values for the fields
 
-        :param tableDefaults:
+        :param table_defaults:
              A dictionary of named arguments. Each argument name (i.e. each key) should be a table name
              Each value should itself be a dictionary mapping data field names to default values
 
         Ex:
 
-        ```tdf.set_default_values(categories = {"minNutrition":0, "maxNutrition":float("inf")},
+        ```pdf.set_default_values(categories = {"minNutrition":0, "maxNutrition":float("inf")},
                          foods = {"cost":0}, nutritionQuantities = {"qty":0})```
 
         :return:
         """
         verify(not self._has_been_used,
                "The default values can't be changed after a PanDatFactory has been used.")
-        for k,v in tableDefaults.items():
+        for k,v in table_defaults.items():
             verify(k in self.all_tables, "Unrecognized table name %s"%k)
             verify(dictish(v) and set(v).issubset(self.data_fields[k] + self.primary_key_fields[k]),
                 "Default values for %s should be a dictionary mapping field names to values"
                 %k)
-            verify(all(utils.acceptable_default(_v) for _v in v.values()), "some default values are unacceptable")
-            self._default_values[k] = dict(self._default_values[k], **v)
+            for f, dv in v.items():
+                self.set_default_value(k, f, dv)
 
     def clear_foreign_keys(self, native_table = None):
         """
@@ -334,11 +545,6 @@ class PanDatFactory(object):
                 rtn.append(ForeignKey(native, foreign, mappings, cardinality))
         assert len(rtn) == len(set(rtn))
         return tuple(rtn)
-    def _foreign_keys_by_native(self):
-        rtn = clt.defaultdict(list)
-        for fk in self.foreign_keys:
-            rtn[fk.native_table].append(fk)
-        return utils.FrozenDict({k:frozenset(v) for k,v in rtn.items()})
     def _all_fields(self, table):
         assert table in self.all_tables
         return tuple(_ for _ in self.primary_key_fields.get(table, ()) + self.data_fields.get(table, ()))
@@ -380,16 +586,6 @@ class PanDatFactory(object):
             verify(v in self._all_fields(foreign_table),
                    "%s does not refer to one of %s 's fields"%(v, foreign_table))
         self._foreign_keys[native_table, foreign_table].add(tuple(_mappings.items()))
-    def _simple_fk(self, ftbl, fk):
-        assert ftbl in self.all_tables
-        ftbl_pks = set(self.primary_key_fields.get(ftbl,()))
-        assert lupish(fk) and all(lupish(_) and len(_) == 2 for _ in fk)
-        ffs = {_[1] for _ in fk}
-        assert ffs.issubset(ftbl_pks.union(self.data_fields.get(ftbl,())))
-        return ftbl_pks == ffs
-    def _complex_fks(self):
-        return tuple((native, foreign, fk) for (native, foreign), fks in self._foreign_keys.items()
-                    for fk in fks if not self._simple_fk(foreign, fk))
     def _trigger_has_been_used(self):
         self._has_been_used = True
     def __init__(self, **init_fields):
@@ -440,6 +636,9 @@ class PanDatFactory(object):
         self._data_types = clt.defaultdict(dict)
         self._data_row_predicates = clt.defaultdict(dict)
         self._foreign_keys = clt.defaultdict(set)
+        self._parameters = {}
+        self._infinity_io_flag = ["N/A"]
+
         self.all_tables = frozenset(init_fields)
         superself = self
         class PanDat(object):
@@ -480,6 +679,7 @@ class PanDatFactory(object):
         self.sql = pandatio.SqlPanFactory(self)
         self.csv = pandatio.CsvPanFactory(self)
         self.json = pandatio.JsonPanFactory(self)
+        self.pgsql = PostgresPanFactory(self)
 
     def good_pan_dat_object(self, data_obj, bad_message_handler = lambda x : None):
         """
@@ -529,12 +729,22 @@ class PanDatFactory(object):
         :param freeze_it: boolean. should the returned object be frozen?
 
         :return: a deep copy of the pan_dat argument in tic_dat format
+                I.e.
+                   assert TicDatFactory(**self.schema()).good_tic_dat_object(rtn)
+                 works.
+
+                 Note that nan will NOT be converted to None in the returned object.
+
         """
         msg = []
         verify(self.good_pan_dat_object(pan_dat, msg.append),
                "pan_dat not a good object for this factory : %s"%"\n".join(msg))
+        if self.find_duplicates(pan_dat):
+            print("--> Warning: duplicate rows will force copy_to_tic_dat to return an object with fewer total rows")
         rtn = self._copy_to_tic_dat(pan_dat)
         from ticdat import TicDatFactory
+        # note - this has a minor problem in that it might downcast pandas.Timestamp to numpy.datetime64
+        # in the primary key entries.
         tdf = TicDatFactory(**self.schema())
         return tdf.freeze_me(rtn) if freeze_it else rtn
     def _copy_to_tic_dat(self, pan_dat, keep_generics_as_df=True):
@@ -552,16 +762,19 @@ class PanDatFactory(object):
                 return list(map(list, rtn.itertuples(index=False)))
             return rtn
         return tdf.TicDat(**{t: df(t) for t in self.all_tables})
-    def _same_data(self, obj1, obj2, epsilon = 0):
+    def _same_data(self, obj1, obj2, epsilon = 0, nans_are_same_for_data_rows = False):
         from ticdat import TicDatFactory
         sch = self.schema()
+        if not all(len(getattr(obj1, t)) == len(getattr(obj2, t)) for t in self.all_tables):
+            return False
         for t in self.generic_tables:
             if set(getattr(obj1, t).columns) != set(getattr(obj2, t).columns):
                 return False
             sch[t] = [[], list(getattr(obj1, t).columns)]
         tdf = TicDatFactory(**sch)
         return tdf._same_data(self._copy_to_tic_dat(obj1, keep_generics_as_df=False),
-                              self._copy_to_tic_dat(obj2, keep_generics_as_df=False), epsilon=epsilon)
+                              self._copy_to_tic_dat(obj2, keep_generics_as_df=False), epsilon=epsilon,
+                              nans_are_same_for_data_rows=nans_are_same_for_data_rows)
     def find_data_type_failures(self, pan_dat, as_table=True):
         """
         Finds the data type failures for a pandat object
@@ -578,21 +791,31 @@ class PanDatFactory(object):
                  with no data type at all are never part of the returned dictionary.
                  The values are DataFrames that contain the subset of rows that exhibit data failures
                  for this specific table, field pair (or the boolean Series that identifies these rows).
+                 
+         Note that for primary key fields (but not data fields) with no explicit data type, a temporary filter
+         that excludes only Null will be applied. If you want primary key fields to allow Null, you must explicitly
+         opt-in by calling set_data_type appropriately.
+         See issue https://github.com/ticdat/ticdat/issues/46 for more info.
         """
         msg = []
         verify(self.good_pan_dat_object(pan_dat, msg.append),
                "pan_dat not a good object for this factory : %s"%"\n".join(msg))
 
+        tmp_pdf = PanDatFactory.create_from_full_schema(self.schema(include_ancillary_info=True))
+        for t, pks in self.primary_key_fields.items():
+            for pk in pks:
+                if pk not in self._data_types.get(t, ()):
+                    tmp_pdf.set_data_type(t, pk, number_allowed=True,
+                      inclusive_min=True, inclusive_max=True, min=-float("inf"), max=float("inf"),
+                      must_be_int=False, strings_allowed='*', nullable=False, datetime=False)
         rtn = {}
-        safe_isnan = safe_apply(isnan)
         TableField = clt.namedtuple("TableField", ["table", "field"])
-        for table, type_row in self._data_types.items():
+        for table, type_row in tmp_pdf._data_types.items():
             _table = getattr(pan_dat, table)
             for field, data_type in type_row.items():
                 def bad_row(row):
                     data = row[field]
-                    # pandas turns None into nan
-                    return not data_type.valid_data(None if safe_isnan(data) else data)
+                    return not data_type.valid_data(None if isnull(data) else data)
                 where_bad_rows = _faster_df_apply(_table, bad_row)
                 if where_bad_rows.any():
                     rtn[TableField(table, field)] = _table[where_bad_rows].copy() if as_table else where_bad_rows
@@ -617,9 +840,24 @@ class PanDatFactory(object):
         msg = []
         verify(self.good_pan_dat_object(pan_dat, msg.append),
                "pan_dat not a good object for this factory : %s"%"\n".join(msg))
+        data_row_predicates = {k: dict(v) for k,v in self._data_row_predicates.items()}
+        if self._parameters:
+            def good_parameter(row):
+                k = row[self.primary_key_fields["parameters"][0]]
+                v = row[self.data_fields["parameters"][0]]
+                v = None if isnull(v) else v
+                chk = self._parameters.get(k)
+                return chk and (chk.type_dictionary is None or chk.type_dictionary.valid_data(v))
+            _ = "Good Name/Value Check"
+            make_name = lambda i: _ if _ not in self._data_row_predicates.get("parameters", {}) else f"{_}_{i}"
+            predicate_name = next(make_name(i) for i in count() if make_name(i) not in
+                                  self._data_row_predicates.get("parameters", {}))
+            data_row_predicates["parameters"] = data_row_predicates.get("parameters", {})
+            data_row_predicates["parameters"][predicate_name] = good_parameter
+
         rtn = {}
         TPN = clt.namedtuple("TablePredicateName", ["table", "predicate_name"])
-        for tbl, row_predicates in self._data_row_predicates.items():
+        for tbl, row_predicates in data_row_predicates.items():
             for pn, p in row_predicates.items():
                 _table = getattr(pan_dat, tbl)
                 bad_row = lambda row: not p(row)
@@ -636,8 +874,8 @@ class PanDatFactory(object):
         :param verbosity: either "High" or "Low"
 
         :param as_table: as_table boolean : if truthy then the values of the return dictionary will be the
-               duplicated rows themselves. Otherwise will return the a boolean list that indicates which rows
-               are duplicated rows. (For technical reasons, not returning a boolean Series like the
+               failed rows themselves. Otherwise will return the a boolean list that indicates which rows
+               have failures. (For technical reasons, not returning a boolean Series like the
                other find functions)
 
         :return: A dictionary constructed as follows:
@@ -701,6 +939,24 @@ class PanDatFactory(object):
                 # but the fix isn't high priority.
                 rtn[fk] = list(_faster_df_apply(child, lambda row: row[magic_field*2] in bad_rows))
         return rtn
+    def create_full_parameters_dict(self, dat):
+        """
+        create a fully populated dictionary of all the parameters
+        :param dat: a PanDat object that has a parameters table
+        :return: a dictionary that maps parameter option to actual dat.parameters value.
+                 if the specific option isn't part of dat.parameters, then the default value is used.
+                 Note that for datetime parameters, the default will be coerced into a datetime object, if possible.
+        """
+        msg  = []
+        verify(self.good_pan_dat_object(dat, msg.append),
+               "pan_dat not a good object for this factory : %s"%"\n".join(msg))
+        verify(self.parameters, "no parameters options have been specified")
+        defaults = {k: dt if dt is not None and v.type_dictionary and v.type_dictionary.datetime else df
+                    for k,v in self._parameters.items() for df in [v.default_value]
+                    for dt in [utils.dateutil_adjuster(df)]}
+        df = dat.parameters[list(self.primary_key_fields["parameters"]) + list(self.data_fields["parameters"])]
+        return dict(defaults, **{k: v for k,v in df.itertuples(index=False)})
+
     def remove_foreign_key_failures(self, pan_dat):
         """
 

@@ -1,0 +1,6 @@
+Position,Min Num Starters,Max Num Starters,Min Num Reserve,Max Num Reserve,Flex Status
+K,1,1,0,0,Flex Ineligible
+QB,1,1,1,2,Flex Ineligible
+RB,2,3,1,3,Flex Ineligible
+TE,1,1,0,1,Flex Ineligible
+WR,2,3,2,4,Flex Ineligible

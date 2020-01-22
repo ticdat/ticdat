@@ -2,6 +2,7 @@ import os
 import ticdat.utils as utils
 import sys
 from ticdat.ticdatfactory import TicDatFactory, DataFrame
+from ticdat.pandatfactory import PanDatFactory
 from ticdat.testing.ticdattestutils import dietData, dietSchema, netflowData
 from ticdat.testing.ticdattestutils import  netflowSchema, firesException, spacesData, spacesSchema
 from ticdat.testing.ticdattestutils import sillyMeData, sillyMeSchema, fail_to_debugger, flagged_as_run_alone
@@ -39,40 +40,6 @@ class TestPandas(unittest.TestCase):
             for k,v in getattr(generic_free_dat, t).items():
                 getattr(check_dat, t)[k] = v
         self.assertTrue(clean_tdf._same_data(check_dat, clean_tdf.copy_tic_dat(ticDat)))
-
-    def testDenormalizedErrors(self):
-        if not self.canRun:
-            return
-        c = clean_denormalization_errors
-        f = utils.find_denormalized_sub_table_failures
-        tdf = TicDatFactory(**spacesSchema())
-        dat = tdf.TicDat(**spacesData())
-        p = lambda :tdf.copy_to_pandas(dat, drop_pk_columns=False).b_table
-        self.assertFalse(f(p(),"b Field 1",("b Field 2", "b Field 3")))
-        dat.b_table[2,2,3] = "boger"
-        self.assertFalse(f(p(), "b Field 1",("b Field 2", "b Field 3")))
-        chk = f(p(), "b Field 2",("b Field 1", "b Field 3"))
-        self.assertTrue(c(chk) == {2: {'b Field 1': {1, 2}}})
-        dat.b_table[2,2,4] = "boger"
-        dat.b_table[1,'b','b'] = "boger"
-        chk = f(p(), ["b Field 2"],("b Field 1", "b Field 3", "b Data"))
-        self.assertTrue(c(chk) == c({2: {'b Field 3': (3, 4), 'b Data': (1, 'boger'), 'b Field 1': (1, 2)},
-                                 'b': {'b Data': ('boger', 12), 'b Field 1': ('a', 1)}}))
-
-        ex = self.firesException(lambda : f(p(), ["b Data"],"wtf"))
-        self.assertTrue("wtf isn't a column" in ex)
-
-
-        p = lambda :tdf.copy_to_pandas(dat, drop_pk_columns=False).c_table
-        chk = f(p(), pk_fields=["c Data 1", "c Data 2"], data_fields=["c Data 3", "c Data 4"])
-        self.assertTrue(c(chk) == {('a', 'b'): {'c Data 3': {'c', 12}, 'c Data 4': {24, 'd'}}})
-        dat.c_table.append((1, 2, 3, 4))
-        dat.c_table.append((1, 2, 1, 4))
-        dat.c_table.append((1, 2, 1, 5))
-        dat.c_table.append((1, 2, 3, 6))
-        chk = f(p(), pk_fields=["c Data 1", "c Data 2"], data_fields=["c Data 3", "c Data 4"])
-        self.assertTrue(c(chk) == {('a', 'b'): {'c Data 3': {'c', 12}, 'c Data 4': {24, 'd'}},
-                                   (1,2):{'c Data 3':{3,1}, 'c Data 4':{4,5,6}}})
 
     def testDiet(self):
         if not self.canRun:
@@ -209,6 +176,55 @@ class TestPandas(unittest.TestCase):
         ticDat.b = ticDat.b.bData
         rebornTicDat = tdf.TicDat(**{t:getattr(ticDat, t) for t in tdf.all_tables})
         self.assertTrue(tdf._same_data(rebornTicDat, oldDat))
+
+    def testRoundTrips(self):
+        if not self.canRun:
+            return
+        tdf = TicDatFactory(**dietSchema())
+        tdf.enable_foreign_key_links()
+        oldDat = tdf.freeze_me(tdf.TicDat(**{t:getattr(dietData(),t) for t in tdf.primary_key_fields}))
+        pdf = PanDatFactory.create_from_full_schema(tdf.schema(include_ancillary_info=True))
+        pan_dat = tdf.copy_to_pandas(oldDat, drop_pk_columns=False)
+        self.assertTrue(pdf.good_pan_dat_object(pan_dat))
+        tic_dat = pdf.copy_to_tic_dat(pan_dat)
+        self.assertTrue(tdf._same_data(oldDat, tic_dat))
+
+        tdf = TicDatFactory(**netflowSchema())
+        tdf.enable_foreign_key_links()
+        addNetflowForeignKeys(tdf)
+        oldDat = tdf.freeze_me(tdf.TicDat(**{t:getattr(netflowData(),t) for t in tdf.primary_key_fields}))
+        pdf = PanDatFactory.create_from_full_schema(tdf.schema(include_ancillary_info=True))
+        pan_dat = tdf.copy_to_pandas(oldDat, drop_pk_columns=False)
+        self.assertTrue(pdf.good_pan_dat_object(pan_dat))
+        tic_dat = pdf.copy_to_tic_dat(pan_dat)
+        self.assertTrue(tdf._same_data(oldDat, tic_dat))
+
+        pdf = PanDatFactory(table = [["a", "b"],["c"]])
+        pan_dat = pdf.PanDat(table=utils.DataFrame({"a":[1, 2, 1, 1],"b": [10, 10, 10, 11], "c": [101, 102, 103, 104]}))
+        self.assertTrue(len(pdf.find_duplicates(pan_dat, keep=False)["table"]) == 2)
+        tic_dat = pdf.copy_to_tic_dat(pan_dat)
+        self.assertTrue(len(tic_dat.table) == len(pan_dat.table) - 1)
+
+        tdf = TicDatFactory(**pdf.schema())
+        tic_dat = tdf.TicDat(table=[[1, 2, 3], [None, 2, 3], [2, 1, None]])
+        self.assertTrue(len(tic_dat.table) == 3)
+        tic_dat_two = pdf.copy_to_tic_dat(tdf.copy_to_pandas(tic_dat, drop_pk_columns=False))
+        self.assertFalse(tdf._same_data(tic_dat, tic_dat_two))
+        tic_dat3 = tdf.TicDat(table=[[1, 2, 3], [float("nan"), 2, 3], [2, 1, float("nan")]])
+        # this fails because _same_data isn't smart enough to check against nan in the keys,
+        # because float("nan") != float("nan")
+        self.assertFalse(tdf._same_data(tic_dat3, tic_dat_two))
+
+        pdf = PanDatFactory(table = [["a"], ["b", "c"]])
+        tdf = TicDatFactory(**pdf.schema())
+        tic_dat = tdf.TicDat(table=[[1, 2, 3], [2, None, 3], [2, 1, None]])
+        tic_dat_two = pdf.copy_to_tic_dat(tdf.copy_to_pandas(tic_dat, drop_pk_columns=False))
+        self.assertFalse(tdf._same_data(tic_dat, tic_dat_two))
+        tic_dat3 = tdf.TicDat(table=[[1, 2, 3], [2, float("nan"), 3], [2, 1, float("nan")]])
+        # _same_data works fine in checking nan equivalence in data rows - which maybe
+        self.assertTrue(tdf._same_data(tic_dat3, tic_dat_two, nans_are_same_for_data_rows=True))
+
+
 
 # Run the tests.
 if __name__ == "__main__":

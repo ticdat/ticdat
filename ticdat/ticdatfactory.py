@@ -15,7 +15,9 @@ import ticdat.csvtd as csv
 import ticdat.sqlitetd as sql
 import ticdat.mdb as mdb
 import ticdat.jsontd as json
+from ticdat.pgtd import PostgresTicFactory
 import sys
+import math
 try:
     import amplpy
 except:
@@ -32,7 +34,7 @@ def _keylen(k) :
         rtn = 0
     return rtn
 
-class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "lingo_prepend", "ampl_prepend"})) :
+class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl_prepend"})) :
     """
     Primary class for ticdat library. This class is constructed with a schema.
     It can be used to generate TicDat objects, to write TicDat objects to
@@ -83,7 +85,9 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
         return {"tables_fields" : tables_fields,
                 "foreign_keys" : self.foreign_keys,
                 "default_values" : self.default_values,
-                "data_types" : self.data_types}
+                "data_types" : self.data_types,
+                "parameters": self.parameters,
+                "infinity_io_flag": self.infinity_io_flag}
     @staticmethod
     def create_from_full_schema(full_schema):
         """
@@ -96,8 +100,9 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
         :return: a TicDatFactory reflecting the tables, fields, default values, data types,
                  and foreign keys consistent with the full_schema argument
         """
-        verify(dictish(full_schema) and set(full_schema) == {"tables_fields", "foreign_keys",
-                                                             "default_values", "data_types"},
+        old_schema = {"tables_fields", "foreign_keys", "default_values", "data_types"}
+        verify(dictish(full_schema) and set(full_schema).issuperset(old_schema) and  set(full_schema) in
+               utils.all_subsets(old_schema.union({"parameters", "infinity_io_flag"})),
                "full_schema should be the result of calling schema(True) for some TicDatFactory")
         fks = full_schema["foreign_keys"]
         verify( (not fks) or (lupish(fks) and all(lupish(_) and len(_) >= 3 for _ in fks)),
@@ -109,7 +114,12 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
         dvs = full_schema["default_values"]
         verify( (not dvs) or (dictish(dvs) and all(map(dictish, dvs.values()))),
                 "default_values entry poorly formatted")
-
+        params = full_schema.get("parameters", {})
+        if params:
+            verify(dictish(params) and all(map(utils.stringish, params)), "parameters not well formatted")
+            verify(all(len(v) == 2 and (v[0] is None or len(v[0]) in [8, 9])
+                       and not containerish(v[1]) for v in params.values()),
+                   "parameters improperly formatted")
         rtn = TicDatFactory(**full_schema["tables_fields"])
         for fk in (fks or []):
             rtn.add_foreign_key(*fk[:3])
@@ -119,6 +129,13 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
         for t,fdvs in (dvs or {}).items():
             for f, dv in fdvs.items():
                 rtn.set_default_value(t,f,dv)
+        for p, (dt, df) in (params or {}).items():
+            if dt is None:
+                rtn.add_parameter(p, df, enforce_type_rules=False)
+            else:
+                rtn.add_parameter(p, *((df,) + tuple(dt)), enforce_type_rules=True)
+        if "infinity_io_flag" in full_schema:
+            rtn.set_infinity_io_flag(full_schema["infinity_io_flag"])
         return rtn
     @property
     def generator_tables(self):
@@ -127,12 +144,15 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
     def default_values(self):
         return deep_freeze(self._default_values)
     @property
+    def parameters(self):
+        return FrozenDict(self._parameters)
+    @property
     def data_types(self):
         return utils.FrozenDict({t : utils.FrozenDict({k :v for k,v in vd.items()})
                                 for t,vd in self._data_types.items()})
     def set_data_type(self, table, field, number_allowed = True,
                       inclusive_min = True, inclusive_max = False, min = 0, max = float("inf"),
-                      must_be_int = False, strings_allowed= (), nullable = False):
+                      must_be_int = False, strings_allowed= (), nullable = False, datetime = False):
         """
         sets the data type for a field. By default, fields don't have types. Adding a data type doesn't block
         data of the wrong type from being entered. Data types are useful for recognizing errant data entries
@@ -160,6 +180,12 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
 
         :param nullable : boolean : can this value contain null (aka None)
 
+
+        :param datetime: If truthy, then number_allowed through strings_allowed are ignored. Should the data either
+                         be a datetime.datetime object or a string that can be parsed into a datetime.datetime object?
+                         Note that the various readers will try to coerce strings into datetime.datetime objects
+                         on read for fields with datetime data types. pandas.Timestamp is itself a datetime.datetime,
+                         and the bias will be to create such an object.
         :return:
         """
         verify(not self._has_been_used,
@@ -169,24 +195,10 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
         verify(field in self.data_fields[table] + self.primary_key_fields[table],
                "%s does not refer to a field for %s"%(field, table))
 
-        verify((strings_allowed == '*') or
-               (containerish(strings_allowed) and all(utils.stringish(x) for x in strings_allowed)),
-"""The strings_allowed argument should be a container of strings, or the single '*' character.""")
-        if utils.containerish(strings_allowed):
-            strings_allowed = tuple(strings_allowed) # defensive copy
-        if number_allowed:
-            verify(utils.numericish(max), "max should be numeric")
-            verify(utils.numericish(min), "min should be numeric")
-            verify(max >= min, "max cannot be smaller than min")
-            self._data_types[table][field] = TypeDictionary(number_allowed=True,
-                strings_allowed=strings_allowed,  nullable = bool(nullable),
-                min = min, max = max, inclusive_min= bool(inclusive_min), inclusive_max = bool(inclusive_max),
-                must_be_int = bool(must_be_int))
-        else :
-            self._data_types[table][field] = TypeDictionary(number_allowed=False,
-                strings_allowed=strings_allowed,  nullable = bool(nullable),
-                min = 0, max = float("inf"), inclusive_min= True, inclusive_max = True,
-                must_be_int = False)
+        self._data_types[table][field] = TypeDictionary.safe_creator(number_allowed, inclusive_min, inclusive_max,
+                                                                     min, max, must_be_int, strings_allowed, nullable,
+                                                                     datetime)
+
     def clear_data_type(self, table, field):
         """
         clears the data type for a field. By default, fields don't have types.  Adding a data type doesn't block
@@ -241,6 +253,47 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
         if predicate_name is None:
             predicate_name = next(i for i in count() if i not in self._data_row_predicates[table])
         self._data_row_predicates[table][predicate_name] = predicate
+
+    def add_parameter(self, name, default_value, number_allowed = True,
+                      inclusive_min = True, inclusive_max = False, min = 0, max = float("inf"),
+                      must_be_int = False, strings_allowed= (), nullable = False,
+                      datetime = False, enforce_type_rules = True):
+        """
+        Add (or reset) a parameters option. Requires that a parameters table with one primary key field and one
+        data field already be present. The legal parameters options will be enforced as part of find_data_row_failures
+        Note that if you are using this function, then you would typically read from the parameters table indirectly,
+        by using the dictionary returned by create_full_parameters_dict.
+        :param name: name of the parameter to add or reset
+        :param default_value: default value for the parameter (used for create_full_parameters_dict)
+        :param number_allowed: boolean does this parameter allow numbers?
+        :param inclusive_min: if number allowed, is the min inclusive?
+        :param inclusive_max: if number allowed, is the max inclusive?
+        :param min: if number allowed, the minimum value
+        :param max: if number allowed, the maximum value
+        :param must_be_int: boolean : if number allowed, must the number be integral?
+        :param strings_allowed: if a collection - then a list of the strings allowed.
+                                The empty collection prohibits strings.
+                                If a "*", then any string is accepted.
+        :param nullable:  boolean : can this parameter be set to null (aka None)
+        :param datetime: If truthy, then number_allowed through strings_allowed are ignored.
+                         Should the data either be a datetime.datetime object or a string that can be parsed into a
+                         datetime.datetime object?
+        :param enforce_type_rules: boolean: ignore all of number_allowed through nullable, and only
+                                   enforce the parameter names and default values
+        :return:
+        """
+        verify("parameters" in self.all_tables, "No parameters table")
+        verify(len(self.primary_key_fields.get("parameters", [])) ==
+               len(self.data_fields.get("parameters", [])) == 1, "parameters table is badly formatted")
+        verify(not self._has_been_used,
+               "The parameters can't be changed after a TicDatFactory has been used.")
+        td = None
+        if enforce_type_rules:
+            td = TypeDictionary.safe_creator(number_allowed, inclusive_min, inclusive_max,
+                                             min, max, must_be_int, strings_allowed, nullable, datetime)
+            verify(td.valid_data(default_value), f"{default_value} is not a legal default value for parameter {name}")
+        ParameterInfo = namedtuple("ParameterInfo", ["type_dictionary", "default_value"])
+        self._parameters[name] = ParameterInfo(td, default_value)
 
     def set_default_value(self, table, field, default_value):
         """
@@ -595,7 +648,8 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
                         _t._attributesFrozen = True
                 self._isFrozen = True
             def __repr__(self):
-                return "td:" + tuple(sorted(superself.all_tables)).__repr__()
+                tlen = lambda t: utils.safe_apply(len)(getattr(self, t))
+                return "td: {" + ", ".join("%s: %s"%(t, tlen(t)) for t in superself.all_tables) + "}"
         class TicDat(_TicDat) :
             def _generatorfactory(self, data, tableName):
                 return generatorfactory(data, tableName)
@@ -723,8 +777,126 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
         self.sql = sql.SQLiteTicFactory(self)
         self.mdb = mdb.MdbTicFactory(self)
         self.json = json.JsonTicFactory(self)
+        self.pgsql = PostgresTicFactory(self)
         self._prepends = {}
+        self._parameters = {}
+        self._infinity_io_flag = ["N/A"]
         self._isFrozen=True
+
+    @property
+    def infinity_io_flag(self):
+        """
+        see __doc__ for set_infinity_io_flag
+        """
+        return  self._infinity_io_flag[0]
+    def set_infinity_io_flag(self, value):
+        """
+        Set the infinity_io_flag for the TicDatFactory.
+        'N/A' (the default) is recognized as a flag to disable infinity I/O buffering.
+
+        If numeric, when writing data to the file system (or a database), float("inf") will be replaced by the
+        infinity_io_flag and float("-inf") will be replaced by -infinity_io_flag, prior to writing.
+        Similarly, the read data will replace any number >= the infinity_io_flag with float("inf") and any
+        number smaller than float("-inf") with -infinity_io_flag.
+
+        If None, then +/- infinity will be replaced by None prior to writing.
+        Similarly, subsequent to reading, None will be replaced either by float("inf") or float("-inf"), depending
+        on field data types.
+        Note that None flagging will only perform replacements on fields whose data types allow infinity and not None.
+
+        For all cases, these replacements will be done on a temporary copy of the data that is created prior to writing.
+
+        Also note that none of the these replacements will be done on the parameters table. The assumption is the
+        parameters table will be serialized to a string/string database table. Infinity can thus be represented by
+        "inf"/"-inf" in such serializations. File readers will attempt to cast strings to floats on a row-by-row
+        basis, as determined by add_parameter settings. File writers will cast parameters table entries to strings
+        (assuming the add_parameters functionality is being used).
+
+        :param value: a valid infinity_io_flag
+        :return:
+        """
+        verify(value == "N/A" or (utils.numericish(value) and (0 < value < float("inf"))) or (value is None),
+           "infinity_io_flag needs to be 'N/A' (to indicate it isn't being used), or None, or a positive finite number")
+        self._infinity_io_flag[0] = value
+
+    def _general_read_cell(self, t, f, x):
+        '''
+        we expect other routines inside ticdat to access this routine, even though it starts with _
+        :param t: table name
+        :param f: field name
+        :param x: cell value which might need to be adjusted
+        :return: x, adjusted as required
+        '''
+        assert t in self.all_tables
+        if t == "parameters": # infinity flagging doesn't apply to parameters table, see set_infinity_flag __doc__
+            return x
+        if self._data_types.get(t, {}).get(f) and self.data_types[t][f].datetime and utils.stringish(x) and \
+           utils.dateutil_adjuster(x) is not None:
+            return utils.dateutil_adjuster(x)
+        if utils.numericish(self.infinity_io_flag) and utils.numericish(x):
+            if x >= self.infinity_io_flag:
+                return float("inf")
+            if x <= -self.infinity_io_flag:
+                return float("-inf")
+        if x is None and self.infinity_io_flag is None and utils.numericish(self._none_as_infinity_bias(t, f)):
+            return float("inf") * self._none_as_infinity_bias(t, f)
+        return x
+    def _infinity_flag_write_cell(self, t, f, x):
+        """
+        we expect other routines inside ticdat to access this routine, even though it starts with _
+        :param t: table name
+        :param f: field name
+        :param x: cell value which might need to be adjusted
+        :return: x, adjusted as required
+        """
+        if t == "parameters" and self.parameters:
+            # I will assume a parameters table without parameters specification is just a naive developer
+            return None if x is None or (utils.pd and utils.pd.isnull(x)) else str(x)
+        if self.infinity_io_flag is None and (self._none_as_infinity_bias(t, f) or float("nan"))*float("inf") == x:
+            return None
+        if utils.numericish(self.infinity_io_flag) and utils.numericish(x):
+            return max(min(x, self.infinity_io_flag), -self.infinity_io_flag)
+        return x
+    def _none_as_infinity_bias(self, t, f):
+        if self.infinity_io_flag is not None:
+            return None
+        assert t in self.all_tables
+        fld_type = self.data_types.get(t, {}).get(f)
+        if fld_type and fld_type.number_allowed and not fld_type.valid_data(None):
+            verify(not (fld_type.valid_data(float("inf")) and fld_type.valid_data(-float("inf"))),
+                   "")
+            for rtn in [1, -1]:
+                if fld_type.valid_data(rtn * float("inf")):
+                    return rtn
+    def _parameter_table_post_read_adjustment(self, dat):
+        """
+        we expect other routines inside ticdat to access this routine, even though it starts with _
+        this is the routine that is used in lieu of infinity_io_flag logic for the parameters table
+        it is predicated on the assumption that the parameters table will be serialized to a string/string table
+        :param dat: TicDat object
+        :return: the same dat object, with parameter table entries adjusted to handle typing of strings-to-floats as
+                 appropriate
+        """
+        if not self.parameters:
+            return dat
+        data_field = self.data_fields["parameters"][0]
+        for k, v in list(dat.parameters.items()):
+            td = getattr(self.parameters.get(k, None), "type_dictionary", None)
+            if td and td.nullable and v[data_field] == "" and not td.valid_data(v[data_field]):
+                dat.parameters[k] = None
+            elif td and td.datetime:
+                datetime_v = utils.dateutil_adjuster(v[data_field])
+                dat.parameters[k] = datetime_v if datetime_v is not None else v[data_field]
+            else:
+                number_allowed = True
+                if td and not td.number_allowed:
+                    number_allowed = False
+                if number_allowed:
+                    number_v = utils.safe_apply(float)(v[data_field])
+                    if number_v is not None and utils.safe_apply(int)(number_v) == number_v:
+                        number_v = int(number_v)
+                    dat.parameters[k] = number_v if number_v is not None else v[data_field]
+        return dat
 
     def _allFields(self, table):
         assert table in self.all_tables
@@ -854,17 +1026,20 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
             return False
         return self._good_data_rows(ticdat_table.values(), table_name, bad_msg_handler)
     def _good_data_rows(self, data_rows, table_name, bad_message_handler = lambda x : None):
-        dictishrows = tuple(x for x in data_rows if utils.dictish(x))
+        dictishrows, containerishrows, singletonishrows = [], [], []
+        for x in data_rows:
+            if utils.dictish(x):
+                dictishrows.append(x)
+            elif utils.containerish(x):
+                containerishrows.append(x)
+            else:
+                singletonishrows.append(x)
         if not all(set(x.keys()).issubset(self.data_fields.get(table_name,())) for x in dictishrows):
             bad_message_handler("Inconsistent data field name keys.")
             return False
-        containerishrows = tuple(x for x in data_rows
-                                 if utils.containerish(x) and not  utils.dictish(x))
         if not all(len(x) == len(self.data_fields.get(table_name,())) for x in containerishrows) :
             bad_message_handler("Inconsistent data row lengths.")
             return False
-        singletonishrows = tuple(x for x in data_rows if not
-                                 (utils.containerish(x) or utils.dictish(x)))
         if singletonishrows and (len(self.data_fields.get(table_name,())) != 1)  :
             bad_message_handler(
                 "Non-container data rows supported only for single-data-field tables")
@@ -887,7 +1062,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
                     _rtn.append(dict(dr))
             setattr(rtn, t, _rtn)
         return rtn
-    def _same_data(self, obj1, obj2, epsilon = 0):
+    def _same_data(self, obj1, obj2, epsilon = 0, nans_are_same_for_data_rows = False):
         assert self.good_tic_dat_object(obj1) and self.good_tic_dat_object(obj2)
         assert epsilon >= 0
         _n_s = lambda x, y: False
@@ -898,7 +1073,10 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
                 if bool(r1) != bool(r2) or set(r1) != set(r2) :
                     return False
                 for _k in r1:
-                    if r1[_k] != r2[_k] and not _n_s(r1[_k], r2[_k]):
+                    if r1[_k] != r2[_k] and not _n_s(r1[_k], r2[_k]) and \
+                        not (nans_are_same_for_data_rows and
+                             (all(map(safe_apply(math.isnan), [r1[_k], r2[_k]])) or
+                             (pd and all(map(pd.isnull, [r1[_k], r2[_k]]))))):
                         return False
                 return True
             if dictish(r2) and not dictish(r1) :
@@ -1089,7 +1267,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
                 raise utils.TicDatError(t + " cannot be passed as an argument to AMPL.setData()")
     def copy_to_pandas(self, tic_dat, table_restrictions = None, drop_pk_columns = None):
         """
-        copies the tic_dat object into a new tic_dat object populated with pandas.DataFrame objects
+        copies the tic_dat object into a new object populated with pandas.DataFrame objects
         performs a deep copy
 
         :param tic_dat: a ticdat object
@@ -1103,6 +1281,13 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
                                 If None, then pk fields will be dropped only for tables with data fields
 
         :return: a deep copy of the tic_dat argument into DataFrames
+                 If table_restrictions is falsey and drop_pk_columns is False, then the return object
+                 will be a valid pan_dat object. I.e.
+                    assert PanDatFactory(**self.schema()).good_pan_dat_object(rtn)
+                 works.
+
+                Note that None will be converted to nan in the returned object (as is the norm for pandas.DataFrame)
+
         """
         verify(DataFrame, "pandas needs to be installed in order to enable pandas functionality")
         msg  = []
@@ -1112,9 +1297,11 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
         table_restrictions = table_restrictions or normal_tables
         verify(containerish(table_restrictions) and normal_tables.issuperset(table_restrictions),
            "if provided, table_restrictions should be a subset of the table names")
+        superself = self
         class PandasTicDat(object):
             def __repr__(self):
-                return "td:" + tuple(table_restrictions).__repr__()
+                tlen = lambda t: utils.safe_apply(len)(getattr(self, t))
+                return "pd: {" + ", ".join("%s: %s"%(t, tlen(t)) for t in superself.all_tables) + "}"
         rtn = PandasTicDat()
 
         # this is the only behavior change we exhibit from between 2 and 3. can
@@ -1188,9 +1375,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
          and omits the foreign key cardinality.
         """
         verify(verbosity in ["High", "Low"], "verbosity needs to be either 'High' or 'Low'")
-        msg  = []
-        verify(self.good_tic_dat_object(tic_dat, msg.append),
-               "tic_dat not a good object for this factory : %s"%"\n".join(msg))
+        assert self.good_tic_dat_object(tic_dat), "tic_dat not a good object for this factory"
         rtn_values, rtn_pks = clt.defaultdict(set), clt.defaultdict(set)
 
         def getcell(tblname, native_pk, native_data_row, field_name):
@@ -1244,6 +1429,20 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
         if verbosity == "Low":
             rtn = {tuple(k[:2]) + (tuple(k[2]),): tuple(v) for k,v in rtn.items()}
         return rtn
+    def create_full_parameters_dict(self, dat):
+        """
+        create a fully populated dictionary of all the parameters
+        :param dat: a TicDat object that has a parameters table
+        :return: a dictionary that maps parameter option to actual dat.parameters value.
+                 if the specific option isn't part of dat.parameters, then the default value is used.
+                 Note that for datetime parameters, the default will be coerced into a datetime object, if possible.
+        """
+        assert self.good_tic_dat_object(dat)
+        verify(self.parameters, "no parameters options have been specified")
+        defaults = {k: dt if dt is not None and v.type_dictionary and v.type_dictionary.datetime else df
+                    for k,v in self._parameters.items() for df in [v.default_value]
+                    for dt in [utils.dateutil_adjuster(df)]}
+        return dict(defaults, **{k: v[self.data_fields["parameters"][0]] for k,v in dat.parameters.items()})
 
     def remove_foreign_key_failures(self, tic_dat, propagate=True):
         """
@@ -1303,13 +1502,25 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
          That is to say, bad_values tells you which values in field are failing the data type check,
          and pks tells you which table rows will have their field entry changed if you call
          replace_data_type_failures().
+
+         Note that for primary key fields (but not data fields) with no explicit data type, a temporary filter
+         that excludes only Null will be applied. If you want primary key fields to allow Null, you must explicitly
+         opt-in by calling set_data_type appropriately.
+         See issue https://github.com/ticdat/ticdat/issues/46 for more info.
         """
-        msg  = []
-        verify(self.good_tic_dat_object(tic_dat, msg.append),
-               "tic_dat not a good object for this factory : %s"%"\n".join(msg))
+        assert self.good_tic_dat_object(tic_dat), "tic_dat not a good object for this factory"
+
 
         rtn_values, rtn_pks = clt.defaultdict(set), clt.defaultdict(set)
-        for table, type_row in self._data_types.items():
+        tmp_tdf = TicDatFactory.create_from_full_schema(self.schema(include_ancillary_info=True))
+        for t, pks in self.primary_key_fields.items():
+            for pk in pks:
+                if pk not in self._data_types.get(t, ()):
+                    tmp_tdf.set_data_type(t, pk, number_allowed=True,
+                      inclusive_min=True, inclusive_max=True, min=-float("inf"), max=float("inf"),
+                      must_be_int=False, strings_allowed='*', nullable=False, datetime=False)
+
+        for table, type_row in tmp_tdf._data_types.items():
             _table = getattr(tic_dat, table)
             if dictish(_table):
                 for pk  in _table:
@@ -1372,15 +1583,8 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
 
         for (table, field), (vals, pks) in replacements_needed.items() :
             if (table, field) in real_replacements:
-                if pks is not None :
-                    for pk in pks:
-                        getattr(tic_dat, table)[pk][field] = real_replacements[table, field]
-                else :
-                    vals = set(vals)
-                    for row in getattr(tic_dat, table):
-                        if row[field] in vals:
-                            row[field] = real_replacements[table, field]
-
+                for pk in pks:
+                    getattr(tic_dat, table)[pk][field] = real_replacements[table, field]
         assert not set(self.find_data_type_failures(tic_dat)).intersection(real_replacements)
         return tic_dat
 
@@ -1399,11 +1603,23 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
          contain the primary key value of each failed row. Otherwise, this tuple
          will list the positions of the failed rows.
         """
-        msg  = []
-        verify(self.good_tic_dat_object(tic_dat, msg.append),
-               "tic_dat not a good object for this factory : %s"%"\n".join(msg))
+        assert self.good_tic_dat_object(tic_dat), "tic_dat not a good object for this factory"
+        data_row_predicates = {k: dict(v) for k,v in self._data_row_predicates.items()}
+        if self._parameters:
+            def good_parameter(row):
+                k = row[self.primary_key_fields["parameters"][0]]
+                v = row[self.data_fields["parameters"][0]]
+                chk = self._parameters.get(k)
+                return chk and (chk.type_dictionary is None or chk.type_dictionary.valid_data(v))
+            _ = "Good Name/Value Check"
+            make_name = lambda i: _ if _ not in self._data_row_predicates.get("parameters", {}) else f"{_}_{i}"
+            predicate_name = next(make_name(i) for i in count() if make_name(i) not in
+                                  self._data_row_predicates.get("parameters", {}))
+            data_row_predicates["parameters"] = data_row_predicates.get("parameters", {})
+            data_row_predicates["parameters"][predicate_name] = good_parameter
+
         rtn = clt.defaultdict(set)
-        for tbl, row_predicates in self._data_row_predicates.items():
+        for tbl, row_predicates in data_row_predicates.items():
             for pn, p in row_predicates.items():
                 _table = getattr(tic_dat, tbl)
                 if dictish(_table):
@@ -1542,51 +1758,6 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
         assert not self.find_foreign_key_failures(rtn.copy)
         assert len(rtn.renamings) == len(reverse_renamings)
         return rtn
-    def find_denormalized_sub_table_failures(self, tic_dat, table, sub_table_pk_fields,
-                                             sub_table_data_fields):
-        """
-        checks to see if a given table contains a denormalized sub-table
-        indexed by pk_fields with data fields data_fields
-
-        :param tic_dat: a ticdat object
-
-        :param table: The name of the table to study.
-
-        :param sub_table_pk_fields: The pk_fields of the sub-table. Needs to be fields
-                                    (but not necc primary key fields) of the table.
-
-        :param sub_table_data_fields: The data fields of the sub-table. Needs to be fields
-                                     (but not necc data fields) of the table.
-
-        :return: A dictionary indexed by the sub_table_pk_fields values in the table
-                 that are associated with improperly denormalized table rows. The
-                 values of the return dictionary are themselves dictionaries indexed
-                 by sub_table_data_fields. The values of the inner dictionary are
-                 tuples of the different distinct values found for the data field
-                 at the different rows with common sub_table_pk_fields values.
-                 The inner dictionaries are pruned so that only tuples of length >1
-                 are included, and the return dictionary is pruned so that only
-                 entries with at least one non-pruned inner dictionary is included.
-                 Thus, a table that has a properly denormalized (pk_fields, data_fields)
-                 sub-table will return an empty dictionary.
-        """
-        msg  = []
-        verify(self.good_tic_dat_object(tic_dat, msg.append),
-               "tic_dat not a good object for this factory : %s"%"\n".join(msg))
-        verify(table in self.all_tables, "%s isn't a table name"%table)
-        _table = getattr(tic_dat, table)
-        if dictish(_table):
-            converted_table = []
-            for pk,row in _table.items():
-                add_row = dict(row)
-                for pkf,pkv in zip(self.primary_key_fields[table],
-                                   pk if len(self.primary_key_fields[table]) > 1 else (pk,)):
-                    add_row[pkf] = pkv
-                converted_table.append(add_row)
-        else:
-            converted_table = list(_table if containerish(_table) else _table())
-        return utils.find_denormalized_sub_table_failures(converted_table,
-                            sub_table_pk_fields, sub_table_data_fields)
 
     @property
     def opl_prepend(self):
@@ -1595,10 +1766,6 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
     @property
     def ampl_prepend(self):
         return self._prepends.get("ampl","")
-
-    @property
-    def lingo_prepend(self):
-        return self._prepends.get("lingo", "")
 
     @opl_prepend.setter
     def opl_prepend(self, value):
@@ -1609,11 +1776,6 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ling
     def ampl_prepend(self,value):
         verify(utils.stringish(value), "ampl_prepend should be a string")
         self._prepends["ampl"] = value
-
-    @lingo_prepend.setter
-    def lingo_prepend(self,value):
-        verify(utils.stringish(value), "lingo_prepend should be a string")
-        self._prepends["lingo"] = value
 
 def freeze_me(x) :
     """
@@ -1628,3 +1790,4 @@ def freeze_me(x) :
         x._freeze()
     assert x._isFrozen
     return x
+

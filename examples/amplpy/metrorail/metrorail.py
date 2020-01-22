@@ -37,23 +37,10 @@ input_schema.set_data_type("number_of_one_way_trips", "Number", min=0, max=float
 input_schema.set_data_type("amount_leftover", "Amount", min=0, max=float("inf"),
                            inclusive_min=True, inclusive_max=False)
 
-
-default_parameters = {"One Way Price": 2.25, "Amount Leftover Constraint": "Upper Bound"}
-def _good_parameter_key_value(key, value):
-    if key == "One Way Price":
-        try:
-            return 0 < value < float("inf")
-        except:
-            return False
-    if key == "Amount Leftover Constraint":
-        return value  in ["Equality", "Upper Bound"]
-
-assert all(_good_parameter_key_value(k,v) for k,v in default_parameters.items())
-
-input_schema.set_data_type("parameters", "Parameter", number_allowed=False,
-                           strings_allowed=default_parameters)
-input_schema.add_data_row_predicate("parameters", predicate_name="Good Parameter Value",
-    predicate=lambda row : _good_parameter_key_value(row["Parameter"], row["Value"]))
+input_schema.add_parameter("One Way Price", default_value=2.25, min=0, max=float("inf"), inclusive_min=True,
+                           inclusive_max=False)
+input_schema.add_parameter("Amount Leftover Constraint", default_value="Upper Bound", number_allowed=False,
+                           strings_allowed=["Equality", "Upper Bound", "Upper Bound With Leftover Multiple Rule"])
 # ---------------------------------------------------------------------------------
 
 
@@ -77,8 +64,8 @@ def solve(dat):
     assert not input_schema.find_foreign_key_failures(dat)
     assert not input_schema.find_data_type_failures(dat)
     assert not input_schema.find_data_row_failures(dat)
-    # use default parameters, unless they are overridden by user-supplied parameters
-    full_parameters = dict(default_parameters)
+
+    full_parameters = input_schema.create_full_parameters_dict(dat)
     for k,v in dat.parameters.itertuples(index=False):
         full_parameters[k] = v
 
@@ -127,7 +114,7 @@ def solve(dat):
             df.rename(columns = {df.columns[0]: "Load Amount", df.columns[1]: "Number Of Visits"}, inplace=True)
             df["Number One Way Trips"] = number_trips
             df["Amount Leftover"] = amount_leftover
-            load_amount_details = load_amount_details.append(df[df["Number Of Visits"] > 0])
+            load_amount_details = load_amount_details.append(df[df["Number Of Visits"] > 0], sort=False)
 
     # pandas has amazing convenience routines for sorting and sub-totaling
     load_amount_details.sort_values(by=["Number One Way Trips", "Amount Leftover", "Load Amount"], inplace=True)

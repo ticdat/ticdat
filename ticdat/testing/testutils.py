@@ -1,7 +1,7 @@
 import sys
 import unittest
 import ticdat.utils as utils
-from ticdat import LogFile, Progress
+from ticdat import LogFile, Progress, PanDatFactory
 from ticdat.ticdatfactory import TicDatFactory, ForeignKey, ForeignKeyMapping
 from ticdat.testing.ticdattestutils import dietData, dietSchema, netflowData, netflowSchema, firesException, memo
 from ticdat.testing.ticdattestutils import sillyMeData, sillyMeSchema, makeCleanDir, fail_to_debugger, flagged_as_run_alone
@@ -10,6 +10,12 @@ from ticdat.testing.ticdattestutils import spacesSchema, spacesData, clean_denor
 import os
 import itertools
 import shutil
+import json
+try:
+    import dateutil
+except:
+    dateutil = None
+import datetime
 
 def _deep_anonymize(x)  :
     if not hasattr(x, "__contains__") or utils.stringish(x):
@@ -135,41 +141,6 @@ class TestUtils(unittest.TestCase):
         dat.child_three.pop() # because no PK cannot participate in remove foreign keys
         input_schema.remove_foreign_key_failures(dat)
         self.assertTrue(input_schema._same_data(dat, orig_dat) and not input_schema.find_foreign_key_failures(dat))
-
-    def testDenormalizedErrors(self):
-        c = clean_denormalization_errors
-        tdf = TicDatFactory(**spacesSchema())
-        dat = tdf.TicDat(**spacesData())
-        self.assertFalse(tdf.find_denormalized_sub_table_failures(dat, "b_table", "b Field 1",
-                                                                  ("b Field 2", "b Field 3")))
-        dat.b_table[2,2,3] = "boger"
-        self.assertFalse(tdf.find_denormalized_sub_table_failures(dat, "b_table", "b Field 1",
-                                                                  ("b Field 2", "b Field 3")))
-        chk = tdf.find_denormalized_sub_table_failures(dat, "b_table", "b Field 2",
-                                                                  ("b Field 1", "b Field 3"))
-        self.assertTrue(c(chk) == {2: {'b Field 1': {1, 2}}})
-        dat.b_table[2,2,4] = "boger"
-        dat.b_table[1,'b','b'] = "boger"
-        chk = tdf.find_denormalized_sub_table_failures(dat, "b_table", ["b Field 2"],
-                                                            ("b Field 1", "b Field 3", "b Data"))
-        self.assertTrue(c(chk) == c({2: {'b Field 3': (3, 4), 'b Data': (1, 'boger'), 'b Field 1': (1, 2)},
-                                 'b': {'b Data': ('boger', 12), 'b Field 1': ('a', 1)}}))
-
-        ex = self.firesException(lambda : tdf.find_denormalized_sub_table_failures(dat, "b_table", ["b Data"],"wtf"))
-        self.assertTrue("wtf isn't a key" in ex)
-
-
-        chk = utils.find_denormalized_sub_table_failures(tuple(map(dict, dat.c_table)),
-                        pk_fields=["c Data 1", "c Data 2"], data_fields=["c Data 3", "c Data 4"])
-        self.assertTrue(c(chk) == {('a', 'b'): {'c Data 3': {'c', 12}, 'c Data 4': {24, 'd'}}})
-        dat.c_table.append((1, 2, 3, 4))
-        dat.c_table.append((1, 2, 1, 4))
-        dat.c_table.append((1, 2, 1, 5))
-        dat.c_table.append((1, 2, 3, 6))
-        chk = utils.find_denormalized_sub_table_failures(dat.c_table,
-                        pk_fields=["c Data 1", "c Data 2"], data_fields=["c Data 3", "c Data 4"])
-        self.assertTrue(c(chk) == {('a', 'b'): {'c Data 3': {'c', 12}, 'c Data 4': {24, 'd'}},
-            (1,2):{'c Data 3':{3,1}, 'c Data 4':{4,5,6}}})
 
     def testFindCaseSpaceDuplicates(self):
         test2 = TicDatFactory(table=[['PK 1','PK 2'],['DF 1','DF 2']])
@@ -984,6 +955,123 @@ class TestUtils(unittest.TestCase):
         self.assertFalse(tdf._same_data(dataObj, dataObj2))
         self.assertFalse(tdf._same_data(dataObj, dataObj2, pow(.00001, 3)))
         self.assertTrue(tdf._same_data(dataObj, dataObj2, pow(.00001, 0.333)))
+
+    def testTwenty(self):
+        def make_tdf():
+            tdf = TicDatFactory(data_table = [["a"], ["b", "c"]],
+                                parameters = [["a"], ["b"]])
+            tdf.add_parameter("Something", 100, max=100, inclusive_max=True)
+            tdf.add_parameter("Another thing", 5, must_be_int=True)
+            tdf.add_parameter("Untyped thing", "whatever", enforce_type_rules=False)
+            tdf.add_parameter("Last", 'boo', number_allowed=False, strings_allowed='*')
+            return TicDatFactory.create_from_full_schema(tdf.schema(True))
+
+        tdf = make_tdf()
+        dat = tdf.TicDat(data_table = [[1, 2, 3], [4, 5, 6]],
+                         parameters = [["Something", 100], ["Another thing", 200], ["Last", "goo"],
+                                       ["Untyped thing", -float("inf")]])
+
+        self.assertFalse(tdf.find_data_row_failures(dat))
+        dat.parameters["Another thing"] = 200.1
+        dat.parameters["Last"] = 100
+        dat.parameters["Bad P"] = dat.parameters.pop("Untyped thing")
+        self.assertTrue(set(tdf.find_data_row_failures(dat)) == {("parameters", "Good Name/Value Check")})
+        self.assertTrue(set(next(iter(tdf.find_data_row_failures(dat).values()))) == {"Another thing", "Last", "Bad P"})
+
+        dat.parameters["Untyped thingy"] = dat.parameters.pop("Bad P")
+        tdf = make_tdf()
+        tdf.add_parameter("Another thing", 5, max=100)
+        tdf.add_data_row_predicate("parameters", lambda row: "thing" in row["a"],
+                                   predicate_name="Good Name/Value Check")
+        tdf.add_data_row_predicate("data_table", lambda row: row["a"] + row["b"] > row["c"], predicate_name="boo")
+        fails = tdf.find_data_row_failures(dat)
+        self.assertTrue({k:len(v) for k,v in fails.items()} ==
+                        {("parameters", "Good Name/Value Check"): 1,
+                         ("parameters", 'Good Name/Value Check_0'): 3, ('data_table', "boo"): 1})
+
+        tdf = make_tdf()
+        dat = tdf.TicDat(parameters = [["Something", 90], ["Last", "boo"]])
+        self.assertTrue(tdf.create_full_parameters_dict(dat) ==
+                        {"Something": 90, "Another thing": 5, "Last": "boo", "Untyped thing": "whatever"})
+
+    def testTwentyOne(self):
+        simple_sch = {'tables_fields': {'commodities': [['name'], []],
+                      'inflow': [['commodity', 'node'], ['quantity']],
+                      'nodes': [['name'], []],
+                      'cost': [['commodity', 'source', 'destination'], ['cost']],
+                      'arcs': [['source', 'destination'], ['capacity']]},
+                     'foreign_keys': [['arcs', 'nodes', ['destination', 'name'], 'many-to-one'],
+                      ['arcs', 'nodes', ['source', 'name'], 'many-to-one'],
+                      ['cost', 'commodities', ['commodity', 'name'], 'many-to-one'],
+                      ['cost', 'nodes', ['destination', 'name'], 'many-to-one'],
+                      ['cost', 'nodes', ['source', 'name'], 'many-to-one'],
+                      ['inflow', 'commodities', ['commodity', 'name'], 'many-to-one'],
+                      ['inflow', 'nodes', ['node', 'name'], 'many-to-one']],
+                     'default_values': {'arcs': {'capacity': 0},
+                      'cost': {'cost': 0},
+                      'inflow': {'quantity': 0}},
+                     'data_types': {}}
+        for _class in [TicDatFactory, PanDatFactory]:
+            tdf = _class.create_from_full_schema(simple_sch)
+            new_sch = tdf.schema(include_ancillary_info=True)
+            self.assertFalse(new_sch.pop("parameters"))
+            self.assertTrue(new_sch.pop("infinity_io_flag") == "N/A")
+            new_sch = json.loads(json.dumps(new_sch))
+            new_sch["foreign_keys"] = sorted(new_sch["foreign_keys"])
+            self.assertTrue(new_sch == simple_sch)
+
+    def testTwentyTwo(self):
+        tdf = TicDatFactory(table_with_stuffs = [["field one"], ["field two"]],
+                            parameters = [["a"],["b"]])
+        tdf.set_data_type("table_with_stuffs", "field one", datetime=True)
+        tdf.set_data_type("table_with_stuffs", "field two", datetime=True, nullable=True)
+        tdf.add_parameter("p1", "Dec 15 1970", datetime=True)
+        tdf.add_parameter("p2", None, datetime=True, nullable=True)
+        dat = tdf.TicDat(table_with_stuffs = [["July 11 1972", None],
+                                              [datetime.datetime.now(), dateutil.parser.parse("Sept 11 2011")]],
+                         parameters = [["p1", "7/11/1911"], ["p2", None]])
+        self.assertFalse(tdf.find_data_type_failures(dat) or tdf.find_data_row_failures(dat))
+        dat.table_with_stuffs["Nov 22 1963"] = dat.table_with_stuffs["Nov 222 1963"] = datetime.datetime.now()
+        dat.parameters["p2"] = 100
+        self.assertTrue(set(map(len, [tdf.find_data_type_failures(dat), tdf.find_data_row_failures(dat)])) == {1})
+
+        all_params = tdf.create_full_parameters_dict(tdf.TicDat())
+        pdf = PanDatFactory.create_from_full_schema(tdf.schema(include_ancillary_info=True))
+        all_params_2 = pdf.create_full_parameters_dict(pdf.PanDat())
+        self.assertTrue(all_params == all_params_2 and len(all_params) == 2)
+        self.assertTrue(all_params["p1"] ==  dateutil.parser.parse("Dec 15 1970") and utils.pd.isnull(all_params["p2"]))
+
+    def testTwentyThree(self):
+        tdf = TicDatFactory(**dietSchema())
+        def makeIt() :
+            rtn = tdf.TicDat()
+            rtn.foods["a"] = 12
+            rtn.foods["b"] = None
+            rtn.foods[None] = 101
+            rtn.categories["1"] = {"maxNutrition":100, "minNutrition":40}
+            rtn.categories["2"] = [10,20]
+            for f, p in itertools.product(rtn.foods, rtn.categories):
+                rtn.nutritionQuantities[f,p] = 5
+            rtn.nutritionQuantities['a', 2] = 12
+            return tdf.freeze_me(rtn)
+        dat = makeIt()
+        self.assertTrue({tuple(k):tuple(v.bad_values) for k, v in tdf.find_data_type_failures(dat).items()} ==
+                        {('foods', 'name'): (None,), ('nutritionQuantities', 'food'): (None,)})
+        tdf = TicDatFactory(**dietSchema())
+        tdf.set_data_type("foods", "name", nullable=True, strings_allowed='*')
+        tdf.set_data_type("nutritionQuantities", "food", nullable=True, strings_allowed='*')
+        self.assertFalse(tdf.find_data_type_failures(dat))
+        tdf.set_data_type("foods", "cost", nullable=False)
+        self.assertTrue({tuple(k):tuple(v.bad_values) for k, v in tdf.find_data_type_failures(dat).items()} ==
+                        {('foods', 'cost'): (None,)})
+
+    def testTwentyFour(self):
+        tdf = TicDatFactory(data =[[], ["field one", "field two"]])
+        tdf.set_data_type("data", "field one")
+        dat = tdf.TicDat(data=[["a", "a"], ["b", "b"]])
+        tdf.replace_data_type_failures(dat)
+        tdf.replace_data_type_failures(dat) # coverage
+        self.assertTrue(tdf._same_data(dat, tdf.TicDat(data=[[0, "a"], [0, "b"]])))
 
 
 

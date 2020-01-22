@@ -10,6 +10,11 @@ from ticdat.testing.ticdattestutils import makeCleanDir, dietSchemaWeirdCase2, c
 from ticdat.testing.ticdattestutils import flagged_as_run_alone
 import unittest
 from ticdat.csvtd import _can_unit_test
+import datetime
+try:
+    import dateutil
+except:
+    dateutil=None
 
 #@fail_to_debugger
 class TestCsv(unittest.TestCase):
@@ -134,6 +139,7 @@ class TestCsv(unittest.TestCase):
         if not self.can_run:
             return
         tdf = TicDatFactory(**sillyMeSchema())
+        tdf.set_data_type("a", "aField", strings_allowed='*', number_allowed=True)
         ticDat = tdf.TicDat(**sillyMeDataTwoTables())
         dirPath = os.path.join(_scratchDir, "sillyTwoTables")
         tdf.csv.write_directory(ticDat,dirPath)
@@ -160,24 +166,31 @@ class TestCsv(unittest.TestCase):
         csvTicDat = tdf.csv.create_tic_dat(dirPath, headers_present=False, freeze_it=True)
         self.assertTrue(tdf._same_data(ticDat, csvTicDat))
 
+        # the casting to floats is controlled by data types and default values
         ticDat.nodes[12] = {}
         tdf.csv.write_directory(ticDat, dirPath, allow_overwrite=True)
         csvTicDat = tdf.csv.create_tic_dat(dirPath, freeze_it=True)
+        self.assertFalse(tdf._same_data(ticDat, csvTicDat))
+        tdf2 = TicDatFactory(**netflowSchema())
+        tdf2.set_data_type("nodes", "name", strings_allowed='*', number_allowed=True)
+        csvTicDat = tdf2.csv.create_tic_dat(dirPath, freeze_it=True)
         self.assertTrue(tdf._same_data(ticDat, csvTicDat))
 
-        # minor flaw - strings that are floatable get turned into floats when reading csvs
         del(ticDat.nodes[12])
         ticDat.nodes['12'] = {}
         self.assertTrue(firesException(lambda : tdf.csv.write_directory(ticDat, dirPath)))
         tdf.csv.write_directory(ticDat, dirPath, allow_overwrite=True)
         csvTicDat = tdf.csv.create_tic_dat(dirPath, freeze_it=True)
-        self.assertFalse(tdf._same_data(ticDat, csvTicDat))
+        self.assertTrue(tdf._same_data(ticDat, csvTicDat))
 
     def testSilly(self):
         if not self.can_run:
             return
         def doTest(headersPresent) :
             tdf = TicDatFactory(**sillyMeSchema())
+            for t, flds in tdf.primary_key_fields.items():
+                for f in flds:
+                    tdf.set_data_type(t, f, number_allowed=True, strings_allowed='*')
             ticDat = tdf.TicDat(**sillyMeData())
             schema2 = sillyMeSchema()
             schema2["b"][0] = ("bField2", "bField1", "bField3")
@@ -199,6 +212,10 @@ class TestCsv(unittest.TestCase):
 
             tdf2, tdf3, tdf4, tdf5, tdf5b, tdf6 = (TicDatFactory(**x) for x in
                             (schema2, schema3, schema4, schema5, schema5b, schema6))
+            for tdf_ in [ tdf2, tdf3, tdf4, tdf5, tdf5b, tdf6]:
+                for t, flds in tdf_.primary_key_fields.items():
+                    for f in flds:
+                        tdf_.set_data_type(t, f, number_allowed=True, strings_allowed='*')
             tdf5.set_generator_tables(["a", "c"])
             tdf5b.set_generator_tables(("a", "c"))
 
@@ -263,6 +280,158 @@ class TestCsv(unittest.TestCase):
 
 
         utils.do_it(doTest(x) for x in (True, False))
+
+    def test_numericish_text(self):
+        dir_path = os.path.join(_scratchDir, "numericish")
+        tdf = TicDatFactory(parameters=[["Key"], ["Value"]])
+        dat = tdf.TicDat(parameters=[["a", "100"], ["b", "010"], [3, "200"], ["d", "020"]])
+        def round_trip():
+            tdf.csv.write_directory(dat, makeCleanDir(dir_path))
+            return tdf.csv.create_tic_dat(dir_path)
+        dat2 = round_trip()
+        self.assertFalse(tdf._same_data(dat, dat2))
+        tdf = TicDatFactory(parameters=[["Key"], ["Value"]])
+        tdf.set_data_type("parameters", "Key", strings_allowed='*', number_allowed=True)
+        tdf.set_default_value("parameters", "Value", "")
+        dat2 = round_trip()
+        self.assertTrue(tdf._same_data(dat, dat2))
+        tdf = TicDatFactory(parameters=[["Key"], ["Value"]])
+        tdf.set_data_type("parameters", "Value", strings_allowed='*', number_allowed=False)
+        dat = tdf.TicDat(parameters=[["a", "100"], ["b", "010"], ["c", "200"], ["d", "020"]])
+        dat2 = round_trip()
+        self.assertTrue(tdf._same_data(dat, dat2))
+
+    def test_empty_text_none(self):
+        dir_path = os.path.join(_scratchDir, "empty_text")
+        tdf = TicDatFactory(parameters=[["Key"], ["Value"]])
+        dat_n = tdf.TicDat(parameters=[[None, 100], ["b", 10.01], ["three", 200], ["d", None]])
+        dat_s = tdf.TicDat(parameters=[["", 100], ["b", 10.01], ["three", 200], ["d", ""]])
+        def round_trip():
+            tdf.csv.write_directory(dat_n, makeCleanDir(dir_path))
+            return tdf.csv.create_tic_dat(dir_path)
+        dat2 = round_trip()
+        self.assertTrue(tdf._same_data(dat_s, dat2) and not tdf._same_data(dat_n, dat2))
+        tdf = TicDatFactory(parameters=[["Key"], ["Value"]])
+        tdf.set_data_type("parameters", "Key", nullable=True)
+        tdf.set_default_value("parameters", "Value", None) # this default alone will mess with number reading
+        dat2 = round_trip()
+        self.assertFalse(tdf._same_data(dat_s, dat2) or tdf._same_data(dat_n, dat2))
+        self.assertTrue(any(r["Value"] is None for r in dat2.parameters.values()))
+        tdf = TicDatFactory(parameters=[["Key"], ["Value"]])
+        tdf.set_data_type("parameters", "Key", nullable=True)
+        tdf.set_data_type("parameters", "Value", nullable=True, must_be_int=True)
+        dat2 = round_trip()
+        self.assertTrue(not tdf._same_data(dat_s, dat2) and tdf._same_data(dat_n, dat2))
+
+    def test_parameters(self):
+        dir_path = os.path.join(_scratchDir, "parameters_csv")
+        tdf = TicDatFactory(parameters=[["Key"], ["Value"]])
+        tdf.add_parameter("Something", 100)
+        tdf.add_parameter("Different", 'boo', strings_allowed='*', number_allowed=False)
+        dat = tdf.TicDat(parameters = [["Something",float("inf")], ["Different", "inf"]])
+        tdf.csv.write_directory(dat, dir_path)
+        dat_ = tdf.csv.create_tic_dat(dir_path)
+        self.assertTrue(tdf._same_data(dat, dat_))
+
+
+    def testCaseSpaceTableNames(self):
+        tdf = TicDatFactory(table_one = [["a"],["b", "c"]], table_two = [["this", "that"],[]])
+        dir_path = os.path.join(_scratchDir, "case_space")
+        dat = tdf.TicDat(table_one = [['a', 2, 3], ['b', 5, 6]], table_two = [["a", "b"],["c", "d"], ["x", "z"]])
+        tdf.csv.write_directory(dat, makeCleanDir(dir_path), case_space_table_names=True)
+        self.assertTrue(all(os.path.exists(os.path.join(dir_path, _+".csv")) for _ in ["Table One", "Table Two"]))
+        self.assertFalse(any(os.path.exists(os.path.join(dir_path, _+".csv")) for _ in ["table_one", "table_two"]))
+        self.assertTrue(tdf._same_data(dat, tdf.csv.create_tic_dat(dir_path)))
+        tdf.csv.write_directory(dat, makeCleanDir(dir_path), case_space_table_names=False)
+        self.assertFalse(any(os.path.exists(os.path.join(dir_path, _+".csv")) for _ in ["Table One", "Table Two"]))
+        self.assertTrue(all(os.path.exists(os.path.join(dir_path, _+".csv")) for _ in ["table_one", "table_two"]))
+        self.assertTrue(tdf._same_data(dat, tdf.csv.create_tic_dat(dir_path)))
+
+    def testNulls(self):
+        tdf = TicDatFactory(table=[["field one"], ["field two"]])
+        for f in ["field one", "field two"]:
+            tdf.set_data_type("table", f, nullable=True)
+        dat = tdf.TicDat(table = [[None, 100], [200, "this"], ["that", 300], [300, None], [400, "that"]])
+        dir_path = os.path.join(_scratchDir, "boolDefaults")
+        tdf.csv.write_directory(dat, dir_path)
+        dat_1 = tdf.csv.create_tic_dat(dir_path)
+        self.assertTrue(tdf._same_data(dat, dat_1))
+
+        tdf = TicDatFactory(table=[["field one"], ["field two"]])
+        for f in ["field one", "field two"]:
+            tdf.set_data_type("table", f, max=float("inf"), inclusive_max=True)
+        tdf.set_infinity_io_flag(None)
+        dat_inf = tdf.TicDat(table = [[float("inf"), 100], [200, "this"], ["that", 300], [300, float("inf")],
+                                      [400, "that"]])
+        dat_1 = tdf.csv.create_tic_dat(dir_path)
+        self.assertTrue(tdf._same_data(dat_inf, dat_1))
+        tdf.csv.write_directory(dat_inf, makeCleanDir(dir_path))
+        dat_1 = tdf.csv.create_tic_dat(dir_path)
+        self.assertTrue(tdf._same_data(dat_inf, dat_1))
+
+        tdf = TicDatFactory(table=[["field one"], ["field two"]])
+        for f in ["field one", "field two"]:
+            tdf.set_data_type("table", f, min=-float("inf"), inclusive_min=True)
+        tdf.set_infinity_io_flag(None)
+        dat_1 = tdf.csv.create_tic_dat(dir_path)
+        self.assertFalse(tdf._same_data(dat_inf, dat_1))
+        dat_inf = tdf.TicDat(table = [[float("-inf"), 100], [200, "this"], ["that", 300], [300, -float("inf")],
+                                      [400, "that"]])
+        self.assertTrue(tdf._same_data(dat_inf, dat_1))
+
+    def testDietWithInfFlagging(self):
+        tdf = TicDatFactory(**dietSchema())
+        dat = tdf.copy_tic_dat(dietData())
+        tdf.set_infinity_io_flag(999999999)
+        path = os.path.join(_scratchDir, "dietInfFlag")
+        tdf.csv.write_directory(dat, path)
+        dat_1 = tdf.csv.create_tic_dat(path)
+        self.assertTrue(tdf._same_data(dat, dat_1))
+        tdf = tdf.clone()
+        dat_1 = tdf.csv.create_tic_dat(path)
+        self.assertTrue(tdf._same_data(dat, dat_1))
+        tdf = TicDatFactory(**dietSchema())
+        dat_1 = tdf.csv.create_tic_dat(path)
+        self.assertFalse(tdf._same_data(dat, dat_1))
+
+    def testDateTime(self):
+        tdf = TicDatFactory(table_with_stuffs = [["field one"], ["field two"]],
+                            parameters = [["a"],["b"]])
+        tdf.add_parameter("p1", "Dec 15 1970", datetime=True)
+        tdf.add_parameter("p2", None, datetime=True, nullable=True)
+        tdf.set_data_type("table_with_stuffs", "field one", datetime=True)
+        tdf.set_data_type("table_with_stuffs", "field two", datetime=True, nullable=True)
+
+        dat = tdf.TicDat(table_with_stuffs = [["July 11 1972", None],
+                                              [datetime.datetime.now(), dateutil.parser.parse("Sept 11 2011")]],
+                         parameters = [["p1", "7/11/1911"], ["p2", None]])
+        self.assertFalse(tdf.find_data_type_failures(dat) or tdf.find_data_row_failures(dat))
+
+        path = os.path.join(_scratchDir, "datetime")
+        tdf.csv.write_directory(dat, path)
+        dat_1 = tdf.csv.create_tic_dat(path)
+        self.assertFalse(tdf._same_data(dat, dat_1))
+        self.assertFalse(tdf.find_data_type_failures(dat_1) or tdf.find_data_row_failures(dat_1))
+        self.assertTrue(isinstance(dat_1.parameters["p1"]["b"], datetime.datetime))
+        self.assertTrue(all(isinstance(_, datetime.datetime) for _ in dat_1.table_with_stuffs))
+        self.assertTrue(all(isinstance(_, datetime.datetime) or _ is None for v in dat_1.table_with_stuffs.values()
+                            for _ in v.values()))
+
+    def testIssue45(self):
+        raw_tdf = TicDatFactory(data=[["a"], ["b"]])
+        tdf_nums = TicDatFactory(data=[["a"], ["b"]])
+        tdf_nums.set_data_type("data", "a")
+        tdf_strs = TicDatFactory(data=[["a"], ["b"]])
+        tdf_strs.set_data_type("data", "b", strings_allowed='*', number_allowed=False)
+        dat_nums = tdf_nums.TicDat(data = [[1,2],[3,4], [22, 44]])
+        dat_strs = tdf_nums.TicDat(data = [["1","2"],["3","4"], ["022", "0044"]])
+        dirs = [os.path.join(_scratchDir, _) for _ in ["dat_nums_csv", "dat_strs_csv"]]
+        raw_tdf.csv.write_directory(dat_nums, dirs[0])
+        dat_nums_2 = tdf_nums.csv.create_tic_dat(dirs[0])
+        raw_tdf.csv.write_directory(dat_strs, dirs[1])
+        dat_strs_2 = tdf_strs.csv.create_tic_dat(dirs[1])
+        self.assertTrue(raw_tdf._same_data(dat_nums, dat_nums_2))
+        self.assertTrue(raw_tdf._same_data(dat_strs, dat_strs_2))
 
 _scratchDir = TestCsv.__name__ + "_scratch"
 

@@ -7,7 +7,8 @@ from ticdat.utils import freezable_factory, TicDatError, verify, containerish, c
 import os
 from collections import defaultdict
 from itertools import product
-
+from ticdat.pandatfactory import PanDatFactory
+import datetime
 try:
     import xlrd
 except:
@@ -47,7 +48,7 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
         """
         self.tic_dat_factory = tic_dat_factory
         self._isFrozen = True
-    def create_tic_dat(self, xls_file_path, row_offsets={}, headers_present = True,
+    def create_tic_dat(self, xls_file_path, row_offsets=None, headers_present = True,
                        treat_inf_as_infinity = True,
                        freeze_it = False):
         """
@@ -92,23 +93,19 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
                "headers need to be present to read generic tables")
         verify(utils.DataFrame or not tdf.generic_tables,
                "Strange absence of pandas despite presence of generic tables")
-        rtn =  tdf.TicDat(**self._create_tic_dat_dict
-                          (xls_file_path, row_offsets, headers_present))
-        replaceable = defaultdict(dict)
-        for t, dfs in tdf.data_types.items():
-            replaceable[t] = {df for df, dt in dfs.items()
-                           if (not dt.valid_data('')) and dt.valid_data(None)}
-        for t in set(tdf.all_tables).difference(tdf.generator_tables, tdf.generic_tables):
-            _t =  getattr(rtn, t)
-            for r in _t.values() if utils.dictish(_t) else _t:
-                for f,v in r.items():
-                    if f in replaceable[t] and v == '':
-                        r[f] = None
-                    elif treat_inf_as_infinity and utils.stringish(v):
-                        if v.lower() == "inf":
-                            r[f] = float("inf")
-                        if v.lower() == "-inf":
-                            r[f] = -float("inf")
+        if self.tic_dat_factory.generic_tables:
+            verify(headers_present and treat_inf_as_infinity and not row_offsets,
+                   "headers_present, treat_inf_as_infinity and row_offsets must all be at default values\n" +
+                   "to use generic tables")
+        rtn = self._create_tic_dat_dict(xls_file_path, row_offsets or {}, headers_present, treat_inf_as_infinity)
+        if self.tic_dat_factory.generic_tables:
+            if xls_file_path.endswith(".xls"):
+                print("** Warning : pandas doesn't always play well with older Excel formats.")
+            pdf = PanDatFactory(**{t: '*' for t in self.tic_dat_factory.generic_tables})
+            pandat = pdf.xls.create_pan_dat(xls_file_path)
+            for t in self.tic_dat_factory.generic_tables:
+                rtn[t] = getattr(pandat, t)
+        rtn = tdf._parameter_table_post_read_adjustment(tdf.TicDat(**rtn))
         if freeze_it:
             return self.tic_dat_factory.freeze_me(rtn)
         return rtn
@@ -149,12 +146,12 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
         verify(not any(_ for _ in dup_fields.values()),
                "The following field names were duplicated : \n" +
                "\n".join("%s : "%t + ",".join(bf) for t,bf in dup_fields.items() if bf))
-        return sheets, field_indicies
-    def _create_generator_obj(self, xlsFilePath, table, row_offset, headers_present):
+        return sheets, field_indicies, book.datemode
+    def _create_generator_obj(self, xlsFilePath, table, row_offset, headers_present, treat_inf_as_infinity):
         tdf = self.tic_dat_factory
         ho = 1 if headers_present else 0
         def tableObj() :
-            sheets, field_indicies = self._get_sheets_and_fields(xlsFilePath,
+            sheets, field_indicies, datemode = self._get_sheets_and_fields(xlsFilePath,
                                         (table,), {table:row_offset}, headers_present)
             if table in sheets :
                 sheet = sheets[table]
@@ -162,10 +159,11 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
                                for field in tdf.data_fields[table])
                 for x in (sheet.row_values(i) for i in range(table_len)[row_offset+ho:]):
                     yield self._sub_tuple(table, tdf.data_fields[table],
-                                          field_indicies[table])(x)
+                                          field_indicies[table], treat_inf_as_infinity, datemode)(x)
         return tableObj
 
-    def _create_tic_dat_dict(self, xls_file_path, row_offsets, headers_present):
+    def _create_tic_dat_dict(self, xls_file_path, row_offsets, headers_present, treat_inf_as_infinity):
+        tiai = treat_inf_as_infinity
         verify(utils.dictish(row_offsets) and
                set(row_offsets).issubset(self.tic_dat_factory.all_tables) and
                all(utils.numericish(x) and (x>=0) for x in row_offsets.values()),
@@ -173,7 +171,7 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
         row_offsets = dict({t:0 for t in self.tic_dat_factory.all_tables}, **row_offsets)
         tdf = self.tic_dat_factory
         rtn = {}
-        sheets, field_indicies = self._get_sheets_and_fields(xls_file_path,
+        sheets, field_indicies, dm = self._get_sheets_and_fields(xls_file_path,
                                     set(tdf.all_tables).difference(tdf.generator_tables),
                                     row_offsets, headers_present, print_missing_tables=True)
         ho = 1 if headers_present else 0
@@ -184,22 +182,21 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
             table_len = min(len(sheet.col_values(indicies[field]))
                             for field in (fields or indicies))
             if tdf.primary_key_fields.get(tbl, ()) :
-                tableObj = {self._sub_tuple(tbl, tdf.primary_key_fields[tbl], indicies)(x):
-                            self._sub_tuple(tbl, tdf.data_fields.get(tbl, ()), indicies)(x)
+                tableObj = {self._sub_tuple(tbl, tdf.primary_key_fields[tbl], indicies, tiai, dm)(x):
+                            self._sub_tuple(tbl, tdf.data_fields.get(tbl, ()), indicies, tiai, dm)(x)
                             for x in (sheet.row_values(i) for i in
                                         range(table_len)[row_offsets[tbl]+ho:])}
             elif tbl in tdf.generic_tables:
-                tableObj = [{f:x[i] for f,i in field_indicies[tbl].items()}
-                            for x in (sheet.row_values(i) for i in
-                                      range(table_len)[row_offsets[tbl]+ho:])]
+                tableObj = None # will be read via PanDatFactory
             else :
-                tableObj = [self._sub_tuple(tbl, tdf.data_fields.get(tbl, ()), indicies)(x)
+                tableObj = [self._sub_tuple(tbl, tdf.data_fields.get(tbl, ()), indicies, tiai, dm)(x)
                             for x in (sheet.row_values(i) for i in
                                         range(table_len)[row_offsets[tbl]+ho:])]
-            rtn[tbl] = tableObj
+            if tableObj is not None:
+                rtn[tbl] = tableObj
         for tbl in tdf.generator_tables :
             rtn[tbl] = self._create_generator_obj(xls_file_path, tbl, row_offsets[tbl],
-                                                    headers_present)
+                                                    headers_present, tiai)
         return rtn
 
     def find_duplicates(self, xls_file_path, row_offsets={}, headers_present = True):
@@ -236,7 +233,7 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
         tdf = self.tic_dat_factory
         pk_tables = tuple(t for t,_ in tdf.primary_key_fields.items() if _)
         rtn = {t:defaultdict(int) for t in pk_tables}
-        sheets, fieldIndicies = self._get_sheets_and_fields(xls_file_path, pk_tables,
+        sheets, fieldIndicies, dm = self._get_sheets_and_fields(xls_file_path, pk_tables,
                                         row_offsets, headers_present)
         ho = 1 if headers_present else 0
         for table, sheet in sheets.items() :
@@ -245,26 +242,44 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
             table_len = min(len(sheet.col_values(indicies[field])) for field in fields)
             for x in (sheet.row_values(i) for i in range(table_len)[row_offsets[table]+ho:]) :
                 rtn[table][self._sub_tuple(table, tdf.primary_key_fields[table],
-                                           indicies)(x)] += 1
+                                           indicies, treat_inf_as_infinity=True, datemode=dm)(x)] += 1
         for t in list(rtn.keys()):
             rtn[t] = {k:v for k,v in rtn[t].items() if v > 1}
             if not rtn[t]:
                 del(rtn[t])
         return rtn
-    def _sub_tuple(self, table, fields, field_indicies) :
+    def _sub_tuple(self, table, fields, field_indicies, treat_inf_as_infinity, datemode) :
         assert set(fields).issubset(field_indicies)
-        data_types = self.tic_dat_factory.data_types
-        def _convert_float(x, field):
+        if self.tic_dat_factory.infinity_io_flag != "N/A" or \
+            (table == "parameters" and self.tic_dat_factory.parameters):
+            treat_inf_as_infinity = False
+        def _read_cell(x, field):
+            # reminder - data fields have a default default of zero, primary keys don't get a default default
+            dv = self.tic_dat_factory.default_values.get(table, {}).get(field, ["LIST", "NOT", "POSSIBLE"])
+            dt = self.tic_dat_factory.data_types.get(table, {}).get(field)
             rtn = x[field_indicies[field]]
-            if utils.numericish(rtn) and utils.safe_apply(int)(rtn) == rtn and \
-               table in data_types and field in data_types[table] and \
-               data_types[table][field].must_be_int:
-                return int(rtn)
-            return rtn
+            if rtn == "" and ((dt and dt.nullable) or (not dt and dv is None)):
+                return None
+            if treat_inf_as_infinity and utils.stringish(rtn) and rtn.lower() in ["inf", "-inf"]:
+                return float(rtn.lower())
+            if utils.numericish(rtn) and utils.safe_apply(int)(rtn) == rtn and dt and dt.must_be_int:
+                rtn = int(rtn)
+            if rtn == "":
+                try_rtn = self.tic_dat_factory._general_read_cell(table, field, None) # None as infinity flagging
+                if utils.numericish(try_rtn):
+                    return try_rtn
+            if utils.numericish(rtn) and dt and dt.datetime:
+                rtn = utils.safe_apply(lambda : xlrd.xldate_as_tuple(rtn, datemode))()
+                if rtn is not None:
+                    f = datetime.datetime
+                    if utils.pd:
+                        f = utils.pd.Timestamp
+                    return f(year=rtn[0], month=rtn[1], day=rtn[2], hour=rtn[3], minute=rtn[4], second=rtn[5])
+            return self.tic_dat_factory._general_read_cell(table, field, rtn)
         def rtn(x) :
             if len(fields) == 1 :
-                return _convert_float(x, fields[0])
-            return tuple(_convert_float(x, field) for field in fields)
+                return _read_cell(x, fields[0])
+            return tuple(_read_cell(x, field) for field in fields)
         return rtn
 
     def _get_field_indicies(self, table, sheet, row_offset, headers_present) :
@@ -302,7 +317,7 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
                           The latter is capable of writing out larger tables,
                           but the former handles infinity seamlessly.
                           If ".xlsx", then be advised that +/- float("inf") will be replaced
-                          with "inf"/"-inf"
+                          with "inf"/"-inf", unless infinity_io_flag is being applied.
 
         :param allow_overwrite: boolean - are we allowed to overwrite an
                                 existing file?
@@ -338,9 +353,14 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
     def _xls_write(self, tic_dat, file_path, tbl_name_mapping):
         verify(xlwt, "Can't write .xls files because xlwt package isn't installed.")
         tdf = self.tic_dat_factory
+        def clean_for_write(t, f, x):
+            if isinstance(x, datetime.datetime):
+                return str(x)
+            return self.tic_dat_factory._infinity_flag_write_cell(t, f, x)
         book = xlwt.Workbook()
         for t in  sorted(sorted(tdf.all_tables),
                          key=lambda x: len(tdf.primary_key_fields.get(x, ()))) :
+            all_flds = self.tic_dat_factory.primary_key_fields.get(t, ()) + self.tic_dat_factory.data_fields.get(t, ())
             sheet = book.add_sheet(tbl_name_mapping[t][:_longest_sheet])
             for i,f in enumerate(tdf.primary_key_fields.get(t,()) + tdf.data_fields.get(t, ())) :
                 sheet.write(0, i, f)
@@ -349,11 +369,11 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
                 for row_ind, (p_key, data) in enumerate(_t.items()) :
                     for field_ind, cell in enumerate( (p_key if containerish(p_key) else (p_key,)) +
                                         tuple(data[_f] for _f in tdf.data_fields.get(t, ()))):
-                        sheet.write(row_ind+1, field_ind, cell)
+                        sheet.write(row_ind+1, field_ind, clean_for_write(t, all_flds[field_ind], cell))
             else :
                 for row_ind, data in enumerate(_t if containerish(_t) else _t()) :
                     for field_ind, cell in enumerate(tuple(data[_f] for _f in tdf.data_fields[t])) :
-                        sheet.write(row_ind+1, field_ind, cell)
+                        sheet.write(row_ind+1, field_ind, clean_for_write(t, all_flds[field_ind], cell))
         if os.path.exists(file_path):
             os.remove(file_path)
         book.save(file_path)
@@ -363,14 +383,16 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
         if os.path.exists(file_path):
             os.remove(file_path)
         book = xlsx.Workbook(file_path)
-        def clean_inf(x):
-            if x == float("inf"):
-                return "inf"
-            if x == -float("inf"):
-                return "-inf"
+        def clean_for_write(t, f, x):
+            if self.tic_dat_factory.infinity_io_flag != "N/A" or \
+               (t == "parameters" and self.tic_dat_factory.parameters):
+                return self.tic_dat_factory._infinity_flag_write_cell(t, f, x)
+            if x in [float("inf"), -float("inf")] or isinstance(x, datetime.datetime):
+                return str(x)
             return x
         for t in sorted(sorted(tdf.all_tables),
                          key=lambda x: len(tdf.primary_key_fields.get(x, ()))) :
+            all_flds = self.tic_dat_factory.primary_key_fields.get(t, ()) + self.tic_dat_factory.data_fields.get(t, ())
             sheet = book.add_worksheet(tbl_name_mapping[t][:_longest_sheet])
             for i,f in enumerate(tdf.primary_key_fields.get(t,()) + tdf.data_fields.get(t, ())) :
                 sheet.write(0, i, f)
@@ -379,9 +401,9 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
                 for row_ind, (p_key, data) in enumerate(_t.items()) :
                     for field_ind, cell in enumerate( (p_key if containerish(p_key) else (p_key,)) +
                                         tuple(data[_f] for _f in tdf.data_fields.get(t, ()))):
-                        sheet.write(row_ind+1, field_ind, clean_inf(cell))
+                        sheet.write(row_ind+1, field_ind, clean_for_write(t, all_flds[field_ind], cell))
             else :
                 for row_ind, data in enumerate(_t if containerish(_t) else _t()) :
                     for field_ind, cell in enumerate(tuple(data[_f] for _f in tdf.data_fields[t])) :
-                        sheet.write(row_ind+1, field_ind, clean_inf(cell))
+                        sheet.write(row_ind+1, field_ind, clean_for_write(t, all_flds[field_ind], cell))
         book.close()

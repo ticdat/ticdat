@@ -9,14 +9,18 @@
 #
 # Provides command line interface via ticdat.standard_main
 # For example, typing
-#   python diet.py -i diet_sample_data.sql -o diet_solution_data.sql
-# will read from a model stored in the file diet_sample_data.sql and write the solution
-# to diet_solution_data.sql.
+#   python diet.py -i diet_sample_data -o diet_solution_data
+# will read from a model stored in the directory diet_sample_data and write the solution
+# to a directory called diet_solution_data. These data directories contain .csv files.
 
 # this version of the file uses Gurobi
 
-import gurobipy as gu
-from ticdat import TicDatFactory,  standard_main, gurobi_env
+try: # if you don't have gurobipy installed, the code will still load and then fail on solve
+    import gurobipy as gu
+except:
+    gu = None
+
+from ticdat import TicDatFactory, standard_main
 
 # ------------------------ define the input schema --------------------------------
 # There are three input tables, with 4 primary key fields and 4 data fields.
@@ -71,7 +75,9 @@ def solve(dat):
     assert not input_schema.find_data_type_failures(dat)
     assert not input_schema.find_data_row_failures(dat)
 
-    mdl = gu.Model("diet", env=gurobi_env())
+    if gu is None: # even if you don't have gurobipy installed, you can still import this file for other uses
+        print("*****\ngurobipy needs to be installed for this example code to solve!\n*****\n")
+    mdl = gu.Model("diet")
 
     nutrition = {c:mdl.addVar(lb=n["Min Nutrition"], ub=n["Max Nutrition"], name=c)
                 for c,n in dat.categories.items()}

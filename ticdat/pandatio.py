@@ -8,9 +8,13 @@ import json
 import os
 from ticdat.utils import freezable_factory, verify, case_space_to_pretty, pd, TicDatError, FrozenDict, all_fields
 from ticdat.utils import all_underscore_replacements, stringish, dictish
-from itertools import product
+from itertools import product, chain
 from collections import defaultdict
 import inspect
+try:
+    import numpy
+except:
+    numpy = None
 
 _longest_sheet = 30 # seems to be an Excel limit with pandas
 
@@ -26,6 +30,18 @@ class _DummyContextManager(object):
         return self
     def __exit__(self, *excinfo) :
         pass
+
+def _clean_pandat_creator(pdf, df_dict, push_parameters_to_be_valid=True, json_read=False):
+    # note that pandas built in IO routines tend to be a bit overy pushy with the typing, hence
+    # the push_parameters_to_be_valid argument
+    pandat = pdf.PanDat(**df_dict)
+    for t in set(pdf.all_tables).difference(pdf.generic_tables):
+        flds = [f for f in chain(pdf.primary_key_fields[t], pdf.data_fields[t])]
+        setattr(pandat, t, getattr(pandat, t)[flds])
+    msg = []
+    assert pdf.good_pan_dat_object(pandat, msg.append), str(msg)
+    return pdf._general_post_read_adjustment(pandat, json_read=json_read,
+                                             push_parameters_to_be_valid=push_parameters_to_be_valid)
 
 class JsonPanFactory(freezable_factory(object, "_isFrozen")):
     """
@@ -63,26 +79,37 @@ class JsonPanFactory(freezable_factory(object, "_isFrozen")):
 
         :return: a PanDat object populated by the matching tables.
 
-        caveats: Missing tables always throw an Exception.
+        caveats: Missing tables always resolve to an empty table.
+
                  Table names are matched with case-space insensitivity, but spaces
                  are respected for field names.
+
                  (ticdat supports whitespace in field names but not table names).
-                 +- "inf", "-inf" strings will be converted to +-float("inf")
+
+        Note that if you save a DataFrame to json and then recover it, the type of data might change.
+        Specifically, text that looks numeric might be recovered as a number, to include the loss of leading zeros.
+        To address this, you need to either use set_data_type for your
+        PanDatFactory, or specify "dtype" in kwargs. (The former is obviously better).
         """
-        if os.path.exists(path_or_buf):
+        if stringish(path_or_buf) and os.path.exists(path_or_buf):
             verify(os.path.isfile(path_or_buf), "%s appears to be a directory and not a file." % path_or_buf)
             with open(path_or_buf, "r") as f:
                 loaded_dict = json.load(f)
         else:
             verify(stringish(path_or_buf), "%s isn't a string" % path_or_buf)
             loaded_dict = json.loads(path_or_buf)
-        verify(dictish(loaded_dict), "path_or_buf to json.load as a dict")
+        verify(dictish(loaded_dict), "the json.load result doesn't resolve to a dictionary")
         verify(all(map(dictish, loaded_dict.values())),
                "the json.load result doesn't resolve to a dictionary whose values are themselves dictionaries")
 
         tbl_names = self._get_table_names(loaded_dict)
         verify("orient" not in kwargs, "orient should be passed as a non-kwargs argument")
-        rtn = {t: pd.read_json(json.dumps(loaded_dict[f]), orient=orient, **kwargs) for t,f in tbl_names.items()}
+        rtn = {}
+        for t, f in tbl_names.items():
+            kwargs_ = dict(kwargs)
+            if "dtype" not in kwargs_:
+                kwargs_["dtype"] = self.pan_dat_factory._dtypes_for_pandas_read(t)
+            rtn[t] = pd.read_json(json.dumps(loaded_dict[f]), orient=orient, **kwargs_)
         missing_fields = {(t, f) for t in rtn for f in all_fields(self.pan_dat_factory, t)
                           if f not in rtn[t].columns}
         if fill_missing_fields:
@@ -90,23 +117,24 @@ class JsonPanFactory(freezable_factory(object, "_isFrozen")):
                 rtn[t][f] = self.pan_dat_factory.default_values[t][f]
         verify(fill_missing_fields or not missing_fields,
                "The following (table, field) pairs are missing fields.\n%s" % [(t, f) for t,f in missing_fields])
-        for v in rtn.values():
-            v.replace("inf", float("inf"), inplace=True)
-            v.replace("-inf", -float("inf"), inplace=True)
-        rtn = self.pan_dat_factory.PanDat(**rtn)
-        msg = []
-        assert self.pan_dat_factory.good_pan_dat_object(rtn, msg.append), str(msg)
-        return rtn
+        missing_tables = sorted(set(self.pan_dat_factory.all_tables).difference(rtn))
+        if missing_tables:
+            print("The following table names could not be found in the SQLite database.\n%s\n" %
+                  "\n".join(missing_tables))
+        return _clean_pandat_creator(self.pan_dat_factory, rtn, json_read=True)
+
     def _get_table_names(self, loaded_dict):
         rtn = {}
         for table in self.pan_dat_factory.all_tables:
             rtn[table] = [c for c in loaded_dict if c.lower().replace(" ", "_") == table.lower()]
-            verify(len(rtn[table]) >= 1, "Unable to recognize table %s" % table)
             verify(len(rtn[table]) <= 1, "Multiple dictionary key choices found for table %s" % table)
-            rtn[table] = rtn[table][0]
+            if rtn[table]:
+                rtn[table] = rtn[table][0]
+            else:
+                rtn.pop(table)
         return rtn
     def write_file(self, pan_dat, json_file_path, case_space_table_names=False, orient='split',
-                   index=False, indent=None, sort_keys=False, **kwargs):
+                   index=False, indent=2, sort_keys=False, **kwargs):
         """
         write the PanDat data to a collection of csv files
 
@@ -122,21 +150,20 @@ class JsonPanFactory(freezable_factory(object, "_isFrozen")):
 
         :param index: boolean - whether or not to write the index.
 
-        :param indent: None. See json.dumps
+        :param indent: 2. See json.dumps
 
         :param sort_keys: See json.dumps
 
         :param kwargs: additional named arguments to pass to pandas.to_json
 
         :return:
-
-        caveats:  +-float("inf") will be converted to "inf", "-inf"
         """
         msg = []
         verify(self.pan_dat_factory.good_pan_dat_object(pan_dat, msg.append),
                "pan_dat not a good object for this factory : %s"%"\n".join(msg))
         verify("orient" not in kwargs, "orient should be passed as a non-kwargs argument")
         verify("index" not in kwargs, "index should be passed as a non-kwargs argument")
+        pan_dat = self.pan_dat_factory._infinity_flag_pre_write_adjustment(pan_dat)
 
         if self._modern_pandas:
             # FYI - pandas Exception: ValueError: 'index=False' is only valid when 'orient' is 'split' or 'table'
@@ -145,8 +172,20 @@ class JsonPanFactory(freezable_factory(object, "_isFrozen")):
                                  len(set(self.pan_dat_factory.all_tables)) == \
                                  len(set(map(case_space_to_pretty, self.pan_dat_factory.all_tables)))
         rtn = {}
+        from ticdat.pandatfactory import _faster_df_apply
         for t in self.pan_dat_factory.all_tables:
-            df = getattr(pan_dat, t).replace(float("inf"), "inf").replace(-float("inf"), "-inf")
+            df = getattr(pan_dat, t).copy(deep=True).replace(float("inf"), "inf").replace(-float("inf"), "-inf")
+            for f in df.columns:
+                dt = self.pan_dat_factory.data_types.get(t, {}).get(f, None)
+                if dt and dt.datetime:
+                    # pandas can be a real PIA when trying to mix types in a column
+                    def fixed(row): # this might not always fix things
+                        if isinstance(row[f], (pd.Timestamp, numpy.datetime64)):
+                            return str(row[f])
+                        if pd.isnull(row[f]):
+                            return None
+                        return row[f]
+                    df[f] = _faster_df_apply(df, fixed)
             k = case_space_to_pretty(t) if case_space_table_names else t
             rtn[k] = json.loads(df.to_json(path_or_buf=None, orient=orient, **kwargs))
             if orient == 'split' and not index:
@@ -194,10 +233,30 @@ class CsvPanFactory(freezable_factory(object, "_isFrozen")):
                  Table names are matched with case-space insensitivity, but spaces
                  are respected for field names.
                  (ticdat supports whitespace in field names but not table names).
+
+        Note that if you save a DataFrame to csv and then recover it, the type of data might change. For example
+
+            df = pd.DataFrame({"a":["100", "200", "300"]})
+            df.to_csv("something.csv")
+            df2 = pd.read_csv("something.csv")
+
+        results in a numeric column in df2. To address this, you need to either use set_data_type for your
+        PanDatFactory, or specify "dtype" in kwargs. (The former is obviously better).
+
+        This problem is even worse with df = pd.DataFrame({"a":["0100", "1200", "2300"]})
         """
         verify(os.path.isdir(dir_path), "%s not a directory path"%dir_path)
         tbl_names = self._get_table_names(dir_path)
-        rtn = {t: pd.read_csv(f, **kwargs) for t,f in tbl_names.items()}
+        rtn = {}
+        for t, f in tbl_names.items():
+            kwargs_ = dict(kwargs)
+            if "dtype" not in kwargs_:
+                kwargs_["dtype"] = self.pan_dat_factory._dtypes_for_pandas_read(t)
+            rtn[t] = pd.read_csv(f, **kwargs_)
+        missing_tables = {t for t in self.pan_dat_factory.all_tables if t not in rtn}
+        if missing_tables:
+            print ("The following table names could not be found in the %s directory.\n%s\n"%
+                   (dir_path,"\n".join(missing_tables)))
         missing_fields = {(t, f) for t in rtn for f in all_fields(self.pan_dat_factory, t)
                           if f not in rtn[t].columns}
         if fill_missing_fields:
@@ -206,19 +265,19 @@ class CsvPanFactory(freezable_factory(object, "_isFrozen")):
         verify(fill_missing_fields or not missing_fields,
                "The following (table, file_name, field) triplets are missing fields.\n%s" %
                [(t, os.path.basename(tbl_names[t]), f) for t,f in missing_fields])
-        rtn = self.pan_dat_factory.PanDat(**rtn)
-        msg = []
-        assert self.pan_dat_factory.good_pan_dat_object(rtn, msg.append), str(msg)
-        return rtn
+        return _clean_pandat_creator(self.pan_dat_factory, rtn)
+
     def _get_table_names(self, dir_path):
         rtn = {}
         for table in self.pan_dat_factory.all_tables:
             rtn[table] = [path for f in os.listdir(dir_path) for path in [os.path.join(dir_path, f)]
                           if os.path.isfile(path) and
                           f.lower().replace(" ", "_") == "%s.csv"%table.lower()]
-            verify(len(rtn[table]) >= 1, "Unable to recognize table %s" % table)
             verify(len(rtn[table]) <= 1, "Multiple possible csv files found for table %s" % table)
-            rtn[table] = rtn[table][0]
+            if len(rtn[table]) == 1:
+                rtn[table] = rtn[table][0]
+            else:
+                rtn.pop(table)
         return rtn
     def write_directory(self, pan_dat, dir_path, case_space_table_names=False, index=False, **kwargs):
         """
@@ -244,6 +303,7 @@ class CsvPanFactory(freezable_factory(object, "_isFrozen")):
         msg = []
         verify(self.pan_dat_factory.good_pan_dat_object(pan_dat, msg.append),
                "pan_dat not a good object for this factory : %s"%"\n".join(msg))
+        pan_dat = self.pan_dat_factory._infinity_flag_pre_write_adjustment(pan_dat)
         verify("index" not in kwargs, "index should be passed as a non-kwargs argument")
         kwargs["index"] = index
         case_space_table_names = case_space_table_names and \
@@ -257,8 +317,7 @@ class CsvPanFactory(freezable_factory(object, "_isFrozen")):
 
 class SqlPanFactory(freezable_factory(object, "_isFrozen")):
     """
-    Primary class for reading/writing SQLite files
-    (and sqlalchemy.engine.Engine objects) with PanDat objects.
+    Primary class for reading/writing SQLite files with PanDat objects.
     Don't create this object explicitly. A SqlPanFactory will
     automatically be associated with the sql attribute of the parent
     PanDatFactory.
@@ -279,7 +338,7 @@ class SqlPanFactory(freezable_factory(object, "_isFrozen")):
 
         :param db_file_path: A SQLite DB File. Set to falsey if using con argument
 
-        :param con: sqlalchemy.engine.Engine or sqlite3.Connection.
+        :param con: A connection object that can be passed to pandas read_sql.
                     Set to falsey if using db_file_path argument.
 
         :param fill_missing_fields: boolean. If truthy, missing fields will be filled in
@@ -288,7 +347,9 @@ class SqlPanFactory(freezable_factory(object, "_isFrozen")):
 
         :return: a PanDat object populated by the matching tables.
 
-        caveats: Missing tables always throw an Exception.
+        caveats: Missing tables always resolve to an empty table, but missing fields on matching tables throw
+                 an exception (unless fill_missing_fields is truthy).
+
                  Table names are matched with case-space insensitivity, but spaces
                  are respected for field names.
                  (ticdat supports whitespace in field names but not table names).
@@ -311,10 +372,12 @@ class SqlPanFactory(freezable_factory(object, "_isFrozen")):
                 rtn[t][f] = self.pan_dat_factory.default_values[t][f]
         verify(fill_missing_fields or not missing_fields,
                "The following are (table, field) pairs missing from the %s file.\n%s" % (db_file_path, missing_fields))
-        rtn = self.pan_dat_factory.PanDat(**rtn)
-        msg = []
-        assert self.pan_dat_factory.good_pan_dat_object(rtn, msg.append), str(msg)
-        return rtn
+        missing_tables = sorted(set(self.pan_dat_factory.all_tables).difference(rtn))
+        if missing_tables:
+            print("The following table names could not be found in the SQLite database.\n%s\n" %
+                  "\n".join(missing_tables))
+        return _clean_pandat_creator(self.pan_dat_factory, rtn)
+
     def _get_table_names(self, con):
         rtn = {}
         def try_name(name):
@@ -325,9 +388,11 @@ class SqlPanFactory(freezable_factory(object, "_isFrozen")):
             return True
         for table in self.pan_dat_factory.all_tables:
             rtn[table] = [t for t in all_underscore_replacements(table) if try_name(t)]
-            verify(len(rtn[table]) >= 1, "Unable to recognize table %s" % table)
             verify(len(rtn[table]) <= 1, "Multiple possible tables found for table %s" % table)
-            rtn[table] = rtn[table][0]
+            if rtn[table]:
+                rtn[table] = rtn[table][0]
+            else:
+                rtn.pop(table)
         return rtn
     def write_file(self, pan_dat, db_file_path, con=None, if_exists='replace', case_space_table_names=False):
         """
@@ -339,7 +404,7 @@ class SqlPanFactory(freezable_factory(object, "_isFrozen")):
         :param db_file_path: The file path of the SQLite file to create.
                              Set to falsey if using con argument.
 
-        :param con: sqlalchemy.engine.Engine or sqlite3.Connection.
+        :param con: A connection object that can be passed to pandas to_sql.
                     Set to falsey if using db_file_path argument
 
         :param if_exists: ‘fail’, ‘replace’ or ‘append’. How to behave if the table already exists
@@ -361,6 +426,7 @@ class SqlPanFactory(freezable_factory(object, "_isFrozen")):
         msg = []
         verify(self.pan_dat_factory.good_pan_dat_object(pan_dat, msg.append),
                "pan_dat not a good object for this factory : %s"%"\n".join(msg))
+        pan_dat = self.pan_dat_factory._infinity_flag_pre_write_adjustment(pan_dat)
         if db_file_path:
             verify(not os.path.isdir(db_file_path), "A directory is not a valid SQLLite file path")
         case_space_table_names = case_space_table_names and \
@@ -406,14 +472,25 @@ class XlsPanFactory(freezable_factory(object, "_isFrozen")):
         :return: a PanDat object populated by the matching sheets.
 
         caveats: Missing sheets resolve to an empty table, but missing fields
-                 on matching sheets throw an Exception (unless fill_missing_fields is falsey).
+                 on matching sheets throw an Exception (unless fill_missing_fields is truthy).
                  Table names are matched to sheets with with case-space insensitivity, but spaces and
                  case are respected for field names.
                  (ticdat supports whitespace in field names but not table names).
+
+        Note that if you save a DataFrame to excel and then recover it, the type of data might change. For example
+
+            df = pd.DataFrame({"a":["100", "200", "300"]})
+            df.to_excel("something.xlsx")
+            df2 = pd.read_excel("something.xlsx")
+
+        results in a numeric column in df2. To address this, you need to either use set_data_type for your
+        PanDatFactory.
+
+        This problem is even worse with df = pd.DataFrame({"a":["0100", "1200", "2300"]})
         """
         rtn = {}
         for t, s in self._get_sheet_names(xls_file_path).items():
-            rtn[t] = pd.read_excel(xls_file_path, s)
+            rtn[t] = pd.read_excel(xls_file_path, s, dtype=self.pan_dat_factory._dtypes_for_pandas_read(t))
         missing_tables = {t for t in self.pan_dat_factory.all_tables if t not in rtn}
         if missing_tables:
             print ("The following table names could not be found in the %s file.\n%s\n"%
@@ -425,10 +502,8 @@ class XlsPanFactory(freezable_factory(object, "_isFrozen")):
                 rtn[t][f] = self.pan_dat_factory.default_values[t][f]
         verify(fill_missing_fields or not missing_fields,
                "The following are (table, field) pairs missing from the %s file.\n%s" % (xls_file_path, missing_fields))
-        rtn = self.pan_dat_factory.PanDat(**rtn)
-        msg = []
-        assert self.pan_dat_factory.good_pan_dat_object(rtn, msg.append), str(msg)
-        return rtn
+        return _clean_pandat_creator(self.pan_dat_factory, rtn)
+
     def _get_sheet_names(self, xls_file_path):
         sheets = defaultdict(list)
         try :
@@ -461,6 +536,7 @@ class XlsPanFactory(freezable_factory(object, "_isFrozen")):
         msg = []
         verify(self.pan_dat_factory.good_pan_dat_object(pan_dat, msg.append),
                "pan_dat not a good object for this factory : %s"%"\n".join(msg))
+        pan_dat = self.pan_dat_factory._infinity_flag_pre_write_adjustment(pan_dat)
         verify(not os.path.isdir(file_path), "A directory is not a valid xls file path")
         case_space_sheet_names = case_space_sheet_names and \
                                  len(set(self.pan_dat_factory.all_tables)) == \
