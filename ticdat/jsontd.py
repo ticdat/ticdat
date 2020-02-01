@@ -168,10 +168,9 @@ class JsonTicFactory(freezable_factory(object, "_isFrozen")) :
                 else:
                     rtn[t].append([tdf._general_read_cell(t, f, x) for f, x in zip(all_fields, row)])
         return rtn
-    def write_file(self, tic_dat, json_file_path, allow_overwrite = False, verbose = False, to_pandas = False,
-                   to_str = False):
+    def write_file(self, tic_dat, json_file_path, allow_overwrite = False, verbose = False, to_pandas = False):
         """
-        write the ticDat data to an excel file
+        write the ticDat data to a json file (or json string)
 
         :param tic_dat: the data object to write (typically a TicDat)
 

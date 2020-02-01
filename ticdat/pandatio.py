@@ -136,7 +136,7 @@ class JsonPanFactory(freezable_factory(object, "_isFrozen")):
     def write_file(self, pan_dat, json_file_path, case_space_table_names=False, orient='split',
                    index=False, indent=2, sort_keys=False, **kwargs):
         """
-        write the PanDat data to a collection of csv files
+        write the PanDat data to a json file (or json string)
 
         :param pan_dat: the PanDat object to write
 
