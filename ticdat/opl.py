@@ -198,7 +198,7 @@ def _create_opl_mod_text(tdf, output):
     def get_table_as_mod_text(tdf, tbn, output):
         rtn = ''
         sig = '{}' if output else '...'
-        if len(tdf.primary_key_fields[tbn]) is 1 and len(tdf.data_fields[tbn]) is 0:
+        if len(tdf.primary_key_fields[tbn]) == 1 and len(tdf.data_fields[tbn]) == 0:
             rtn = "{" + _get_type(tdf.data_types, tbn, tdf.primary_key_fields[tbn][0], True) + "} " + \
                   prepend + tbn + " = " + sig + ";\n\n"
         else:
