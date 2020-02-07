@@ -33,12 +33,6 @@ generate:
 - jsontd.md:
   - ticdat.jsontd.make_json_dict
   - ticdat.jsontd.JsonTicFactory++
-- lingo.md:
-  - ticdat.lingo.lingo_run
-  - ticdat.lingo.create_lingo_output_text
-  - ticdat.lingo.create_lingo_text
-  - ticdat.lingo.create_lingo_mod_text
-  - ticdat.lingo.read_lingo_text
 - mdb.md:
   - ticdat.mdb.MdbTicFactory++
 - model.md:
@@ -66,7 +60,6 @@ generate:
   - ticdat.ticdatfactory.TicDatFactory.enable_foreign_key_links
   - ticdat.ticdatfactory.TicDatFactory.find_data_row_failures
   - ticdat.ticdatfactory.TicDatFactory.find_data_type_failures
-  - ticdat.ticdatfactory.TicDatFactory.find_denormalized_sub_table_failures
   - ticdat.ticdatfactory.TicDatFactory.find_foreign_key_failures
   - ticdat.ticdatfactory.TicDatFactory.freeze_me
   - ticdat.ticdatfactory.TicDatFactory.good_tic_dat_object
@@ -120,5 +113,3 @@ pages:
   - Model: model.md
 - opl.py:
   - OPL: opl.md
-- lingo.py:
-  - Lingo: lingo.md
