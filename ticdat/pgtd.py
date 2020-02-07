@@ -220,6 +220,9 @@ class PostgresTicFactory(_PostgresFactory):
     Primary class for reading/writing PostGres databases with TicDat objects.
     You need the sqlalchemy package to be installed to use it.
 
+    Don't create this object explicitly. A PostgresTicFactory will automatically be associated with the
+    pgsql attribute of the parent TicDatFactory.
+
     postgres doesn't support brackets, and putting spaces in postgres field names is frowned upon.
     https://bit.ly/2xWLZL3.
     You **are** encouraged to continue to use field names like "Min Nutrition" in your ticdat Python code, and the
@@ -234,6 +237,7 @@ class PostgresTicFactory(_PostgresFactory):
         TicDatFactory.
 
         :param tic_dat_factory:
+
         :return:
         """
         self._duplicate_focused_tdf = create_duplicate_focused_tdf(tic_dat_factory)
@@ -402,6 +406,9 @@ class PostgresPanFactory(_PostgresFactory):
     """
     Primary class for reading/writing PostGres databases with PanDat objects.
 
+    Don't create this object explicitly. A PostgresPanFactory will automatically be associated with the
+    pgsql attribute of the parent PanDatFactory.
+
     Will need to have pandas installed to do anything.
 
     postgres doesn't support brackets, and putting spaces in postgres field names is frowned upon.
@@ -416,6 +423,7 @@ class PostgresPanFactory(_PostgresFactory):
         Don't create this object explicitly. A PostgresPanFactory will
         automatically be associated with the pgsql attribute of the parent
         PanDatFactory.
+
         :return:
         """
         super().__init__(pan_dat_factory)
@@ -423,8 +431,11 @@ class PostgresPanFactory(_PostgresFactory):
     def create_pan_dat(self, engine, schema):
         """
         Create a PanDat object from a PostGres connection
+
         :param engine: A sqlalchemy connection to the PostGres database
+
         :param schema : The name of the schema to read from
+
         :return: a PanDat object populated by the matching tables. Missing tables issue a warning and resolve
                  to empty.
         """
@@ -446,11 +457,16 @@ class PostgresPanFactory(_PostgresFactory):
     def write_data(self, pan_dat, engine, schema, pre_existing_rows=None):
         '''
         write the PanDat data to a postgres database
+
         :param pan_dat: a PanDat object
+
         :param engine: A sqlalchemy connection to the PostGres database
+
         :param schema: The postgres schema to write to (call self.write_schema explicitly as needed)
+
         :param pre_existing_rows: if provided, a dict mapping table name to either "delete" or "append"
                                   default behavior is "delete"
+
         :return:
         '''
         self._check_good_pgtd_compatible_table_field_names()

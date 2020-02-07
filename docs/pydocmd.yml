@@ -13,6 +13,7 @@ generate:
   - ticdat.pandatfactory.PanDatFactory.copy_pan_dat
   - ticdat.pandatfactory.PanDatFactory.copy_to_ampl
   - ticdat.pandatfactory.PanDatFactory.create_from_full_schema
+  - ticdat.pandatfactory.PanDatFactory.create_full_parameters_dict
   - ticdat.pandatfactory.PanDatFactory.find_data_row_failures
   - ticdat.pandatfactory.PanDatFactory.find_data_type_failures
   - ticdat.pandatfactory.PanDatFactory.find_duplicates
@@ -62,6 +63,7 @@ generate:
   - ticdat.ticdatfactory.TicDatFactory.copy_to_ampl
   - ticdat.ticdatfactory.TicDatFactory.copy_to_pandas
   - ticdat.ticdatfactory.TicDatFactory.create_from_full_schema
+  - ticdat.ticdatfactory.TicDatFactory.create_full_parameters_dict
   - ticdat.ticdatfactory.TicDatFactory.enable_foreign_key_links
   - ticdat.ticdatfactory.TicDatFactory.find_data_row_failures
   - ticdat.ticdatfactory.TicDatFactory.find_data_type_failures
