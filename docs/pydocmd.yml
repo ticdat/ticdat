@@ -3,6 +3,7 @@ repo_url: https://github.com/ticdat/ticdat
 generate:
 - pandatfactory.md:
   - ticdat.pandatfactory.PanDatFactory
+  - ticdat.pandatfactory.PanDatFactory.add_parameter
   - ticdat.pandatfactory.PanDatFactory.add_data_row_predicate
   - ticdat.pandatfactory.PanDatFactory.add_foreign_key
   - ticdat.pandatfactory.PanDatFactory.clear_data_type
@@ -12,6 +13,7 @@ generate:
   - ticdat.pandatfactory.PanDatFactory.copy_pan_dat
   - ticdat.pandatfactory.PanDatFactory.copy_to_ampl
   - ticdat.pandatfactory.PanDatFactory.create_from_full_schema
+  - ticdat.pandatfactory.PanDatFactory.create_full_parameters_dict
   - ticdat.pandatfactory.PanDatFactory.find_data_row_failures
   - ticdat.pandatfactory.PanDatFactory.find_data_type_failures
   - ticdat.pandatfactory.PanDatFactory.find_duplicates
@@ -23,6 +25,7 @@ generate:
   - ticdat.pandatfactory.PanDatFactory.set_data_type
   - ticdat.pandatfactory.PanDatFactory.set_default_value
   - ticdat.pandatfactory.PanDatFactory.set_default_values
+  - ticdat.pandatfactory.PanDatFactory.set_infinity_io_flag
 - pandatio.md:
   - ticdat.pandatio.CsvPanFactory++
   - ticdat.pandatio.JsonPanFactory++
@@ -33,12 +36,6 @@ generate:
 - jsontd.md:
   - ticdat.jsontd.make_json_dict
   - ticdat.jsontd.JsonTicFactory++
-- lingo.md:
-  - ticdat.lingo.lingo_run
-  - ticdat.lingo.create_lingo_output_text
-  - ticdat.lingo.create_lingo_text
-  - ticdat.lingo.create_lingo_mod_text
-  - ticdat.lingo.read_lingo_text
 - mdb.md:
   - ticdat.mdb.MdbTicFactory++
 - model.md:
@@ -49,10 +46,14 @@ generate:
   - ticdat.opl.create_opl_mod_text
   - ticdat.opl.create_opl_mod_output_text
   - ticdat.opl.read_opl_text
+- pgtd.md:
+  - ticdat.pgtd.PostgresPanFactory++
+  - ticdat.pgtd.PostgresTicFactory++
 - sqlitetd.md:
   - ticdat.sqlitetd.SQLiteTicFactory++
 - ticdatfactory.md:
   - ticdat.ticdatfactory.TicDatFactory
+  - ticdat.ticdatfactory.TicDatFactory.add_parameter
   - ticdat.ticdatfactory.TicDatFactory.add_data_row_predicate
   - ticdat.ticdatfactory.TicDatFactory.add_foreign_key
   - ticdat.ticdatfactory.TicDatFactory.clear_data_type
@@ -63,10 +64,10 @@ generate:
   - ticdat.ticdatfactory.TicDatFactory.copy_to_ampl
   - ticdat.ticdatfactory.TicDatFactory.copy_to_pandas
   - ticdat.ticdatfactory.TicDatFactory.create_from_full_schema
+  - ticdat.ticdatfactory.TicDatFactory.create_full_parameters_dict
   - ticdat.ticdatfactory.TicDatFactory.enable_foreign_key_links
   - ticdat.ticdatfactory.TicDatFactory.find_data_row_failures
   - ticdat.ticdatfactory.TicDatFactory.find_data_type_failures
-  - ticdat.ticdatfactory.TicDatFactory.find_denormalized_sub_table_failures
   - ticdat.ticdatfactory.TicDatFactory.find_foreign_key_failures
   - ticdat.ticdatfactory.TicDatFactory.freeze_me
   - ticdat.ticdatfactory.TicDatFactory.good_tic_dat_object
@@ -80,13 +81,13 @@ generate:
   - ticdat.ticdatfactory.TicDatFactory.set_default_value
   - ticdat.ticdatfactory.TicDatFactory.set_default_values
   - ticdat.ticdatfactory.TicDatFactory.set_generator_tables
+  - ticdat.ticdatfactory.TicDatFactory.set_infinity_io_flag
   - ticdat.ticdatfactory.freeze_me
 - utils.md:
   - ticdat.utils.standard_main
   - ticdat.utils.verify
   - ticdat.utils.gurobi_env
   - ticdat.utils.ampl_format
-  - ticdat.utils.find_denormalized_sub_table_failures
   - ticdat.utils.Slicer++
   - ticdat.utils.Sloc++
   - ticdat.utils.LogFile++
@@ -110,6 +111,9 @@ pages:
   - JsonTicFactory: jsontd.md
 - mdb.py:
   - MdbTicFactory: mdb.md
+- pgtd.py:
+  - PostgresPanFactory: pgtd.md
+  - PostgresTicFactory: pgtd.md
 - sqlitetd.py:
   - SQLiteTicFactory: sqlitetd.md
 - xls.py:
@@ -120,5 +124,3 @@ pages:
   - Model: model.md
 - opl.py:
   - OPL: opl.md
-- lingo.py:
-  - Lingo: lingo.md
