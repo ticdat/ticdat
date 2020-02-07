@@ -25,6 +25,7 @@ generate:
   - ticdat.pandatfactory.PanDatFactory.set_data_type
   - ticdat.pandatfactory.PanDatFactory.set_default_value
   - ticdat.pandatfactory.PanDatFactory.set_default_values
+  - ticdat.pandatfactory.PanDatFactory.set_infinity_io_flag
 - pandatio.md:
   - ticdat.pandatio.CsvPanFactory++
   - ticdat.pandatio.JsonPanFactory++
@@ -80,6 +81,7 @@ generate:
   - ticdat.ticdatfactory.TicDatFactory.set_default_value
   - ticdat.ticdatfactory.TicDatFactory.set_default_values
   - ticdat.ticdatfactory.TicDatFactory.set_generator_tables
+  - ticdat.ticdatfactory.TicDatFactory.set_infinity_io_flag
   - ticdat.ticdatfactory.freeze_me
 - utils.md:
   - ticdat.utils.standard_main

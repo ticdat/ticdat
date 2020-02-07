@@ -188,6 +188,7 @@ class PanDatFactory(object):
         "inf"/"-inf" in such serializations.
 
         :param value: a valid infinity_io_flag
+
         :return:
         """
         verify(value == "N/A" or (utils.numericish(value) and (0 < value < float("inf"))) or (value is None),

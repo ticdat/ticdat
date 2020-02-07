@@ -825,6 +825,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
         (assuming the add_parameters functionality is being used).
 
         :param value: a valid infinity_io_flag
+
         :return:
         """
         verify(value == "N/A" or (utils.numericish(value) and (0 < value < float("inf"))) or (value is None),
