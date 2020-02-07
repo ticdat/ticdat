@@ -263,21 +263,33 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
         data field already be present. The legal parameters options will be enforced as part of find_data_row_failures
         Note that if you are using this function, then you would typically read from the parameters table indirectly,
         by using the dictionary returned by create_full_parameters_dict.
+
         :param name: name of the parameter to add or reset
+
         :param default_value: default value for the parameter (used for create_full_parameters_dict)
+
         :param number_allowed: boolean does this parameter allow numbers?
+
         :param inclusive_min: if number allowed, is the min inclusive?
+
         :param inclusive_max: if number allowed, is the max inclusive?
+
         :param min: if number allowed, the minimum value
+
         :param max: if number allowed, the maximum value
+
         :param must_be_int: boolean : if number allowed, must the number be integral?
+
         :param strings_allowed: if a collection - then a list of the strings allowed.
                                 The empty collection prohibits strings.
                                 If a "*", then any string is accepted.
+
         :param nullable:  boolean : can this parameter be set to null (aka None)
+
         :param datetime: If truthy, then number_allowed through strings_allowed are ignored.
                          Should the data either be a datetime.datetime object or a string that can be parsed into a
                          datetime.datetime object?
+
         :param enforce_type_rules: boolean: ignore all of number_allowed through nullable, and only
                                    enforce the parameter names and default values
         :return:
@@ -813,6 +825,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
         (assuming the add_parameters functionality is being used).
 
         :param value: a valid infinity_io_flag
+
         :return:
         """
         verify(value == "N/A" or (utils.numericish(value) and (0 < value < float("inf"))) or (value is None),
@@ -1432,7 +1445,9 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
     def create_full_parameters_dict(self, dat):
         """
         create a fully populated dictionary of all the parameters
+
         :param dat: a TicDat object that has a parameters table
+
         :return: a dictionary that maps parameter option to actual dat.parameters value.
                  if the specific option isn't part of dat.parameters, then the default value is used.
                  Note that for datetime parameters, the default will be coerced into a datetime object, if possible.
