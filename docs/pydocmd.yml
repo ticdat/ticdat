@@ -3,6 +3,7 @@ repo_url: https://github.com/ticdat/ticdat
 generate:
 - pandatfactory.md:
   - ticdat.pandatfactory.PanDatFactory
+  - ticdat.pandatfactory.PanDatFactory.add_parameter
   - ticdat.pandatfactory.PanDatFactory.add_data_row_predicate
   - ticdat.pandatfactory.PanDatFactory.add_foreign_key
   - ticdat.pandatfactory.PanDatFactory.clear_data_type
@@ -43,10 +44,14 @@ generate:
   - ticdat.opl.create_opl_mod_text
   - ticdat.opl.create_opl_mod_output_text
   - ticdat.opl.read_opl_text
+- pgtd.md:
+  - ticdat.pgtd.PostgresPanFactory++
+  - ticdat.pgtd.PostgresTicFactory++
 - sqlitetd.md:
   - ticdat.sqlitetd.SQLiteTicFactory++
 - ticdatfactory.md:
   - ticdat.ticdatfactory.TicDatFactory
+  - ticdat.ticdatfactory.TicDatFactory.add_parameter
   - ticdat.ticdatfactory.TicDatFactory.add_data_row_predicate
   - ticdat.ticdatfactory.TicDatFactory.add_foreign_key
   - ticdat.ticdatfactory.TicDatFactory.clear_data_type
@@ -79,7 +84,6 @@ generate:
   - ticdat.utils.verify
   - ticdat.utils.gurobi_env
   - ticdat.utils.ampl_format
-  - ticdat.utils.find_denormalized_sub_table_failures
   - ticdat.utils.Slicer++
   - ticdat.utils.Sloc++
   - ticdat.utils.LogFile++
@@ -103,6 +107,9 @@ pages:
   - JsonTicFactory: jsontd.md
 - mdb.py:
   - MdbTicFactory: mdb.md
+- pgtd.py:
+  - PostgresPanFactory: pgtd.md
+  - PostgresTicFactory: pgtd.md
 - sqlitetd.py:
   - SQLiteTicFactory: sqlitetd.md
 - xls.py:
