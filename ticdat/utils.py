@@ -58,7 +58,7 @@ class TypeDictionary(namedtuple("TypeDictionary",
                     ("number_allowed", "inclusive_min", "inclusive_max", "min",
                       "max", "must_be_int", "strings_allowed", "nullable", "datetime"))):
     def valid_data(self, data):
-        if pd.isnull(data):
+        if (pd and pd.isnull(data)) or (data is None):
             return bool(self.nullable)
         if self.datetime:
             return isinstance(data, datetime_.datetime) or dateutil_adjuster(data) is not None
