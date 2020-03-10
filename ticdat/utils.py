@@ -207,12 +207,15 @@ def standard_main(input_schema, solution_schema, solve):
                f"{action_name} needs at least one of 'dat', 'sln' as arguments")
 
     if enframe_config:
-        verify(not action_name, "Haven't yet handled actions with -e")
         enframe_handler = make_enframe_offline_handler(enframe_config, input_schema, solution_schema, solve)
         verify(enframe_handler, "-e/--enframe command line functionality requires additional Enframe specific package")
         if enframe_handler.solve_type == "Proxy Enframe Solve":
-            enframe_handler.proxy_enframe_solve()
-            print(f"Enframe proxy solve executed with {enframe_config}")
+            if action_name:
+                enframe_handler.perform_action_with_function(action_func)
+            else:
+                enframe_handler.proxy_enframe_solve()
+            print(f"Enframe proxy solve executed with {enframe_config}" +
+                  (f" and action {action_name}" if action_name else ""))
             return
 
     recognized_extensions = (".json", ".xls", ".xlsx", ".db")
@@ -232,8 +235,12 @@ def standard_main(input_schema, solution_schema, solve):
         enframe_handler.copy_input_dat(dat)
         print(f"Input data copied from {input_file} to the postgres DB defined by {enframe_config}")
         if enframe_handler.solve_type == "Copy Input to Postgres and Solve":
-            enframe_handler.proxy_enframe_solve()
-            print(f"Enframe proxy solve executed with {enframe_config}")
+            if action_name:
+                enframe_handler.perform_action_with_function(action_func)
+            else:
+                enframe_handler.proxy_enframe_solve()
+            print(f"Enframe proxy solve executed with {enframe_config}" +
+                  (f" and action {action_name}" if action_name else ""))
         return
 
     print("output %s %s"%(file_or_dir(output_file), output_file))
