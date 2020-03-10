@@ -208,28 +208,9 @@ def standard_main(input_schema, solution_schema, solve):
         print("%s is not a valid input file or directory"%input_file)
     else:
         print("input %s %s"%(file_or_dir(input_file), input_file))
-        dat = None
-        s_d = create_routine == "create_pan_dat"
-        if os.path.isfile(input_file) and file_or_dir(input_file) == "file":
-            if input_file.endswith(".json"):
-                assert s_d or not input_schema.json.find_duplicates(input_file), "duplicate rows found"
-                dat = getattr(input_schema.json, create_routine)(input_file)
-            if input_file.endswith(".xls") or input_file.endswith(".xlsx"):
-                assert s_d or not input_schema.xls.find_duplicates(input_file), "duplicate rows found"
-                dat = getattr(input_schema.xls, create_routine)(input_file)
-            if input_file.endswith(".db"):
-                assert s_d or not input_schema.sql.find_duplicates(input_file), "duplicate rows found"
-                dat = getattr(input_schema.sql, create_routine)(input_file)
-            if input_file.endswith(".sql"):
-                # no way to check a .sql file for duplications
-                dat = input_schema.sql.create_tic_dat_from_sql(input_file)
-            if input_file.endswith(".mdb") or input_file.endswith(".accdb"):
-                assert not input_schema.mdb.find_duplicates(input_file), "duplicate rows found"
-                dat = input_schema.mdb.create_tic_dat(input_file)
-        elif os.path.isdir(input_file) and file_or_dir(input_file) == "directory":
-            assert s_d or not input_schema.csv.find_duplicates(input_file), "duplicate rows found"
-            dat =  getattr(input_schema.csv, create_routine)(input_file)
-        verify(dat, f"Failed to read from and/or recognize {input_file}{_extra_input_file_check_str(input_file)}")
+        dat = _get_dat_object(tdf=input_schema, create_routine=create_routine, file_path=input_file,
+                              file_or_directory=file_or_dir(input_file),
+                              check_for_dups=create_routine == "create_tic_dat")
         if enframe_handler:
             enframe_handler.copy_input_dat(dat)
             print(f"Input data copied from {input_file} to the postgres DB defined by {enframe_config}")
@@ -238,30 +219,60 @@ def standard_main(input_schema, solution_schema, solve):
                 print(f"Enframe proxy solve executed with {enframe_config}")
             return
         print("output %s %s"%(file_or_dir(output_file), output_file))
-        write_func = None
-        if file_or_dir(output_file) == "file":
-            if output_file.endswith(".json"):
-                write_func = solution_schema.json.write_file
-            if output_file.endswith(".xls") or output_file.endswith(".xlsx"):
-                write_func = solution_schema.xls.write_file
-            if output_file.endswith(".db"):
-                write_func = solution_schema.sql.write_db_data
-            if output_file.endswith(".sql"):
-                write_func = solution_schema.sql.write_sql_file
-            if output_file.endswith(".mdb") or output_file.endswith(".accdb"):
-                write_func = solution_schema.mdb.write_file
-        else:
-            write_func = solution_schema.csv.write_directory
-        verify(write_func, f"Unable to resolve write function for {output_file}")
-        write_func_args = inspect.getfullargspec(write_func).args
+        write_func, write_kwargs = _get_write_function_and_kwargs(tdf=solution_schema, file_path=output_file,
+                                                                  file_or_directory=file_or_dir(output_file))
         sln = solve(dat)
         if sln:
             print("%s output %s %s"%("Overwriting" if os.path.exists(output_file) else "Creating",
                                      file_or_dir(output_file), output_file))
-            kwargs={_:True for _ in {"case_space_table_names", "allow_overwrite"}.intersection(write_func_args)}
-            write_func(sln, output_file, **kwargs)
+            write_func(sln, output_file, **write_kwargs)
         else:
             print("No solution was created!")
+
+def _get_dat_object(tdf, create_routine, file_path, file_or_directory, check_for_dups):
+    def inner_f():
+        if os.path.isfile(file_path) and file_or_directory == "file":
+            if file_path.endswith(".json"):
+                assert not (check_for_dups and tdf.json.find_duplicates(file_path)), "duplicate rows found"
+                return getattr(tdf.json, create_routine)(file_path)
+            if file_path.endswith(".xls") or file_path.endswith(".xlsx"):
+                assert not (check_for_dups and tdf.xls.find_duplicates(file_path)), "duplicate rows found"
+                return getattr(tdf.xls, create_routine)(file_path)
+            if file_path.endswith(".db"):
+                assert not (check_for_dups and tdf.sql.find_duplicates(file_path)), "duplicate rows found"
+                return getattr(tdf.sql, create_routine)(file_path)
+            if tdf.endswith(".sql"):
+                # no way to check a .sql file for duplications
+                return tdf.sql.create_tic_dat_from_sql(file_path) # only TicDat objects handle .sql files
+            if file_path.endswith(".mdb") or file_path.endswith(".accdb"):
+                assert not (check_for_dups and tdf.mdb.find_duplicates(file_path)), "duplicate rows found"
+                return tdf.mdb.create_tic_dat(file_path)
+        elif os.path.isdir(file_path) and file_or_directory == "directory":
+            assert not (check_for_dups and tdf.csv.find_duplicates(file_path)), "duplicate rows found"
+            return getattr(tdf.csv, create_routine)(file_path)
+    dat = inner_f()
+    verify(dat, f"Failed to read from and/or recognize {file_path}{_extra_input_file_check_str(file_path)}")
+    return dat
+
+def _get_write_function_and_kwargs(tdf, file_path, file_or_directory):
+    write_func = None
+    if file_or_directory == "file":
+        if file_path.endswith(".json"):
+            write_func = tdf.json.write_file
+        if file_path.endswith(".xls") or file_path.endswith(".xlsx"):
+            write_func = tdf.xls.write_file
+        if file_path.endswith(".db"):
+            write_func = tdf.sql.write_db_data
+        if file_path.endswith(".sql"):
+            write_func = tdf.sql.write_sql_file
+        if file_path.endswith(".mdb") or file_path.endswith(".accdb"):
+            write_func = tdf.mdb.write_file
+    else:
+        write_func = tdf.csv.write_directory
+    verify(write_func, f"Unable to resolve write function for {file_path}")
+    write_func_args = inspect.getfullargspec(write_func).args
+    kwargs = {_: True for _ in {"case_space_table_names", "allow_overwrite"}.intersection(write_func_args)}
+    return write_func, kwargs
 
 def _extra_input_file_check_str(input_file):
     if os.path.isfile(input_file) and input_file.endswith(".csv"):
