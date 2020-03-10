@@ -123,7 +123,7 @@ ForeignKeyMapping = namedtuple("FKMapping", ("native_field", "foreign_field"))
 # likely replace this with some sort of sys.platform call that makes a good guess
 development_deployed_environment = False
 
-def standard_main(input_schema, solution_schema, solve, module=None):
+def standard_main(input_schema, solution_schema, solve):
     """
      provides standardized command line functionality for a ticdat solve engine
 
@@ -133,10 +133,6 @@ def standard_main(input_schema, solution_schema, solve, module=None):
 
     :param solve: a function that takes a input_schema.TicDat object and
                   returns a solution_schema.TicDat object
-
-    :param module: optional - the module that will contain the action functions. Needed only if
-                   actions are to be exercised from the command line. Doesn't have to be the top level module,
-                   just needs to be the module that will contain the action functions.
 
     :return: None
 
@@ -201,6 +197,7 @@ def standard_main(input_schema, solution_schema, solve, module=None):
             verify(False, "unhandled option")
 
     if action_name:
+        module = sys.modules[solve.__module__.split('.')[0]]
         verify(module, "module needs to be passed to standard_main to enable the -a command line functionality")
         verify(hasattr(module, action_name), f"{action_name} is not an attribute of the module")
         action_func = getattr(module, action_name)
