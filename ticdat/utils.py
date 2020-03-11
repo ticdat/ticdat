@@ -327,7 +327,7 @@ def _get_write_function_and_kwargs(tdf, file_path, file_or_directory):
         if file_path.endswith(".xls") or file_path.endswith(".xlsx"):
             write_func = tdf.xls.write_file
         if file_path.endswith(".db"):
-            write_func = tdf.sql.write_db_data
+            write_func = getattr(tdf.sql, "write_db_data", getattr(tdf.sql, "write_file", None))
         if file_path.endswith(".sql"):
             write_func = tdf.sql.write_sql_file
         if file_path.endswith(".mdb") or file_path.endswith(".accdb"):
