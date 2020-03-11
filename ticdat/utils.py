@@ -58,7 +58,7 @@ class TypeDictionary(namedtuple("TypeDictionary",
                     ("number_allowed", "inclusive_min", "inclusive_max", "min",
                       "max", "must_be_int", "strings_allowed", "nullable", "datetime"))):
     def valid_data(self, data):
-        if pd.isnull(data):
+        if (pd and pd.isnull(data)) or (data is None):
             return bool(self.nullable)
         if self.datetime:
             return isinstance(data, datetime_.datetime) or dateutil_adjuster(data) is not None
@@ -160,19 +160,189 @@ def standard_main(input_schema, solution_schema, solve):
 
     Defaults are input.xlsx, output.xlsx
     """
+    # See EnframeOfflineHandler for  details for how to configure the enframe.json file
     verify(all(isinstance(_, ticdat.TicDatFactory) for _ in (input_schema, solution_schema)) or
            all(isinstance(_, ticdat.PanDatFactory) for _ in (input_schema, solution_schema)),
                "input_schema and solution_schema both need to be TicDatFactory (or PanDatFactory) objects")
     verify(callable(solve), "solve needs to be a function")
     _args = inspect.getfullargspec(solve).args
     verify(_args, "solve needs at least one argument")
+    create_routine = "create_pan_dat"
     if all(isinstance(_, ticdat.TicDatFactory) for _ in (input_schema, solution_schema)):
-        return _standard_main_ticdat(input_schema, solution_schema, solve)
-    return _standard_main_pandat(input_schema, solution_schema, solve)
+        create_routine = "create_tic_dat"
+    file_name = sys.argv[0]
+    def usage():
+        print ("python %s --help --input <input file or dir> --output <output file or dir>"%file_name +
+               " --enframe <enframe_config.json> --action <action_function>")
+    try:
+        opts, args = getopt.getopt(sys.argv[1:], "hi:o:e:a:", ["help", "input=", "output=", "enframe=", "action="])
+    except getopt.GetoptError as err:
+        print (str(err))  # will print something like "option -a not recognized"
+        usage()
+        sys.exit(2)
+    input_file, output_file, enframe_config, enframe_handler, action_name = "input.xlsx", "output.xlsx", "", None, None
+    for o, a in opts:
+        if o in ("-h", "--help"):
+            usage()
+            sys.exit()
+        elif o in ("-i", "--input"):
+            input_file = a
+        elif o in ("-o", "--output"):
+            output_file = a
+        elif o in ("-e", "--enframe"):
+            enframe_config = a
+        elif o in ("-a", "--action"):
+            action_name = a
+        else:
+            verify(False, "unhandled option")
+
+    if action_name:
+        module = sys.modules[solve.__module__.split('.')[0]]
+        verify(module, "module needs to be passed to standard_main to enable the -a command line functionality")
+        verify(hasattr(module, action_name), f"{action_name} is not an attribute of the module")
+        action_func = getattr(module, action_name)
+        verify(callable(action_func), f"{action_name} is not callable")
+        action_func_args = inspect.getfullargspec(action_func).args
+        verify({"dat", "sln"}.intersection(action_func_args),
+               f"{action_name} needs at least one of 'dat', 'sln' as arguments")
+
+    if enframe_config:
+        enframe_handler = make_enframe_offline_handler(enframe_config, input_schema, solution_schema, solve)
+        verify(enframe_handler, "-e/--enframe command line functionality requires additional Enframe specific package")
+        if enframe_handler.solve_type == "Proxy Enframe Solve":
+            if action_name:
+                enframe_handler.perform_action_with_function(action_func)
+            else:
+                enframe_handler.proxy_enframe_solve()
+            print(f"Enframe proxy solve executed with {enframe_config}" +
+                  (f" and action {action_name}" if action_name else ""))
+            return
+
+    recognized_extensions = (".json", ".xls", ".xlsx", ".db")
+    if create_routine == "create_tic_dat":
+        recognized_extensions += (".sql", ".mdb", ".accdb")
+    file_or_dir = lambda f: "file" if any(f.endswith(_) for _ in recognized_extensions) else "directory"
+    if not (os.path.exists(input_file)):
+        print("%s is not a valid input file or directory"%input_file)
+        return
+
+    print("input data from %s %s"%(file_or_dir(input_file), input_file))
+    dat = _get_dat_object(tdf=input_schema, create_routine=create_routine, file_path=input_file,
+                          file_or_directory=file_or_dir(input_file),
+                          check_for_dups=create_routine == "create_tic_dat")
+    if enframe_handler:
+        verify(not action_name, "Haven't yet handled actions with -e")
+        enframe_handler.copy_input_dat(dat)
+        print(f"Input data copied from {input_file} to the postgres DB defined by {enframe_config}")
+        if enframe_handler.solve_type == "Copy Input to Postgres and Solve":
+            if action_name:
+                enframe_handler.perform_action_with_function(action_func)
+            else:
+                enframe_handler.proxy_enframe_solve()
+            print(f"Enframe proxy solve executed with {enframe_config}" +
+                  (f" and action {action_name}" if action_name else ""))
+        return
+
+    print("output %s %s"%(file_or_dir(output_file), output_file))
+    write_func, write_kwargs = _get_write_function_and_kwargs(tdf=solution_schema, file_path=output_file,
+                                                              file_or_directory=file_or_dir(output_file))
+    if not action_name:
+        sln = solve(dat)
+        if sln:
+            print("%s output %s %s"%("Overwriting" if os.path.exists(output_file) else "Creating",
+                                     file_or_dir(output_file), output_file))
+            write_func(sln, output_file, **write_kwargs)
+        else:
+            print("No solution was created!")
+        return
+    print("solution data from %s %s"%(file_or_dir(output_file), output_file))
+    sln = _get_dat_object(tdf=solution_schema, create_routine=create_routine, file_path=output_file,
+                          file_or_directory=file_or_dir(output_file),
+                          check_for_dups=create_routine == "create_tic_dat")
+
+    kwargs = {}
+    if "dat" in action_func_args:
+        kwargs["dat"] = dat
+    if "sln" in action_func_args:
+        sln = _get_dat_object(tdf=solution_schema, create_routine=create_routine, file_path=output_file,
+                              file_or_directory=file_or_dir(output_file), check_for_dups=False)
+        kwargs["sln"] = sln
+    rtn = action_func(**kwargs)
+    def quickie_good_obj(dat, tdf):
+        return all(hasattr(dat, t) for t in tdf.all_tables)
+    def dat_write(dat):
+        w_func, w_kwargs = _get_write_function_and_kwargs(tdf=input_schema, file_path=input_file,
+                                                          file_or_directory=file_or_dir(input_file))
+        print("%s input %s %s" % ("Overwriting" if os.path.exists(input_file) else "Creating",
+                                   file_or_dir(input_file), input_file))
+        w_func(dat, input_file, **w_kwargs)
+    if rtn:
+        if isinstance(rtn, dict):
+            verify({"dat", "sln"}.intersection(rtn), "The returned dict is missing both 'dat' and 'sln' keys")
+            if "dat" in rtn:
+                verify(quickie_good_obj(rtn["dat"], input_schema), "rtn['dat'] fails sanity check")
+
+                dat_write(rtn["dat"])
+            if "sln" in rtn:
+                verify(quickie_good_obj(rtn["sln"], solution_schema), "rtn['sln'] fails sanity check")
+                print("%s output %s %s" % ("Overwriting" if os.path.exists(output_file) else "Creating",
+                                           file_or_dir(output_file), output_file))
+                write_func(rtn["sln"], output_file, **write_kwargs)
+        else:
+            verify(quickie_good_obj(rtn, input_schema), "rtn fails sanity check")
+            dat_write(rtn)
+    else:
+        print(f"{action_func} failed to return anything!")
+
+def _get_dat_object(tdf, create_routine, file_path, file_or_directory, check_for_dups):
+    def inner_f():
+        if os.path.isfile(file_path) and file_or_directory == "file":
+            if file_path.endswith(".json"):
+                assert not (check_for_dups and tdf.json.find_duplicates(file_path)), "duplicate rows found"
+                return getattr(tdf.json, create_routine)(file_path)
+            if file_path.endswith(".xls") or file_path.endswith(".xlsx"):
+                assert not (check_for_dups and tdf.xls.find_duplicates(file_path)), "duplicate rows found"
+                return getattr(tdf.xls, create_routine)(file_path)
+            if file_path.endswith(".db"):
+                assert not (check_for_dups and tdf.sql.find_duplicates(file_path)), "duplicate rows found"
+                return getattr(tdf.sql, create_routine)(file_path)
+            if file_path.endswith(".sql"):
+                # no way to check a .sql file for duplications
+                return tdf.sql.create_tic_dat_from_sql(file_path) # only TicDat objects handle .sql files
+            if file_path.endswith(".mdb") or file_path.endswith(".accdb"):
+                assert not (check_for_dups and tdf.mdb.find_duplicates(file_path)), "duplicate rows found"
+                return tdf.mdb.create_tic_dat(file_path)
+        elif os.path.isdir(file_path) and file_or_directory == "directory":
+            assert not (check_for_dups and tdf.csv.find_duplicates(file_path)), "duplicate rows found"
+            return getattr(tdf.csv, create_routine)(file_path)
+    dat = inner_f()
+    verify(dat, f"Failed to read from and/or recognize {file_path}{_extra_input_file_check_str(file_path)}")
+    return dat
+
+def _get_write_function_and_kwargs(tdf, file_path, file_or_directory):
+    write_func = None
+    if file_or_directory == "file":
+        if file_path.endswith(".json"):
+            write_func = tdf.json.write_file
+        if file_path.endswith(".xls") or file_path.endswith(".xlsx"):
+            write_func = tdf.xls.write_file
+        if file_path.endswith(".db"):
+            write_func = getattr(tdf.sql, "write_db_data", getattr(tdf.sql, "write_file", None))
+        if file_path.endswith(".sql"):
+            write_func = tdf.sql.write_sql_file
+        if file_path.endswith(".mdb") or file_path.endswith(".accdb"):
+            write_func = tdf.mdb.write_file
+    else:
+        write_func = tdf.csv.write_directory
+    verify(write_func, f"Unable to resolve write function for {file_path}")
+    write_func_args = inspect.getfullargspec(write_func).args
+    kwargs = {_: True for _ in {"case_space_table_names", "allow_overwrite"}.intersection(write_func_args)}
+    return write_func, kwargs
 
 def _extra_input_file_check_str(input_file):
     if os.path.isfile(input_file) and input_file.endswith(".csv"):
-        return "\nTo load data from .csv files, pass the parent directory containing the .csv files as the -i argument."
+        return "\nTo load data from .csv files, pass the directory containing the .csv files as the " +\
+               "command line argument."
     return ""
 
 def make_enframe_offline_handler(enframe_config, input_schema, solution_schema, solve):
@@ -185,167 +355,6 @@ def make_enframe_offline_handler(enframe_config, input_schema, solution_schema, 
             EnframeOfflineHandler = None
     if EnframeOfflineHandler:
         return EnframeOfflineHandler(enframe_config, input_schema, solution_schema, solve)
-
-# See EnframeOfflineHandler for  details for how to configure the enframe.json file
-def _standard_main_pandat(input_schema, solution_schema, solve):
-    file_name = sys.argv[0]
-    def usage():
-        print ("python %s --help --input <input file or dir> --output <output file or dir>"%file_name +
-               " --enframe enframe_config.json")
-    try:
-        opts, args = getopt.getopt(sys.argv[1:], "hi:o:e:", ["help", "input=", "output=", "enframe="])
-    except getopt.GetoptError as err:
-        print (str(err))  # will print something like "option -a not recognized"
-        usage()
-        sys.exit(2)
-    input_file, output_file, enframe_config, enframe_handler = "input.xlsx", "output.xlsx", "", None
-    for o, a in opts:
-        if o in ("-h", "--help"):
-            usage()
-            sys.exit()
-        elif o in ("-i", "--input"):
-            input_file = a
-        elif o in ("-o", "--output"):
-            output_file = a
-        elif o in ("-e", "--enframe"):
-            enframe_config = a
-        else:
-            verify(False, "unhandled option")
-    if enframe_config:
-        enframe_handler = make_enframe_offline_handler(enframe_config, input_schema, solution_schema, solve)
-        verify(enframe_handler, "-e/--enframe command line functionality requires additional Enframe specific package")
-        if enframe_handler.solve_type == "Proxy Enframe Solve":
-            enframe_handler.proxy_enframe_solve()
-            print(f"Enframe proxy solve executed with {enframe_config}")
-            return
-
-    file_or_dir = lambda f :"file" if any(f.endswith(_) for _ in (".json", ".xls", ".xlsx", ".db")) \
-                  else "directory"
-    if not (os.path.exists(input_file)):
-        print("%s is not a valid input file or directory"%input_file)
-    else:
-        print("input %s %s"%(file_or_dir(input_file), input_file))
-        dat = None
-        if os.path.isfile(input_file) and file_or_dir(input_file) == "file":
-            if input_file.endswith(".json"):
-                dat = input_schema.json.create_pan_dat(input_file)
-            if input_file.endswith(".xls") or input_file.endswith(".xlsx"):
-                dat = input_schema.xls.create_pan_dat(input_file)
-            if input_file.endswith(".db"):
-                dat = input_schema.sql.create_pan_dat(input_file)
-        elif os.path.isdir(input_file) and file_or_dir(input_file) == "directory":
-            dat = input_schema.csv.create_pan_dat(input_file)
-        verify(dat, f"Failed to read from and/or recognize {input_file}{_extra_input_file_check_str(input_file)}")
-        if enframe_handler:
-            enframe_handler.copy_input_dat(dat)
-            print(f"Input data copied from {input_file} to the postgres DB defined by {enframe_config}")
-            if enframe_handler.solve_type == "Copy Input to Postgres and Solve":
-                enframe_handler.proxy_enframe_solve()
-                print(f"Enframe proxy solve executed with {enframe_config}")
-            return
-        print("output %s %s"%(file_or_dir(output_file), output_file))
-        sln = solve(dat)
-        if sln:
-            print("%s output %s %s"%("Overwriting" if os.path.exists(output_file) else "Creating",
-                                     file_or_dir(output_file), output_file))
-            if output_file.endswith(".json"):
-                solution_schema.json.write_file(sln, output_file, case_space_table_names=True)
-            elif output_file.endswith(".xls") or output_file.endswith(".xlsx"):
-                solution_schema.xls.write_file(sln, output_file, case_space_sheet_names=True)
-            elif output_file.endswith(".db"):
-                solution_schema.sql.write_file(sln, output_file, case_space_table_names=True)
-            else:
-                solution_schema.csv.write_directory(sln, output_file, case_space_table_names=True)
-        else:
-            print("No solution was created!")
-
-def _standard_main_ticdat(input_schema, solution_schema, solve):
-    file_name = sys.argv[0]
-    def usage():
-        print ("python %s --help --input <input file or dir> --output <output file or dir>"%file_name +
-               " --enframe enframe_config.json")
-    try:
-        opts, args = getopt.getopt(sys.argv[1:], "hi:o:e:", ["help", "input=", "output=", "enframe="])
-    except getopt.GetoptError as err:
-        print (str(err))  # will print something like "option -a not recognized"
-        usage()
-        sys.exit(2)
-    input_file, output_file, enframe_config, enframe_handler = "input.xlsx", "output.xlsx", "", None
-    for o, a in opts:
-        if o in ("-h", "--help"):
-            usage()
-            sys.exit()
-        elif o in ("-i", "--input"):
-            input_file = a
-        elif o in ("-o", "--output"):
-            output_file = a
-        elif o in ("-e", "--enframe"):
-            enframe_config = a
-        else:
-            verify(False, "unhandled option")
-    if enframe_config:
-        enframe_handler = make_enframe_offline_handler(enframe_config, input_schema, solution_schema, solve)
-        verify(enframe_handler, "-e/--enframe command line functionality requires additional Enframe specific package")
-        if enframe_handler.solve_type == "Proxy Enframe Solve":
-            enframe_handler.proxy_enframe_solve()
-            print(f"Enframe proxy solve executed with {enframe_config}")
-            return
-
-    file_or_dir = lambda f :"file" if any(f.endswith(_) for _ in
-                            (".json", ".xls", ".xlsx", ".db", ".sql", ".mdb", ".accdb")) \
-                  else "directory"
-    if not (os.path.exists(input_file)):
-        print("%s is not a valid input file or directory"%input_file)
-    else:
-        print("input %s %s"%(file_or_dir(input_file), input_file))
-        dat = None
-        if os.path.isfile(input_file) and file_or_dir(input_file) == "file":
-            if input_file.endswith(".json"):
-                assert not input_schema.json.find_duplicates(input_file), "duplicate rows found"
-                dat = input_schema.json.create_tic_dat(input_file)
-            if input_file.endswith(".xls") or input_file.endswith(".xlsx"):
-                assert not input_schema.xls.find_duplicates(input_file), "duplicate rows found"
-                dat = input_schema.xls.create_tic_dat(input_file)
-            if input_file.endswith(".db"):
-                assert not input_schema.sql.find_duplicates(input_file), "duplicate rows found"
-                dat = input_schema.sql.create_tic_dat(input_file)
-            if input_file.endswith(".sql"):
-                # no way to check a .sql file for duplications
-                dat = input_schema.sql.create_tic_dat_from_sql(input_file)
-            if input_file.endswith(".mdb") or input_file.endswith(".accdb"):
-                assert not input_schema.mdb.find_duplicates(input_file), "duplicate rows found"
-                dat = input_schema.mdb.create_tic_dat(input_file)
-        elif os.path.isdir(input_file) and file_or_dir(input_file) == "directory":
-            assert not input_schema.csv.find_duplicates(input_file), "duplicate rows found"
-            dat = input_schema.csv.create_tic_dat(input_file)
-        verify(dat, f"Failed to read from and/or recognize {input_file}{_extra_input_file_check_str(input_file)}")
-        if enframe_handler:
-            enframe_handler.copy_input_dat(dat)
-            print(f"Input data copied from {input_file} to the postgres DB defined by {enframe_config}")
-            if enframe_handler.solve_type == "Copy Input to Postgres and Solve":
-                enframe_handler.proxy_enframe_solve()
-                print(f"Enframe proxy solve executed with {enframe_config}")
-            return
-        print("output %s %s"%(file_or_dir(output_file), output_file))
-        sln = solve(dat)
-        if sln:
-            print("%s output %s %s"%("Overwriting" if os.path.exists(output_file) else "Creating",
-                                     file_or_dir(output_file), output_file))
-            if output_file.endswith(".json"):
-                solution_schema.json.write_file(sln, output_file, allow_overwrite=True)
-            elif output_file.endswith(".xls") or output_file.endswith(".xlsx"):
-                solution_schema.xls.write_file(sln, output_file, allow_overwrite=True,
-                                               case_space_sheet_names=True)
-            elif output_file.endswith(".db"):
-                solution_schema.sql.write_db_data(sln, output_file, allow_overwrite=True)
-            elif output_file.endswith(".sql"):
-                solution_schema.sql.write_sql_file(sln, output_file, allow_overwrite=True)
-            elif output_file.endswith(".mdb") or output_file.endswith(".accdb"):
-                solution_schema.mdb.write_file(sln, output_file, allow_overwrite=True)
-            else:
-                solution_schema.csv.write_directory(sln, output_file, allow_overwrite=True, case_space_table_names=True)
-        else:
-            print("No solution was created!")
 
 def verify(b, msg) :
     """
