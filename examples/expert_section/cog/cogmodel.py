@@ -40,24 +40,15 @@ input_schema.add_foreign_key("distance", "sites", ['Destination', 'Name'])
 # center_status is a flag field which can take one of two string values.
 input_schema.set_data_type("sites", "Center Status", number_allowed=False,
                           strings_allowed=["Can Be Center", "Pure Demand Point"])
-# The default type of non infinite, non negative works for distance
+# The default type of non infinite, non negative works for distance and demand
+input_schema.set_data_type("sites", "Demand")
 input_schema.set_data_type("distance", "Distance")
 
-# There are three types of parameters
-input_schema.set_data_type("parameters", "Parameter", number_allowed=False,
-                           strings_allowed=["Number of Centroids", "MIP Gap", "Formulation"])
-input_schema.set_data_type("parameters", "Value", number_allowed=True,
-                           strings_allowed=["Weak", "Strong"])
-
-def _good_parameter_key_value(key, value):
-    if key == "Number of Centroids":
-        return 0 < value < float("inf")
-    if key == "MIP Gap":
-        return 0 <= value < float("inf")
-    if key == "Formulation":
-        return value in ["Weak", "Strong"]
-input_schema.add_data_row_predicate("parameters", predicate_name="Good Parameter Value",
-    predicate=lambda row : _good_parameter_key_value(row["Parameter"], row["Value"]))
+input_schema.add_parameter("Number of Centroids", default_value=1, inclusive_min=False, inclusive_max=False, min=0,
+                                max=float("inf"), must_be_int=True)
+input_schema.add_parameter("MIP Gap", default_value=0.001, inclusive_min=False, inclusive_max=False, min=0,
+                                max=float("inf"), must_be_int=False)
+input_schema.add_parameter("Formulation", "Strong", number_allowed=False, strings_allowed=["Weak", "Strong"])
 # ---------------------------------------------------------------------------------
 
 
@@ -80,6 +71,7 @@ def solve(dat, out, err, progress):
     out.write("COG output log\n%s\n\n"%time_stamp())
     err.write("COG error log\n%s\n\n"%time_stamp())
 
+    full_parameters = input_schema.create_full_parameters_dict(dat)
     def get_distance(x,y):
         if (x,y) in dat.distance:
             return dat.distance[x,y]["Distance"]
@@ -142,8 +134,7 @@ def solve(dat, out, err, progress):
                         == 1,
                         name = "must_assign_%s"%n)
 
-    crippledfordemo = "Formulation" in dat.parameters and \
-                      dat.parameters["Formulation"]["Value"] == "Weak"
+    crippledfordemo = full_parameters["Formulation"] == "Weak"
     for assigned_to, r in dat.sites.items():
         if r["Center Status"] == "Can Be Center":
             _assign_vars = [assign_vars[n, assigned_to]
@@ -157,17 +148,12 @@ def solve(dat, out, err, progress):
                     m.addConstr(var <= open_vars[assigned_to],
                                 name = "strong_force_open_%s"%assigned_to)
 
-    number_of_centroids = dat.parameters["Number of Centroids"]["Value"] \
-                          if "Number of Centroids" in dat.parameters else 1
-    if number_of_centroids <= 0:
-        err.write("Need to specify a positive number of centroids\n") # Infeasibility detected.
-        return
+    number_of_centroids = full_parameters["Number of Centroids"]
 
     m.addConstr(gu.quicksum(v for v in open_vars.values()) == number_of_centroids,
                 name= "numCentroids")
 
-    if "MIP Gap" in dat.parameters:
-        m.Params.MIPGap = dat.parameters["MIP Gap"]["Value"]
+    m.Params.MIPGap = full_parameters["MIP Gap"]
     m.update()
 
     progress.numerical_progress("Core Model Creation", 100)
