@@ -19,6 +19,16 @@ except:
     pd = None
 
 _can_unit_test = bool(sa)
+# SELECT * FROM pg_get_keywords()  WHERE catdesc = 'reserved'; created _the_reserved_words
+_the_reserved_words = {_.lower() for _ in ["asymmetric", "session_user", "initially", "table", "user", "desc",
+    "collate", "primary", "current_role", "do", "trailing", "in", "case", "then", "only", "end", "leading", "analyze",
+    "constraint", "offset", "union", "limit", "some", "asc", "else", "intersect", "for", "current_time", "create",
+    "returning", "analyse", "foreign", "grant", "deferrable", "using", "all", "any", "current_user", "check",
+    "current_catalog", "into", "and", "or", "array", "symmetric", "where", "from", "localtime", "cast", "group",
+    "references", "localtimestamp", "not", "true", "column", "to", "null", "current_timestamp", "when", "fetch", "as",
+    "placing", "order", "select", "except", "default", "current_date", "window", "false", "unique", "both", "distinct",
+    "having", "on", "variadic", "lateral", "with"]}
+
 
 # CUIDADO CUIDADO CUIDADO I wrote some ticdat_deployer code that referred to the following private function
 def _pg_name(name):
@@ -42,6 +52,10 @@ class _PostgresFactory(freezable_factory(object, "_isFrozen"),):
             verify(len(all_fields(t)) == len(set(map(_pg_name, all_fields(t)))),
                    f"Table {t} has field names that collide with each other under case/space insensitivity.\n" +
                    "This is a postgres specific requirement. See pgsql doc string for more info.")
+            # a little testing indicated that the problem is with reserved words as fields, but not tables
+            reserved_word_collision = {_ for _ in all_fields(t) if _.lower() in _the_reserved_words}
+            verify(not reserved_word_collision, f"The following field names from table {t} collide with PostGres " +
+                   f"reserved words {reserved_word_collision}")
 
     def check_tables_fields(self, engine, schema, error_on_missing_table=False):
         '''
