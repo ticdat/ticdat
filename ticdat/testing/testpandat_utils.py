@@ -112,6 +112,8 @@ class TestUtils(unittest.TestCase):
         self.assertTrue(set(failed) == {('arcs', 'capacity')})
         self.assertTrue(set({(v["source"], v["destination"])
                              for v in failed['arcs', 'capacity'].T.to_dict().values()}) == {("Detroit", "New York")})
+        pdf.replace_data_type_failures(pandat)
+        self.assertTrue(set(pandat.arcs["capacity"]) == {120, 'Boston', 0, 'Seattle'})
 
     def testDataTypes_two(self):
         tdf = TicDatFactory(**dietSchema())
