@@ -131,7 +131,19 @@ class TestUtils(unittest.TestCase):
             return tdf.copy_to_pandas(rtn, drop_pk_columns=False)
         dat = makeIt()
         errs = pdf.find_data_type_failures(dat)
-        self.assertTrue(len(errs) == 2)
+        self.assertTrue(len(errs) == 2 and not pdf.find_duplicates(dat))
+        dat_copied = pdf.copy_pan_dat(dat)
+        pdf.replace_data_type_failures(dat)
+        self.assertTrue(pdf._same_data(dat, dat_copied, epsilon=0.00001))
+        pdf2 = pdf.clone()
+        pdf2.set_default_value("foods", "name", "a")
+        pdf2.set_default_value("nutritionQuantities", "food", "a")
+        pdf2.replace_data_type_failures(dat_copied)
+        self.assertFalse(pdf._same_data(dat, dat_copied, epsilon=0.00001))
+        self.assertFalse(pdf.find_data_type_failures(dat_copied))
+        dups = pdf.find_duplicates(dat_copied)
+        self.assertTrue(len(dups) == 2 and len(dups["foods"]) == 1 and len(dups["nutritionQuantities"]) == 2)
+
         from pandas import isnull
         def noneify(iter_of_tuples):
             return {tuple(None if isnull(_) else _ for _ in tuple_) for tuple_ in iter_of_tuples}
