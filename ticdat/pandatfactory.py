@@ -788,6 +788,20 @@ class PanDatFactory(object):
         return tdf._same_data(self._copy_to_tic_dat(obj1, keep_generics_as_df=False),
                               self._copy_to_tic_dat(obj2, keep_generics_as_df=False), epsilon=epsilon,
                               nans_are_same_for_data_rows=nans_are_same_for_data_rows)
+    def _true_data_types(self):
+        '''
+        See issue https://github.com/ticdat/ticdat/issues/46  and the doc string for find_data_type_failures
+        for more info
+        :return:
+        '''
+        tmp_pdf = PanDatFactory.create_from_full_schema(self.schema(include_ancillary_info=True))
+        for t, pks in self.primary_key_fields.items():
+            for pk in pks:
+                if pk not in self._data_types.get(t, ()):
+                    tmp_pdf.set_data_type(t, pk, number_allowed=True,
+                      inclusive_min=True, inclusive_max=True, min=-float("inf"), max=float("inf"),
+                      must_be_int=False, strings_allowed='*', nullable=False, datetime=False)
+        return tmp_pdf.data_types
     def find_data_type_failures(self, pan_dat, as_table=True):
         """
         Finds the data type failures for a pandat object
@@ -814,16 +828,10 @@ class PanDatFactory(object):
         verify(self.good_pan_dat_object(pan_dat, msg.append),
                "pan_dat not a good object for this factory : %s"%"\n".join(msg))
 
-        tmp_pdf = PanDatFactory.create_from_full_schema(self.schema(include_ancillary_info=True))
-        for t, pks in self.primary_key_fields.items():
-            for pk in pks:
-                if pk not in self._data_types.get(t, ()):
-                    tmp_pdf.set_data_type(t, pk, number_allowed=True,
-                      inclusive_min=True, inclusive_max=True, min=-float("inf"), max=float("inf"),
-                      must_be_int=False, strings_allowed='*', nullable=False, datetime=False)
+
         rtn = {}
         TableField = clt.namedtuple("TableField", ["table", "field"])
-        for table, type_row in tmp_pdf._data_types.items():
+        for table, type_row in self._true_data_types().items():
             _table = getattr(pan_dat, table)
             for field, data_type in type_row.items():
                 def bad_row(row):
@@ -833,6 +841,54 @@ class PanDatFactory(object):
                 if where_bad_rows.any():
                     rtn[TableField(table, field)] = _table[where_bad_rows].copy() if as_table else where_bad_rows
         return rtn
+    def replace_data_type_failures(self, pan_dat, replacement_values=None):
+        """
+        Replace the data cells with data type failures with the default value for the appropriate field.
+
+        :param pan_dat: a pandat object
+
+        :param replacement_values: if provided, a dictionary mapping (table, field) to replacement value.
+               the default value will be used for (table, field) pairs not in replacement_values
+
+        :return: the pan_dat object with replacements made. The pan_dat object itself will be edited in place.
+
+        Replaces any of the data failures found in find_data_type_failures() with the appropriate
+        replacement_value.
+
+        Will perform both primary key and data field replacements. However, for a replacement to be performed,
+        the (table, field) pair must either have an entry in replacement_values, or there must be a default value
+        that can be referenced via self.default_values.get(table, {})[field]. Note that a default default of zero is
+        used for data fields but not for primary key fields.
+        """
+        msg = []
+        verify(self.good_pan_dat_object(pan_dat, msg.append),
+               "pan_dat not a good object for this factory : %s"%"\n".join(msg))
+        replacement_values = replacement_values or {}
+        verify(dictish(replacement_values) and all(len(k)==2 for k in replacement_values),
+               "replacement_values should be a dictionary mapping (table, field) to valid replacement value")
+        for (table,field), v in replacement_values.items():
+            verify(table in self.all_tables, "%s is not a table for this schema"%table)
+            verify(field in self._all_fields(table), "%s is not a field for %s"%(field, table))
+
+        replacements_needed = self.find_data_type_failures(pan_dat, as_table=False)
+        if not replacements_needed:
+            return pan_dat
+
+        real_replacements = {}
+        for table, type_row in self._true_data_types().items():
+            for field in type_row:
+                if ((table, field) in replacement_values) or (field in self.default_values.get(table, {})):
+                    real_replacements[table, field] = replacement_values.get((table, field),
+                        self.default_values[table][field])
+        for (table, field), value in real_replacements.items():
+            verify(self._true_data_types()[table][field].valid_data(value),
+                   "The replacement value %s is not itself valid for %s : %s"%(value, table, field))
+
+        for (table, field), rows in replacements_needed.items() :
+            if (table, field) in real_replacements:
+                getattr(pan_dat, table).loc[rows, field] = real_replacements[table, field]
+        assert not set(self.find_data_type_failures(pan_dat)).intersection(real_replacements)
+        return pan_dat
     def find_data_row_failures(self, pan_dat, as_table=True):
         """
         Finds the data row failures for a ticdat object
