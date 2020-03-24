@@ -73,6 +73,8 @@ class TestUtils(unittest.TestCase):
         pandat = pdf.copy_pan_dat(copy_to_pandas_with_reset(tdf, ticdat))
 
         self.assertFalse(pdf.find_data_type_failures(pandat))
+        pandat_copy = pdf.replace_data_type_failures(pdf.copy_pan_dat(pandat))
+        self.assertTrue(pdf._same_data(pandat, pandat_copy, epsilon=0.00001))
 
         pdf = PanDatFactory(**dietSchema())
         pdf.set_data_type("foods", "cost", nullable=False)
@@ -86,6 +88,9 @@ class TestUtils(unittest.TestCase):
 
         failed = pdf.find_data_type_failures(pandat, as_table=False)
         self.assertTrue(4 == failed['nutritionQuantities', 'qty'].value_counts()[True])
+        fixed = pdf.replace_data_type_failures(pdf.copy_pan_dat(pandat), {("nutritionQuantities", "qty"): 5.15})
+        self.assertTrue(set(fixed.foods["cost"]) == {0.0, 12.0})
+        self.assertTrue(set(fixed.nutritionQuantities["qty"]) == {5.15, 12.0})
 
         tdf = TicDatFactory(**netflowSchema())
         tdf.enable_foreign_key_links()
