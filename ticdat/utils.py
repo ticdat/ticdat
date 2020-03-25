@@ -256,16 +256,14 @@ def standard_main(input_schema, solution_schema, solve):
             print("No solution was created!")
         return
     print("solution data from %s %s"%(file_or_dir(output_file), output_file))
-    sln = _get_dat_object(tdf=solution_schema, create_routine=create_routine, file_path=output_file,
-                          file_or_directory=file_or_dir(output_file),
-                          check_for_dups=create_routine == "create_tic_dat")
 
     kwargs = {}
     if "dat" in action_func_args:
         kwargs["dat"] = dat
     if "sln" in action_func_args:
         sln = _get_dat_object(tdf=solution_schema, create_routine=create_routine, file_path=output_file,
-                              file_or_directory=file_or_dir(output_file), check_for_dups=False)
+                              file_or_directory=file_or_dir(output_file),
+                              check_for_dups=create_routine == "create_tic_dat")
         kwargs["sln"] = sln
     rtn = action_func(**kwargs)
     def quickie_good_obj(dat, tdf):
