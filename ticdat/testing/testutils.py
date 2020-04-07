@@ -1145,16 +1145,31 @@ class TestUtils(unittest.TestCase):
                          os.path.join(data_path, "output.json"), "-e", e_json]
         with patch.object(sys, 'argv', test_args_one):
             utils.standard_main(funky.input_schema, funky.solution_schema, funky.solve)
-        # this is actually reading the solution data - hack on this!!!
-        sln = funky.solution_schema.pgsql.create_tic_dat(engine, "scenario_1")
-        self.assertTrue(set(sln.table) == set(dat.table))
+        solution_schema = TicDatFactory(s_table=[['field'], []])
+        sln = solution_schema.pgsql.create_tic_dat(engine, "scenario_1")
+        self.assertTrue(set(sln.s_table) == set(dat.table) == {'c', 'd'})
         test_args_two = [module_path, "-i", os.path.join(data_path, "input.json"), "-o", "junk", "-a", "an_action",
                          "-e", e_json]
         with patch.object(sys, 'argv', test_args_two):
              utils.standard_main(funky.input_schema, funky.solution_schema, funky.solve)
         dat = funky.solution_schema.pgsql.create_tic_dat(engine, "scenario_1")
-        self.assertTrue(set(sln.table).union({'a'}) == set(dat.table))
-
+        self.assertTrue(set(sln.s_table).union({'a'}) == set(dat.table))
+        funky.input_schema.json.write_file(dat, os.path.join(data_path, "input.json"), allow_overwrite=True)
+        make_the_json("Copy Input To Postgres") # side effects the path
+        with patch.object(sys, 'argv', test_args_one):
+            utils.standard_main(funky.input_schema, funky.solution_schema, funky.solve)
+        make_the_json("Proxy Enframe Solve") # side effects the path
+        with patch.object(sys, 'argv', test_args_one):
+            utils.standard_main(funky.input_schema, funky.solution_schema, funky.solve)
+        sln = solution_schema.pgsql.create_tic_dat(engine, "scenario_1")
+        self.assertTrue(set(sln.s_table) == {'a', 'c', 'd'})
+        test_args_three = [module_path, "-i", os.path.join(data_path, "input.json"), "-o", "junk",
+                           "-a", "another_action", "-e", e_json]
+        with patch.object(sys, 'argv', test_args_three):
+            utils.standard_main(funky.input_schema, funky.solution_schema, funky.solve)
+        sln = solution_schema.pgsql.create_tic_dat(engine, "scenario_1")
+        dat = funky.solution_schema.pgsql.create_tic_dat(engine, "scenario_1")
+        self.assertTrue(set(sln.s_table) == set(dat.table) == {'a', 'c', 'd', 'e'})
         engine.dispose()
         postgresql.stop()
 
