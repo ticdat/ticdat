@@ -1122,7 +1122,8 @@ class TestUtils(unittest.TestCase):
         self.assertTrue(set(sln.table) == {'c', 'd', 'e'})
 
     def testTwentySeven(self):
-        # this test will fail without the EnframeOfflineHandler being present
+        # this test will fail without the EnframeOfflineHandler being present. Note that EnframeOfflineHandler
+        # has its own unit tests, this mainly exercises the command line
         postgresql = testing_postgresql.Postgresql()
         engine = sa.create_engine(postgresql.url())
         data_path = os.path.join(_scratchDir, "custom_module_two")
@@ -1139,24 +1140,20 @@ class TestUtils(unittest.TestCase):
                 json.dump(d, f, indent=2)
             return rtn
         funky.input_schema.json.write_file(dat, os.path.join(data_path, "input.json"))
-        e_json = make_the_json("Copy Input To Postgres")
+        e_json = make_the_json("Copy Input to Postgres and Solve")
         test_args_one = [module_path, "-i", os.path.join(data_path, "input.json"), "-o",
                          os.path.join(data_path, "output.json"), "-e", e_json]
         with patch.object(sys, 'argv', test_args_one):
             utils.standard_main(funky.input_schema, funky.solution_schema, funky.solve)
+        # this is actually reading the solution data - hack on this!!!
         sln = funky.solution_schema.pgsql.create_tic_dat(engine, "scenario_1")
         self.assertTrue(set(sln.table) == set(dat.table))
-        # test_args_two = [module_path, "-i", os.path.join(data_path, "input.json"), "-o", "junk", "-a", "an_action"]
-        # with patch.object(sys, 'argv', test_args_two):
-        #     utils.standard_main(funky.input_schema, funky.solution_schema, funky.solve)
-        # dat = funky.input_schema.json.create_tic_dat(os.path.join(data_path, "input.json"))
-        # self.assertTrue(set(sln.table).union({'a'}) == set(dat.table))
-        # with patch.object(sys, 'argv', test_args_one + ["-a", "another_action"]):
-        #     utils.standard_main(funky.input_schema, funky.solution_schema, funky.solve)
-        # dat = funky.input_schema.json.create_tic_dat(os.path.join(data_path, "input.json"))
-        # sln = funky.solution_schema.json.create_tic_dat(os.path.join(data_path, "output.json"))
-        # self.assertTrue(set(dat.table) == {'a', 'c', 'd', 'e'})
-        # self.assertTrue(set(sln.table) == {'c', 'd', 'e'})
+        test_args_two = [module_path, "-i", os.path.join(data_path, "input.json"), "-o", "junk", "-a", "an_action",
+                         "-e", e_json]
+        with patch.object(sys, 'argv', test_args_two):
+             utils.standard_main(funky.input_schema, funky.solution_schema, funky.solve)
+        dat = funky.solution_schema.pgsql.create_tic_dat(engine, "scenario_1")
+        self.assertTrue(set(sln.table).union({'a'}) == set(dat.table))
 
         engine.dispose()
         postgresql.stop()
