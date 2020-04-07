@@ -6,7 +6,7 @@ from ticdat.ticdatfactory import TicDatFactory, ForeignKey, ForeignKeyMapping
 from ticdat.testing.ticdattestutils import dietData, dietSchema, netflowData, netflowSchema, firesException, memo
 from ticdat.testing.ticdattestutils import sillyMeData, sillyMeSchema, makeCleanDir, fail_to_debugger, flagged_as_run_alone
 from ticdat.testing.ticdattestutils import assertTicDatTablesSame, DEBUG, addNetflowForeignKeys, addDietForeignKeys
-from ticdat.testing.ticdattestutils import spacesSchema, spacesData, clean_denormalization_errors
+from ticdat.testing.ticdattestutils import spacesSchema, spacesData, clean_denormalization_errors, get_testing_file_path
 import os
 import itertools
 import shutil
@@ -16,6 +16,7 @@ try:
 except:
     dateutil = None
 import datetime
+from unittest.mock import patch
 
 def _deep_anonymize(x)  :
     if not hasattr(x, "__contains__") or utils.stringish(x):
@@ -1073,7 +1074,44 @@ class TestUtils(unittest.TestCase):
         tdf.replace_data_type_failures(dat) # coverage
         self.assertTrue(tdf._same_data(dat, tdf.TicDat(data=[[0, "a"], [0, "b"]])))
 
+    def testTwentyFive(self):
+        core_path = os.path.join(_scratchDir, "more_coverage")
+        tdf = TicDatFactory(**dietSchema())
+        dat = tdf.freeze_me(tdf.TicDat(**{t: getattr(dietData(), t) for t in tdf.primary_key_fields}))
+        for attr, path in [["csv", core_path+"_csv"], ["xls", core_path+".xlsx"], ["sql", core_path+".sql"],
+                           ["json", core_path+".json"]]:
+            f_or_d = "directory" if attr == "csv" else "file"
+            write_func, write_kwargs = utils._get_write_function_and_kwargs(tdf, path, f_or_d)
+            write_func(dat, path, **write_kwargs)
+            dat_1 = utils._get_dat_object(tdf, "create_tic_dat", path, f_or_d, False)
+            self.assertTrue(tdf._same_data(dat, dat_1))
 
+
+    def testTwentySix(self):
+        # hold onto your butt, this one needs to do a bunch of weird stuff to get coverage
+        data_path = os.path.join(_scratchDir, "custom_module")
+        makeCleanDir(data_path)
+        module_path = get_testing_file_path("funky.py")
+        import ticdat.testing.funky as funky
+        dat = funky.input_schema.TicDat(table=[['c'], ['d']])
+        funky.input_schema.json.write_file(dat, os.path.join(data_path, "input.json"))
+        test_args_one = [module_path, "-i", os.path.join(data_path, "input.json"), "-o",
+                         os.path.join(data_path, "output.json")]
+        with patch.object(sys, 'argv', test_args_one):
+            utils.standard_main(funky.input_schema, funky.solution_schema, funky.solve)
+        sln = funky.solution_schema.json.create_tic_dat(os.path.join(data_path, "output.json"))
+        self.assertTrue(set(sln.table) == set(dat.table))
+        test_args_two = [module_path, "-i", os.path.join(data_path, "input.json"), "-o", "junk", "-a", "an_action"]
+        with patch.object(sys, 'argv', test_args_two):
+            utils.standard_main(funky.input_schema, funky.solution_schema, funky.solve)
+        dat = funky.input_schema.json.create_tic_dat(os.path.join(data_path, "input.json"))
+        self.assertTrue(set(sln.table).union({'a'}) == set(dat.table))
+        with patch.object(sys, 'argv', test_args_one + ["-a", "another_action"]):
+            utils.standard_main(funky.input_schema, funky.solution_schema, funky.solve)
+        dat = funky.input_schema.json.create_tic_dat(os.path.join(data_path, "input.json"))
+        sln = funky.solution_schema.json.create_tic_dat(os.path.join(data_path, "output.json"))
+        self.assertTrue(set(dat.table) == {'a', 'c', 'd', 'e'})
+        self.assertTrue(set(sln.table) == {'c', 'd', 'e'})
 
 _scratchDir = TestUtils.__name__ + "_scratch"
 
