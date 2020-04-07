@@ -6,7 +6,7 @@ from ticdat.ticdatfactory import TicDatFactory, ForeignKey, ForeignKeyMapping
 from ticdat.testing.ticdattestutils import dietData, dietSchema, netflowData, netflowSchema, firesException, memo
 from ticdat.testing.ticdattestutils import sillyMeData, sillyMeSchema, makeCleanDir, fail_to_debugger, flagged_as_run_alone
 from ticdat.testing.ticdattestutils import assertTicDatTablesSame, DEBUG, addNetflowForeignKeys, addDietForeignKeys
-from ticdat.testing.ticdattestutils import spacesSchema, spacesData, clean_denormalization_errors
+from ticdat.testing.ticdattestutils import spacesSchema, spacesData, clean_denormalization_errors, get_testing_file_path
 import os
 import itertools
 import shutil
@@ -16,6 +16,16 @@ try:
 except:
     dateutil = None
 import datetime
+from unittest.mock import patch
+
+try:
+    import testing.postgresql as testing_postgresql
+except:
+    testing_postgresql = None
+try:
+    import sqlalchemy as sa
+except:
+    sa = None
 
 def _deep_anonymize(x)  :
     if not hasattr(x, "__contains__") or utils.stringish(x):
@@ -1073,7 +1083,101 @@ class TestUtils(unittest.TestCase):
         tdf.replace_data_type_failures(dat) # coverage
         self.assertTrue(tdf._same_data(dat, tdf.TicDat(data=[[0, "a"], [0, "b"]])))
 
+    def testTwentyFive(self):
+        core_path = os.path.join(_scratchDir, "more_coverage")
+        tdf = TicDatFactory(**dietSchema())
+        dat = tdf.freeze_me(tdf.TicDat(**{t: getattr(dietData(), t) for t in tdf.primary_key_fields}))
+        for attr, path in [["csv", core_path+"_csv"], ["xls", core_path+".xlsx"], ["sql", core_path+".sql"],
+                           ["json", core_path+".json"]]:
+            f_or_d = "directory" if attr == "csv" else "file"
+            write_func, write_kwargs = utils._get_write_function_and_kwargs(tdf, path, f_or_d)
+            write_func(dat, path, **write_kwargs)
+            dat_1 = utils._get_dat_object(tdf, "create_tic_dat", path, f_or_d, False)
+            self.assertTrue(tdf._same_data(dat, dat_1))
 
+
+    def testTwentySix(self):
+        data_path = os.path.join(_scratchDir, "custom_module")
+        makeCleanDir(data_path)
+        module_path = get_testing_file_path("funky.py")
+        import ticdat.testing.funky as funky
+        funky.solve.__module__ = "weirdo_temp_junky_thing_for_hacking"
+        sys.modules[funky.solve.__module__] = funky
+        dat = funky.input_schema.TicDat(table=[['c'], ['d']])
+        funky.input_schema.json.write_file(dat, os.path.join(data_path, "input.json"))
+        test_args_one = [module_path, "-i", os.path.join(data_path, "input.json"), "-o",
+                         os.path.join(data_path, "output.json")]
+        with patch.object(sys, 'argv', test_args_one):
+            utils.standard_main(funky.input_schema, funky.solution_schema, funky.solve)
+        sln = funky.solution_schema.json.create_tic_dat(os.path.join(data_path, "output.json"))
+        self.assertTrue(set(sln.table) == set(dat.table))
+        test_args_two = [module_path, "-i", os.path.join(data_path, "input.json"), "-o", "junk", "-a", "an_action"]
+        with patch.object(sys, 'argv', test_args_two):
+            utils.standard_main(funky.input_schema, funky.solution_schema, funky.solve)
+        dat = funky.input_schema.json.create_tic_dat(os.path.join(data_path, "input.json"))
+        self.assertTrue(set(sln.table).union({'a'}) == set(dat.table))
+        with patch.object(sys, 'argv', test_args_one + ["-a", "another_action"]):
+            utils.standard_main(funky.input_schema, funky.solution_schema, funky.solve)
+        dat = funky.input_schema.json.create_tic_dat(os.path.join(data_path, "input.json"))
+        sln = funky.solution_schema.json.create_tic_dat(os.path.join(data_path, "output.json"))
+        self.assertTrue(set(dat.table) == {'a', 'c', 'd', 'e'})
+        self.assertTrue(set(sln.table) == {'c', 'd', 'e'})
+        sys.modules.pop(funky.solve.__module__)
+
+    def testTwentySeven(self):
+        # this test will fail without the EnframeOfflineHandler being present. Note that EnframeOfflineHandler
+        # has its own unit tests, this mainly exercises the command line
+        postgresql = testing_postgresql.Postgresql()
+        engine = sa.create_engine(postgresql.url())
+        data_path = os.path.join(_scratchDir, "custom_module_two")
+        makeCleanDir(data_path)
+        module_path = get_testing_file_path("funky.py")
+        import ticdat.testing.funky as funky
+        funky.solve.__module__ = "weirdo_temp_thing_for_hacking"
+        sys.modules[funky.solve.__module__] = funky
+        dat = funky.input_schema.TicDat(table=[['c'], ['d']])
+
+        def make_the_json(solve_type, scenario_name="", master_schema=""):
+            d = {"postgres_url": postgresql.url(), "solve_type": solve_type, "scenario_name": scenario_name,
+                 "master_schema": master_schema}
+            rtn = os.path.join(data_path, "ticdat_enframe.json")
+            with open(rtn, "w") as f:
+                json.dump(d, f, indent=2)
+            return rtn
+        funky.input_schema.json.write_file(dat, os.path.join(data_path, "input.json"))
+        e_json = make_the_json("Copy Input to Postgres and Solve")
+        test_args_one = [module_path, "-i", os.path.join(data_path, "input.json"), "-o",
+                         os.path.join(data_path, "output.json"), "-e", e_json]
+        with patch.object(sys, 'argv', test_args_one):
+            utils.standard_main(funky.input_schema, funky.solution_schema, funky.solve)
+        solution_schema = TicDatFactory(s_table=[['field'], []])
+        sln = solution_schema.pgsql.create_tic_dat(engine, "scenario_1")
+        self.assertTrue(set(sln.s_table) == set(dat.table) == {'c', 'd'})
+        test_args_two = [module_path, "-i", os.path.join(data_path, "input.json"), "-o", "junk", "-a", "an_action",
+                         "-e", e_json]
+        with patch.object(sys, 'argv', test_args_two):
+             utils.standard_main(funky.input_schema, funky.solution_schema, funky.solve)
+        dat = funky.solution_schema.pgsql.create_tic_dat(engine, "scenario_1")
+        self.assertTrue(set(sln.s_table).union({'a'}) == set(dat.table))
+        funky.input_schema.json.write_file(dat, os.path.join(data_path, "input.json"), allow_overwrite=True)
+        make_the_json("Copy Input To Postgres") # side effects the path
+        with patch.object(sys, 'argv', test_args_one):
+            utils.standard_main(funky.input_schema, funky.solution_schema, funky.solve)
+        make_the_json("Proxy Enframe Solve") # side effects the path
+        with patch.object(sys, 'argv', test_args_one):
+            utils.standard_main(funky.input_schema, funky.solution_schema, funky.solve)
+        sln = solution_schema.pgsql.create_tic_dat(engine, "scenario_1")
+        self.assertTrue(set(sln.s_table) == {'a', 'c', 'd'})
+        test_args_three = [module_path, "-i", os.path.join(data_path, "input.json"), "-o", "junk",
+                           "-a", "another_action", "-e", e_json]
+        with patch.object(sys, 'argv', test_args_three):
+            utils.standard_main(funky.input_schema, funky.solution_schema, funky.solve)
+        sln = solution_schema.pgsql.create_tic_dat(engine, "scenario_1")
+        dat = funky.solution_schema.pgsql.create_tic_dat(engine, "scenario_1")
+        self.assertTrue(set(sln.s_table) == set(dat.table) == {'a', 'c', 'd', 'e'})
+        engine.dispose()
+        postgresql.stop()
+        sys.modules.pop(funky.solve.__module__)
 
 _scratchDir = TestUtils.__name__ + "_scratch"
 

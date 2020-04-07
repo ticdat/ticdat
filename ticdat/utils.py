@@ -198,7 +198,6 @@ def standard_main(input_schema, solution_schema, solve):
 
     if action_name:
         module = sys.modules[solve.__module__.split('.')[0]]
-        verify(module, "module needs to be passed to standard_main to enable the -a command line functionality")
         verify(hasattr(module, action_name), f"{action_name} is not an attribute of the module")
         action_func = getattr(module, action_name)
         verify(callable(action_func), f"{action_name} is not callable")
@@ -231,7 +230,6 @@ def standard_main(input_schema, solution_schema, solve):
                           file_or_directory=file_or_dir(input_file),
                           check_for_dups=create_routine == "create_tic_dat")
     if enframe_handler:
-        verify(not action_name, "Haven't yet handled actions with -e")
         enframe_handler.copy_input_dat(dat)
         print(f"Input data copied from {input_file} to the postgres DB defined by {enframe_config}")
         if enframe_handler.solve_type == "Copy Input to Postgres and Solve":
