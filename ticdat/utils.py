@@ -197,10 +197,7 @@ def standard_main(input_schema, solution_schema, solve):
             verify(False, "unhandled option")
 
     if action_name:
-        if solve.__module__ in sys.modules:
-            module = sys.modules[solve.__module__]
-        else:
-            module = sys.modules[solve.__module__.split('.')[0]]
+        module = sys.modules[solve.__module__.split('.')[0]]
         verify(hasattr(module, action_name), f"{action_name} is not an attribute of the module")
         action_func = getattr(module, action_name)
         verify(callable(action_func), f"{action_name} is not callable")

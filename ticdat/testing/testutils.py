@@ -1101,6 +1101,8 @@ class TestUtils(unittest.TestCase):
         makeCleanDir(data_path)
         module_path = get_testing_file_path("funky.py")
         import ticdat.testing.funky as funky
+        funky.solve.__module__ = "weirdo_temp_junky_thing_for_hacking"
+        sys.modules[funky.solve.__module__] = funky
         dat = funky.input_schema.TicDat(table=[['c'], ['d']])
         funky.input_schema.json.write_file(dat, os.path.join(data_path, "input.json"))
         test_args_one = [module_path, "-i", os.path.join(data_path, "input.json"), "-o",
@@ -1120,6 +1122,7 @@ class TestUtils(unittest.TestCase):
         sln = funky.solution_schema.json.create_tic_dat(os.path.join(data_path, "output.json"))
         self.assertTrue(set(dat.table) == {'a', 'c', 'd', 'e'})
         self.assertTrue(set(sln.table) == {'c', 'd', 'e'})
+        sys.modules.pop(funky.solve.__module__)
 
     def testTwentySeven(self):
         # this test will fail without the EnframeOfflineHandler being present. Note that EnframeOfflineHandler
@@ -1130,6 +1133,8 @@ class TestUtils(unittest.TestCase):
         makeCleanDir(data_path)
         module_path = get_testing_file_path("funky.py")
         import ticdat.testing.funky as funky
+        funky.solve.__module__ = "weirdo_temp_thing_for_hacking"
+        sys.modules[funky.solve.__module__] = funky
         dat = funky.input_schema.TicDat(table=[['c'], ['d']])
 
         def make_the_json(solve_type, scenario_name="", master_schema=""):
@@ -1172,6 +1177,7 @@ class TestUtils(unittest.TestCase):
         self.assertTrue(set(sln.s_table) == set(dat.table) == {'a', 'c', 'd', 'e'})
         engine.dispose()
         postgresql.stop()
+        sys.modules.pop(funky.solve.__module__)
 
 _scratchDir = TestUtils.__name__ + "_scratch"
 
