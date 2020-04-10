@@ -1179,6 +1179,42 @@ class TestUtils(unittest.TestCase):
         postgresql.stop()
         sys.modules.pop(funky.solve.__module__)
 
+    def testTwentyEight(self):
+        sch = """
+        {"tables_fields": {"categories": [["Name"], ["Min Nutrition", "Max Nutrition"]], 
+                           "foods": [["Name"], ["Cost"]], 
+                           "nutrition_quantities": [["Food", "Category"], ["Quantity"]]}, 
+         "foreign_keys": [["nutrition_quantities", "foods", ["Food", "Name"]], 
+                          ["nutrition_quantities", "categories", ["Category", "Name"]]], 
+         "default_values": {"categories": {"Min Nutrition": 0, "Max Nutrition": Infinity}, 
+                            "foods": {"Cost": 0}, "nutrition_quantities": {"Quantity": 0}}, 
+         "data_types": {"categories": {"Min Nutrition": [true, true, false, 0, Infinity, false, [], false, false], 
+                                       "Max Nutrition": [true, true, true, 0, Infinity, false, [], false, false]}, 
+         "foods": {"Cost": [true, true, false, 0, Infinity, false, [], false, false]}, 
+         "nutrition_quantities": {"Quantity": [true, true, false, 0, Infinity, false, [], false, false]}}, 
+         "parameters": {}, "infinity_io_flag": "N/A"}
+        """
+        for factory in (TicDatFactory, PanDatFactory):
+            tdf = factory.create_from_full_schema(json.loads(sch))
+            tdf.add_data_row_predicate("categories", predicate_name="Min Max Check",
+                predicate=lambda row : row["Max Nutrition"] >= row["Min Nutrition"])
+            tdf = tdf.clone(table_restrictions=["categories", "nutrition_quantities"])
+            self.assertTrue(list(tdf._data_row_predicates) == ["categories"])
+            self.assertTrue(list(tdf._data_row_predicates['categories']) == ["Min Max Check"])
+            small_sch = json.loads(json.dumps(tdf.schema(include_ancillary_info=True)))
+            inf = float("inf")
+            self.assertTrue(small_sch ==
+                {'tables_fields': {'nutrition_quantities': [['Food', 'Category'],['Quantity']],
+                                    'categories': [['Name'], ['Min Nutrition', 'Max Nutrition']]},
+                 'foreign_keys': [['nutrition_quantities','categories', ['Category', 'Name'], 'many-to-one']],
+                 'default_values': {'nutrition_quantities': {'Quantity': 0},
+                                    'categories': {'Min Nutrition': 0, 'Max Nutrition': inf}},
+                 'data_types': {'categories': {'Min Nutrition': [True, True, False, 0, inf, False, [], False, False],
+                                                'Max Nutrition': [True, True, True, 0, inf, False, [], False, False]},
+                                 'nutrition_quantities': {'Quantity': [True, True, False, 0, inf, False, [], False,
+                                                                       False]}},
+                 'parameters': {}, 'infinity_io_flag': 'N/A'})
+
 _scratchDir = TestUtils.__name__ + "_scratch"
 
 
