@@ -28,6 +28,64 @@ except:
     drm = None
 import inspect
 
+def dat_restricted(table_list):
+    '''
+    Decorator factory used to decorate action functions (or solve function) to restrict the tables being read and/or
+    written to.
+    :param table_list: A list of tables that are a subset input_schema.all_tables
+    :return: A decorator that can be applied to the function to control how ticdat feeds it dat objects.
+    Example usage
+        @dat_restricted(['table_one', 'table_five'])
+        def some_action(dat):
+           # the action
+        ticdat will pass a dat object that only has table_one and table_five as attributes. If a dat object
+        is returned back for writing, any attributes other than table_one, table_five will be ignored.
+    Note that the input_schema is not known by this decorator_factory, and thus table_list can't be sanity checked
+    at the time the function is decorated. ticdat will sanity check the table_list when the decorated function is
+    used by ticdat.standard_main (the Enframe-ticdat code will also perform an equivalent check, as will any ticdat
+    supporting platform).
+    As the function will be decorated with a dat_restricted attribute, a programmer is allowed to avoid the decorator
+    factory and simply do the following instead.
+        def some_action(dat):
+           # the action
+        some_action.dat_restricted = table_list
+    Although  this will work the same, you are encouraged to use the dat_restricted decorator factory for better
+    readability.
+    '''
+    verify(containerish(table_list) and table_list and all(isinstance(_, str) for _ in table_list),
+           "table_list needs to be a non-empty container of strings")
+    def dat_restricted_decorator(func): # no need to use functools.wraps since not actually wrapping.
+        func.dat_restricted = tuple(table_list)
+        return func
+    return dat_restricted_decorator
+
+def clone_a_anchillary_info_schema(schema, table_restrictions):
+    '''
+    :param schema: the result of calling _.schema(include_ancillary_info=True) when _ is a
+    TicDatFactory or PanDatFactory
+    :param table_restrictions: None (indicating a simple clone) or a sublist of the tables in schema.
+    :return: a clone of schema, except with the tables outside of table_restrictions removed (unlesss
+    table_restrictions is None, in which case schema is returned).
+    '''
+    if table_restrictions is None:
+        return schema
+    verify(containerish(table_restrictions) and table_restrictions and
+           all(isinstance(_, str) for _ in table_restrictions), "table_restrictions needs to be a container of strings")
+    verify(dictish(schema) and set(table_restrictions).issubset(schema.get("tables_fields", [])),
+           "table_restrictions needs to be a subset of schema['tables_fields']")
+    rtn = {}
+    for k, v in schema.items():
+        if k in ["tables_fields", "default_values", "data_types"]:
+            rtn[k] = {_k:_v for _k, _v in v.items() if _k in table_restrictions}
+        elif k == "foreign_keys":
+            rtn[k] = tuple(fk for fk in v if set(fk[:2]).issubset(table_restrictions))
+        elif k == "parameters":
+            rtn[k] = v if k in table_restrictions else {}
+        else:
+            assert k == "infinity_io_flag", f"{k} is unpexted part of schema"
+            rtn[k] = v
+    return rtn
+
 def dateutil_adjuster(x):
     if isinstance(x, datetime_.datetime):
         return x

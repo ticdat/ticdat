@@ -460,8 +460,8 @@ class TestUtils(unittest.TestCase):
             self.assertTrue(tic_dat.more_child[renamings[k1][1], renamings[k2][1]]["Field"] == r["Field"])
 
     def testSix(self):
-        for cloning in [True, False]:
-            clone_me_maybe = lambda x : x.clone() if cloning else x
+        for cloning in [True, False, "*"]:
+            clone_me_maybe = lambda x : x.clone(tdf.all_tables if cloning == "*" else None) if cloning else x
 
             tdf = TicDatFactory(plants = [["name"], ["stuff", "otherstuff"]],
                                 lines = [["name"], ["plant", "weird stuff"]],
@@ -628,8 +628,8 @@ class TestUtils(unittest.TestCase):
                         td.nutritionQuantities['junk',1]["qty"] == 0)
 
     def testEight(self):
-        for cloning in [True, False]:
-            clone_me_maybe = lambda x : x.clone() if cloning else x
+        for cloning in [True, False, "*"]:
+            clone_me_maybe = lambda x : x.clone(tdf.all_tables if cloning == "*" else None) if cloning else x
 
             tdf = TicDatFactory(**dietSchema())
             def makeIt() :
@@ -900,8 +900,8 @@ class TestUtils(unittest.TestCase):
          self.assertTrue(set(dat.bo) == {"a",1})
 
     def testEighteen(self):
-        for cloning in [True, False]:
-            clone_me_maybe = lambda x : x.clone() if cloning else x
+        for cloning in [True, False, "*"]:
+            clone_me_maybe = lambda x : x.clone(tdf.all_tables if cloning == "*" else None) if cloning else x
             tdf = TicDatFactory(**dietSchema())
             dat = tdf.TicDat()
             dat.foods["a"] = 12

@@ -138,17 +138,20 @@ class PanDatFactory(object):
         if "infinity_io_flag" in full_schema:
             rtn.set_infinity_io_flag(full_schema["infinity_io_flag"])
         return rtn
-    def clone(self):
+    def clone(self, table_restrictions=None):
         """
 
         clones the PanDatFactory
-
+        :param table_restrictions : if None, then argument is ignored. Otherwise, a container with a sublist of
+                                    tables to keep in the clone. Tables outside sublist are removed from the clone.
         :return: a clone of the PanDatFactory
         """
-        rtn = PanDatFactory.create_from_full_schema(self.schema(include_ancillary_info=True))
+        full_schema = utils.clone_a_anchillary_info_schema(self.schema(include_ancillary_info=True), table_restrictions)
+        rtn = PanDatFactory.create_from_full_schema(full_schema)
         for tbl, row_predicates in self._data_row_predicates.items():
-            for pn, p in row_predicates.items():
-                rtn.add_data_row_predicate(tbl, predicate=p, predicate_name=pn)
+            if table_restrictions is None or tbl in table_restrictions:
+                for pn, p in row_predicates.items():
+                    rtn.add_data_row_predicate(tbl, predicate=p, predicate_name=pn)
         return rtn
     @property
     def default_values(self):
