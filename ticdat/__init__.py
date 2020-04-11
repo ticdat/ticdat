@@ -10,11 +10,11 @@ The ticDat library is distributed under the BSD2 open source license.
 
 from ticdat.ticdatfactory import TicDatFactory, freeze_me
 from ticdat.utils import Sloc, LogFile, Progress, Slicer, standard_main, \
-                         gurobi_env, ampl_format, verify, dat_restricted
+                         gurobi_env, ampl_format, verify, dat_restricted, sln_restricted
 from ticdat.opl import opl_run, create_opl_mod_text, create_opl_mod_output_text
 from ticdat.model import Model
 from ticdat.pandatfactory import PanDatFactory
 __version__ = '0.2.19.3'
 __all__ = ["TicDatFactory", "PanDatFactory", "freeze_me", "LogFile", "Sloc", "Slicer", "Progress", "standard_main",
            "Model", "opl_run", "create_opl_mod_text", "create_opl_mod_output_text", "ampl_format",
-           "gurobi_env", "verify", "dat_restricted"]
+           "gurobi_env", "verify", "dat_restricted", "sln_restricted"]

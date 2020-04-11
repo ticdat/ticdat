@@ -1215,6 +1215,60 @@ class TestUtils(unittest.TestCase):
                                                                        False]}},
                  'parameters': {}, 'infinity_io_flag': 'N/A'})
 
+    def testTwentyNine(self):
+        data_path = os.path.join(_scratchDir, "custom_module_three")
+        makeCleanDir(data_path)
+        module_path = get_testing_file_path("funky_diet.py")
+        import ticdat.testing.funky_diet as funky_diet
+        funky_diet.solve.__module__ = "weirdo_temp_junky_thing_for_hacking"
+        sys.modules[funky_diet.solve.__module__] = funky_diet
+        tdf = TicDatFactory(**dietSchema())
+        dat = tdf.copy_tic_dat(dietData())
+        d = json.loads(tdf.json.write_file(dat, "", verbose=False))
+        d["nutrition_quantities"] = d.pop("nutritionQuantities")
+        dat = funky_diet.input_schema.TicDat(**d)
+        dat.stupid_table["ju", "nk"] = 10
+        funky_diet.input_schema.json.write_file(dat, os.path.join(data_path, "input.json"))
+        test_args_one = [module_path, "-i", os.path.join(data_path, "input.json"), "-o",
+                         os.path.join(data_path, "output.json")]
+        with patch.object(sys, 'argv', test_args_one):
+            utils.standard_main(funky_diet.input_schema, funky_diet.solution_schema, funky_diet.solve)
+        def read_sln():
+            f = os.path.join(data_path, "output.json")
+            with open(f, "r") as _f:
+                d = json.load(_f)
+                self.assertTrue(set(d) == {'parameters', 'buy_food', 'consume_nutrition'})
+            rtn = funky_diet.solution_schema.json.create_tic_dat(f)
+            self.assertFalse(rtn.weird_table)
+            return rtn
+        sln = read_sln()
+        self.assertTrue({t:len(getattr(sln, t)) for t in funky_diet.solution_schema.all_tables} ==
+                        {"buy_food": 3, "consume_nutrition": 4, "weird_table": 0, "parameters": 1})
+        dat.nutrition_quantities["pizza", "junk"] = {}
+        dat.categories["weirdness"] = dat.categories["wokeness"] = [100, 20]
+        funky_diet.input_schema.json.write_file(dat, os.path.join(data_path, "input.json"), allow_overwrite=True)
+        with patch.object(sys, 'argv', test_args_one):
+            utils.standard_main(funky_diet.input_schema, funky_diet.solution_schema, funky_diet.solve)
+        sln = read_sln()
+        self.assertTrue({t:len(getattr(sln, t)) for t in funky_diet.solution_schema.all_tables} ==
+                        {"buy_food": 3, "consume_nutrition": 4, "weird_table": 0, "parameters": 3})
+        self.assertTrue(sln.parameters["find_foreign_key_failures"]["Value"] == 1)
+        self.assertTrue(sln.parameters["find_data_row_failures"]["Value"] == 2)
+
+        dat = funky_diet.input_schema.TicDat(**d)
+        funky_diet.input_schema.json.write_file(dat, os.path.join(data_path, "pizza.json"))
+        with patch.object(sys, 'argv', [module_path, "-i", os.path.join(data_path, "pizza.json"), "-o", "trash",
+                                        "-a", "remove_the_pizza"]):
+            utils.standard_main(funky_diet.input_schema, funky_diet.solution_schema, funky_diet.solve)
+        with open(os.path.join(data_path, "pizza.json"), "r") as _f:
+            d = json.load(_f)
+        self.assertTrue({k: len(v) for k, v in d.items()} == {"foods": 8, "nutrition_quantities": 32})
+
+        with patch.object(sys, 'argv', [module_path, "-i", "junk", "-o", os.path.join(data_path, "output.json"),
+                                        "-a", "checks_the_unit_test_result"]):
+            utils.standard_main(funky_diet.input_schema, funky_diet.solution_schema, funky_diet.solve)
+        sys.modules.pop(funky_diet.solve.__module__)
+
 _scratchDir = TestUtils.__name__ + "_scratch"
 
 
