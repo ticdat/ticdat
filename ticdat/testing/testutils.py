@@ -1101,7 +1101,10 @@ class TestUtils(unittest.TestCase):
         makeCleanDir(data_path)
         module_path = get_testing_file_path("funky.py")
         import ticdat.testing.funky as funky
-        funky.solve.__module__ = "weirdo_temp_junky_thing_for_hacking"
+        weirdo_hacks_needed = ["solve", "an_action", "another_action"]
+        for w in weirdo_hacks_needed:
+            _w = getattr(funky, w)
+            _w.__module__ = "weirdo_temp_junky_thing_for_hacking"
         sys.modules[funky.solve.__module__] = funky
         dat = funky.input_schema.TicDat(table=[['c'], ['d']])
         funky.input_schema.json.write_file(dat, os.path.join(data_path, "input.json"))
@@ -1133,7 +1136,10 @@ class TestUtils(unittest.TestCase):
         makeCleanDir(data_path)
         module_path = get_testing_file_path("funky.py")
         import ticdat.testing.funky as funky
-        funky.solve.__module__ = "weirdo_temp_thing_for_hacking"
+        weirdo_hacks_needed = ["solve", "an_action", "another_action"]
+        for w in weirdo_hacks_needed:
+            _w = getattr(funky, w)
+            _w.__module__ = "weirdo_temp_thing_for_hacking"
         sys.modules[funky.solve.__module__] = funky
         dat = funky.input_schema.TicDat(table=[['c'], ['d']])
 

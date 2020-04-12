@@ -315,11 +315,12 @@ def standard_main(input_schema, solution_schema, solve):
         solution_schema = _clone_to_restricted_as_needed(solve, solution_schema, "sln_restricted")
 
     if enframe_config:
-        enframe_handler = make_enframe_offline_handler(enframe_config, input_schema, solution_schema, solve)
+        enframe_handler = make_enframe_offline_handler(enframe_config, input_schema, solution_schema,
+                                                       solve if not action_name else action_func)
         verify(enframe_handler, "-e/--enframe command line functionality requires additional Enframe specific package")
         if enframe_handler.solve_type == "Proxy Enframe Solve":
             if action_name:
-                enframe_handler.perform_action_with_function(action_func)
+                enframe_handler.perform_action_with_function()
             else:
                 enframe_handler.proxy_enframe_solve()
             print(f"Enframe proxy solve executed with {enframe_config}" +
@@ -343,7 +344,7 @@ def standard_main(input_schema, solution_schema, solve):
         print(f"Input data copied from {input_file} to the postgres DB defined by {enframe_config}")
         if enframe_handler.solve_type == "Copy Input to Postgres and Solve":
             if action_name:
-                enframe_handler.perform_action_with_function(action_func)
+                enframe_handler.perform_action_with_function()
             else:
                 enframe_handler.proxy_enframe_solve()
             print(f"Enframe proxy solve executed with {enframe_config}" +
@@ -450,7 +451,7 @@ def _extra_input_file_check_str(input_file):
                "command line argument."
     return ""
 
-def make_enframe_offline_handler(enframe_config, input_schema, solution_schema, solve):
+def make_enframe_offline_handler(enframe_config, input_schema, solution_schema, core_func):
     try:
         from framework_utils.ticdat_deployer import EnframeOfflineHandler
     except:
@@ -459,7 +460,7 @@ def make_enframe_offline_handler(enframe_config, input_schema, solution_schema, 
         except:
             EnframeOfflineHandler = None
     if EnframeOfflineHandler:
-        return EnframeOfflineHandler(enframe_config, input_schema, solution_schema, solve)
+        return EnframeOfflineHandler(enframe_config, input_schema, solution_schema, core_func)
 
 def verify(b, msg) :
     """
