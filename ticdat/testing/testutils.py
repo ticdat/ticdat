@@ -1146,8 +1146,7 @@ class TestUtils(unittest.TestCase):
             return rtn
         funky.input_schema.json.write_file(dat, os.path.join(data_path, "input.json"))
         e_json = make_the_json("Copy Input to Postgres and Solve")
-        test_args_one = [module_path, "-i", os.path.join(data_path, "input.json"), "-o",
-                         os.path.join(data_path, "output.json"), "-e", e_json]
+        test_args_one = [module_path, "-i", os.path.join(data_path, "input.json"), "-o", "crappola", "-e", e_json]
         with patch.object(sys, 'argv', test_args_one):
             utils.standard_main(funky.input_schema, funky.solution_schema, funky.solve)
         solution_schema = TicDatFactory(s_table=[['field'], []])
@@ -1267,6 +1266,39 @@ class TestUtils(unittest.TestCase):
         with patch.object(sys, 'argv', [module_path, "-i", "junk", "-o", os.path.join(data_path, "output.json"),
                                         "-a", "checks_the_unit_test_result"]):
             utils.standard_main(funky_diet.input_schema, funky_diet.solution_schema, funky_diet.solve)
+        sys.modules.pop(funky_diet.solve.__module__)
+
+    def testThirty(self):
+        # this test will fail without the EnframeOfflineHandler being present. Note that EnframeOfflineHandler
+        # has its own unit tests, this mainly exercises the command line
+        postgresql = testing_postgresql.Postgresql()
+        engine = sa.create_engine(postgresql.url())
+        data_path = os.path.join(_scratchDir, "custom_module_four")
+        makeCleanDir(data_path)
+        module_path = get_testing_file_path("funky_diet.py")
+        import ticdat.testing.funky_diet as funky_diet
+        funky_diet.solve.__module__ = "weirdo_temp_junky_thing_for_hacking"
+        sys.modules[funky_diet.solve.__module__] = funky_diet
+        tdf = TicDatFactory(**dietSchema())
+        dat = tdf.copy_tic_dat(dietData())
+        d = json.loads(tdf.json.write_file(dat, "", verbose=False))
+        d["nutrition_quantities"] = d.pop("nutritionQuantities")
+        dat = funky_diet.input_schema.TicDat(**d)
+        dat.stupid_table["ju", "nk"] = 10
+        funky_diet.input_schema.json.write_file(dat, os.path.join(data_path, "input.json"))
+        def make_the_json(solve_type, scenario_name="", master_schema=""):
+            d = {"postgres_url": postgresql.url(), "solve_type": solve_type, "scenario_name": scenario_name,
+                 "master_schema": master_schema}
+            rtn = os.path.join(data_path, "ticdat_enframe.json")
+            with open(rtn, "w") as f:
+                json.dump(d, f, indent=2)
+            return rtn
+        e_json = make_the_json("Copy Input to Postgres and Solve")
+        test_args_one = [module_path, "-i", os.path.join(data_path, "input.json"), "-o", "junk", "-e", e_json]
+        with patch.object(sys, 'argv', test_args_one):
+            utils.standard_main(funky_diet.input_schema, funky_diet.solution_schema, funky_diet.solve)
+        engine.dispose()
+        postgresql.stop()
         sys.modules.pop(funky_diet.solve.__module__)
 
 _scratchDir = TestUtils.__name__ + "_scratch"
