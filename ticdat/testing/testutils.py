@@ -1136,8 +1136,7 @@ class TestUtils(unittest.TestCase):
         makeCleanDir(data_path)
         module_path = get_testing_file_path("funky.py")
         import ticdat.testing.funky as funky
-        weirdo_hacks_needed = ["solve", "an_action", "another_action"]
-        for w in weirdo_hacks_needed:
+        for w in ["solve", "an_action", "another_action"]:
             _w = getattr(funky, w)
             _w.__module__ = "weirdo_temp_thing_for_hacking"
         sys.modules[funky.solve.__module__] = funky
@@ -1283,7 +1282,9 @@ class TestUtils(unittest.TestCase):
         makeCleanDir(data_path)
         module_path = get_testing_file_path("funky_diet.py")
         import ticdat.testing.funky_diet as funky_diet
-        funky_diet.solve.__module__ = "weirdo_temp_junky_thing_for_hacking"
+        for w in ["solve", "remove_the_pizza", "checks_the_unit_test_result", "a_solvish_act"]:
+            _w = getattr(funky_diet, w)
+            _w.__module__ = "weirdo_temp_junky_thing_for_hacking"
         sys.modules[funky_diet.solve.__module__] = funky_diet
         tdf = TicDatFactory(**dietSchema())
         dat = tdf.copy_tic_dat(dietData())
@@ -1303,6 +1304,39 @@ class TestUtils(unittest.TestCase):
         test_args_one = [module_path, "-i", os.path.join(data_path, "input.json"), "-o", "junk", "-e", e_json]
         with patch.object(sys, 'argv', test_args_one):
             utils.standard_main(funky_diet.input_schema, funky_diet.solution_schema, funky_diet.solve)
+        full_schema = TicDatFactory(**{"s_"+k: v for k,v in funky_diet.solution_schema.schema().items()})
+        self.assertTrue(set(full_schema.pgsql.check_tables_fields(engine, "scenario_1")) == {'s_weird_table'})
+        sln = full_schema.pgsql.create_tic_dat(engine, "scenario_1")
+        self.assertTrue({t: len(getattr(sln, "s_"+t)) for t in funky_diet.solution_schema.all_tables} ==
+                        {"buy_food": 3, "consume_nutrition": 4, "weird_table": 0, "parameters": 1})
+
+        dat.nutrition_quantities["pizza", "junk"] = {}
+        dat.categories["weirdness"] = dat.categories["wokeness"] = [100, 20]
+        funky_diet.input_schema.json.write_file(dat, os.path.join(data_path, "input.json"), allow_overwrite=True)
+        test_args_two = [module_path, "-i", os.path.join(data_path, "input.json"), "-o", "junk", "-e", e_json,
+                         "-a", "a_solvish_act"]
+        with patch.object(sys, 'argv', test_args_two):
+            utils.standard_main(funky_diet.input_schema, funky_diet.solution_schema, funky_diet.solve)
+        sln = full_schema.pgsql.create_tic_dat(engine, "scenario_1")
+        self.assertTrue({t:len(getattr(sln, "s_"+t)) for t in funky_diet.solution_schema.all_tables} ==
+                        {"buy_food": 3, "consume_nutrition": 4, "weird_table": 0, "parameters": 3})
+        self.assertTrue(sln.s_parameters["find_foreign_key_failures"]["Value"] == 1)
+        self.assertTrue(sln.s_parameters["find_data_row_failures"]["Value"] == 2)
+
+        e_json = make_the_json("Proxy Enframe Solve")
+        test_args_three = [module_path, "-i", "junk", "-o", "also_junk", "-e", e_json,
+                         "-a", "checks_the_unit_test_result"]
+        with patch.object(sys, 'argv', test_args_three):
+            utils.standard_main(funky_diet.input_schema, funky_diet.solution_schema, funky_diet.solve)
+
+        test_args_four = [module_path, "-i", "junk", "-o", "also_junk", "-e", e_json,
+                         "-a", "remove_the_pizza"]
+        with patch.object(sys, 'argv', test_args_four):
+            utils.standard_main(funky_diet.input_schema, funky_diet.solution_schema, funky_diet.solve)
+        dat = funky_diet.input_schema.pgsql.create_tic_dat(engine, "scenario_1")
+        self.assertTrue({t: len(getattr(dat, t)) for t in funky_diet.input_schema.all_tables} ==
+                        {"foods": 8, "nutrition_quantities": 32, "categories":6, "stupid_table": 0})
+
         engine.dispose()
         postgresql.stop()
         sys.modules.pop(funky_diet.solve.__module__)

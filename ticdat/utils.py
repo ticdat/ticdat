@@ -220,12 +220,14 @@ development_deployed_environment = False
 
 def _clone_to_restricted_as_needed(function, schema, name):
     if not hasattr(function, name):
-        return schema
+        return schema, set()
     restricted = getattr(function, name)
     verify(containerish(restricted) and restricted and
            all(isinstance(_, str) for _ in restricted), f"{name} needs to be a container of strings")
     verify(set(restricted).issubset(schema.all_tables), f"{restricted} needs to be a subset of {schema.all_tables}")
-    return schema.clone(table_restrictions=restricted)
+    if set(restricted) == set(schema.all_tables):
+        return schema, set()
+    return schema.clone(table_restrictions=restricted), set(restricted)
 def standard_main(input_schema, solution_schema, solve):
     """
      provides standardized command line functionality for a ticdat solve engine
@@ -308,15 +310,23 @@ def standard_main(input_schema, solution_schema, solve):
         action_func_args = inspect.getfullargspec(action_func).args
         verify({"dat", "sln"}.intersection(action_func_args),
                f"{action_name} needs at least one of 'dat', 'sln' as arguments")
-        input_schema = _clone_to_restricted_as_needed(action_func, input_schema, "dat_restricted")
-        solution_schema = _clone_to_restricted_as_needed(action_func, solution_schema, "sln_restricted")
+        input_schema, input_restrictions = _clone_to_restricted_as_needed(action_func, input_schema, "dat_restricted")
+        solution_schema, solution_restrictions = _clone_to_restricted_as_needed(action_func, solution_schema,
+                                                                                "sln_restricted")
     else:
-        input_schema = _clone_to_restricted_as_needed(solve, input_schema, "dat_restricted")
-        solution_schema = _clone_to_restricted_as_needed(solve, solution_schema, "sln_restricted")
+        input_schema, input_restrictions = _clone_to_restricted_as_needed(solve, input_schema, "dat_restricted")
+        solution_schema, solution_restrictions = _clone_to_restricted_as_needed(solve, solution_schema,
+                                                                                "sln_restricted")
 
     if enframe_config:
         enframe_handler = make_enframe_offline_handler(enframe_config, input_schema, solution_schema,
                                                        solve if not action_name else action_func)
+        if "copy" in enframe_handler.solve_type.lower() and input_restrictions:
+            print("\nNote - only the following subset of tables will be copied from the file system\n" +
+                  str(input_restrictions) + "\n")
+        if "solve" in enframe_handler.solve_type.lower() and solution_restrictions:
+            print("\nNote - only the following subset of tables will be written to the local Enframe DB\n" +
+                  str(solution_restrictions) + "\n")
         verify(enframe_handler, "-e/--enframe command line functionality requires additional Enframe specific package")
         if enframe_handler.solve_type == "Proxy Enframe Solve":
             if action_name:

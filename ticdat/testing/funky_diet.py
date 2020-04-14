@@ -86,8 +86,16 @@ def solve(dat):
             rtn.parameters[f] = sum(map(len, fails.values())) if f == "find_data_row_failures" else len(fails)
     return rtn
 
+@dat_restricted(["foods", "nutrition_quantities", "categories"])
+@sln_restricted(['parameters', 'buy_food', 'consume_nutrition'])
+def a_solvish_act(dat):
+    rtn = solve(dat)
+    if rtn:
+        return {"sln":rtn}
+
 @dat_restricted(["foods", "nutrition_quantities"])
 def remove_the_pizza(dat):
+    assert not input_schema.good_tic_dat_object(dat)
     smaller_sch = input_schema.clone(table_restrictions=["foods", "nutrition_quantities"])
     dat.foods.pop("pizza", None)
     smaller_sch.remove_foreign_key_failures(dat)
