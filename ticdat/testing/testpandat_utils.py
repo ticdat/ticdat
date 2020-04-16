@@ -341,8 +341,8 @@ class TestUtils(unittest.TestCase):
         _tdfs_same(pdf, TicDatFactory.create_from_full_schema(_deep_anonymize(pdf.schema(True))))
 
     def testBasicFKs(self):
-        for cloning in [True, False]:
-            clone_me_maybe = lambda x : x.clone() if cloning else x
+        for cloning in [True, False, "*"]:
+            clone_me_maybe = lambda x : x.clone(tdf.all_tables if cloning == "*" else None) if cloning else x
 
             pdf = PanDatFactory(plants = [["name"], ["stuff", "otherstuff"]],
                                 lines = [["name"], ["plant", "weird stuff"]],

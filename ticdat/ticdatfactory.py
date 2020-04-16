@@ -1120,17 +1120,21 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
                     if not any (samerow(r1, r2) for r2 in _iter(t2)) :
                         return False
         return True
-    def clone(self):
+    def clone(self, table_restrictions=None):
         """
         clones the TicDatFactory
-
+        :param table_restrictions : if None, then argument is ignored. Otherwise, a container listing the
+                                    tables to keep in the clone. Tables outside table_restrictions are removed from
+                                    the clone.
         :return: a clone of the TicDatFactory
         """
-        rtn = TicDatFactory.create_from_full_schema(self.schema(include_ancillary_info=True))
+        full_schema = utils.clone_a_anchillary_info_schema(self.schema(include_ancillary_info=True), table_restrictions)
+        rtn = TicDatFactory.create_from_full_schema(full_schema)
         rtn.set_generator_tables(self.generator_tables)
         for tbl, row_predicates in self._data_row_predicates.items():
-            for pn, p in row_predicates.items():
-                rtn.add_data_row_predicate(tbl, predicate=p, predicate_name=pn)
+            if table_restrictions is None or tbl in table_restrictions:
+                for pn, p in row_predicates.items():
+                    rtn.add_data_row_predicate(tbl, predicate=p, predicate_name=pn)
         rtn.enable_foreign_key_links() if self._foreign_key_links_enabled else None
         return rtn
     def copy_tic_dat(self, tic_dat, freeze_it = False):

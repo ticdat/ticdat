@@ -28,6 +28,101 @@ except:
     drm = None
 import inspect
 
+def dat_restricted(table_list):
+    '''
+    Decorator factory used to decorate action functions (or solve function) to restrict the access to the
+    tables in the input_schema
+    :param table_list: A list of tables that are a subset input_schema.all_tables
+    :return: A decorator that can be applied to a function to fine-tune how ticdat controls its access to the
+             input_schema
+    Example usage
+        @dat_restricted(['table_one', 'table_five'])
+        def some_action(dat):
+           # the action
+        ticdat will pass a dat object that only has table_one and table_five as attributes. If a dat object
+        is returned back for writing, any attributes other than table_one, table_five will be ignored.
+    Note that the input_schema is not known by this decorator_factory, and thus table_list can't be sanity checked
+    at the time the function is decorated. ticdat will sanity check the table_list when the decorated function is
+    used by ticdat.standard_main (the Enframe-ticdat code will also perform an equivalent check, as will any ticdat
+    supporting platform).
+    As the function will be decorated with a dat_restricted attribute, a programmer is allowed to avoid the decorator
+    factory and simply do the following instead.
+        def some_action(dat):
+           # the action
+        some_action.dat_restricted = table_list
+    Although  this will work the same, you are encouraged to use the dat_restricted decorator factory for better
+    readability.
+    dat_restricted can be used to decorate the solve function, in which case standard_main and Enframe will do the
+    expected thing and pass a dat object that is restricted to table_list.
+    '''
+    verify(containerish(table_list) and table_list and all(isinstance(_, str) for _ in table_list),
+           "table_list needs to be a non-empty container of strings")
+    def dat_restricted_decorator(func): # no need to use functools.wraps since not actually wrapping.
+        func.dat_restricted = tuple(table_list)
+        return func
+    return dat_restricted_decorator
+
+def sln_restricted(table_list):
+    '''
+    Decorator factory used to decorate action functions (or solve function) to restrict the access to the
+    tables in the solution_schema
+    :param table_list: A list of tables that are a subset solution_schema.all_tables
+    :return: A decorator that can be applied to a function to fine-tune how ticdat controls its access to the
+             solution_schema
+    Example usage
+        @sln_restricted(['table_one', 'table_five'])
+        def some_action(sln):
+           # the action
+        ticdat will pass a sln object that only has table_one and table_five as attributes. If {"sln":sln}
+        is returned back for writing, any sln attributes other than table_one, table_five will be ignored.
+    Note that the solution_schema is not known by this decorator_factory, and thus table_list can't be sanity checked
+    at the time the function is decorated. ticdat will sanity check the table_list when the decorated function is
+    used by ticdat.standard_main (the Enframe-ticdat code will also perform an equivalent check, as will any ticdat
+    supporting platform).
+    As the function will be decorated with a sln_restricted attribute, a programmer is allowed to avoid the decorator
+    factory and simply do the following instead.
+        def some_action(sln):
+           # the action
+        some_action.sln_restricted = table_list
+    Although  this will work the same, you are encouraged to use the sln_restricted decorator factory for better
+    readability.
+    sln_restricted can be used to decorate the solve function, in which case standard_main and Enframe will do the
+    expected thing and handle only the table_list attributes of the returned sln object.
+    '''
+    verify(containerish(table_list) and table_list and all(isinstance(_, str) for _ in table_list),
+           "table_list needs to be a non-empty container of strings")
+    def sln_restricted_decorator(func): # no need to use functools.wraps since not actually wrapping.
+        func.sln_restricted = tuple(table_list)
+        return func
+    return sln_restricted_decorator
+
+def clone_a_anchillary_info_schema(schema, table_restrictions):
+    '''
+    :param schema: the result of calling _.schema(include_ancillary_info=True) when _ is a
+    TicDatFactory or PanDatFactory
+    :param table_restrictions: None (indicating a simple clone) or a sublist of the tables in schema.
+    :return: a clone of schema, except with the tables outside of table_restrictions removed (unlesss
+    table_restrictions is None, in which case schema is returned).
+    '''
+    if table_restrictions is None:
+        return schema
+    verify(containerish(table_restrictions) and table_restrictions and
+           all(isinstance(_, str) for _ in table_restrictions), "table_restrictions needs to be a container of strings")
+    verify(dictish(schema) and set(table_restrictions).issubset(schema.get("tables_fields", [])),
+           "table_restrictions needs to be a subset of schema['tables_fields']")
+    rtn = {}
+    for k, v in schema.items():
+        if k in ["tables_fields", "default_values", "data_types"]:
+            rtn[k] = {_k:_v for _k, _v in v.items() if _k in table_restrictions}
+        elif k == "foreign_keys":
+            rtn[k] = tuple(fk for fk in v if set(fk[:2]).issubset(table_restrictions))
+        elif k == "parameters":
+            rtn[k] = v if k in table_restrictions else {}
+        else:
+            assert k == "infinity_io_flag", f"{k} is unpexted part of schema"
+            rtn[k] = v
+    return rtn
+
 def dateutil_adjuster(x):
     if isinstance(x, datetime_.datetime):
         return x
@@ -123,6 +218,16 @@ ForeignKeyMapping = namedtuple("FKMapping", ("native_field", "foreign_field"))
 # likely replace this with some sort of sys.platform call that makes a good guess
 development_deployed_environment = False
 
+def _clone_to_restricted_as_needed(function, schema, name):
+    if not hasattr(function, name):
+        return schema, set()
+    restricted = getattr(function, name)
+    verify(containerish(restricted) and restricted and
+           all(isinstance(_, str) for _ in restricted), f"{name} needs to be a container of strings")
+    verify(set(restricted).issubset(schema.all_tables), f"{restricted} needs to be a subset of {schema.all_tables}")
+    if set(restricted) == set(schema.all_tables):
+        return schema, set()
+    return schema.clone(table_restrictions=restricted), set(restricted)
 def standard_main(input_schema, solution_schema, solve):
     """
      provides standardized command line functionality for a ticdat solve engine
@@ -165,6 +270,7 @@ def standard_main(input_schema, solution_schema, solve):
            all(isinstance(_, ticdat.PanDatFactory) for _ in (input_schema, solution_schema)),
                "input_schema and solution_schema both need to be TicDatFactory (or PanDatFactory) objects")
     verify(callable(solve), "solve needs to be a function")
+
     _args = inspect.getfullargspec(solve).args
     verify(_args, "solve needs at least one argument")
     create_routine = "create_pan_dat"
@@ -204,13 +310,27 @@ def standard_main(input_schema, solution_schema, solve):
         action_func_args = inspect.getfullargspec(action_func).args
         verify({"dat", "sln"}.intersection(action_func_args),
                f"{action_name} needs at least one of 'dat', 'sln' as arguments")
+        input_schema, input_restrictions = _clone_to_restricted_as_needed(action_func, input_schema, "dat_restricted")
+        solution_schema, solution_restrictions = _clone_to_restricted_as_needed(action_func, solution_schema,
+                                                                                "sln_restricted")
+    else:
+        input_schema, input_restrictions = _clone_to_restricted_as_needed(solve, input_schema, "dat_restricted")
+        solution_schema, solution_restrictions = _clone_to_restricted_as_needed(solve, solution_schema,
+                                                                                "sln_restricted")
 
     if enframe_config:
-        enframe_handler = make_enframe_offline_handler(enframe_config, input_schema, solution_schema, solve)
+        enframe_handler = make_enframe_offline_handler(enframe_config, input_schema, solution_schema,
+                                                       solve if not action_name else action_func)
+        if "copy" in enframe_handler.solve_type.lower() and input_restrictions:
+            print("\nNote - only the following subset of tables will be copied from the file system\n" +
+                  str(input_restrictions) + "\n")
+        if "solve" in enframe_handler.solve_type.lower() and solution_restrictions:
+            print("\nNote - only the following subset of tables will be written to the local Enframe DB\n" +
+                  str(solution_restrictions) + "\n")
         verify(enframe_handler, "-e/--enframe command line functionality requires additional Enframe specific package")
         if enframe_handler.solve_type == "Proxy Enframe Solve":
             if action_name:
-                enframe_handler.perform_action_with_function(action_func)
+                enframe_handler.perform_action_with_function()
             else:
                 enframe_handler.proxy_enframe_solve()
             print(f"Enframe proxy solve executed with {enframe_config}" +
@@ -234,7 +354,7 @@ def standard_main(input_schema, solution_schema, solve):
         print(f"Input data copied from {input_file} to the postgres DB defined by {enframe_config}")
         if enframe_handler.solve_type == "Copy Input to Postgres and Solve":
             if action_name:
-                enframe_handler.perform_action_with_function(action_func)
+                enframe_handler.perform_action_with_function()
             else:
                 enframe_handler.proxy_enframe_solve()
             print(f"Enframe proxy solve executed with {enframe_config}" +
@@ -341,7 +461,7 @@ def _extra_input_file_check_str(input_file):
                "command line argument."
     return ""
 
-def make_enframe_offline_handler(enframe_config, input_schema, solution_schema, solve):
+def make_enframe_offline_handler(enframe_config, input_schema, solution_schema, core_func):
     try:
         from framework_utils.ticdat_deployer import EnframeOfflineHandler
     except:
@@ -350,7 +470,7 @@ def make_enframe_offline_handler(enframe_config, input_schema, solution_schema, 
         except:
             EnframeOfflineHandler = None
     if EnframeOfflineHandler:
-        return EnframeOfflineHandler(enframe_config, input_schema, solution_schema, solve)
+        return EnframeOfflineHandler(enframe_config, input_schema, solution_schema, core_func)
 
 def verify(b, msg) :
     """
