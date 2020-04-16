@@ -1123,7 +1123,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
     def clone(self, table_restrictions=None):
         """
         clones the TicDatFactory
-        :param table_restrictions : if None, then argument is ignored. Otherwise, a container with listing the
+        :param table_restrictions : if None, then argument is ignored. Otherwise, a container listing the
                                     tables to keep in the clone. Tables outside table_restrictions are removed from
                                     the clone.
         :return: a clone of the TicDatFactory
