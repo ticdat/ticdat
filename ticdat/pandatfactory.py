@@ -142,8 +142,9 @@ class PanDatFactory(object):
         """
 
         clones the PanDatFactory
-        :param table_restrictions : if None, then argument is ignored. Otherwise, a container with a sublist of
-                                    tables to keep in the clone. Tables outside sublist are removed from the clone.
+        :param table_restrictions : if None, then argument is ignored. Otherwise, a container with listing the
+                                    tables to keep in the clone. Tables outside table_restrictions are removed from
+                                    the clone.
         :return: a clone of the PanDatFactory
         """
         full_schema = utils.clone_a_anchillary_info_schema(self.schema(include_ancillary_info=True), table_restrictions)
