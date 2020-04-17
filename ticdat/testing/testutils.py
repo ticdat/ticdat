@@ -6,7 +6,7 @@ from ticdat.ticdatfactory import TicDatFactory, ForeignKey, ForeignKeyMapping
 from ticdat.testing.ticdattestutils import dietData, dietSchema, netflowData, netflowSchema, firesException, memo
 from ticdat.testing.ticdattestutils import sillyMeData, sillyMeSchema, makeCleanDir, fail_to_debugger, flagged_as_run_alone
 from ticdat.testing.ticdattestutils import assertTicDatTablesSame, DEBUG, addNetflowForeignKeys, addDietForeignKeys
-from ticdat.testing.ticdattestutils import spacesSchema, spacesData, clean_denormalization_errors
+from ticdat.testing.ticdattestutils import spacesSchema, spacesData, clean_denormalization_errors, get_testing_file_path
 import os
 import itertools
 import shutil
@@ -16,6 +16,16 @@ try:
 except:
     dateutil = None
 import datetime
+from unittest.mock import patch
+
+try:
+    import testing.postgresql as testing_postgresql
+except:
+    testing_postgresql = None
+try:
+    import sqlalchemy as sa
+except:
+    sa = None
 
 def _deep_anonymize(x)  :
     if not hasattr(x, "__contains__") or utils.stringish(x):
@@ -450,8 +460,8 @@ class TestUtils(unittest.TestCase):
             self.assertTrue(tic_dat.more_child[renamings[k1][1], renamings[k2][1]]["Field"] == r["Field"])
 
     def testSix(self):
-        for cloning in [True, False]:
-            clone_me_maybe = lambda x : x.clone() if cloning else x
+        for cloning in [True, False, "*"]:
+            clone_me_maybe = lambda x : x.clone(tdf.all_tables if cloning == "*" else None) if cloning else x
 
             tdf = TicDatFactory(plants = [["name"], ["stuff", "otherstuff"]],
                                 lines = [["name"], ["plant", "weird stuff"]],
@@ -618,8 +628,8 @@ class TestUtils(unittest.TestCase):
                         td.nutritionQuantities['junk',1]["qty"] == 0)
 
     def testEight(self):
-        for cloning in [True, False]:
-            clone_me_maybe = lambda x : x.clone() if cloning else x
+        for cloning in [True, False, "*"]:
+            clone_me_maybe = lambda x : x.clone(tdf.all_tables if cloning == "*" else None) if cloning else x
 
             tdf = TicDatFactory(**dietSchema())
             def makeIt() :
@@ -890,8 +900,8 @@ class TestUtils(unittest.TestCase):
          self.assertTrue(set(dat.bo) == {"a",1})
 
     def testEighteen(self):
-        for cloning in [True, False]:
-            clone_me_maybe = lambda x : x.clone() if cloning else x
+        for cloning in [True, False, "*"]:
+            clone_me_maybe = lambda x : x.clone(tdf.all_tables if cloning == "*" else None) if cloning else x
             tdf = TicDatFactory(**dietSchema())
             dat = tdf.TicDat()
             dat.foods["a"] = 12
@@ -1073,7 +1083,263 @@ class TestUtils(unittest.TestCase):
         tdf.replace_data_type_failures(dat) # coverage
         self.assertTrue(tdf._same_data(dat, tdf.TicDat(data=[[0, "a"], [0, "b"]])))
 
+    def testTwentyFive(self):
+        core_path = os.path.join(_scratchDir, "more_coverage")
+        tdf = TicDatFactory(**dietSchema())
+        dat = tdf.freeze_me(tdf.TicDat(**{t: getattr(dietData(), t) for t in tdf.primary_key_fields}))
+        for attr, path in [["csv", core_path+"_csv"], ["xls", core_path+".xlsx"], ["sql", core_path+".sql"],
+                           ["json", core_path+".json"]]:
+            f_or_d = "directory" if attr == "csv" else "file"
+            write_func, write_kwargs = utils._get_write_function_and_kwargs(tdf, path, f_or_d)
+            write_func(dat, path, **write_kwargs)
+            dat_1 = utils._get_dat_object(tdf, "create_tic_dat", path, f_or_d, False)
+            self.assertTrue(tdf._same_data(dat, dat_1))
 
+
+    def testTwentySix(self):
+        data_path = os.path.join(_scratchDir, "custom_module")
+        makeCleanDir(data_path)
+        module_path = get_testing_file_path("funky.py")
+        import ticdat.testing.funky as funky
+        weirdo_hacks_needed = ["solve", "an_action", "another_action"]
+        for w in weirdo_hacks_needed:
+            _w = getattr(funky, w)
+            _w.__module__ = "weirdo_temp_junky_thing_for_hacking"
+        sys.modules[funky.solve.__module__] = funky
+        dat = funky.input_schema.TicDat(table=[['c'], ['d']])
+        funky.input_schema.json.write_file(dat, os.path.join(data_path, "input.json"))
+        test_args_one = [module_path, "-i", os.path.join(data_path, "input.json"), "-o",
+                         os.path.join(data_path, "output.json")]
+        with patch.object(sys, 'argv', test_args_one):
+            utils.standard_main(funky.input_schema, funky.solution_schema, funky.solve)
+        sln = funky.solution_schema.json.create_tic_dat(os.path.join(data_path, "output.json"))
+        self.assertTrue(set(sln.table) == set(dat.table))
+        test_args_two = [module_path, "-i", os.path.join(data_path, "input.json"), "-o", "junk", "-a", "an_action"]
+        with patch.object(sys, 'argv', test_args_two):
+            utils.standard_main(funky.input_schema, funky.solution_schema, funky.solve)
+        dat = funky.input_schema.json.create_tic_dat(os.path.join(data_path, "input.json"))
+        self.assertTrue(set(sln.table).union({'a'}) == set(dat.table))
+        with patch.object(sys, 'argv', test_args_one + ["-a", "another_action"]):
+            utils.standard_main(funky.input_schema, funky.solution_schema, funky.solve)
+        dat = funky.input_schema.json.create_tic_dat(os.path.join(data_path, "input.json"))
+        sln = funky.solution_schema.json.create_tic_dat(os.path.join(data_path, "output.json"))
+        self.assertTrue(set(dat.table) == {'a', 'c', 'd', 'e'})
+        self.assertTrue(set(sln.table) == {'c', 'd', 'e'})
+        sys.modules.pop(funky.solve.__module__)
+
+    def testTwentySeven(self):
+        # this test will fail without the EnframeOfflineHandler being present. Note that EnframeOfflineHandler
+        # has its own unit tests, this mainly exercises the command line
+        postgresql = testing_postgresql.Postgresql()
+        engine = sa.create_engine(postgresql.url())
+        data_path = os.path.join(_scratchDir, "custom_module_two")
+        makeCleanDir(data_path)
+        module_path = get_testing_file_path("funky.py")
+        import ticdat.testing.funky as funky
+        for w in ["solve", "an_action", "another_action"]:
+            _w = getattr(funky, w)
+            _w.__module__ = "weirdo_temp_thing_for_hacking"
+        sys.modules[funky.solve.__module__] = funky
+        dat = funky.input_schema.TicDat(table=[['c'], ['d']])
+
+        def make_the_json(solve_type, scenario_name="", master_schema=""):
+            d = {"postgres_url": postgresql.url(), "solve_type": solve_type, "scenario_name": scenario_name,
+                 "master_schema": master_schema}
+            rtn = os.path.join(data_path, "ticdat_enframe.json")
+            with open(rtn, "w") as f:
+                json.dump(d, f, indent=2)
+            return rtn
+        funky.input_schema.json.write_file(dat, os.path.join(data_path, "input.json"))
+        e_json = make_the_json("Copy Input to Postgres and Solve")
+        test_args_one = [module_path, "-i", os.path.join(data_path, "input.json"), "-o", "crappola", "-e", e_json]
+        with patch.object(sys, 'argv', test_args_one):
+            utils.standard_main(funky.input_schema, funky.solution_schema, funky.solve)
+        solution_schema = TicDatFactory(s_table=[['field'], []])
+        sln = solution_schema.pgsql.create_tic_dat(engine, "scenario_1")
+        self.assertTrue(set(sln.s_table) == set(dat.table) == {'c', 'd'})
+        test_args_two = [module_path, "-i", os.path.join(data_path, "input.json"), "-o", "junk", "-a", "an_action",
+                         "-e", e_json]
+        with patch.object(sys, 'argv', test_args_two):
+             utils.standard_main(funky.input_schema, funky.solution_schema, funky.solve)
+        dat = funky.solution_schema.pgsql.create_tic_dat(engine, "scenario_1")
+        self.assertTrue(set(sln.s_table).union({'a'}) == set(dat.table))
+        funky.input_schema.json.write_file(dat, os.path.join(data_path, "input.json"), allow_overwrite=True)
+        make_the_json("Copy Input To Postgres") # side effects the path
+        with patch.object(sys, 'argv', test_args_one):
+            utils.standard_main(funky.input_schema, funky.solution_schema, funky.solve)
+        make_the_json("Proxy Enframe Solve") # side effects the path
+        with patch.object(sys, 'argv', test_args_one):
+            utils.standard_main(funky.input_schema, funky.solution_schema, funky.solve)
+        sln = solution_schema.pgsql.create_tic_dat(engine, "scenario_1")
+        self.assertTrue(set(sln.s_table) == {'a', 'c', 'd'})
+        test_args_three = [module_path, "-i", os.path.join(data_path, "input.json"), "-o", "junk",
+                           "-a", "another_action", "-e", e_json]
+        with patch.object(sys, 'argv', test_args_three):
+            utils.standard_main(funky.input_schema, funky.solution_schema, funky.solve)
+        sln = solution_schema.pgsql.create_tic_dat(engine, "scenario_1")
+        dat = funky.solution_schema.pgsql.create_tic_dat(engine, "scenario_1")
+        self.assertTrue(set(sln.s_table) == set(dat.table) == {'a', 'c', 'd', 'e'})
+        engine.dispose()
+        postgresql.stop()
+        sys.modules.pop(funky.solve.__module__)
+
+    def testTwentyEight(self):
+        sch = """
+        {"tables_fields": {"categories": [["Name"], ["Min Nutrition", "Max Nutrition"]], 
+                           "foods": [["Name"], ["Cost"]], 
+                           "nutrition_quantities": [["Food", "Category"], ["Quantity"]]}, 
+         "foreign_keys": [["nutrition_quantities", "foods", ["Food", "Name"]], 
+                          ["nutrition_quantities", "categories", ["Category", "Name"]]], 
+         "default_values": {"categories": {"Min Nutrition": 0, "Max Nutrition": Infinity}, 
+                            "foods": {"Cost": 0}, "nutrition_quantities": {"Quantity": 0}}, 
+         "data_types": {"categories": {"Min Nutrition": [true, true, false, 0, Infinity, false, [], false, false], 
+                                       "Max Nutrition": [true, true, true, 0, Infinity, false, [], false, false]}, 
+         "foods": {"Cost": [true, true, false, 0, Infinity, false, [], false, false]}, 
+         "nutrition_quantities": {"Quantity": [true, true, false, 0, Infinity, false, [], false, false]}}, 
+         "parameters": {}, "infinity_io_flag": "N/A"}
+        """
+        for factory in (TicDatFactory, PanDatFactory):
+            tdf = factory.create_from_full_schema(json.loads(sch))
+            tdf.add_data_row_predicate("categories", predicate_name="Min Max Check",
+                predicate=lambda row : row["Max Nutrition"] >= row["Min Nutrition"])
+            tdf = tdf.clone(table_restrictions=["categories", "nutrition_quantities"])
+            self.assertTrue(list(tdf._data_row_predicates) == ["categories"])
+            self.assertTrue(list(tdf._data_row_predicates['categories']) == ["Min Max Check"])
+            small_sch = json.loads(json.dumps(tdf.schema(include_ancillary_info=True)))
+            inf = float("inf")
+            self.assertTrue(small_sch ==
+                {'tables_fields': {'nutrition_quantities': [['Food', 'Category'],['Quantity']],
+                                    'categories': [['Name'], ['Min Nutrition', 'Max Nutrition']]},
+                 'foreign_keys': [['nutrition_quantities','categories', ['Category', 'Name'], 'many-to-one']],
+                 'default_values': {'nutrition_quantities': {'Quantity': 0},
+                                    'categories': {'Min Nutrition': 0, 'Max Nutrition': inf}},
+                 'data_types': {'categories': {'Min Nutrition': [True, True, False, 0, inf, False, [], False, False],
+                                                'Max Nutrition': [True, True, True, 0, inf, False, [], False, False]},
+                                 'nutrition_quantities': {'Quantity': [True, True, False, 0, inf, False, [], False,
+                                                                       False]}},
+                 'parameters': {}, 'infinity_io_flag': 'N/A'})
+
+    def testTwentyNine(self):
+        data_path = os.path.join(_scratchDir, "custom_module_three")
+        makeCleanDir(data_path)
+        module_path = get_testing_file_path("funky_diet.py")
+        import ticdat.testing.funky_diet as funky_diet
+        funky_diet.solve.__module__ = "weirdo_temp_junky_thing_for_hacking"
+        sys.modules[funky_diet.solve.__module__] = funky_diet
+        tdf = TicDatFactory(**dietSchema())
+        dat = tdf.copy_tic_dat(dietData())
+        d = json.loads(tdf.json.write_file(dat, "", verbose=False))
+        d["nutrition_quantities"] = d.pop("nutritionQuantities")
+        dat = funky_diet.input_schema.TicDat(**d)
+        dat.stupid_table["ju", "nk"] = 10
+        funky_diet.input_schema.json.write_file(dat, os.path.join(data_path, "input.json"))
+        test_args_one = [module_path, "-i", os.path.join(data_path, "input.json"), "-o",
+                         os.path.join(data_path, "output.json")]
+        with patch.object(sys, 'argv', test_args_one):
+            utils.standard_main(funky_diet.input_schema, funky_diet.solution_schema, funky_diet.solve)
+        def read_sln():
+            f = os.path.join(data_path, "output.json")
+            with open(f, "r") as _f:
+                d = json.load(_f)
+                self.assertTrue(set(d) == {'parameters', 'buy_food', 'consume_nutrition'})
+            rtn = funky_diet.solution_schema.json.create_tic_dat(f)
+            self.assertFalse(rtn.weird_table)
+            return rtn
+        sln = read_sln()
+        self.assertTrue({t:len(getattr(sln, t)) for t in funky_diet.solution_schema.all_tables} ==
+                        {"buy_food": 3, "consume_nutrition": 4, "weird_table": 0, "parameters": 1})
+        dat.nutrition_quantities["pizza", "junk"] = {}
+        dat.categories["weirdness"] = dat.categories["wokeness"] = [100, 20]
+        funky_diet.input_schema.json.write_file(dat, os.path.join(data_path, "input.json"), allow_overwrite=True)
+        with patch.object(sys, 'argv', test_args_one):
+            utils.standard_main(funky_diet.input_schema, funky_diet.solution_schema, funky_diet.solve)
+        sln = read_sln()
+        self.assertTrue({t:len(getattr(sln, t)) for t in funky_diet.solution_schema.all_tables} ==
+                        {"buy_food": 3, "consume_nutrition": 4, "weird_table": 0, "parameters": 3})
+        self.assertTrue(sln.parameters["find_foreign_key_failures"]["Value"] == 1)
+        self.assertTrue(sln.parameters["find_data_row_failures"]["Value"] == 2)
+
+        dat = funky_diet.input_schema.TicDat(**d)
+        funky_diet.input_schema.json.write_file(dat, os.path.join(data_path, "pizza.json"))
+        with patch.object(sys, 'argv', [module_path, "-i", os.path.join(data_path, "pizza.json"), "-o", "trash",
+                                        "-a", "remove_the_pizza"]):
+            utils.standard_main(funky_diet.input_schema, funky_diet.solution_schema, funky_diet.solve)
+        with open(os.path.join(data_path, "pizza.json"), "r") as _f:
+            d = json.load(_f)
+        self.assertTrue({k: len(v) for k, v in d.items()} == {"foods": 8, "nutrition_quantities": 32})
+
+        with patch.object(sys, 'argv', [module_path, "-i", "junk", "-o", os.path.join(data_path, "output.json"),
+                                        "-a", "checks_the_unit_test_result"]):
+            utils.standard_main(funky_diet.input_schema, funky_diet.solution_schema, funky_diet.solve)
+        sys.modules.pop(funky_diet.solve.__module__)
+
+    def testThirty(self):
+        # this test will fail without the EnframeOfflineHandler being present. Note that EnframeOfflineHandler
+        # has its own unit tests, this mainly exercises the command line
+        postgresql = testing_postgresql.Postgresql()
+        engine = sa.create_engine(postgresql.url())
+        data_path = os.path.join(_scratchDir, "custom_module_four")
+        makeCleanDir(data_path)
+        module_path = get_testing_file_path("funky_diet.py")
+        import ticdat.testing.funky_diet as funky_diet
+        for w in ["solve", "remove_the_pizza", "checks_the_unit_test_result", "a_solvish_act"]:
+            _w = getattr(funky_diet, w)
+            _w.__module__ = "weirdo_temp_junky_thing_for_hacking"
+        sys.modules[funky_diet.solve.__module__] = funky_diet
+        tdf = TicDatFactory(**dietSchema())
+        dat = tdf.copy_tic_dat(dietData())
+        d = json.loads(tdf.json.write_file(dat, "", verbose=False))
+        d["nutrition_quantities"] = d.pop("nutritionQuantities")
+        dat = funky_diet.input_schema.TicDat(**d)
+        dat.stupid_table["ju", "nk"] = 10
+        funky_diet.input_schema.json.write_file(dat, os.path.join(data_path, "input.json"))
+        def make_the_json(solve_type, scenario_name="", master_schema=""):
+            d = {"postgres_url": postgresql.url(), "solve_type": solve_type, "scenario_name": scenario_name,
+                 "master_schema": master_schema}
+            rtn = os.path.join(data_path, "ticdat_enframe.json")
+            with open(rtn, "w") as f:
+                json.dump(d, f, indent=2)
+            return rtn
+        e_json = make_the_json("Copy Input to Postgres and Solve")
+        test_args_one = [module_path, "-i", os.path.join(data_path, "input.json"), "-o", "junk", "-e", e_json]
+        with patch.object(sys, 'argv', test_args_one):
+            utils.standard_main(funky_diet.input_schema, funky_diet.solution_schema, funky_diet.solve)
+        full_schema = TicDatFactory(**{"s_"+k: v for k,v in funky_diet.solution_schema.schema().items()})
+        self.assertTrue(set(full_schema.pgsql.check_tables_fields(engine, "scenario_1")) == {'s_weird_table'})
+        sln = full_schema.pgsql.create_tic_dat(engine, "scenario_1")
+        self.assertTrue({t: len(getattr(sln, "s_"+t)) for t in funky_diet.solution_schema.all_tables} ==
+                        {"buy_food": 3, "consume_nutrition": 4, "weird_table": 0, "parameters": 1})
+
+        dat.nutrition_quantities["pizza", "junk"] = {}
+        dat.categories["weirdness"] = dat.categories["wokeness"] = [100, 20]
+        funky_diet.input_schema.json.write_file(dat, os.path.join(data_path, "input.json"), allow_overwrite=True)
+        test_args_two = [module_path, "-i", os.path.join(data_path, "input.json"), "-o", "junk", "-e", e_json,
+                         "-a", "a_solvish_act"]
+        with patch.object(sys, 'argv', test_args_two):
+            utils.standard_main(funky_diet.input_schema, funky_diet.solution_schema, funky_diet.solve)
+        sln = full_schema.pgsql.create_tic_dat(engine, "scenario_1")
+        self.assertTrue({t:len(getattr(sln, "s_"+t)) for t in funky_diet.solution_schema.all_tables} ==
+                        {"buy_food": 3, "consume_nutrition": 4, "weird_table": 0, "parameters": 3})
+        self.assertTrue(sln.s_parameters["find_foreign_key_failures"]["Value"] == 1)
+        self.assertTrue(sln.s_parameters["find_data_row_failures"]["Value"] == 2)
+
+        e_json = make_the_json("Proxy Enframe Solve")
+        test_args_three = [module_path, "-i", "junk", "-o", "also_junk", "-e", e_json,
+                         "-a", "checks_the_unit_test_result"]
+        with patch.object(sys, 'argv', test_args_three):
+            utils.standard_main(funky_diet.input_schema, funky_diet.solution_schema, funky_diet.solve)
+
+        test_args_four = [module_path, "-i", "junk", "-o", "also_junk", "-e", e_json,
+                         "-a", "remove_the_pizza"]
+        with patch.object(sys, 'argv', test_args_four):
+            utils.standard_main(funky_diet.input_schema, funky_diet.solution_schema, funky_diet.solve)
+        dat = funky_diet.input_schema.pgsql.create_tic_dat(engine, "scenario_1")
+        self.assertTrue({t: len(getattr(dat, t)) for t in funky_diet.input_schema.all_tables} ==
+                        {"foods": 8, "nutrition_quantities": 32, "categories":6, "stupid_table": 0})
+
+        engine.dispose()
+        postgresql.stop()
+        sys.modules.pop(funky_diet.solve.__module__)
 
 _scratchDir = TestUtils.__name__ + "_scratch"
 

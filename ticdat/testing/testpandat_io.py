@@ -711,19 +711,6 @@ class TestIO(unittest.TestCase):
             dat_1 = utils._get_dat_object(pdf, "create_pan_dat", path, f_or_d, False)
             self.assertTrue(pdf._same_data(dat, dat_1, nans_are_same_for_data_rows=True))
 
-    def test_more_coverage(self):
-        # not really pandatio stuff, just need to cover some more code here
-        core_path = os.path.join(_scratchDir, "more_coverage")
-        tdf = TicDatFactory(**dietSchema())
-        dat = tdf.freeze_me(tdf.TicDat(**{t: getattr(dietData(), t) for t in tdf.primary_key_fields}))
-        for attr, path in [["csv", core_path+"_csv"], ["xls", core_path+".xlsx"], ["sql", core_path+".sql"],
-                           ["json", core_path+".json"]]:
-            f_or_d = "directory" if attr == "csv" else "file"
-            write_func, write_kwargs = utils._get_write_function_and_kwargs(tdf, path, f_or_d)
-            write_func(dat, path, **write_kwargs)
-            dat_1 = utils._get_dat_object(tdf, "create_tic_dat", path, f_or_d, False)
-            self.assertTrue(tdf._same_data(dat, dat_1))
-
 _scratchDir = TestIO.__name__ + "_scratch"
 
 # Run the tests.
