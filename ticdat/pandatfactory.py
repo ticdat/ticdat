@@ -367,6 +367,8 @@ class PanDatFactory(object):
         verify(table not in self.generic_tables, "Cannot set data type for generic table")
         verify(field in self.data_fields[table] + self.primary_key_fields[table],
                "%s does not refer to a field for %s"%(field, table))
+        verify(not (table == "parameters" and field in self.data_fields[table] and self.parameters),
+               "Don't set the data type for the parameters data field if you are using add_parameters.")
 
         self._data_types[table][field] = TypeDictionary.safe_creator(number_allowed, inclusive_min, inclusive_max,
                                             min, max, must_be_int, strings_allowed, nullable, datetime)
@@ -477,6 +479,8 @@ class PanDatFactory(object):
         verify("parameters" in self.all_tables, "No parameters table")
         verify(len(self.primary_key_fields.get("parameters", [])) ==
                len(self.data_fields.get("parameters", [])) == 1, "parameters table is badly formatted")
+        verify(self.data_fields["parameters"][0] not in self._data_types.get("parameters", {}),
+                "Don't set the data type for the parameters data field if you are going to use add_parameters.")
         verify(not self._has_been_used,
                "The parameters can't be changed after a TicDatFactory has been used.")
         td = None
