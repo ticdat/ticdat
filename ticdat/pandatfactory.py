@@ -289,16 +289,21 @@ class PanDatFactory(object):
                 return value if number_v is None else number_v
             dat.parameters[val_fld] = _faster_df_apply(dat.parameters, lambda row: fix_value(row))
         return dat
-    def _infinity_flag_pre_write_adjustment(self, dat):
+    def _pre_write_adjustment(self, dat):
         '''
         we expect other routines inside ticdat to access this routine, even though it starts with _
         :param dat: PanDat object that is just now going to be written to an external data source.
                     dat will NOT be side affected by this routine
-        :return if adjustment is needed, a deep copy of dat that has the appropriate adjustments
+        :return if infinity adjustment is needed, a deep copy of dat that has the appropriate adjustments
+                if no adjustment is needed, an object that has unneeded columns removed
         '''
+
+        rtn = self.PanDat()
+        for t in self.all_tables:
+            setattr(rtn, t, getattr(dat, t)[list(self._all_fields(t) or getattr(dat, t).columns)])
         if self.infinity_io_flag == "N/A" and not self.parameters:
-            return dat
-        rtn = self.copy_pan_dat(dat)
+            return rtn
+        rtn = self.copy_pan_dat(rtn) # deep copy so data changes don't side effect
         if self.parameters: # Assuming a parameters table without parameters specification is just a naive developer
             fld = self.data_fields["parameters"][0]
             rtn.parameters[fld] = _faster_df_apply(rtn.parameters,

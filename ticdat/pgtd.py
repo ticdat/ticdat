@@ -489,7 +489,7 @@ class PostgresPanFactory(_PostgresFactory):
                "pan_dat not a good object for this factory : %s" %"\n".join(msg))
         self.check_tables_fields(engine, schema, error_on_missing_table=True) # call self.write_schema as needed
         self._handle_prexisting_rows(engine, schema, pre_existing_rows or {})
-        pan_dat = self.tdf._infinity_flag_pre_write_adjustment(pan_dat)
+        pan_dat = self.tdf._pre_write_adjustment(pan_dat)
         for table in self._ordered_tables():
             df = getattr(pan_dat, table).copy(deep=True)
             fields = self.tdf.primary_key_fields.get(table, ()) + self.tdf.data_fields.get(table, ())
