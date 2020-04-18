@@ -163,7 +163,7 @@ class JsonPanFactory(freezable_factory(object, "_isFrozen")):
                "pan_dat not a good object for this factory : %s"%"\n".join(msg))
         verify("orient" not in kwargs, "orient should be passed as a non-kwargs argument")
         verify("index" not in kwargs, "index should be passed as a non-kwargs argument")
-        pan_dat = self.pan_dat_factory._infinity_flag_pre_write_adjustment(pan_dat)
+        pan_dat = self.pan_dat_factory._pre_write_adjustment(pan_dat)
 
         if self._modern_pandas:
             # FYI - pandas Exception: ValueError: 'index=False' is only valid when 'orient' is 'split' or 'table'
@@ -303,7 +303,7 @@ class CsvPanFactory(freezable_factory(object, "_isFrozen")):
         msg = []
         verify(self.pan_dat_factory.good_pan_dat_object(pan_dat, msg.append),
                "pan_dat not a good object for this factory : %s"%"\n".join(msg))
-        pan_dat = self.pan_dat_factory._infinity_flag_pre_write_adjustment(pan_dat)
+        pan_dat = self.pan_dat_factory._pre_write_adjustment(pan_dat)
         verify("index" not in kwargs, "index should be passed as a non-kwargs argument")
         kwargs["index"] = index
         case_space_table_names = case_space_table_names and \
@@ -426,7 +426,7 @@ class SqlPanFactory(freezable_factory(object, "_isFrozen")):
         msg = []
         verify(self.pan_dat_factory.good_pan_dat_object(pan_dat, msg.append),
                "pan_dat not a good object for this factory : %s"%"\n".join(msg))
-        pan_dat = self.pan_dat_factory._infinity_flag_pre_write_adjustment(pan_dat)
+        pan_dat = self.pan_dat_factory._pre_write_adjustment(pan_dat)
         if db_file_path:
             verify(not os.path.isdir(db_file_path), "A directory is not a valid SQLLite file path")
         case_space_table_names = case_space_table_names and \
@@ -536,7 +536,7 @@ class XlsPanFactory(freezable_factory(object, "_isFrozen")):
         msg = []
         verify(self.pan_dat_factory.good_pan_dat_object(pan_dat, msg.append),
                "pan_dat not a good object for this factory : %s"%"\n".join(msg))
-        pan_dat = self.pan_dat_factory._infinity_flag_pre_write_adjustment(pan_dat)
+        pan_dat = self.pan_dat_factory._pre_write_adjustment(pan_dat)
         verify(not os.path.isdir(file_path), "A directory is not a valid xls file path")
         case_space_sheet_names = case_space_sheet_names and \
                                  len(set(self.pan_dat_factory.all_tables)) == \
