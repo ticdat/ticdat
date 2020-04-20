@@ -1629,7 +1629,9 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
          will list the positions of the failed rows.
 
          Note - if a row predicate throws an exception, find_data_row_failures will ignore the exception
-         and it will be reported as if the predicate returned False.
+         and it will be reported as if the predicate returned False. That is to say,
+         for a row to be considered "clean", the predicate function needs to successfully return True,
+         and thus a predicate that throws an Exception is a sign of a row that is "dirty".
         """
         assert self.good_tic_dat_object(tic_dat), "tic_dat not a good object for this factory"
         data_row_predicates = {k: dict(v) for k,v in self._data_row_predicates.items()}

@@ -415,7 +415,9 @@ class PanDatFactory(object):
                           Note - if None is passed as a predicate, then any previously added
                           predicate matching (table, predicate_name) will be removed.
                           Note - if the predicate throws an exception, ticdat will ignore the exception
-                          and it will be handled as if the predicate returned False.
+                          and it will be handled as if the predicate returned False. That is to say,
+                          for a row to be considered "clean", the predicate function needs to successfully return True,
+                          and thus a predicate that throws an Exception is a sign of a row that is "dirty".
 
         :param predicate_name: The name of the predicate. If omitted, the smallest non-colliding
                                number will be used.
