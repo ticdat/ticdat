@@ -113,6 +113,21 @@ class TestPostres(unittest.TestCase):
             self.engine.dispose()
             self.postgresql.stop()
 
+    def test_issue_68(self):
+        if not self.can_run:
+            return
+        tdf = diet_schema.clone()
+        pgtf = tdf.pgsql
+        pgtf.write_schema(self.engine, test_schema, include_ancillary_info=False)
+        dat = tdf.copy_tic_dat(diet_dat)
+        import numpy
+        dat.categories["protein"]["Max Nutrition"] = numpy.int64(200)
+        dat.categories["fat"]["Max Nutrition"] = numpy.float64(65)
+        pgtf.write_data(dat, self.engine, test_schema)
+        self.assertFalse(pgtf.find_duplicates(self.engine, test_schema))
+        pg_tic_dat = pgtf.create_tic_dat(self.engine, test_schema)
+        self.assertTrue(diet_schema._same_data(dat, pg_tic_dat))
+
     def test_wtf(self):
         schema = "wtf"
         tdf = TicDatFactory(table_one=[["Cost per Distance", "Cost per Hr. (in-transit)"], ["Stuff"]],

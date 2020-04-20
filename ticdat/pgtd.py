@@ -4,7 +4,7 @@ Read/write ticDat objects from PostGres database. Requires the sqlalchemy module
 
 from collections import defaultdict
 from ticdat.utils import freezable_factory, TicDatError, verify, stringish, FrozenDict, find_duplicates
-from ticdat.utils import create_duplicate_focused_tdf, dictish
+from ticdat.utils import create_duplicate_focused_tdf, dictish, numericish, safe_apply
 try:
     import sqlalchemy as sa
 except:
@@ -261,7 +261,10 @@ class PostgresTicFactory(_PostgresFactory):
         return self.tdf._general_read_cell(t, f, x)
 
     def _write_data_cell(self, t, f, x):
-        return self.tdf._infinity_flag_write_cell(t, f, x)
+        rtn = self.tdf._infinity_flag_write_cell(t, f, x)
+        if numericish(rtn):
+            rtn = float(rtn) if safe_apply(int)(rtn) != rtn else int(rtn)
+        return rtn
 
     def _Rtn(self, freeze_it):
         def _rtn(*args, **kwargs):
