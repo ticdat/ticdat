@@ -414,9 +414,13 @@ class PanDatFactory(object):
                           (both primary key and data field) in the table.
                           Note - if None is passed as a predicate, then any previously added
                           predicate matching (table, predicate_name) will be removed.
+                          Note - if the predicate throws an exception, ticdat will ignore the exception
+                          and it will be handled as if the predicate returned False.
 
         :param predicate_name: The name of the predicate. If omitted, the smallest non-colliding
                                number will be used.
+
+
 
         :return:
         """
@@ -918,6 +922,9 @@ class PanDatFactory(object):
 
         The values are DataFrames that contain the subset of rows that exhibit data failures
         for this specific table, predicate pair (or the Series that identifies these rows).
+
+         Note - if a row predicate throws an exception, find_data_row_failures will ignore the exception
+         and it will be reported as if the predicate returned False.
         """
         msg = []
         verify(self.good_pan_dat_object(pan_dat, msg.append),
@@ -941,8 +948,13 @@ class PanDatFactory(object):
         TPN = clt.namedtuple("TablePredicateName", ["table", "predicate_name"])
         for tbl, row_predicates in data_row_predicates.items():
             for pn, p in row_predicates.items():
+                def _p(row):
+                    try:
+                        return p(row)
+                    except:
+                        return False
                 _table = getattr(pan_dat, tbl)
-                bad_row = lambda row: not p(row)
+                bad_row = lambda row: not _p(row)
                 where_bad_rows = _faster_df_apply(_table, bad_row)
                 if where_bad_rows.any():
                     rtn[TPN(tbl, pn)] = _table[where_bad_rows].copy() if as_table else where_bad_rows

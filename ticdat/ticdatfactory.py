@@ -234,6 +234,8 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
                           (both primary key and data field) in the table.
                           Note - if None is passed as a predicate, then any previously added
                           predicate matching (table, predicate_name) will be removed.
+                          Note - if the predicate throws an exception, ticdat will ignore the exception
+                          and it will be handled as if the predicate returned False.
 
         :param predicate_name: The name of the predicate. If omitted, the smallest non-colliding
                                number will be used.
@@ -1625,6 +1627,9 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
          failed the predicate test. For tables with a primary key this tuple will
          contain the primary key value of each failed row. Otherwise, this tuple
          will list the positions of the failed rows.
+
+         Note - if a row predicate throws an exception, find_data_row_failures will ignore the exception
+         and it will be reported as if the predicate returned False.
         """
         assert self.good_tic_dat_object(tic_dat), "tic_dat not a good object for this factory"
         data_row_predicates = {k: dict(v) for k,v in self._data_row_predicates.items()}
@@ -1644,11 +1649,16 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
         rtn = clt.defaultdict(set)
         for tbl, row_predicates in data_row_predicates.items():
             for pn, p in row_predicates.items():
+                def _p(row):
+                    try:
+                        return p(row)
+                    except:
+                        return False
                 _table = getattr(tic_dat, tbl)
                 if dictish(_table):
                     for pk  in _table:
                         full_row = self._get_full_row(tic_dat, tbl, pk)
-                        if not p(full_row):
+                        if not _p(full_row):
                             rtn[tbl, pn].add(pk)
                 else:
                     for i, data_row in enumerate(_table):
