@@ -505,6 +505,11 @@ class PanDatFactory(object):
 
         :param default_value: the default value to apply
 
+        Note - the data fields of a schema will have the default default of zero. The primary key fields will
+        have no default at all (NOT None, but rather, no default). replace_data_type_failures will only perform
+        replacements on fields for which there is a default, and thus, unless explictly set, only for data fields.
+        This is deliberate, since a bulk replacement in a primary key field is likely to create a duplication failure.
+
         :return:
         """
         verify(not self._has_been_used,
@@ -875,7 +880,9 @@ class PanDatFactory(object):
         Will perform both primary key and data field replacements. However, for a replacement to be performed,
         the (table, field) pair must either have an entry in replacement_values, or there must be a default value
         that can be referenced via self.default_values.get(table, {})[field]. Note that a default default of zero is
-        used for data fields but not for primary key fields.
+        present for data fields but not for primary key fields. As a result, you need to explicitly opt-in to use this
+        routine to replace primary key fields entries. This is deliberate, since a bulk replacement in a primary key
+        field is likely to create a duplication failure.
         """
         msg = []
         verify(self.good_pan_dat_object(pan_dat, msg.append),

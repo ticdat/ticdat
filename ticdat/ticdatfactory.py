@@ -1571,7 +1571,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
         """
         Replace the data cells with data type failures with the default value for the appropriate field.
 
-        :param tic_dat:
+        :param tic_dat: a TicDat object appropriate for this schema
 
         :param replacement_values: a dictionary mapping (table, field) to replacement value.
                the default value will be used for (table, field) pairs not in replacement_values
