@@ -3,7 +3,7 @@ FROM opexanalytics/r-py-gurobi:3.8.1
 COPY . /src
 
 RUN pip3.8 uninstall -y ticdat && \
-	cd /src && rm dist/* && \
+	cd /src && \
 	python3.8 setup.py bdist_wheel && \
 	pip3.8 install dist/*.whl && \
 	pip3.8 uninstall -y framework_utils && \

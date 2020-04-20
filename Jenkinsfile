@@ -1,7 +1,7 @@
 pipeline {
     agent {
         docker {
-            image 'opexanalytics/r-py-gurobi:3.8.1'
+            image 'python:3.8'
             args '-v /var/run/docker.sock:/var/run/docker.sock -v /usr/bin/docker:/usr/bin/docker'
         }
     }
