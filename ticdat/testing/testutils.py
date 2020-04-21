@@ -940,6 +940,11 @@ class TestUtils(unittest.TestCase):
             self.assertTrue(set(failures["nutritionQuantities", 0]) == {("a",3), ("b",3), ("c",3)})
             self.assertTrue(set(failures["nutritionQuantities", 1]) ==
                             set(failures["nutritionQuantities", 2]) == {("a",3), ("c",3)})
+            dat = tdf.copy_tic_dat(dat)
+            dat.nutritionQuantities['b', 3]['qty'] = None
+            failures =  tdf.find_data_row_failures(dat)
+            self.assertTrue(set(failures["nutritionQuantities", 0]) == set(failures["nutritionQuantities", 1]) ==
+                            set(failures["nutritionQuantities", 2]) == {("a", 3), ("b", 3), ("c", 3)})
 
             tdf = TicDatFactory(**spacesSchema())
             tdf.add_data_row_predicate("c_table",
