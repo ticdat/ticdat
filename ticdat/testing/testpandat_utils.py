@@ -172,22 +172,23 @@ class TestUtils(unittest.TestCase):
         ticdat.categories["2"] = [21,20]
         for f, p in itertools.product(ticdat.foods, ticdat.categories):
             ticdat.nutritionQuantities[f,p] = 5
-        ticdat.nutritionQuantities['a', 2] = 12
+
 
         pandat = pdf.copy_pan_dat(copy_to_pandas_with_reset(tdf, ticdat))
         self.assertFalse(pdf.find_duplicates(pandat))
-
         self.assertFalse(pdf.find_data_row_failures(pandat))
 
+        ticdat.nutritionQuantities['a', 2] = 12
+        ticdat.categories["3"] = ['a', 100]
+        pandat_2 = pdf.copy_pan_dat(copy_to_pandas_with_reset(tdf, ticdat))
 
         def perform_predicate_checks(sch):
             pdf = PanDatFactory(**sch)
             pdf.add_data_row_predicate("foods", lambda row: numericish(row["cost"]) and not isnan(row["cost"]), "cost")
-            good_qty = lambda qty :  numericish(qty) and 5 < qty <= 12
+            good_qty = lambda qty : 5 < qty <= 12
             pdf.add_data_row_predicate("nutritionQuantities", lambda row: good_qty(row["qty"]), "qty")
             pdf.add_data_row_predicate("categories",
-                                       lambda row: all(map(numericish, [row["minNutrition"], row["maxNutrition"]]))
-                                                   and row["maxNutrition"] >= row["minNutrition"],
+                                       lambda row: row["maxNutrition"] >= row["minNutrition"],
                                        "minmax")
             failed = pdf.find_data_row_failures(pandat)
             self.assertTrue(set(failed) == {('foods', 'cost'), ('nutritionQuantities', 'qty'), ('categories', 'minmax')})
@@ -198,6 +199,9 @@ class TestUtils(unittest.TestCase):
             self.assertTrue(set(failed['categories', 'minmax']["name"]) == {'2'})
             failed = pdf.find_data_row_failures(pandat, as_table=False)
             self.assertTrue(4 == failed['nutritionQuantities', 'qty'].value_counts()[True])
+            failed = pdf.find_data_row_failures(pandat_2)
+            self.assertTrue(set(failed['categories', 'minmax']["name"]) == {'2', '3'})
+
         perform_predicate_checks(dietSchema())
         perform_predicate_checks({t:'*' for t in dietSchema()})
 

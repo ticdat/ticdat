@@ -367,6 +367,8 @@ class PanDatFactory(object):
         verify(table not in self.generic_tables, "Cannot set data type for generic table")
         verify(field in self.data_fields[table] + self.primary_key_fields[table],
                "%s does not refer to a field for %s"%(field, table))
+        verify(not (table == "parameters" and field in self.data_fields[table] and self.parameters),
+               "Don't set the data type for the parameters data field if you are using add_parameters.")
 
         self._data_types[table][field] = TypeDictionary.safe_creator(number_allowed, inclusive_min, inclusive_max,
                                             min, max, must_be_int, strings_allowed, nullable, datetime)
@@ -412,9 +414,15 @@ class PanDatFactory(object):
                           (both primary key and data field) in the table.
                           Note - if None is passed as a predicate, then any previously added
                           predicate matching (table, predicate_name) will be removed.
+                          Note - if the predicate throws an exception, ticdat will ignore the exception
+                          and it will be handled as if the predicate returned False. That is to say,
+                          for a row to be considered "clean", the predicate function needs to successfully return True,
+                          and thus a predicate that throws an Exception is a sign of a row that is "dirty".
 
         :param predicate_name: The name of the predicate. If omitted, the smallest non-colliding
                                number will be used.
+
+
 
         :return:
         """
@@ -477,6 +485,8 @@ class PanDatFactory(object):
         verify("parameters" in self.all_tables, "No parameters table")
         verify(len(self.primary_key_fields.get("parameters", [])) ==
                len(self.data_fields.get("parameters", [])) == 1, "parameters table is badly formatted")
+        verify(self.data_fields["parameters"][0] not in self._data_types.get("parameters", {}),
+                "Don't set the data type for the parameters data field if you are going to use add_parameters.")
         verify(not self._has_been_used,
                "The parameters can't be changed after a TicDatFactory has been used.")
         td = None
@@ -496,6 +506,12 @@ class PanDatFactory(object):
         :param field: a field in the table
 
         :param default_value: the default value to apply
+
+        Note - the data fields of a schema will have the default default of zero. The primary key fields will
+        have no default at all (NOT None, but rather, no default). replace_data_type_failures will only perform
+        replacements on fields for which there is a default, unless there is some explicit override provided.
+        (see replace_data_type_failures for details).
+        This is deliberate, since a bulk replacement in a primary key field is likely to create a duplication failure.
 
         :return:
         """
@@ -867,7 +883,10 @@ class PanDatFactory(object):
         Will perform both primary key and data field replacements. However, for a replacement to be performed,
         the (table, field) pair must either have an entry in replacement_values, or there must be a default value
         that can be referenced via self.default_values.get(table, {})[field]. Note that a default default of zero is
-        used for data fields but not for primary key fields.
+        present for data fields but not for primary key fields. As a result, you need to explicitly opt-in (either
+        with a prior call to set_data_type or via the replacement_values argument) to use this routine to replace
+        primary key fields entries. This is deliberate, since a bulk replacement in a primary key
+        field is likely to create a duplication failure.
         """
         msg = []
         verify(self.good_pan_dat_object(pan_dat, msg.append),
@@ -914,6 +933,9 @@ class PanDatFactory(object):
 
         The values are DataFrames that contain the subset of rows that exhibit data failures
         for this specific table, predicate pair (or the Series that identifies these rows).
+
+         Note - if a row predicate throws an exception, find_data_row_failures will ignore the exception
+         and it will be reported as if the predicate returned False.
         """
         msg = []
         verify(self.good_pan_dat_object(pan_dat, msg.append),
@@ -937,8 +959,13 @@ class PanDatFactory(object):
         TPN = clt.namedtuple("TablePredicateName", ["table", "predicate_name"])
         for tbl, row_predicates in data_row_predicates.items():
             for pn, p in row_predicates.items():
+                def _p(row):
+                    try:
+                        return p(row)
+                    except:
+                        return False
                 _table = getattr(pan_dat, tbl)
-                bad_row = lambda row: not p(row)
+                bad_row = lambda row: not _p(row)
                 where_bad_rows = _faster_df_apply(_table, bad_row)
                 if where_bad_rows.any():
                     rtn[TPN(tbl, pn)] = _table[where_bad_rows].copy() if as_table else where_bad_rows
