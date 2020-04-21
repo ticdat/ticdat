@@ -509,7 +509,8 @@ class PanDatFactory(object):
 
         Note - the data fields of a schema will have the default default of zero. The primary key fields will
         have no default at all (NOT None, but rather, no default). replace_data_type_failures will only perform
-        replacements on fields for which there is a default, and thus, unless explictly set, only for data fields.
+        replacements on fields for which there is a default, unless there is some explicit override provided.
+        (see replace_data_type_failures for details).
         This is deliberate, since a bulk replacement in a primary key field is likely to create a duplication failure.
 
         :return:
