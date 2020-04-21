@@ -128,6 +128,33 @@ class TestPostres(unittest.TestCase):
         pg_tic_dat = pgtf.create_tic_dat(self.engine, test_schema)
         self.assertTrue(diet_schema._same_data(dat, pg_tic_dat))
 
+    def test_issue_68_pd(self):
+        # kind of a dumb test since the numpy types tend to be the ones pandas creates naturally, but no harm
+        # in being rigorous
+        if not self.can_run:
+            return
+        tdf = diet_schema.clone()
+        pdf = PanDatFactory.create_from_full_schema(tdf.schema(include_ancillary_info=True))
+        pgtf = pdf.pgsql
+        pgtf.write_schema(self.engine, test_schema, include_ancillary_info=False)
+        dat = tdf.copy_tic_dat(diet_dat)
+        import numpy
+        dat.categories["protein"]["Max Nutrition"] = numpy.int64(200)
+        dat.categories["fat"]["Max Nutrition"] = numpy.float64(65)
+        pan_dat = pdf.copy_pan_dat(tdf.copy_to_pandas(dat, drop_pk_columns=False))
+        pgtf.write_data(pan_dat, self.engine, test_schema)
+        pg_pan_dat = pgtf.create_pan_dat(self.engine, test_schema)
+        self.assertTrue(pdf._same_data(pan_dat, pg_pan_dat))
+        from ticdat.pandatfactory import _faster_df_apply
+        pan_dat.categories["Max Nutrition"] = _faster_df_apply(pan_dat.categories,
+                                                               lambda row: numpy.int64(row["Max Nutrition"]))
+        pan_dat.foods["Cost"] = _faster_df_apply(pan_dat.foods, lambda row: numpy.float64(row["Cost"]))
+        from framework_utils.helper_utils import memo
+        memo(pan_dat)
+        pgtf.write_data(pan_dat, self.engine, test_schema)
+        pg_pan_dat = pgtf.create_pan_dat(self.engine, test_schema)
+        self.assertTrue(pdf._same_data(pan_dat, pg_pan_dat))
+
     def test_wtf(self):
         schema = "wtf"
         tdf = TicDatFactory(table_one=[["Cost per Distance", "Cost per Hr. (in-transit)"], ["Stuff"]],
