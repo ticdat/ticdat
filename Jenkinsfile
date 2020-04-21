@@ -21,7 +21,7 @@ pipeline {
             steps {
                 echo 'Building docker image'
                 withDockerRegistry([ credentialsId: "DockerHubLogin", url: "" ]) {
-                    sh 'docker build --no-cache --force-rm --rm=true -f Dockerfile -t opexanalytics/ticdat:dev .'
+                    sh 'docker build --no-cache --force-rm --rm=true -f Dockerfile -t opexanalytics/ticdat:'+env.BRANCH_NAME+' .'
                 }                
             }
         }
@@ -30,7 +30,7 @@ pipeline {
             steps {
                 echo 'Push to docker registries'
                 withDockerRegistry([ credentialsId: "DockerHubLogin", url: "" ]) {
-                    sh 'docker push opexanalytics/ticdat:dev'
+                    sh 'docker push opexanalytics/ticdat:'+env.BRANCH_NAME
                 }                
             }
         }
@@ -39,7 +39,7 @@ pipeline {
             steps {
                 echo 'Run tests'
                 withDockerRegistry([ credentialsId: "DockerHubLogin", url: "" ]) {
-                    sh 'docker run opexanalytics/ticdat:dev'
+                    sh 'docker run opexanalytics/ticdat:'+env.BRANCH_NAME
                 }
             }
         }
