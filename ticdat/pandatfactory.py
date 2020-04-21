@@ -883,8 +883,9 @@ class PanDatFactory(object):
         Will perform both primary key and data field replacements. However, for a replacement to be performed,
         the (table, field) pair must either have an entry in replacement_values, or there must be a default value
         that can be referenced via self.default_values.get(table, {})[field]. Note that a default default of zero is
-        present for data fields but not for primary key fields. As a result, you need to explicitly opt-in to use this
-        routine to replace primary key fields entries. This is deliberate, since a bulk replacement in a primary key
+        present for data fields but not for primary key fields. As a result, you need to explicitly opt-in (either
+        with a prior call to set_data_type or via the replacement_values argument) to use this routine to replace
+        primary key fields entries. This is deliberate, since a bulk replacement in a primary key
         field is likely to create a duplication failure.
         """
         msg = []
