@@ -8,7 +8,7 @@ pipeline {
 
     options {
       buildDiscarder(logRotator(numToKeepStr: '5'))
-    }
+    }    
 
     stages {
         stage('Checkout'){
@@ -22,7 +22,7 @@ pipeline {
                 echo 'Building docker image'
                 withDockerRegistry([ credentialsId: "DockerHubLogin", url: "" ]) {
                     sh 'docker build --no-cache --force-rm --rm=true -f Dockerfile -t opexanalytics/ticdat:'+env.BRANCH_NAME+' .'
-                }
+                }                
             }
         }
 
@@ -31,11 +31,11 @@ pipeline {
                 echo 'Push to docker registries'
                 withDockerRegistry([ credentialsId: "DockerHubLogin", url: "" ]) {
                     sh 'docker push opexanalytics/ticdat:'+env.BRANCH_NAME
-                }
+                }                
             }
         }
 
-        stage('Run'){
+	stage('Run'){
             steps {
                 echo 'Run tests'
                 withDockerRegistry([ credentialsId: "DockerHubLogin", url: "" ]) {
