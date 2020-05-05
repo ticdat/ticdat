@@ -108,7 +108,7 @@ class CsvTicFactory(freezable_factory(object, "_isFrozen")) :
                 for t in self.tic_dat_factory.all_tables}
         missing_tables = {t for t in self.tic_dat_factory.all_tables if not rtn[t]}
         if missing_tables:
-            print ("The following table names could not be found in the %s directory.\n%s\n"%
+            print ("The following table names could not be found (or were empty) in the %s directory.\n%s\n"%
                    (dir_path,"\n".join(missing_tables)))
         return {k:v for k,v in rtn.items() if v}
     def find_duplicates(self, dir_path, dialect='excel', headers_present = True, encoding=None):
