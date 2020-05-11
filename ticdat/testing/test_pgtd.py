@@ -446,10 +446,10 @@ class TestPostres(unittest.TestCase):
         now = time.time()
         pgpf.write_schema(self.engine, schema)
         pgpf.write_data(pan_dat, self.engine, schema)
-        print(f"****{time.time()-now}****")
+        print(f"**&&*{time.time()-now}**&&**")
         now = time.time()
         pg_pan_dat = pgpf.create_pan_dat(self.engine, schema)
-        print(f"****{time.time()-now}****")
+        print(f"*&&*{time.time()-now}**&&**")
         self.assertTrue(pdf._same_data(pan_dat, pg_pan_dat))
 
     def test_extra_fields_pd(self):
