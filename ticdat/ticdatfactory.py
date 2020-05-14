@@ -1603,8 +1603,9 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
                     real_replacements[table, field] = replacement_values.get((table, field),
                         self._default_values.get(table, {}).get(field, 0))
         for (table, field), value in real_replacements.items():
-            verify(self._data_types[table][field].valid_data(value),
-                   "The replacement value %s is not itself valid for %s : %s"%(value, table, field))
+            if (table, field) in replacements_needed:
+                verify(self._data_types[table][field].valid_data(value),
+                       "The replacement value %s is not itself valid for %s : %s"%(value, table, field))
 
         for (table, field), (vals, pks) in replacements_needed.items() :
             if (table, field) in real_replacements:
