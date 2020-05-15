@@ -909,8 +909,9 @@ class PanDatFactory(object):
                     real_replacements[table, field] = replacement_values.get((table, field),
                         self.default_values[table][field])
         for (table, field), value in real_replacements.items():
-            verify(self._true_data_types()[table][field].valid_data(value),
-                   "The replacement value %s is not itself valid for %s : %s"%(value, table, field))
+            if (table, field) in replacements_needed:
+                verify(self._true_data_types()[table][field].valid_data(value),
+                       "The replacement value %s is not itself valid for %s : %s"%(value, table, field))
 
         for (table, field), rows in replacements_needed.items() :
             if (table, field) in real_replacements:
