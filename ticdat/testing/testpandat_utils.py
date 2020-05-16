@@ -160,6 +160,7 @@ class TestUtils(unittest.TestCase):
         self.assertTrue(noneify(errs['foods', 'cost'].itertuples(index=False)) == {('b', None)})
 
     def testDataPredicates(self):
+        # this test won't run properly if the -O flag is applied
         if not self.canRun:
             return
         tdf = TicDatFactory(**dietSchema())
@@ -199,7 +200,13 @@ class TestUtils(unittest.TestCase):
             self.assertTrue(set(failed['categories', 'minmax']["name"]) == {'2'})
             failed = pdf.find_data_row_failures(pandat, as_table=False)
             self.assertTrue(4 == failed['nutritionQuantities', 'qty'].value_counts()[True])
-            failed = pdf.find_data_row_failures(pandat_2)
+            ex = []
+            try:
+                pdf.find_data_row_failures(pandat_2)
+            except Exception as e:
+                ex[:] = [str(e.__class__)]
+            self.assertTrue("TypeError" in ex[0])
+            failed = pdf.find_data_row_failures(pandat_2, exception_handling="Handled as Failure")
             self.assertTrue(set(failed['categories', 'minmax']["name"]) == {'2', '3'})
 
         perform_predicate_checks(dietSchema())
