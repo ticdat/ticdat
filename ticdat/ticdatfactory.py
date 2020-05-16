@@ -7,7 +7,7 @@ from collections import namedtuple, defaultdict
 import ticdat.utils as utils
 from ticdat.utils import verify, freezable_factory, FrozenDict, FreezeableDict
 from ticdat.utils import dictish, containerish, deep_freeze, lupish, safe_apply
-from ticdat.utils import ForeignKey, ForeignKeyMapping, TypeDictionary
+from ticdat.utils import ForeignKey, ForeignKeyMapping, TypeDictionary, RowPredicateInfo
 from string import ascii_uppercase as uppercase
 from itertools import count
 import ticdat.xls as xls
@@ -223,6 +223,8 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
                                predicate_kwargs_maker=None,
                                predicate_failure_response="Boolean"):
         """
+        The purpose of calling add_data_row_predicate is to prepare for a future call to find_data_row_failures.
+
         Adds a data row predicate for a table. Row predicates can be used to check for
         sophisticated data integrity problems of the sort that can't be easily handled with
         a data type rule. For example, a min_supply column can be verified to be no larger than
@@ -232,23 +234,22 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
 
         :param predicate: A one argument function that accepts a table row as an argument and returns
                           Truthy if the row is valid and Falsey otherwise. (See below, there are other arguments that
-                          can refine how predicate works). The argument passed to
-                          predicate will be a dict that maps field name to data value for all fields
-                          (both primary key and data field) in the table.
+                          can refine how predicate works). The row argument passed to predicate will be a dict that
+                          maps field name to data value for all fields (both primary key and data field) in the table.
                           Note - if None is passed as a predicate, then any previously added
                           predicate matching (table, predicate_name) will be removed.
-                          Note - if the predicate throws an exception, ticdat will ignore the exception
-                          and it will be handled as if the predicate returned False.
 
         :param predicate_name: The name of the predicate. If omitted, the smallest non-colliding
                                number will be used.
 
-        :param predicate_kwargs_maker: A function used to support predicate if predicate is to accept more than just
+        :param predicate_kwargs_maker: A function used to support predicate if predicate accepts more than just
                                        the row argument. See https://bit.ly/3cCpFsN for more details.
 
         :param predicate_failure_response: Either "Boolean" or "Error Message". If the latter then predicate indicates
                                            a clean row by returning True (the one and only literal True in Python)
                                            and a dirty row by returning a non-empty string (which is an error message).
+
+        See find_data_row_failures for details on handling exceptions thrown by predicate or predicate_kwargs_maker.
         :return:
         """
         verify(not self._has_been_used,
@@ -263,9 +264,14 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
             return
 
         verify(callable(predicate), "predicate should be a one argument function")
+        verify(not predicate_kwargs_maker or callable(predicate_kwargs_maker),
+               "predicate_kwargs_maker should be a one argument function")
+        verify(predicate_failure_response in ["Boolean", "Error Message"],
+               "predicate_failure_response should be Boolean or Error Message")
         if predicate_name is None:
             predicate_name = next(i for i in count() if i not in self._data_row_predicates[table])
-        self._data_row_predicates[table][predicate_name] = predicate
+        self._data_row_predicates[table][predicate_name] = RowPredicateInfo(predicate, predicate_kwargs_maker,
+                                                                            predicate_failure_response)
 
     def add_parameter(self, name, default_value, number_allowed = True,
                       inclusive_min = True, inclusive_max = False, min = 0, max = float("inf"),
@@ -1149,8 +1155,10 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
         rtn.set_generator_tables(self.generator_tables)
         for tbl, row_predicates in self._data_row_predicates.items():
             if table_restrictions is None or tbl in table_restrictions:
-                for pn, p in row_predicates.items():
-                    rtn.add_data_row_predicate(tbl, predicate=p, predicate_name=pn)
+                for pn, rpi in row_predicates.items():
+                    rtn.add_data_row_predicate(tbl, predicate=rpi.predicate, predicate_name=pn,
+                                               predicate_kwargs_maker=rpi.predicate_kwargs_maker,
+                                               predicate_failure_response=rpi.predicate_failure_response)
         rtn.enable_foreign_key_links() if self._foreign_key_links_enabled else None
         return rtn
     def copy_tic_dat(self, tic_dat, freeze_it = False):
@@ -1666,18 +1674,18 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
             predicate_name = next(make_name(i) for i in count() if make_name(i) not in
                                   self._data_row_predicates.get("parameters", {}))
             data_row_predicates["parameters"] = data_row_predicates.get("parameters", {})
-            data_row_predicates["parameters"][predicate_name] = good_parameter
+            data_row_predicates["parameters"][predicate_name] = RowPredicateInfo(good_parameter, None, "Booelan")
 
         rtn = clt.defaultdict(set)
         for tbl, row_predicates in data_row_predicates.items():
-            for pn, p in row_predicates.items():
+            for pn, rpi in row_predicates.items():
                 def _p(row):
                     try:
-                        return p(row)
+                        return rpi.predicate(row)
                     except:
                         return False
                 if exception_handling == "Unhandled":
-                    _p = p
+                    _p = rpi.predicate
                 _table = getattr(tic_dat, tbl)
                 if dictish(_table):
                     for pk  in _table:
@@ -1686,7 +1694,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
                             rtn[tbl, pn].add(pk)
                 else:
                     for i, data_row in enumerate(_table):
-                        if not p(data_row):
+                        if not _p(data_row):
                             rtn[tbl, pn].add(i)
         TPN = clt.namedtuple("TablePredicateName", ["table", "predicate_name"])
         return {TPN(*k):tuple(v) for k,v in rtn.items()}

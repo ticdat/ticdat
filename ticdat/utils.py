@@ -1068,3 +1068,6 @@ def per_error(x1, x2) :
 
 def nearly_same(x1, x2, epsilon) :
     return per_error(x1, x2) < epsilon
+
+RowPredicateInfo = namedtuple("RowPredicateInfo", ["predicate", "predicate_kwargs_maker",
+                                                   "predicate_failure_response"])
