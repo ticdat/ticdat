@@ -900,6 +900,7 @@ class TestUtils(unittest.TestCase):
          self.assertTrue(set(dat.bo) == {"a",1})
 
     def testEighteen(self):
+        # this test won't run properly if the -O flag is applied
         for cloning in [True, False, "*"]:
             clone_me_maybe = lambda x : x.clone(tdf.all_tables if cloning == "*" else None) if cloning else x
             tdf = TicDatFactory(**dietSchema())
@@ -942,7 +943,13 @@ class TestUtils(unittest.TestCase):
                             set(failures["nutritionQuantities", 2]) == {("a",3), ("c",3)})
             dat = tdf.copy_tic_dat(dat)
             dat.nutritionQuantities['b', 3]['qty'] = None
-            failures =  tdf.find_data_row_failures(dat)
+            ex = []
+            try:
+                tdf.find_data_row_failures(dat)
+            except Exception as e:
+                ex[:] = [str(e.__class__)]
+            self.assertTrue("TypeError" in ex[0])
+            failures =  tdf.find_data_row_failures(dat, exception_handling="Handled as Failure")
             self.assertTrue(set(failures["nutritionQuantities", 0]) == set(failures["nutritionQuantities", 1]) ==
                             set(failures["nutritionQuantities", 2]) == {("a", 3), ("b", 3), ("c", 3)})
 
