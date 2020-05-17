@@ -1656,6 +1656,9 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
          failed the predicate test. For tables with a primary key this tuple will
          contain the primary key value of each failed row. Otherwise, this tuple
          will list the positions of the failed rows.
+
+         If the predicate_failure_response for the predicate is "Error Message" (instead of "Boolean") then
+         the values of the returned dict will themselves be namedtuples with members "primary_key" and "error_message".
         """
         assert self.good_tic_dat_object(tic_dat), "tic_dat not a good object for this factory"
         verify(exception_handling in ["Handled as Failure", "Unhandled", "__debug__"],
@@ -1674,28 +1677,41 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
             predicate_name = next(make_name(i) for i in count() if make_name(i) not in
                                   self._data_row_predicates.get("parameters", {}))
             data_row_predicates["parameters"] = data_row_predicates.get("parameters", {})
-            data_row_predicates["parameters"][predicate_name] = RowPredicateInfo(good_parameter, None, "Booelan")
+            data_row_predicates["parameters"][predicate_name] = RowPredicateInfo(good_parameter, None, "Boolean")
 
         rtn = clt.defaultdict(set)
+        PKEM = clt.namedtuple("PrimaryKeyErrorMessage", ["primary_key", "error_message"])
         for tbl, row_predicates in data_row_predicates.items():
             for pn, rpi in row_predicates.items():
-                def _p(row):
-                    try:
-                        return rpi.predicate(row)
-                    except:
-                        return False
+                if rpi.predicate_failure_response == "Boolean":
+                    def _p(row):
+                        try:
+                            return rpi.predicate(row)
+                        except:
+                            return False
+                else:
+                    def _p(row):
+                        try:
+                            return rpi.predicate(row)
+                        except Exception as e:
+                            return f"Exception<{e}>"
                 if exception_handling == "Unhandled":
                     _p = rpi.predicate
                 _table = getattr(tic_dat, tbl)
+                def handle_full_row(pk, full_row):
+                    if rpi.predicate_failure_response == "Boolean" and not _p(full_row):
+                        rtn[tbl, pn].add(pk)
+                    if rpi.predicate_failure_response == "Error Message":
+                        _ = _p(full_row)
+                        if not _ is True:
+                            rtn[tbl, pn].add(PKEM(pk, str(_)))
                 if dictish(_table):
                     for pk  in _table:
                         full_row = self._get_full_row(tic_dat, tbl, pk)
-                        if not _p(full_row):
-                            rtn[tbl, pn].add(pk)
+                        handle_full_row(pk, full_row)
                 else:
                     for i, data_row in enumerate(_table):
-                        if not _p(data_row):
-                            rtn[tbl, pn].add(i)
+                        handle_full_row(i, data_row)
         TPN = clt.namedtuple("TablePredicateName", ["table", "predicate_name"])
         return {TPN(*k):tuple(v) for k,v in rtn.items()}
 
