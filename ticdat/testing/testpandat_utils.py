@@ -276,12 +276,19 @@ class TestUtils(unittest.TestCase):
             if mess_it_up:
                 dat.messing_it_up+=1
             return {t:len(getattr(dat, t)) for t in tdf.all_tables}
+        pdf.add_data_row_predicate("foods", lambda row, y: y==12, predicate_kwargs_maker=lambda dat: {"y":12})
         pdf.add_data_row_predicate("categories", lambda row, nutritionQuantities, foods, categories:
                                row["name"] == "fat" or categories == 4,
                                predicate_name="catfat", predicate_kwargs_maker=pre_processor)
         pdf.add_data_row_predicate("foods", lambda row, nutritionQuantities, foods, categories:
                                row["name"] == "pizza" or foods == 9,
                                predicate_name= "foodza", predicate_kwargs_maker=pre_processor)
+        def dummy_kwargs_maker(dat):
+            if pdf.good_pan_dat_object(dat):
+                return {"x":1}
+        for t in tdf.all_tables:
+            pdf.add_data_row_predicate(t, lambda row, x: x==1, predicate_name=f"dummy_{t}",
+                                       predicate_kwargs_maker=dummy_kwargs_maker)
         pandat = pdf.copy_pan_dat(copy_to_pandas_with_reset(tdf, tdf.copy_tic_dat(dietData())))
         self.assertFalse(pdf.find_data_row_failures(pandat))
         self.assertTrue(num_calls[0] == 1)

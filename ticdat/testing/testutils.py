@@ -1017,12 +1017,19 @@ class TestUtils(unittest.TestCase):
             if mess_it_up:
                 dat.messing_it_up+=1
             return {t:len(getattr(dat, t)) for t in tdf.all_tables}
+        tdf.add_data_row_predicate("foods", lambda row, y: y==12, predicate_kwargs_maker=lambda dat: {"y":12})
         tdf.add_data_row_predicate("categories", lambda row, nutritionQuantities, foods, categories:
                                    row["name"] == "fat" or categories == 4,
                                    predicate_name="catfat", predicate_kwargs_maker=pre_processor)
         tdf.add_data_row_predicate("foods", lambda row, nutritionQuantities, foods, categories:
                                    row["name"] == "pizza" or foods == 9,
                                    predicate_name= "foodza", predicate_kwargs_maker=pre_processor)
+        def dummy_kwargs_maker(dat):
+            if tdf.good_tic_dat_object(dat):
+                return {"x":1}
+        for t in tdf.all_tables:
+            tdf.add_data_row_predicate(t, lambda row, x: x==1, predicate_name=f"dummy_{t}",
+                                       predicate_kwargs_maker=dummy_kwargs_maker)
         dat = tdf.copy_tic_dat(dietData())
         self.assertFalse(tdf.find_data_row_failures(dat))
         self.assertTrue(num_calls[0] == 1)
