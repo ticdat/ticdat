@@ -191,23 +191,45 @@ class TestUtils(unittest.TestCase):
             pdf.add_data_row_predicate("categories",
                                        lambda row: row["maxNutrition"] >= row["minNutrition"],
                                        "minmax")
+            pdf2 = PanDatFactory(**sch)
+            def make_error_message_predicate(f, name):
+                def error_message_predicate(row):
+                    rtn = f(row)
+                    if rtn:
+                        return True
+                    return f"{name} failed!"
+                return error_message_predicate
+            for t, preds in pdf._data_row_predicates.items():
+                for p_name, rpi in preds.items():
+                    pdf2.add_data_row_predicate(t, make_error_message_predicate(rpi.predicate, p_name),
+                                                predicate_name=p_name, predicate_failure_response="Error Message")
             failed = pdf.find_data_row_failures(pandat)
-            self.assertTrue(set(failed) == {('foods', 'cost'), ('nutritionQuantities', 'qty'), ('categories', 'minmax')})
-            self.assertTrue(set(failed['foods', 'cost']["name"]) == {'b'})
-            self.assertTrue(set({(v["food"], v["category"])
-                                 for v in failed['nutritionQuantities', 'qty'].T.to_dict().values()}) ==
-                                {('b', '1'), ('a', '2'), ('a', '1'), ('b', '2')})
-            self.assertTrue(set(failed['categories', 'minmax']["name"]) == {'2'})
-            failed = pdf.find_data_row_failures(pandat, as_table=False)
-            self.assertTrue(4 == failed['nutritionQuantities', 'qty'].value_counts()[True])
-            ex = []
-            try:
-                pdf.find_data_row_failures(pandat_2)
-            except Exception as e:
-                ex[:] = [str(e.__class__)]
-            self.assertTrue("TypeError" in ex[0])
-            failed = pdf.find_data_row_failures(pandat_2, exception_handling="Handled as Failure")
-            self.assertTrue(set(failed['categories', 'minmax']["name"]) == {'2', '3'})
+            failed2 = pdf2.find_data_row_failures(pandat)
+            self.assertTrue(set(failed) == set(failed2) ==  {('foods', 'cost'),
+                                            ('nutritionQuantities', 'qty'), ('categories', 'minmax')})
+            self.assertTrue(set(failed['foods', 'cost']["name"]) == set(failed2['foods', 'cost']["name"]) == {'b'})
+            for f in [failed, failed2]:
+                self.assertTrue(set({(v["food"], v["category"])
+                                     for v in f['nutritionQuantities', 'qty'].T.to_dict().values()}) ==
+                                    {('b', '1'), ('a', '2'), ('a', '1'), ('b', '2')})
+                self.assertTrue(set(f['categories', 'minmax']["name"]) == {'2'})
+            for t, n in failed2:
+                self.assertTrue(set(failed2[t, n]["Error Message"]) == {f'{n} failed!'})
+            for _pdf in [pdf, pdf2]:
+                failed = _pdf.find_data_row_failures(pandat, as_table=False)
+                self.assertTrue(4 == failed['nutritionQuantities', 'qty'].value_counts()[True])
+                ex = []
+                try:
+                    _pdf.find_data_row_failures(pandat_2)
+                except Exception as e:
+                    ex[:] = [str(e.__class__)]
+                self.assertTrue("TypeError" in ex[0])
+                failed = _pdf.find_data_row_failures(pandat_2, exception_handling="Handled as Failure")
+                self.assertTrue(set(failed['categories', 'minmax']["name"]) == {'2', '3'})
+            failed = pdf2.find_data_row_failures(pandat_2, exception_handling="Handled as Failure")
+            df = failed['categories', 'minmax']
+            err_str = list(df[df['name'] == '3']["Error Message"])[0]
+            self.assertTrue(err_str=="Exception<'>=' not supported between instances of 'int' and 'str'>")
 
         perform_predicate_checks(dietSchema())
         perform_predicate_checks({t:'*' for t in dietSchema()})
@@ -234,6 +256,55 @@ class TestUtils(unittest.TestCase):
         self.assertTrue(set(failed) == {('arcs', 'capacity')})
         self.assertTrue(set({(v["source"], v["destination"])
                              for v in failed['arcs', 'capacity'].T.to_dict().values()}) == {("Detroit", "New York")})
+
+        pdf = PanDatFactory(table=[[],["Field", "Error Message", "Error Message (1)"]])
+        pdf.add_data_row_predicate("table", predicate=lambda row: f"Oops {row['Field']}" if row["Field"] > 1 else True,
+                                   predicate_name="silly", predicate_failure_response="Error Message")
+        df = DataFrame({"Field":[2, 1], "Error Message":["what", "go"], "Error Message (1)": ["now", "go"]})
+        fails = pdf.find_data_row_failures(pdf.PanDat(table=df))
+        df = fails["table", "silly"]
+        self.assertTrue(list(df.columns) == ["Field", "Error Message", "Error Message (1)", "Error Message (2)"])
+        self.assertTrue(set(df["Field"]) == {2} and set(df["Error Message (2)"]) == {'Oops 2'})
+
+    def testDataRowPredicatesTwo(self):
+        tdf = TicDatFactory(**dietSchema())
+        pdf = PanDatFactory(**dietSchema())
+        num_calls=[0]
+        mess_it_up=[]
+        def pre_processor(dat):
+            num_calls[0] += 1
+            if mess_it_up:
+                dat.messing_it_up+=1
+            return {t:len(getattr(dat, t)) for t in tdf.all_tables}
+        pdf.add_data_row_predicate("categories", lambda row, nutritionQuantities, foods, categories:
+                               row["name"] == "fat" or categories == 4,
+                               predicate_name="catfat", predicate_kwargs_maker=pre_processor)
+        pdf.add_data_row_predicate("foods", lambda row, nutritionQuantities, foods, categories:
+                               row["name"] == "pizza" or foods == 9,
+                               predicate_name= "foodza", predicate_kwargs_maker=pre_processor)
+        pandat = pdf.copy_pan_dat(copy_to_pandas_with_reset(tdf, tdf.copy_tic_dat(dietData())))
+        self.assertFalse(pdf.find_data_row_failures(pandat))
+        self.assertTrue(num_calls[0] == 1)
+        pandat.foods = pandat.foods[pandat.foods["name"] != "pizza"].copy()
+        pandat.categories = pandat.categories[pandat.categories["name"] != "fat"].copy()
+        fails = pdf.find_data_row_failures(pandat)
+        self.assertTrue(num_calls[0] == 2)
+        self.assertTrue(set(map(tuple, fails)) == {('categories', 'catfat'), ('foods', 'foodza')})
+        self.assertTrue(set(fails['categories', 'catfat']["name"]) == set(dietData().categories).difference(["fat"]))
+        self.assertTrue(set(fails['foods', 'foodza']["name"]) == set(dietData().foods).difference(["pizza"]))
+
+        mess_it_up.append(1)
+        ex = []
+        try:
+            pdf.find_data_row_failures(pandat)
+        except Exception as e:
+            ex[:] = [str(e.__class__)]
+        self.assertTrue("AttributeError" in ex[0])
+        fails = pdf.find_data_row_failures(pandat, exception_handling="Handled as Failure")
+        self.assertTrue(set(map(tuple, fails)) == {('categories', 'catfat'), ('foods', 'foodza')})
+        self.assertTrue(num_calls[0] == 4)
+        for v in fails.values():
+            self.assertTrue(v.primary_key == '*' and "no attribute" in v.error_message)
 
     def testXToMany(self):
         input_schema = PanDatFactory (roster = [["Name"],["Grade", "Arrival Inning", "Departure Inning",

@@ -283,7 +283,7 @@ class PanDatFactory(object):
                 if not _can_parameter_have_number(key):
                     if push_parameters_to_be_valid and not _can_parameter_have_data(key, value) and \
                        _can_parameter_have_data(key, str(value)):
-                        return str(value)
+                        return str(value) # this is a bit of extreme defensive programming, not covered by unittests
                     return value
                 number_v = safe_apply(float)(value)
                 if number_v is not None and safe_apply(int)(number_v) == number_v:
@@ -398,6 +398,7 @@ class PanDatFactory(object):
                                predicate_failure_response="Boolean"):
         """
         The purpose of calling add_data_row_predicate is to prepare for a future call to find_data_row_failures.
+        See https://bit.ly/3e9pdCP for more details on these two functions.
 
         Adds a data row predicate for a table. Row predicates can be used to check for
         sophisticated data integrity problems of the sort that can't be easily handled with
@@ -426,7 +427,10 @@ class PanDatFactory(object):
                                number will be used.
 
         :param predicate_kwargs_maker: A function used to support predicate if predicate accepts more than just
-                                       the row argument. See https://bit.ly/3cCpFsN for more details.
+                                       the row argument. This function accepts a single dat argument and is called
+                                       exactly once per find_data_row_failures call. If predicate_kwargs_maker returns a
+                                       dict, then this dict is unpacked for each call to predicate. An error (or a bulk
+                                       row failure) results if predicate_kwargs_maker fails to return a dict.
 
         :param predicate_failure_response: Either "Boolean" or "Error Message". If the latter then predicate indicates
                                            a clean row by returning True (the one and only literal True in Python)
@@ -962,6 +966,11 @@ class PanDatFactory(object):
         If the predicate_failure_response for the predicate is "Error Message" (instead of "Boolean")
         and as_table is truthy, then an "Error Message" column will be added to the appropriate DataFrame in the
         returned dict.
+
+        If a predicate_kwargs_maker is provided and it fails (either by failing to return a dictionary or by
+        throwing a handled exception) then appropriate value of the dictionary will be a namedtuple
+        with members "primary_key" and "error message". The former will be populated with '*' (indicating all the rows)
+        and the latter will be a string describing the failure.
         """
         msg = []
         verify(self.good_pan_dat_object(pan_dat, msg.append),
@@ -986,41 +995,58 @@ class PanDatFactory(object):
             data_row_predicates["parameters"][predicate_name] = RowPredicateInfo(good_parameter, None, "Boolean")
 
         rtn = {}
+        predicate_kwargs_maker_results = {}
         TPN = clt.namedtuple("TablePredicateName", ["table", "predicate_name"])
+        PKEM = clt.namedtuple("PrimaryKeyErrorMessage", ["primary_key", "error_message"])
         for tbl, row_predicates in data_row_predicates.items():
             _table = getattr(pan_dat, tbl)
             for pn, rpi in row_predicates.items():
-                if rpi.predicate_failure_response == "Boolean":
-                    def _p(row):
-                        try:
-                            return rpi.predicate(row)
-                        except:
-                            return False
-                    bad_row = (lambda row: not rpi.predicate(row)) if exception_handling == "Unhandled" else \
-                              (lambda row: not _p(row))
-                    where_bad_rows = _faster_df_apply(_table, bad_row)
-                    if where_bad_rows.any():
-                        rtn[TPN(tbl, pn)] = _table[where_bad_rows].copy() if as_table else where_bad_rows
-                else:
-                    def _p(row):
-                        try:
-                            return rpi.predicate(row)
-                        except Exception as e:
-                            return f"Exception<{e}>"
-                    predicate = (lambda row: rpi.predicate(row)) if exception_handling == "Unhandled" else \
-                                (lambda row: _p(row))
-                    predicate_result = _faster_df_apply(_table, predicate)
-                    where_bad_rows = predicate_result.apply(lambda x: x is not True)
-                    if where_bad_rows.any():
-                        if as_table:
-                            rtn[TPN(tbl, pn)] = _df = _table[where_bad_rows].copy()
-                            err_column = "Error Message"
-                            _ = count(1)
-                            while err_column in _df.columns:
-                                err_column = f"Error Message {next(_)}"
-                            _df[err_column] = predicate_result[where_bad_rows].copy()
+                predicate_kwargs = {}
+                if rpi.predicate_kwargs_maker:
+                    if rpi.predicate_kwargs_maker not in predicate_kwargs_maker_results:
+                        if exception_handling == "Handled as Failure":
+                            try:
+                                _predicate_kwargs = rpi.predicate_kwargs_maker(pan_dat)
+                            except Exception as e:
+                                _predicate_kwargs = f"Exception<{e}>"
                         else:
-                            rtn[TPN(tbl, pn)] = where_bad_rows
+                            _predicate_kwargs = rpi.predicate_kwargs_maker(pan_dat)
+                        predicate_kwargs_maker_results[rpi.predicate_kwargs_maker] = _predicate_kwargs
+                    predicate_kwargs = predicate_kwargs_maker_results[rpi.predicate_kwargs_maker]
+                if not isinstance(predicate_kwargs, dict):
+                    rtn[TPN(tbl, pn)] = PKEM('*', str(predicate_kwargs))
+                else:
+                    if rpi.predicate_failure_response == "Boolean":
+                        def _p(row):
+                            try:
+                                return rpi.predicate(row, **predicate_kwargs)
+                            except:
+                                return False
+                        bad_row = (lambda row: not rpi.predicate(row, **predicate_kwargs)) \
+                                  if exception_handling == "Unhandled" else (lambda row: not _p(row))
+                        where_bad_rows = _faster_df_apply(_table, bad_row)
+                        if where_bad_rows.any():
+                            rtn[TPN(tbl, pn)] = _table[where_bad_rows].copy() if as_table else where_bad_rows
+                    else:
+                        def _p(row):
+                            try:
+                                return rpi.predicate(row, **predicate_kwargs)
+                            except Exception as e:
+                                return f"Exception<{e}>"
+                        predicate = (lambda row: rpi.predicate(row, **predicate_kwargs)) \
+                                    if exception_handling == "Unhandled" else (lambda row: _p(row))
+                        predicate_result = _faster_df_apply(_table, predicate)
+                        where_bad_rows = predicate_result.apply(lambda x: x is not True)
+                        if where_bad_rows.any():
+                            if as_table:
+                                rtn[TPN(tbl, pn)] = _df = _table[where_bad_rows].copy()
+                                err_column = "Error Message"
+                                _ = count(1)
+                                while err_column in _df.columns:
+                                    err_column = f"Error Message ({next(_)})"
+                                _df[err_column] = predicate_result[where_bad_rows].copy()
+                            else:
+                                rtn[TPN(tbl, pn)] = where_bad_rows
         return rtn
     def find_foreign_key_failures(self, pan_dat, verbosity="High", as_table=True):
         """

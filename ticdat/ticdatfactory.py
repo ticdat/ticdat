@@ -224,6 +224,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
                                predicate_failure_response="Boolean"):
         """
         The purpose of calling add_data_row_predicate is to prepare for a future call to find_data_row_failures.
+        See https://bit.ly/3e9pdCP for more details on these two functions.
 
         Adds a data row predicate for a table. Row predicates can be used to check for
         sophisticated data integrity problems of the sort that can't be easily handled with
@@ -243,7 +244,10 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
                                number will be used.
 
         :param predicate_kwargs_maker: A function used to support predicate if predicate accepts more than just
-                                       the row argument. See https://bit.ly/3cCpFsN for more details.
+                                       the row argument. This function accepts a single dat argument and is called
+                                       exactly once per find_data_row_failures call. If predicate_kwargs_maker returns a
+                                       dict, then this dict is unpacked for each call to predicate. An error (or a bulk
+                                       row failure) results if predicate_kwargs_maker fails to return a dict.
 
         :param predicate_failure_response: Either "Boolean" or "Error Message". If the latter then predicate indicates
                                            a clean row by returning True (the one and only literal True in Python)
@@ -1659,6 +1663,10 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
 
          If the predicate_failure_response for the predicate is "Error Message" (instead of "Boolean") then
          the values of the returned dict will themselves be namedtuples with members "primary_key" and "error_message".
+
+         If a predicate_kwargs_maker is provided and it fails (either by failing to return a dictionary or by
+         throwing a handled exception) then a similar namedtuple is entered as the value, with primary_key='*'
+         and error_message as a string.
         """
         assert self.good_tic_dat_object(tic_dat), "tic_dat not a good object for this factory"
         verify(exception_handling in ["Handled as Failure", "Unhandled", "__debug__"],
@@ -1679,41 +1687,58 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
             data_row_predicates["parameters"] = data_row_predicates.get("parameters", {})
             data_row_predicates["parameters"][predicate_name] = RowPredicateInfo(good_parameter, None, "Boolean")
 
+        predicate_kwargs_maker_results = {}
         rtn = clt.defaultdict(set)
         PKEM = clt.namedtuple("PrimaryKeyErrorMessage", ["primary_key", "error_message"])
         for tbl, row_predicates in data_row_predicates.items():
             for pn, rpi in row_predicates.items():
-                if rpi.predicate_failure_response == "Boolean":
-                    def _p(row):
-                        try:
-                            return rpi.predicate(row)
-                        except:
-                            return False
+                predicate_kwargs = {}
+                if rpi.predicate_kwargs_maker:
+                    if rpi.predicate_kwargs_maker not in predicate_kwargs_maker_results:
+                        if exception_handling == "Handled as Failure":
+                            try:
+                                _predicate_kwargs = rpi.predicate_kwargs_maker(tic_dat)
+                            except Exception as e:
+                                _predicate_kwargs = f"Exception<{e}>"
+                        else:
+                            _predicate_kwargs = rpi.predicate_kwargs_maker(tic_dat)
+                        predicate_kwargs_maker_results[rpi.predicate_kwargs_maker] = _predicate_kwargs
+                    predicate_kwargs = predicate_kwargs_maker_results[rpi.predicate_kwargs_maker]
+                if not isinstance(predicate_kwargs, dict):
+                    rtn[tbl, pn] = PKEM('*', str(predicate_kwargs))
                 else:
-                    def _p(row):
-                        try:
-                            return rpi.predicate(row)
-                        except Exception as e:
-                            return f"Exception<{e}>"
-                if exception_handling == "Unhandled":
-                    _p = rpi.predicate
-                _table = getattr(tic_dat, tbl)
-                def handle_full_row(pk, full_row):
-                    if rpi.predicate_failure_response == "Boolean" and not _p(full_row):
-                        rtn[tbl, pn].add(pk)
-                    if rpi.predicate_failure_response == "Error Message":
-                        _ = _p(full_row)
-                        if not _ is True:
-                            rtn[tbl, pn].add(PKEM(pk, str(_)))
-                if dictish(_table):
-                    for pk  in _table:
-                        full_row = self._get_full_row(tic_dat, tbl, pk)
-                        handle_full_row(pk, full_row)
-                else:
-                    for i, data_row in enumerate(_table):
-                        handle_full_row(i, data_row)
+                    if rpi.predicate_failure_response == "Boolean":
+                        def _p(row):
+                            try:
+                                return rpi.predicate(row, **predicate_kwargs)
+                            except:
+                                return False
+                    else:
+                        def _p(row):
+                            try:
+                                return rpi.predicate(row, **predicate_kwargs)
+                            except Exception as e:
+                                return f"Exception<{e}>"
+                    if exception_handling == "Unhandled":
+                        _p = lambda row: rpi.predicate(row, **predicate_kwargs)
+                    _table = getattr(tic_dat, tbl)
+                    def handle_full_row(pk, full_row):
+                        if rpi.predicate_failure_response == "Boolean" and not _p(full_row):
+                            rtn[tbl, pn].add(pk)
+                        if rpi.predicate_failure_response == "Error Message":
+                            _ = _p(full_row)
+                            if not _ is True:
+                                rtn[tbl, pn].add(PKEM(pk, str(_)))
+                    if dictish(_table):
+                        for pk  in _table:
+                            full_row = self._get_full_row(tic_dat, tbl, pk)
+                            handle_full_row(pk, full_row)
+                    else:
+                        for i, data_row in enumerate(_table):
+                            handle_full_row(i, data_row)
         TPN = clt.namedtuple("TablePredicateName", ["table", "predicate_name"])
-        return {TPN(*k):tuple(v) for k,v in rtn.items()}
+
+        return {TPN(*k):(v if isinstance(v, PKEM) else tuple(v)) for k,v in rtn.items()}
 
     def obfusimplify(self, tic_dat, table_prepends = utils.FrozenDict(), skip_tables = (),
                      freeze_it = False) :

@@ -922,36 +922,71 @@ class TestUtils(unittest.TestCase):
                                        "minmax")
             tdf.add_data_row_predicate("nutritionQuantities",
                                        lambda row : row["category"] < 3 or row["qty"] % 2)
+            def make_error_message_predicate(f, name):
+                def error_message_predicate(row):
+                    rtn = f(row)
+                    if rtn:
+                        return True
+                    return f"{name} failed!"
+                return error_message_predicate
+            def make_tdf_2(_tdf):
+                tdf2 = TicDatFactory(**_tdf.schema())
+                for t, preds in tdf._data_row_predicates.items():
+                    for p_name, rpi in preds.items():
+                        tdf2.add_data_row_predicate(t, make_error_message_predicate(rpi.predicate, p_name),
+                                                    predicate_name=p_name, predicate_failure_response="Error Message")
+                return tdf2
+            tdf2 = make_tdf_2(tdf)
             tdf = clone_me_maybe(tdf)
+            tdf2 = clone_me_maybe(tdf2)
             failures = tdf.find_data_row_failures(dat)
-            self.assertTrue(any(k for k in failures if
-                                k.table == "nutritionQuantities" and k.predicate_name == 0))
-            self.assertTrue(any(k for k in failures if
-                                k.table == "categories" and k.predicate_name == "minmax"))
+            failures2 = tdf2.find_data_row_failures(dat)
+            for f in [failures, failures2]:
+                self.assertTrue(any(k for k in f if
+                                    k.table == "nutritionQuantities" and k.predicate_name == 0))
+                self.assertTrue(any(k for k in f if
+                                    k.table == "categories" and k.predicate_name == "minmax"))
             self.assertTrue(failures["categories","minmax"] == (2,))
+            self.assertTrue(list(map(tuple, failures2["categories","minmax"])) == [(2, 'minmax failed!')])
             self.assertTrue(set(failures["nutritionQuantities", 0]) == {("a",3), ("c",3)})
+            self.assertTrue(set(map(tuple, failures2["nutritionQuantities", 0])) ==
+                            {(('a', 3), '0 failed!'), (('c', 3), '0 failed!')})
             tdf.add_data_row_predicate("nutritionQuantities", predicate=None, predicate_name=0)
             self.assertTrue(set(tdf.find_data_row_failures(dat)) == {("categories","minmax")})
             for i in range(1,4):
                 tdf.add_data_row_predicate("nutritionQuantities",
                     (lambda j : lambda row : row["category"] < 3 or row["qty"] % j)(i))
             tdf = clone_me_maybe(tdf)
+            tdf2 = make_tdf_2(tdf)
             failures = tdf.find_data_row_failures(dat)
+            failures2 = tdf2.find_data_row_failures(dat)
             self.assertTrue(failures["categories","minmax"] == (2,))
+            self.assertTrue(list(map(tuple, failures2["categories","minmax"])) == [(2, 'minmax failed!')])
             self.assertTrue(set(failures["nutritionQuantities", 0]) == {("a",3), ("b",3), ("c",3)})
             self.assertTrue(set(failures["nutritionQuantities", 1]) ==
                             set(failures["nutritionQuantities", 2]) == {("a",3), ("c",3)})
+            self.assertTrue({i: len(set(failures2["nutritionQuantities", i])) for i in range(3)} ==
+                            {0: 3, 1: 2, 2: 2})
             dat = tdf.copy_tic_dat(dat)
             dat.nutritionQuantities['b', 3]['qty'] = None
-            ex = []
-            try:
-                tdf.find_data_row_failures(dat)
-            except Exception as e:
-                ex[:] = [str(e.__class__)]
-            self.assertTrue("TypeError" in ex[0])
+            for _tdf in [tdf, tdf2]:
+                ex = []
+                try:
+                    _tdf.find_data_row_failures(dat)
+                except Exception as e:
+                    ex[:] = [str(e.__class__)]
+                self.assertTrue("TypeError" in ex[0])
             failures =  tdf.find_data_row_failures(dat, exception_handling="Handled as Failure")
             self.assertTrue(set(failures["nutritionQuantities", 0]) == set(failures["nutritionQuantities", 1]) ==
                             set(failures["nutritionQuantities", 2]) == {("a", 3), ("b", 3), ("c", 3)})
+            failures2 = tdf2.find_data_row_failures(dat, exception_handling="Handled as Failure")
+            for i in range(3):
+                self.assertTrue(set(map(tuple, failures2["nutritionQuantities", i])) ==
+                                {(('a', 3), f'{i} failed!'),
+                                 (('b', 3),
+                                  "Exception<unsupported operand type(s) for %: 'NoneType' and 'int'>"),
+                                 (('c', 3), f'{i} failed!')}
+                                )
 
             tdf = TicDatFactory(**spacesSchema())
             tdf.add_data_row_predicate("c_table",
@@ -965,6 +1000,52 @@ class TestUtils(unittest.TestCase):
             failures = tdf.find_data_row_failures(dat)
             self.assertTrue(failures["c_table", "two_nums"] == (1,))
             self.assertTrue(failures["c_table", "all_strings"] == (0,2))
+
+        tdf = TicDatFactory(table=[[],["Field", "Error Message", "Error Message (1)"]])
+        tdf.add_data_row_predicate("table", predicate=lambda row: f"Oops {row['Field']}" if row["Field"] > 1 else True,
+                                   predicate_name="silly", predicate_failure_response="Error Message")
+        dat = tdf.TicDat(table=[[2, "what", "now"], [1, "go", "go"]])
+        fails = tdf.find_data_row_failures(dat)
+        self.assertTrue(set(map(tuple, fails["table", 'silly'])) == {(0, 'Oops 2')})
+
+    def testEighteenDotOne(self):
+        tdf = TicDatFactory(**dietSchema())
+        num_calls=[0]
+        mess_it_up=[]
+        def pre_processor(dat):
+            num_calls[0] += 1
+            if mess_it_up:
+                dat.messing_it_up+=1
+            return {t:len(getattr(dat, t)) for t in tdf.all_tables}
+        tdf.add_data_row_predicate("categories", lambda row, nutritionQuantities, foods, categories:
+                                   row["name"] == "fat" or categories == 4,
+                                   predicate_name="catfat", predicate_kwargs_maker=pre_processor)
+        tdf.add_data_row_predicate("foods", lambda row, nutritionQuantities, foods, categories:
+                                   row["name"] == "pizza" or foods == 9,
+                                   predicate_name= "foodza", predicate_kwargs_maker=pre_processor)
+        dat = tdf.copy_tic_dat(dietData())
+        self.assertFalse(tdf.find_data_row_failures(dat))
+        self.assertTrue(num_calls[0] == 1)
+        dat.foods.pop("pizza")
+        dat.categories.pop("fat")
+        fails = tdf.find_data_row_failures(dat)
+        self.assertTrue(num_calls[0] == 2)
+        self.assertTrue(set(map(tuple, fails)) == {('categories', 'catfat'), ('foods', 'foodza')})
+        self.assertTrue(set(fails['categories', 'catfat']) == set(dietData().categories).difference(["fat"]))
+        self.assertTrue(set(fails['foods', 'foodza']) == set(dietData().foods).difference(["pizza"]))
+
+        mess_it_up.append(1)
+        ex = []
+        try:
+            tdf.find_data_row_failures(dat)
+        except Exception as e:
+            ex[:] = [str(e.__class__)]
+        self.assertTrue("AttributeError" in ex[0])
+        fails = tdf.find_data_row_failures(dat, exception_handling="Handled as Failure")
+        self.assertTrue(set(map(tuple, fails)) == {('categories', 'catfat'), ('foods', 'foodza')})
+        self.assertTrue(num_calls[0] == 4)
+        for v in fails.values():
+            self.assertTrue(v.primary_key == '*' and "no attribute" in v.error_message)
 
     def testNineteen(self):
         dataObj = dietData()
