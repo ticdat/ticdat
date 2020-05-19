@@ -4,7 +4,7 @@ PEP8
 """
 
 import ticdat.utils as utils
-from ticdat.utils import ForeignKey, ForeignKeyMapping, TypeDictionary, verify, dictish
+from ticdat.utils import ForeignKey, ForeignKeyMapping, TypeDictionary, verify, dictish, RowPredicateInfo
 from ticdat.utils import lupish, deep_freeze, containerish, FrozenDict, safe_apply, stringish
 import ticdat.pandatio as pandatio
 from itertools import count
@@ -151,8 +151,10 @@ class PanDatFactory(object):
         rtn = PanDatFactory.create_from_full_schema(full_schema)
         for tbl, row_predicates in self._data_row_predicates.items():
             if table_restrictions is None or tbl in table_restrictions:
-                for pn, p in row_predicates.items():
-                    rtn.add_data_row_predicate(tbl, predicate=p, predicate_name=pn)
+                for pn, rpi in row_predicates.items():
+                    rtn.add_data_row_predicate(tbl, predicate=rpi.predicate, predicate_name=pn,
+                                               predicate_kwargs_maker=rpi.predicate_kwargs_maker,
+                                               predicate_failure_response=rpi.predicate_failure_response)
         return rtn
     @property
     def default_values(self):
@@ -281,7 +283,7 @@ class PanDatFactory(object):
                 if not _can_parameter_have_number(key):
                     if push_parameters_to_be_valid and not _can_parameter_have_data(key, value) and \
                        _can_parameter_have_data(key, str(value)):
-                        return str(value)
+                        return str(value) # this is a bit of extreme defensive programming, not covered by unittests
                     return value
                 number_v = safe_apply(float)(value)
                 if number_v is not None and safe_apply(int)(number_v) == number_v:
@@ -391,8 +393,13 @@ class PanDatFactory(object):
                "The data types can't be changed after a PanDatFactory has been used.")
         del(self._data_types[table][field])
 
-    def add_data_row_predicate(self, table, predicate, predicate_name = None):
+    def add_data_row_predicate(self, table, predicate, predicate_name=None,
+                               predicate_kwargs_maker=None,
+                               predicate_failure_response="Boolean"):
         """
+        The purpose of calling add_data_row_predicate is to prepare for a future call to find_data_row_failures.
+        See https://bit.ly/3e9pdCP for more details on these two functions.
+
         Adds a data row predicate for a table. Row predicates can be used to check for
         sophisticated data integrity problems of the sort that can't be easily handled with
         a data type rule. For example, a min_supply column can be verified to be no larger than
@@ -409,21 +416,27 @@ class PanDatFactory(object):
         :param table: table in the schema
 
         :param predicate: A one argument function that accepts a table row as an argument and returns
-                          Truthy if the row is valid and Falsey otherwise. The argument passed to
-                          predicate will be a dict that maps field name to data value for all fields
-                          (both primary key and data field) in the table.
+                          Truthy if the row is valid and Falsey otherwise. (See below, there are other arguments that
+                          can refine how predicate works). The row argument passed to predicate will be a dict that
+                          maps field name to data value for all fields (both primary key and data field) in the table.
                           Note - if None is passed as a predicate, then any previously added
                           predicate matching (table, predicate_name) will be removed.
-                          Note - if the predicate throws an exception, ticdat will ignore the exception
-                          and it will be handled as if the predicate returned False. That is to say,
-                          for a row to be considered "clean", the predicate function needs to successfully return True,
-                          and thus a predicate that throws an Exception is a sign of a row that is "dirty".
+.
 
         :param predicate_name: The name of the predicate. If omitted, the smallest non-colliding
                                number will be used.
 
+        :param predicate_kwargs_maker: A function used to support predicate if predicate accepts more than just
+                                       the row argument. This function accepts a single dat argument and is called
+                                       exactly once per find_data_row_failures call. If predicate_kwargs_maker returns a
+                                       dict, then this dict is unpacked for each call to predicate. An error (or a bulk
+                                       row failure) results if predicate_kwargs_maker fails to return a dict.
 
+        :param predicate_failure_response: Either "Boolean" or "Error Message". If the latter then predicate indicates
+                                           a clean row by returning True (the one and only literal True in Python)
+                                           and a dirty row by returning a non-empty string (which is an error message).
 
+        See find_data_row_failures for details on handling exceptions thrown by predicate or predicate_kwargs_maker.
         :return:
         """
         verify(not self._has_been_used,
@@ -436,9 +449,14 @@ class PanDatFactory(object):
             return
 
         verify(callable(predicate), "predicate should be a one argument function")
+        verify(not predicate_kwargs_maker or callable(predicate_kwargs_maker),
+               "predicate_kwargs_maker should be a one argument function")
+        verify(predicate_failure_response in ["Boolean", "Error Message"],
+               "predicate_failure_response should be Boolean or Error Message")
         if predicate_name is None:
             predicate_name = next(i for i in count() if i not in self._data_row_predicates[table])
-        self._data_row_predicates[table][predicate_name] = predicate
+        self._data_row_predicates[table][predicate_name] = RowPredicateInfo(predicate, predicate_kwargs_maker,
+                                                                            predicate_failure_response)
 
     def add_parameter(self, name, default_value, number_allowed = True,
                       inclusive_min = True, inclusive_max = False, min = 0, max = float("inf"),
@@ -918,7 +936,7 @@ class PanDatFactory(object):
                 getattr(pan_dat, table).loc[rows, field] = real_replacements[table, field]
         assert not set(self.find_data_type_failures(pan_dat)).intersection(real_replacements)
         return pan_dat
-    def find_data_row_failures(self, pan_dat, as_table=True):
+    def find_data_row_failures(self, pan_dat, as_table=True, exception_handling="__debug__"):
         """
         Finds the data row failures for a ticdat object
 
@@ -928,6 +946,16 @@ class PanDatFactory(object):
                predicate failure rows themselves. Otherwise will return the boolean Series that indicates
                which rows have predicate failures.
 
+        :param exception_handling: One of "Handled as Failure",  "Unhandled" or "__debug__"
+              "Handled as Failure": Any exception generated by calling a row predicate function will indicate a data
+                                    failure for that row. (Similarly, predicate_kwargs_maker exceptions create an entry
+                                    in the returned failure dictionary).
+              "Unhandled": Exceptions resulting from calling a row predicate (or a predicate_kwargs_maker) will not be
+                           handled by data_row_failures.
+              "__debug__": Since "Handled as Failure" makes more sense for production runs and "Unhandled" makes more
+                           sense for debugging, this value will use the latter if __debug__ is True and the former
+                           otherwise. See -o and __debug__ in Python documentation for more details.
+
         :return: A dictionary constructed as follows:
 
         The keys are namedtuples with members "table", "predicate_name".
@@ -935,12 +963,22 @@ class PanDatFactory(object):
         The values are DataFrames that contain the subset of rows that exhibit data failures
         for this specific table, predicate pair (or the Series that identifies these rows).
 
-         Note - if a row predicate throws an exception, find_data_row_failures will ignore the exception
-         and it will be reported as if the predicate returned False.
+        If the predicate_failure_response for the predicate is "Error Message" (instead of "Boolean")
+        and as_table is truthy, then an "Error Message" column will be added to the appropriate DataFrame in the
+        returned dict.
+
+        If a predicate_kwargs_maker is provided and it fails (either by failing to return a dictionary or by
+        throwing a handled exception) then appropriate value of the dictionary will be a namedtuple
+        with members "primary_key" and "error message". The former will be populated with '*' (indicating all the rows)
+        and the latter will be a string describing the failure.
         """
         msg = []
         verify(self.good_pan_dat_object(pan_dat, msg.append),
                "pan_dat not a good object for this factory : %s"%"\n".join(msg))
+        verify(exception_handling in ["Handled as Failure", "Unhandled", "__debug__"],
+               "bad exception_handling argument")
+        if exception_handling == "__debug__":
+            exception_handling = "Unhandled" if __debug__ else "Handled as Failure"
         data_row_predicates = {k: dict(v) for k,v in self._data_row_predicates.items()}
         if self._parameters:
             def good_parameter(row):
@@ -954,22 +992,61 @@ class PanDatFactory(object):
             predicate_name = next(make_name(i) for i in count() if make_name(i) not in
                                   self._data_row_predicates.get("parameters", {}))
             data_row_predicates["parameters"] = data_row_predicates.get("parameters", {})
-            data_row_predicates["parameters"][predicate_name] = good_parameter
+            data_row_predicates["parameters"][predicate_name] = RowPredicateInfo(good_parameter, None, "Boolean")
 
         rtn = {}
+        predicate_kwargs_maker_results = {}
         TPN = clt.namedtuple("TablePredicateName", ["table", "predicate_name"])
+        PKEM = clt.namedtuple("PrimaryKeyErrorMessage", ["primary_key", "error_message"])
         for tbl, row_predicates in data_row_predicates.items():
-            for pn, p in row_predicates.items():
-                def _p(row):
-                    try:
-                        return p(row)
-                    except:
-                        return False
-                _table = getattr(pan_dat, tbl)
-                bad_row = lambda row: not _p(row)
-                where_bad_rows = _faster_df_apply(_table, bad_row)
-                if where_bad_rows.any():
-                    rtn[TPN(tbl, pn)] = _table[where_bad_rows].copy() if as_table else where_bad_rows
+            _table = getattr(pan_dat, tbl)
+            for pn, rpi in row_predicates.items():
+                predicate_kwargs = {}
+                if rpi.predicate_kwargs_maker:
+                    if rpi.predicate_kwargs_maker not in predicate_kwargs_maker_results:
+                        if exception_handling == "Handled as Failure":
+                            try:
+                                _predicate_kwargs = rpi.predicate_kwargs_maker(pan_dat)
+                            except Exception as e:
+                                _predicate_kwargs = f"Exception<{e}>"
+                        else:
+                            _predicate_kwargs = rpi.predicate_kwargs_maker(pan_dat)
+                        predicate_kwargs_maker_results[rpi.predicate_kwargs_maker] = _predicate_kwargs
+                    predicate_kwargs = predicate_kwargs_maker_results[rpi.predicate_kwargs_maker]
+                if not isinstance(predicate_kwargs, dict):
+                    rtn[TPN(tbl, pn)] = PKEM('*', str(predicate_kwargs))
+                else:
+                    if rpi.predicate_failure_response == "Boolean":
+                        def _p(row):
+                            try:
+                                return rpi.predicate(row, **predicate_kwargs)
+                            except:
+                                return False
+                        bad_row = (lambda row: not rpi.predicate(row, **predicate_kwargs)) \
+                                  if exception_handling == "Unhandled" else (lambda row: not _p(row))
+                        where_bad_rows = _faster_df_apply(_table, bad_row)
+                        if where_bad_rows.any():
+                            rtn[TPN(tbl, pn)] = _table[where_bad_rows].copy() if as_table else where_bad_rows
+                    else:
+                        def _p(row):
+                            try:
+                                return rpi.predicate(row, **predicate_kwargs)
+                            except Exception as e:
+                                return f"Exception<{e}>"
+                        predicate = (lambda row: rpi.predicate(row, **predicate_kwargs)) \
+                                    if exception_handling == "Unhandled" else (lambda row: _p(row))
+                        predicate_result = _faster_df_apply(_table, predicate)
+                        where_bad_rows = predicate_result.apply(lambda x: x is not True)
+                        if where_bad_rows.any():
+                            if as_table:
+                                rtn[TPN(tbl, pn)] = _df = _table[where_bad_rows].copy()
+                                err_column = "Error Message"
+                                _ = count(1)
+                                while err_column in _df.columns:
+                                    err_column = f"Error Message ({next(_)})"
+                                _df[err_column] = predicate_result[where_bad_rows].copy()
+                            else:
+                                rtn[TPN(tbl, pn)] = where_bad_rows
         return rtn
     def find_foreign_key_failures(self, pan_dat, verbosity="High", as_table=True):
         """
