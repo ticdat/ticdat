@@ -1053,6 +1053,21 @@ class TestUtils(unittest.TestCase):
         self.assertTrue(num_calls[0] == 4)
         for v in fails.values():
             self.assertTrue(v.primary_key == '*' and "no attribute" in v.error_message)
+        tdf = tdf.clone()
+        fails = tdf.find_data_row_failures(dat, exception_handling="Handled as Failure")
+        self.assertTrue(set(map(tuple, fails)) == {('categories', 'catfat'), ('foods', 'foodza')})
+        mess_it_up=[]
+        def fail_on_bad_name(row, bad_name):
+            if row["name"] == bad_name:
+                return f"{bad_name} is bad"
+            return True
+        tdf.add_data_row_predicate("foods", fail_on_bad_name, predicate_name="baddy",
+                                   predicate_kwargs_maker=lambda dat: {"bad_name": sorted(dat.foods)[0]},
+                                   predicate_failure_response="Error Message")
+        fails = tdf.find_data_row_failures(tdf.copy_tic_dat(dietData()))
+        self.assertTrue(set(map(tuple, fails)) == {('foods', 'baddy')})
+        self.assertTrue(len(fails['foods', 'baddy']) == 1)
+        self.assertTrue(fails['foods', 'baddy'][0].error_message == "chicken is bad")
 
     def testNineteen(self):
         dataObj = dietData()

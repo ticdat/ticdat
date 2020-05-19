@@ -312,6 +312,22 @@ class TestUtils(unittest.TestCase):
         self.assertTrue(num_calls[0] == 4)
         for v in fails.values():
             self.assertTrue(v.primary_key == '*' and "no attribute" in v.error_message)
+        pdf = pdf.clone()
+        fails = pdf.find_data_row_failures(pandat, exception_handling="Handled as Failure")
+        self.assertTrue(set(map(tuple, fails)) == {('categories', 'catfat'), ('foods', 'foodza')})
+        mess_it_up=[]
+        def fail_on_bad_name(row, bad_name):
+            if row["name"] == bad_name:
+                return f"{bad_name} is bad"
+            return True
+        pdf.add_data_row_predicate("foods", fail_on_bad_name, predicate_name="baddy",
+                                   predicate_kwargs_maker=lambda dat: {"bad_name": sorted(dat.foods["name"])[0]},
+                                   predicate_failure_response="Error Message")
+        pandat = pdf.copy_pan_dat(copy_to_pandas_with_reset(tdf, tdf.copy_tic_dat(dietData())))
+        fails = pdf.find_data_row_failures(pandat)
+        self.assertTrue(set(map(tuple, fails)) == {('foods', 'baddy')})
+        self.assertTrue(len(fails['foods', 'baddy']) == 1)
+        self.assertTrue(list(fails['foods', 'baddy']["Error Message"])[0] == "chicken is bad")
 
     def testXToMany(self):
         input_schema = PanDatFactory (roster = [["Name"],["Grade", "Arrival Inning", "Departure Inning",
