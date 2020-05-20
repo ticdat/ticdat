@@ -604,7 +604,6 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
                 self._default_values[tbl][fld] = 0
         self._data_types = clt.defaultdict(dict)
         self._data_row_predicates = clt.defaultdict(dict)
-        self._data_row_predicate_advanced_settings = clt.defaultdict(dict)
         self._generator_tables = []
         self._foreign_keys = clt.defaultdict(set)
         self.all_tables = frozenset(init_fields)
