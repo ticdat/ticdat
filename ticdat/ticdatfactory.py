@@ -1705,7 +1705,9 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
                         predicate_kwargs_maker_results[rpi.predicate_kwargs_maker] = _predicate_kwargs
                     predicate_kwargs = predicate_kwargs_maker_results[rpi.predicate_kwargs_maker]
                 if not isinstance(predicate_kwargs, dict):
-                    rtn[tbl, pn] = PKEM('*', str(predicate_kwargs))
+                    rtn[tbl, pn] = PKEM('*', predicate_kwargs
+                                        if (isinstance(predicate_kwargs, str) and "Exception<" in predicate_kwargs)
+                                        else f"predicate_kwargs_maker failed to return a dict")
                 else:
                     if rpi.predicate_failure_response == "Boolean":
                         def _p(row):
