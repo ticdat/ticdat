@@ -700,7 +700,7 @@ class PanDatFactory(object):
         class PanDat(object):
             def __repr__(self):
                 tlen = lambda t: len(getattr(self, t)) if isinstance(getattr(self, t), DataFrame) else None
-                return "pd: {" + ", ".join("%s: %s"%(t, tlen(t)) for t in superself.all_tables) + "}"
+                return "pd: {" + ", ".join("%s: %s"%(t, tlen(t)) for t in sorted(superself.all_tables)) + "}"
             def __init__(self, **init_tables):
                 superself._trigger_has_been_used()
                 for t in init_tables :

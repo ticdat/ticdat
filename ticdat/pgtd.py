@@ -274,7 +274,7 @@ class PostgresTicFactory(_PostgresFactory):
             return rtn
         return _rtn
 
-    def create_tic_dat(self, engine, schema, freeze_it=False):
+    def create_tic_dat(self, engine, schema, freeze_it=False, active_fld=""):
         """
         Create a TicDat object from a PostGres connection
 
@@ -284,25 +284,33 @@ class PostgresTicFactory(_PostgresFactory):
 
         :param freeze_it: boolean. should the returned object be frozen?
 
+        :param active_fld: if provided, a string for a boolean filter field.
+
         :return: a TicDat object populated by the matching tables. Missing tables issue a warning and resolve
                  to empty.
 
         """
         verify(sa, "sqlalchemy needs to be installed to use this subroutine")
         self._check_good_pgtd_compatible_table_field_names()
-        return self._Rtn(freeze_it)(**self._create_tic_dat(engine, schema))
+        return self._Rtn(freeze_it)(**self._create_tic_dat(engine, schema, active_fld))
 
-    def _create_tic_dat(self, engine, schema):
+    def _create_tic_dat(self, engine, schema, active_fld):
         tdf = self.tdf
         verify(len(tdf.generic_tables) == 0,
                "Generic tables have not been enabled for postgres")
         verify(len(tdf.generator_tables) == 0,
                "Generator tables have not been enabled for postgres")
-        rtn = self._create_tic_dat_from_con(engine, schema)
+        rtn = self._create_tic_dat_from_con(engine, schema, active_fld)
         return rtn
 
-    def _create_tic_dat_from_con(self, engine, schema):
+    def _create_tic_dat_from_con(self, engine, schema, active_fld):
         tdf = self.tdf
+        active_fld_tables = set()
+        if active_fld:
+            active_fld_tables = {tbl for tbl, fld in [row[:2] for row in engine.execute(
+              f"SELECT table_name, column_name FROM information_schema.columns  WHERE table_schema = '{schema}'")]
+              if fld == active_fld}
+
         missing_tables = self.check_tables_fields(engine, schema)
         rtn = {}
         for table in set(tdf.all_tables).difference(missing_tables):
@@ -310,7 +318,8 @@ class PostgresTicFactory(_PostgresFactory):
             assert tdf.primary_key_fields.get(table) or tdf.data_fields.get(table), "since no generic tables"
             fields = [_pg_name(f) for f in tdf.primary_key_fields.get(table, ()) +
                       tdf.data_fields.get(table, ())]
-            for row in engine.execute(f"Select {', '.join(fields)} from {schema}.{table}"):
+            for row in engine.execute(f"Select {', '.join(fields)} from {schema}.{table}" +
+                                      (f" where {active_fld} is True" if table in active_fld_tables else "")):
                 if tdf.primary_key_fields.get(table):
                     pk = [self._read_data_cell(table, f, x) for f,x in
                           zip(tdf.primary_key_fields[table], row[:len(tdf.primary_key_fields[table])])]

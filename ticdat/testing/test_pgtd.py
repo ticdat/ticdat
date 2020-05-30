@@ -113,6 +113,23 @@ class TestPostres(unittest.TestCase):
             self.engine.dispose()
             self.postgresql.stop()
 
+    def test_pgtd_active(self):
+        if not self.can_run:
+            return
+        schema = test_schema+"_active"
+        tdf = TicDatFactory(**{k:[pks, (["active_fld"] if k == "categories" else []) + dfs]
+                                      for k, (pks, dfs) in diet_schema.schema().items()})
+        tdf.pgsql.write_schema(self.engine, schema, include_ancillary_info=False,
+                               forced_field_types={('categories', 'active_fld'):'boolean'})
+        tdf = diet_schema.clone()
+        dat = tdf.copy_tic_dat(diet_dat)
+        dat.categories["junk"] = {}
+        tdf.pgsql.write_data(dat, self.engine, schema)
+        self.engine.execute(f"Update {schema}.categories set active_fld = True")
+        self.engine.execute(f"Update {schema}.categories set active_fld = False where name = 'junk'")
+        dat_2 = tdf.pgsql.create_tic_dat(self.engine, schema, active_fld="active_fld")
+        self.assertTrue(tdf._same_data(dat_2, diet_dat, epsilon=1e10))
+
     def test_issue_68(self):
         if not self.can_run:
             return
