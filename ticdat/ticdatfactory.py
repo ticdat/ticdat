@@ -1345,7 +1345,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
         class PandasTicDat(object):
             def __repr__(self):
                 tlen = lambda t: utils.safe_apply(len)(getattr(self, t))
-                return "pd: {" + ", ".join("%s: %s"%(t, tlen(t)) for t in superself.all_tables) + "}"
+                return "pd: {" + ", ".join("%s: %s"%(t, tlen(t)) for t in sorted(superself.all_tables)) + "}"
         rtn = PandasTicDat()
 
         # this is the only behavior change we exhibit from between 2 and 3. can

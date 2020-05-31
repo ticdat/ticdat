@@ -128,7 +128,13 @@ class TestPostres(unittest.TestCase):
         self.engine.execute(f"Update {schema}.categories set active_fld = True")
         self.engine.execute(f"Update {schema}.categories set active_fld = False where name = 'junk'")
         dat_2 = tdf.pgsql.create_tic_dat(self.engine, schema, active_fld="active_fld")
-        self.assertTrue(tdf._same_data(dat_2, diet_dat, epsilon=1e10))
+        self.assertTrue(tdf._same_data(dat_2, diet_dat, epsilon=1e-10))
+
+        pdf = PanDatFactory.create_from_full_schema(diet_schema.schema(include_ancillary_info=True))
+        pan_dat = tdf.copy_to_pandas(diet_dat, drop_pk_columns=False)
+        pan_dat_2 = pdf.pgsql.create_pan_dat(self.engine, schema, active_fld="active_fld")
+        self.assertTrue(pdf._same_data(pan_dat, pan_dat_2, epsilon=1e-10))
+
 
     def test_issue_68(self):
         if not self.can_run:

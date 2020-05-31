@@ -307,10 +307,8 @@ class PostgresTicFactory(_PostgresFactory):
         tdf = self.tdf
         active_fld_tables = set()
         if active_fld:
-            active_fld_tables = {tbl for tbl, fld in [row[:2] for row in engine.execute(
-              f"SELECT table_name, column_name FROM information_schema.columns  WHERE table_schema = '{schema}'")]
-              if fld == active_fld}
-
+            active_fld_tables = {_[0] for _ in engine.execute("SELECT table_name FROM information_schema.columns " +
+              f"WHERE table_schema = '{schema}' and column_name = '{active_fld}'")}
         missing_tables = self.check_tables_fields(engine, schema)
         rtn = {}
         for table in set(tdf.all_tables).difference(missing_tables):
@@ -454,7 +452,7 @@ class PostgresPanFactory(_PostgresFactory):
         """
         super().__init__(pan_dat_factory)
 
-    def create_pan_dat(self, engine, schema):
+    def create_pan_dat(self, engine, schema, active_fld=""):
         """
         Create a PanDat object from a PostGres connection
 
@@ -462,16 +460,23 @@ class PostgresPanFactory(_PostgresFactory):
 
         :param schema : The name of the schema to read from
 
+        :param active_fld: if provided, a string for a boolean filter field.
+
         :return: a PanDat object populated by the matching tables. Missing tables issue a warning and resolve
                  to empty.
         """
         self._check_good_pgtd_compatible_table_field_names()
         missing_tables = self.check_tables_fields(engine, schema)
+        active_fld_tables = set()
+        if active_fld:
+            active_fld_tables = {_[0] for _ in engine.execute("SELECT table_name FROM information_schema.columns " +
+              f"WHERE table_schema = '{schema}' and column_name = '{active_fld}'")}
         rtn = {}
         for table in set(self.tdf.all_tables).difference(missing_tables):
             fields = [(f, _pg_name(f)) for f in self.tdf.primary_key_fields.get(table, ()) +
                       self.tdf.data_fields.get(table, ())]
-            rtn[table] = pd.read_sql(sql=f"Select {', '.join([pgf for f, pgf in fields])} from {schema}.{table}",
+            rtn[table] = pd.read_sql(sql=f"Select {', '.join([pgf for f, pgf in fields])} from {schema}.{table}" +
+                                         (f" where {active_fld} is True" if table in active_fld_tables else ""),
                                      con=engine)
             rtn[table].rename(columns={pgf: f for f, pgf in fields}, inplace=True)
 
