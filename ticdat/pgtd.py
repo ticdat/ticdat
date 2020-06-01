@@ -284,13 +284,14 @@ class PostgresTicFactory(_PostgresFactory):
 
         :param freeze_it: boolean. should the returned object be frozen?
 
-        :param active_fld: if provided, a string for a boolean filter field.
+        :param active_fld: if provided, a string for a boolean filter field. (Must be compliant w PG naming conventions)
 
         :return: a TicDat object populated by the matching tables. Missing tables issue a warning and resolve
                  to empty.
 
         """
         verify(sa, "sqlalchemy needs to be installed to use this subroutine")
+        verify(_pg_name(active_fld) ==  active_fld, "active_fld needs to be compliant with PG naming conventions")
         self._check_good_pgtd_compatible_table_field_names()
         return self._Rtn(freeze_it)(**self._create_tic_dat(engine, schema, active_fld))
 
@@ -329,13 +330,15 @@ class PostgresTicFactory(_PostgresFactory):
 
         return rtn
 
-    def find_duplicates(self, engine, schema):
+    def find_duplicates(self, engine, schema, active_fld=""):
         """
         Find the row counts for duplicated rows.
 
         :param engine: A sqlalchemy Engine object that can connect to our postgres instance
 
         :param schema: Name of the schema within the engine's database to use
+
+        :param active_fld: if provided, a string for a boolean filter field. (Must be compliant w PG naming conventions)
 
         :return: A dictionary whose keys are table names for the primary-ed key tables.
                  Each value of the return dictionary is itself a dictionary.
@@ -348,8 +351,8 @@ class PostgresTicFactory(_PostgresFactory):
         if not self._duplicate_focused_tdf:
             return {}
 
-        return find_duplicates(PostgresTicFactory(self._duplicate_focused_tdf).create_tic_dat(engine, schema),
-                               self._duplicate_focused_tdf)
+        return find_duplicates(PostgresTicFactory(self._duplicate_focused_tdf).create_tic_dat(
+                                engine, schema, active_fld=active_fld), self._duplicate_focused_tdf)
 
 
     def _get_data(self, tic_dat, schema, dump_format="list"):
@@ -460,12 +463,13 @@ class PostgresPanFactory(_PostgresFactory):
 
         :param schema : The name of the schema to read from
 
-        :param active_fld: if provided, a string for a boolean filter field.
+        :param active_fld: if provided, a string for a boolean filter field. (Must be compliant w PG naming conventions)
 
         :return: a PanDat object populated by the matching tables. Missing tables issue a warning and resolve
                  to empty.
         """
         self._check_good_pgtd_compatible_table_field_names()
+        verify(_pg_name(active_fld) ==  active_fld, "active_fld needs to be compliant with PG naming conventions")
         missing_tables = self.check_tables_fields(engine, schema)
         active_fld_tables = set()
         if active_fld:

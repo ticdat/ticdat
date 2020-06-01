@@ -113,6 +113,26 @@ class TestPostres(unittest.TestCase):
             self.engine.dispose()
             self.postgresql.stop()
 
+    def test_pgtd_active_dups(self):
+        if not self.can_run:
+            return
+        schema = test_schema+"_act_dups"
+        tdf_1 = TicDatFactory(t_one=[[], ["Field One", "Field Two", "Da Active"]],
+                              t_two=[[], ["Field One", "Da Active"]])
+        dat = tdf_1.TicDat(t_one = [["a", "b", True], ["a", "c", True], ["a", "b", False], ["a", "d", True]],
+                           t_two = [["a", True], ["b", False], ["a", False], ["b", False], ["a", False]])
+        self.assertTrue(len(dat.t_one) == 4 and len(dat.t_two) == 5)
+        tdf_1.pgsql.write_schema(self.engine, schema, include_ancillary_info=False, forced_field_types=
+            {(t, f): "boolean" if "Active" in f else "text" for t, (pks, dfs) in tdf_1.schema().items()
+             for f in pks + dfs})
+        tdf_1.pgsql.write_data(dat, self.engine, schema)
+        self.assertTrue(tdf_1._same_data(dat, tdf_1.pgsql.create_tic_dat(self.engine, schema), epsilon=1e-8))
+        tdf = TicDatFactory(t_one= [["Field One", "Field Two"], []],
+                            t_two= [["Field One"], []])
+        self.assertTrue(tdf.pgsql.find_duplicates(self.engine, schema))
+        self.assertFalse(tdf.pgsql.find_duplicates(self.engine, schema, active_fld="da_active"))
+
+
     def test_pgtd_active(self):
         if not self.can_run:
             return
