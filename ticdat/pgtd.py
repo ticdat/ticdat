@@ -284,7 +284,9 @@ class PostgresTicFactory(_PostgresFactory):
 
         :param freeze_it: boolean. should the returned object be frozen?
 
-        :param active_fld: if provided, a string for a boolean filter field. (Must be compliant w PG naming conventions)
+        :param active_fld: if provided, a string for a boolean filter field.
+                           Must be compliant w PG naming conventions, which are different from ticdat field naming
+                           conventions. Typically developer can ignore this argument, designed for expert support.
 
         :return: a TicDat object populated by the matching tables. Missing tables issue a warning and resolve
                  to empty.
@@ -338,7 +340,9 @@ class PostgresTicFactory(_PostgresFactory):
 
         :param schema: Name of the schema within the engine's database to use
 
-        :param active_fld: if provided, a string for a boolean filter field. (Must be compliant w PG naming conventions)
+        :param active_fld: if provided, a string for a boolean filter field.
+                           Must be compliant w PG naming conventions, which are different from ticdat field naming
+                           conventions. Typically developer can ignore this argument, designed for expert support.
 
         :return: A dictionary whose keys are table names for the primary-ed key tables.
                  Each value of the return dictionary is itself a dictionary.
@@ -463,7 +467,9 @@ class PostgresPanFactory(_PostgresFactory):
 
         :param schema : The name of the schema to read from
 
-        :param active_fld: if provided, a string for a boolean filter field. (Must be compliant w PG naming conventions)
+        :param active_fld: if provided, a string for a boolean filter field.
+                           Must be compliant w PG naming conventions, which are different from ticdat field naming
+                           conventions. Typically developer can ignore this argument, designed for expert support.
 
         :return: a PanDat object populated by the matching tables. Missing tables issue a warning and resolve
                  to empty.
