@@ -274,7 +274,7 @@ class PostgresTicFactory(_PostgresFactory):
             return rtn
         return _rtn
 
-    def create_tic_dat(self, engine, schema, freeze_it=False):
+    def create_tic_dat(self, engine, schema, freeze_it=False, active_fld=""):
         """
         Create a TicDat object from a PostGres connection
 
@@ -284,25 +284,34 @@ class PostgresTicFactory(_PostgresFactory):
 
         :param freeze_it: boolean. should the returned object be frozen?
 
+        :param active_fld: if provided, a string for a boolean filter field.
+                           Must be compliant w PG naming conventions, which are different from ticdat field naming
+                           conventions. Typically developer can ignore this argument, designed for expert support.
+
         :return: a TicDat object populated by the matching tables. Missing tables issue a warning and resolve
                  to empty.
 
         """
         verify(sa, "sqlalchemy needs to be installed to use this subroutine")
+        verify(_pg_name(active_fld) ==  active_fld, "active_fld needs to be compliant with PG naming conventions")
         self._check_good_pgtd_compatible_table_field_names()
-        return self._Rtn(freeze_it)(**self._create_tic_dat(engine, schema))
+        return self._Rtn(freeze_it)(**self._create_tic_dat(engine, schema, active_fld))
 
-    def _create_tic_dat(self, engine, schema):
+    def _create_tic_dat(self, engine, schema, active_fld):
         tdf = self.tdf
         verify(len(tdf.generic_tables) == 0,
                "Generic tables have not been enabled for postgres")
         verify(len(tdf.generator_tables) == 0,
                "Generator tables have not been enabled for postgres")
-        rtn = self._create_tic_dat_from_con(engine, schema)
+        rtn = self._create_tic_dat_from_con(engine, schema, active_fld)
         return rtn
 
-    def _create_tic_dat_from_con(self, engine, schema):
+    def _create_tic_dat_from_con(self, engine, schema, active_fld):
         tdf = self.tdf
+        active_fld_tables = set()
+        if active_fld:
+            active_fld_tables = {_[0] for _ in engine.execute("SELECT table_name FROM information_schema.columns " +
+              f"WHERE table_schema = '{schema}' and column_name = '{active_fld}'")}
         missing_tables = self.check_tables_fields(engine, schema)
         rtn = {}
         for table in set(tdf.all_tables).difference(missing_tables):
@@ -310,7 +319,8 @@ class PostgresTicFactory(_PostgresFactory):
             assert tdf.primary_key_fields.get(table) or tdf.data_fields.get(table), "since no generic tables"
             fields = [_pg_name(f) for f in tdf.primary_key_fields.get(table, ()) +
                       tdf.data_fields.get(table, ())]
-            for row in engine.execute(f"Select {', '.join(fields)} from {schema}.{table}"):
+            for row in engine.execute(f"Select {', '.join(fields)} from {schema}.{table}" +
+                                      (f" where {active_fld} is True" if table in active_fld_tables else "")):
                 if tdf.primary_key_fields.get(table):
                     pk = [self._read_data_cell(table, f, x) for f,x in
                           zip(tdf.primary_key_fields[table], row[:len(tdf.primary_key_fields[table])])]
@@ -322,13 +332,17 @@ class PostgresTicFactory(_PostgresFactory):
 
         return rtn
 
-    def find_duplicates(self, engine, schema):
+    def find_duplicates(self, engine, schema, active_fld=""):
         """
         Find the row counts for duplicated rows.
 
         :param engine: A sqlalchemy Engine object that can connect to our postgres instance
 
         :param schema: Name of the schema within the engine's database to use
+
+        :param active_fld: if provided, a string for a boolean filter field.
+                           Must be compliant w PG naming conventions, which are different from ticdat field naming
+                           conventions. Typically developer can ignore this argument, designed for expert support.
 
         :return: A dictionary whose keys are table names for the primary-ed key tables.
                  Each value of the return dictionary is itself a dictionary.
@@ -341,8 +355,8 @@ class PostgresTicFactory(_PostgresFactory):
         if not self._duplicate_focused_tdf:
             return {}
 
-        return find_duplicates(PostgresTicFactory(self._duplicate_focused_tdf).create_tic_dat(engine, schema),
-                               self._duplicate_focused_tdf)
+        return find_duplicates(PostgresTicFactory(self._duplicate_focused_tdf).create_tic_dat(
+                                engine, schema, active_fld=active_fld), self._duplicate_focused_tdf)
 
 
     def _get_data(self, tic_dat, schema, dump_format="list"):
@@ -445,7 +459,7 @@ class PostgresPanFactory(_PostgresFactory):
         """
         super().__init__(pan_dat_factory)
 
-    def create_pan_dat(self, engine, schema):
+    def create_pan_dat(self, engine, schema, active_fld=""):
         """
         Create a PanDat object from a PostGres connection
 
@@ -453,16 +467,26 @@ class PostgresPanFactory(_PostgresFactory):
 
         :param schema : The name of the schema to read from
 
+        :param active_fld: if provided, a string for a boolean filter field.
+                           Must be compliant w PG naming conventions, which are different from ticdat field naming
+                           conventions. Typically developer can ignore this argument, designed for expert support.
+
         :return: a PanDat object populated by the matching tables. Missing tables issue a warning and resolve
                  to empty.
         """
         self._check_good_pgtd_compatible_table_field_names()
+        verify(_pg_name(active_fld) ==  active_fld, "active_fld needs to be compliant with PG naming conventions")
         missing_tables = self.check_tables_fields(engine, schema)
+        active_fld_tables = set()
+        if active_fld:
+            active_fld_tables = {_[0] for _ in engine.execute("SELECT table_name FROM information_schema.columns " +
+              f"WHERE table_schema = '{schema}' and column_name = '{active_fld}'")}
         rtn = {}
         for table in set(self.tdf.all_tables).difference(missing_tables):
             fields = [(f, _pg_name(f)) for f in self.tdf.primary_key_fields.get(table, ()) +
                       self.tdf.data_fields.get(table, ())]
-            rtn[table] = pd.read_sql(sql=f"Select {', '.join([pgf for f, pgf in fields])} from {schema}.{table}",
+            rtn[table] = pd.read_sql(sql=f"Select {', '.join([pgf for f, pgf in fields])} from {schema}.{table}" +
+                                         (f" where {active_fld} is True" if table in active_fld_tables else ""),
                                      con=engine)
             rtn[table].rename(columns={pgf: f for f, pgf in fields}, inplace=True)
 
