@@ -144,8 +144,8 @@ class TestPostres(unittest.TestCase):
         tdf = diet_schema.clone()
         dat = tdf.copy_tic_dat(diet_dat)
         dat.categories["junk"] = {}
-        tdf.pgsql.write_data(dat, self.engine, schema)
-        self.engine.execute(f"Update {schema}.categories set active_fld = True")
+        tdf.pgsql.write_data(dat, self.engine, schema, active_fld="active_fld")
+        self.assertTrue(set(_[0] for _ in self.engine.execute(f"Select active_fld from {schema}.categories")) == {True})
         self.engine.execute(f"Update {schema}.categories set active_fld = False where name = 'junk'")
         dat_2 = tdf.pgsql.create_tic_dat(self.engine, schema, active_fld="active_fld")
         self.assertTrue(tdf._same_data(dat_2, diet_dat, epsilon=1e-10))
@@ -154,7 +154,10 @@ class TestPostres(unittest.TestCase):
         pan_dat = tdf.copy_to_pandas(diet_dat, drop_pk_columns=False)
         pan_dat_2 = pdf.pgsql.create_pan_dat(self.engine, schema, active_fld="active_fld")
         self.assertTrue(pdf._same_data(pan_dat, pan_dat_2, epsilon=1e-10))
-
+        self.assertTrue(set(_[0] for _ in self.engine.execute(f"Select active_fld from {schema}.categories")) ==
+                        {True, False})
+        pdf.pgsql.write_data(pan_dat, self.engine, schema, active_fld="active_fld")
+        self.assertTrue(set(_[0] for _ in self.engine.execute(f"Select active_fld from {schema}.categories")) == {True})
 
     def test_issue_68(self):
         if not self.can_run:
