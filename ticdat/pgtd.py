@@ -37,6 +37,10 @@ def _pg_name(name):
         rtn[0] = "_"
     return "".join(rtn)
 
+def _active_fld_tables(engine, schema, active_fld):
+    return {_[0] for _ in engine.execute("SELECT table_name FROM information_schema.columns " +
+            f"WHERE table_schema = '{schema}' and column_name = '{active_fld}'")}
+
 class _PostgresFactory(freezable_factory(object, "_isFrozen"),):
     def __init__(self, tdf):
         self.tdf = tdf
@@ -308,10 +312,7 @@ class PostgresTicFactory(_PostgresFactory):
 
     def _create_tic_dat_from_con(self, engine, schema, active_fld):
         tdf = self.tdf
-        active_fld_tables = set()
-        if active_fld:
-            active_fld_tables = {_[0] for _ in engine.execute("SELECT table_name FROM information_schema.columns " +
-              f"WHERE table_schema = '{schema}' and column_name = '{active_fld}'")}
+        active_fld_tables = _active_fld_tables(engine, schema, active_fld) if active_fld else set()
         missing_tables = self.check_tables_fields(engine, schema)
         rtn = {}
         for table in set(tdf.all_tables).difference(missing_tables):
@@ -359,7 +360,7 @@ class PostgresTicFactory(_PostgresFactory):
                                 engine, schema, active_fld=active_fld), self._duplicate_focused_tdf)
 
 
-    def _get_data(self, tic_dat, schema, dump_format="list"):
+    def _get_data(self, tic_dat, schema, active_fld, active_fld_tables, dump_format="list"):
         """This function creates sql for writing data to postgres"""
         assert dump_format in ["list", "dict"]
         rtn = [] if dump_format == "list" else defaultdict(list)
@@ -379,6 +380,9 @@ class PostgresTicFactory(_PostgresFactory):
                     datarow = tuple(self._write_data_cell(t, f, x) for f,x in the_data.items())
                 assert len(datarow) == len(fields)
                 fields = list(map(_pg_name, fields))
+                if t in active_fld_tables:
+                    fields.append(active_fld)
+                    datarow = datarow + (True,)
                 if dump_format == "list":
                     str = f"INSERT INTO {schema}.{t} ({','.join(fields)}) VALUES ({','.join('%s' for _ in fields)})"
                     rtn.append((str, datarow))
@@ -387,7 +391,7 @@ class PostgresTicFactory(_PostgresFactory):
                     rtn[str].append(datarow)
         return tuple(rtn) if dump_format == "list" else dict(rtn)
 
-    def write_data(self, tic_dat, engine, schema, dsn=None, pre_existing_rows=None):
+    def write_data(self, tic_dat, engine, schema, dsn=None, pre_existing_rows=None, active_fld=""):
         """
         write the ticDat data to a PostGres database
 
@@ -404,12 +408,17 @@ class PostgresTicFactory(_PostgresFactory):
         :param pre_existing_rows: if provided, a dict mapping table name to either "delete" or "append"
                                   default behavior is "delete"
 
+        :param active_fld: if provided, a string for a boolean filter field which will be populated with True.
+                           Must be compliant w PG naming conventions, which are different from ticdat field naming
+                           conventions. Typically developer can ignore this argument, designed for expert support.
         :return:
         """
         verify(sa, "sqalchemy needs to be installed to use this subroutine")
         verify(engine.name=='postgresql',
                "a sqlalchemy engine with drivername='postgres' is required")
         verify(not dsn or psycopg2, "need psycopg2 to use the faster dsn write option")
+        verify(_pg_name(active_fld) ==  active_fld, "active_fld needs to be compliant with PG naming conventions")
+        active_f_tables = _active_fld_tables(engine, schema, active_fld) if active_fld else set()
         self._check_good_pgtd_compatible_table_field_names()
         msg = []
         if not self.tdf.good_tic_dat_object(tic_dat, lambda m: msg.append(m)):
@@ -423,10 +432,10 @@ class PostgresTicFactory(_PostgresFactory):
             connect_args = [dsn] if dsn and not dictish(dsn) else []
             with psycopg2.connect(*connect_args, **connect_kwargs) as db:
                 with db.cursor() as cursor:
-                    for k, v in self._get_data(tic_dat, schema, dump_format="dict").items():
+                    for k, v in self._get_data(tic_dat, schema, active_fld, active_f_tables, dump_format="dict").items():
                         psycopg2.extras.execute_values(cursor, k, v)
         else:
-            all_dat = self._get_data(tic_dat, schema)
+            all_dat = self._get_data(tic_dat, schema, active_fld, active_f_tables)
             if len(all_dat) > 1000:
                 print("***pgtd.py not using most efficient data writing technique**")
             for sql_str, data in all_dat:
@@ -477,10 +486,7 @@ class PostgresPanFactory(_PostgresFactory):
         self._check_good_pgtd_compatible_table_field_names()
         verify(_pg_name(active_fld) ==  active_fld, "active_fld needs to be compliant with PG naming conventions")
         missing_tables = self.check_tables_fields(engine, schema)
-        active_fld_tables = set()
-        if active_fld:
-            active_fld_tables = {_[0] for _ in engine.execute("SELECT table_name FROM information_schema.columns " +
-              f"WHERE table_schema = '{schema}' and column_name = '{active_fld}'")}
+        active_fld_tables = _active_fld_tables(engine, schema, active_fld) if active_fld else set()
         rtn = {}
         for table in set(self.tdf.all_tables).difference(missing_tables):
             fields = [(f, _pg_name(f)) for f in self.tdf.primary_key_fields.get(table, ()) +
@@ -495,7 +501,7 @@ class PostgresPanFactory(_PostgresFactory):
         assert self.tdf.good_pan_dat_object(rtn, msg.append), str(msg)
         return self.tdf._general_post_read_adjustment(rtn, push_parameters_to_be_valid=True)
 
-    def write_data(self, pan_dat, engine, schema, pre_existing_rows=None):
+    def write_data(self, pan_dat, engine, schema, pre_existing_rows=None, active_fld=""):
         '''
         write the PanDat data to a postgres database
 
@@ -508,8 +514,14 @@ class PostgresPanFactory(_PostgresFactory):
         :param pre_existing_rows: if provided, a dict mapping table name to either "delete" or "append"
                                   default behavior is "delete"
 
+        :param active_fld: if provided, a string for a boolean filter field which will be populated with True.
+                           Must be compliant w PG naming conventions, which are different from ticdat field naming
+                           conventions. Typically developer can ignore this argument, designed for expert support.
+
         :return:
         '''
+        verify(_pg_name(active_fld) ==  active_fld, "active_fld needs to be compliant with PG naming conventions")
+        active_field_tables = _active_fld_tables(engine, schema, active_fld) if active_fld else set()
         self._check_good_pgtd_compatible_table_field_names()
         msg = []
         verify(self.tdf.good_pan_dat_object(pan_dat, msg.append),
@@ -521,6 +533,8 @@ class PostgresPanFactory(_PostgresFactory):
             df = getattr(pan_dat, table).copy(deep=True)
             fields = self.tdf.primary_key_fields.get(table, ()) + self.tdf.data_fields.get(table, ())
             df.rename(columns={f: _pg_name(f) for f in fields}, inplace=True)
+            if table in active_field_tables:
+                df[active_fld] = True
             df.to_sql(name=table, schema=schema, con=engine, if_exists="append", index=False)
 
 
