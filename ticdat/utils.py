@@ -19,8 +19,9 @@ except:
 try:
     import pandas as pd
     from pandas import DataFrame
+    import numpy
 except:
-    pd = DataFrame =  None
+    pd = DataFrame = numpy = None
 
 try:
     import ocp_ticdat_drm as drm
@@ -912,7 +913,7 @@ class Sloc(object):
         except Exception as e:
             if containerish(key) and any(isinstance(k, slice) and
                                          (k.start == k.step == k.stop == None) for k in key):
-                return pd.Series([])
+                return pd.Series([], dtype=numpy.float64)
             raise e
     @staticmethod
     def add_sloc(s):

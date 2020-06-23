@@ -10,8 +10,9 @@ import ticdat.pandatio as pandatio
 from itertools import count
 try:
     from pandas import isnull
+    import numpy
 except:
-    isnull = None
+    isnull = numpy = None
 import collections as clt
 from ticdat.pgtd import PostgresPanFactory
 try:
@@ -28,7 +29,8 @@ def _faster_df_apply(df, func):
         row_dict = {f:v for f,v in zip(cols, row[1:])}
         data.append(func(row_dict))
         index.append(row[0])
-    return pd.Series(data, index=index)
+    # will default to float for empty Series, like original pandas
+    return pd.Series(data, index=index, **({"dtype": numpy.float64} if not data else {}))
 
 class PanDatFactory(object):
     """
