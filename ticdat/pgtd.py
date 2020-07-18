@@ -104,13 +104,10 @@ class _PostgresFactory(freezable_factory(object, "_isFrozen"),):
         rtn = []
         fks = self._fks()
         def process_table(t, already_seen=None):
-            already_seen = already_seen or []
-            if t in already_seen:
-                return # emergency fail for circular reference to avoid endless recursion
-            already_seen.append(t)
-            if t not in rtn:
+            already_seen = already_seen or [] # emergency fail for circular reference to avoid endless recursion
+            if t not in rtn + already_seen:
                 for fk in fks.get(t, ()):
-                    process_table(fk.foreign_table, already_seen)
+                    process_table(fk.foreign_table, already_seen+[t])
                 rtn.append(t)
 
         list(map(process_table, self.tdf.all_tables))

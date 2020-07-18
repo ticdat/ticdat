@@ -785,6 +785,17 @@ class TestPostres(unittest.TestCase):
         tdf = TicDatFactory(boger=[["A Fields"], ["556f"]])
         tdf.pgsql.write_schema(self.engine, schema)
 
+    def testCircularFks(self):
+        schema = test_schema + "circular_fks"
+        tdf = TicDatFactory(table_one=[["A Field"], []], table_two=[["B Field"],[]], table_three=[["C Field"], []])
+        tdf.add_foreign_key("table_one", "table_two", ["A Field", "B Field"])
+        tdf.add_foreign_key("table_two", "table_three", ["B Field", "C Field"])
+        tdf.add_foreign_key("table_three", "table_one", ["C Field", "A Field"])
+        tdf.pgsql.write_schema(self.engine, schema, include_ancillary_info=False)
+        t_ = [["a"], ["b"], ["c"]]
+        dat = tdf.TicDat(table_one=t_, table_two=t_, table_three=t_)
+        tdf.pgsql.write_data(dat, self.engine, schema)
+
 
 test_schema = 'test'
 
