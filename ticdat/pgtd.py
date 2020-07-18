@@ -103,14 +103,17 @@ class _PostgresFactory(freezable_factory(object, "_isFrozen"),):
     def _ordered_tables(self):
         rtn = []
         fks = self._fks()
-
-        def processTable(t):
+        def process_table(t, already_seen=None):
+            already_seen = already_seen or []
+            if t in already_seen:
+                return # emergency fail for circular reference to avoid endless recursion
+            already_seen.append(t)
             if t not in rtn:
                 for fk in fks.get(t, ()):
-                    processTable(fk.foreign_table)
+                    process_table(fk.foreign_table, already_seen)
                 rtn.append(t)
 
-        list(map(processTable, self.tdf.all_tables))
+        list(map(process_table, self.tdf.all_tables))
         return tuple(rtn)
 
     def _get_schema_sql(self, tables, schema, forced_field_types):
