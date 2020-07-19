@@ -484,7 +484,11 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
                    "%s does not refer to one of %s 's fields"%(k, native_table))
             verify(v in self._allFields(foreign_table),
                    "%s does not refer to one of %s 's fields"%(v, foreign_table))
+        if utils.does_new_fk_complete_circle(native_table, foreign_table, self):
+            print(f"*** A circular foreign key relationship will be creating by adding the {native_table} to " +
+                  f"{foreign_table} connection")
         self._foreign_keys[native_table, foreign_table].add(tuple(_mappings.items()))
+
     def _simple_fk(self, ftbl, fk):
         assert ftbl in self.all_tables
         ftbl_pks = set(self.primary_key_fields.get(ftbl,()))

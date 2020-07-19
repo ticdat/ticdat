@@ -685,6 +685,11 @@ class TestUtils(unittest.TestCase):
         pdf.add_data_row_predicate("arcs", None, 0)
         pdf = pdf.clone()
         self.assertTrue(set(pdf._data_row_predicates["arcs"]) == {"dummy"})
+        pdf = PanDatFactory(pdf_table_one=[["A Field"], []], pdf_table_two=[["B Field"],[]],
+                            pdf_table_three=[["C Field"], []])
+        pdf.add_foreign_key("pdf_table_one", "pdf_table_two", ["A Field", "B Field"])
+        pdf.add_foreign_key("pdf_table_two", "pdf_table_three", ["B Field", "C Field"])
+        pdf.add_foreign_key("pdf_table_three", "pdf_table_one", ["C Field", "A Field"])
 
 # Run the tests.
 if __name__ == "__main__":

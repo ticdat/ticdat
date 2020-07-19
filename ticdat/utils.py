@@ -1072,3 +1072,17 @@ def nearly_same(x1, x2, epsilon) :
 
 RowPredicateInfo = namedtuple("RowPredicateInfo", ["predicate", "predicate_kwargs_maker",
                                                    "predicate_failure_response"])
+
+def does_new_fk_complete_circle(native_tbl, foreign_tbl, tdf):
+    fks = defaultdict(set)
+    for fk in tdf.foreign_keys:
+        fks[fk.native_table].add(fk)
+    rtn = []
+    def process_table(t, already_seen):
+        if t == native_tbl:
+            rtn[:] = [True]
+        elif t not in already_seen:
+            for fk in fks.get(t, ()):
+                process_table(fk.foreign_table, already_seen + [t])
+    process_table(foreign_tbl, [])
+    return bool(rtn)
