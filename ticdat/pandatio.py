@@ -119,7 +119,7 @@ class JsonPanFactory(freezable_factory(object, "_isFrozen")):
                "The following (table, field) pairs are missing fields.\n%s" % [(t, f) for t,f in missing_fields])
         missing_tables = sorted(set(self.pan_dat_factory.all_tables).difference(rtn))
         if missing_tables:
-            print("The following table names could not be found in the SQLite database.\n%s\n" %
+            print("The following table names could not be found in the json file/string.\n%s\n" %
                   "\n".join(missing_tables))
         return _clean_pandat_creator(self.pan_dat_factory, rtn, json_read=True)
 

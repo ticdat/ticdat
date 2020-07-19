@@ -89,8 +89,8 @@ class JsonTicFactory(freezable_factory(object, "_isFrozen")) :
         tic_dat_dict = self._create_tic_dat_dict(jdict)
         missing_tables = set(self.tic_dat_factory.all_tables).difference(tic_dat_dict)
         if missing_tables:
-            print ("The following table names could not be found in the %s file.\n%s\n"%
-                   (json_file_path,"\n".join(missing_tables)))
+            print ("The following table names could not be found in the json file/string\n%s\n"%
+                   "\n".join(missing_tables))
         rtn = self.tic_dat_factory.TicDat(**tic_dat_dict)
         rtn = self.tic_dat_factory._parameter_table_post_read_adjustment(rtn)
         if freeze_it:
