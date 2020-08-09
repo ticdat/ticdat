@@ -796,6 +796,22 @@ class TestPostres(unittest.TestCase):
         dat = tdf.TicDat(table_one=t_, table_two=t_, table_three=t_)
         tdf.pgsql.write_data(dat, self.engine, schema)
 
+    def test_extra_pdf_column(self):
+        schema = test_schema + "extra_cols"
+        pdf = PanDatFactory(foo=[[], ['a', 'b']], bar=[['d'], ['i']])
+        for t, [pks, dfs] in pdf.schema().items():
+            for f in pks+dfs:
+                pdf.set_data_type(t, f, number_allowed=True, strings_allowed=[])
+        foo_df = pd.DataFrame({'a': [1, 2], 'b': [3, 4], 'c': [5, 6]})  # notice that I added an extra column 'c'
+        bar_df = pd.DataFrame({'d': [10, 20], 'h': [30, 40], 'i': [50, 60]})
+        pan_dat = pdf.PanDat(foo=foo_df, bar=bar_df)
+        pgpf = pdf.pgsql
+        pgpf.write_schema(self.engine, schema, include_ancillary_info=False)
+        pgpf.write_data(pan_dat, self.engine, schema)
+        pan_dat_2 = pgpf.create_pan_dat(self.engine, schema)
+        self.assertTrue(pdf._same_data(pan_dat, pan_dat_2, epsilon=1e-4))
+        self.assertTrue(set(pan_dat.foo.columns).difference(pan_dat_2.foo.columns) == {'c'})
+
 
 test_schema = 'test'
 
