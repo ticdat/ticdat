@@ -11,7 +11,8 @@
 # to solution_data.xlsx.
 
 from ticdat import TicDatFactory, standard_main
-from docplex.mp.model import Model
+import docplex
+__version__ =  docplex.__version__ # not needed, helps deploy on Enframe
 
 # ------------------------ define the input schema --------------------------------
 # There are three input tables, with 4 primary key fields and 4 data fields.
@@ -66,7 +67,7 @@ def solve(dat):
     assert not input_schema.find_data_type_failures(dat)
     assert not input_schema.find_data_row_failures(dat)
 
-    mdl = Model('diet')
+    mdl = docplex.mp.model.Model('diet')
 
     nutrition = {c:mdl.continuous_var(lb=n["Min Nutrition"], ub=n["Max Nutrition"], name=c)
                 for c,n in dat.categories.items()}
