@@ -1456,6 +1456,11 @@ class TestUtils(unittest.TestCase):
         postgresql.stop()
         sys.modules.pop(funky_diet.solve.__module__)
 
+    def testThirtyOne(self):
+        slicer  = utils.Slicer(itertools.product([1, 2], [(1, 2, 3), (2, 3, 4)], [4, 5, 6]))
+        self.assertTrue(set(slicer.slice('*', '*', 5)) ==
+                        {(1, (2, 3, 4), 5), (2, (2, 3, 4), 5), (1, (1, 2, 3), 5), (2, (1, 2, 3), 5)})
+        self.assertTrue(set(slicer.slice('*', (2, 3, 4), 5)) =={(1, (2, 3, 4), 5), (2, (2, 3, 4), 5)})
 _scratchDir = TestUtils.__name__ + "_scratch"
 
 

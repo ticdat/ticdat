@@ -678,7 +678,7 @@ class Slicer(object):
             verify(not any("*" in _ for _ in self._indicies),
                    "The '*' character cannot itself be used as an index")
         self._gu = None
-        if gu:
+        if gu and not any(any(map(containerish, _)) for _ in self._indicies):
             self._gu = gu.tuplelist(self._indicies)
             self._indicies = None
         self.clear()
