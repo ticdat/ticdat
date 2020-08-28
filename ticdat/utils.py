@@ -667,6 +667,9 @@ class Slicer(object):
         :param iter_of_iters An iterable of iterables. Usually a list of lists, or a list
         of tuples. Each inner iterable must be the same size. The "*" string has a special
         flag meaning and cannot be a member of any of the inner iterables.
+        Slicer is fairly similar to gurobipy.tuplelist, and will try to use tuplelist for improved performance
+        whenever possible. One key difference is Slicer can accommodate tuples that themselves contain tuples (or
+        really any hashable) wherease tuplelist should only be used with tuples that themselves contain only primitives.
         """
         verify(hasattr(iter_of_iters, "__iter__"), "need an iterator of iterators")
         copied = tuple(iter_of_iters)
@@ -688,7 +691,7 @@ class Slicer(object):
         Perform a multi-index slice. (Not to be confused with the native Python slice)
         :param *args a series of index values or '*'. The latter means 'match every value'
         :return: a list of tuples which match  args.
-        :caveat will run faster if gurobipy is available
+        :caveat will run faster if gurobipy is available and tuplelist can accommodate the interior iterables
         """
         if not (self._indicies or self._gu):
             return []
