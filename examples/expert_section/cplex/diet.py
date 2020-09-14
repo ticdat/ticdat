@@ -11,8 +11,11 @@
 # to solution_data.xlsx.
 
 from ticdat import TicDatFactory, standard_main
-import docplex
-__version__ =  docplex.__version__ # not needed, helps deploy on Enframe
+try:
+    import docplex
+    __version__ =  docplex.__version__ # not needed, helps deploy on Enframe
+except:
+    docplex = __version__ = None
 
 # ------------------------ define the input schema --------------------------------
 # There are three input tables, with 4 primary key fields and 4 data fields.
