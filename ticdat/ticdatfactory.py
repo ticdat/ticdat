@@ -944,13 +944,18 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
         assert table in self.all_tables
         return set(self.primary_key_fields.get(table, ())).union(self.data_fields.get(table, ()))
 
-    def good_tic_dat_object(self, data_obj, bad_message_handler = lambda x : None):
+    def good_tic_dat_object(self, data_obj, bad_message_handler = lambda x : None,
+                            row_checking="strict"):
         """
         determines if an object can be can be converted to a TicDat data object.
 
         :param data_obj: the object to verify
 
         :param bad_message_handler: a call back function to receive description of any failure message
+
+        :param row_checking: either "generous" or "strict". If the latter, then we expect all the rows to be dicts
+                             with the correct columns (except for things like generic tables)
+                             defaults to strict since this is the protector for the solve functions
 
         :return: True if the dataObj can be converted to a TicDat data object. False otherwise.
         """
@@ -972,7 +977,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
                     bad_message_handler("Strangely, you have generic tables but not pandas")
                     return False
             rtn = rtn and  self.good_tic_dat_table(getattr(data_obj, t), t,
-                    lambda x : bad_message_handler(t + " : " + x))
+                    lambda x : bad_message_handler(t + " : " + x), row_checking)
         return rtn
 
     def _good_tic_dat_table_for_init(self, data_table, table_name,
@@ -986,7 +991,8 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
              return tdf.good_tic_dat_table(data_table, table_name, bad_message_handler)
          return self.good_tic_dat_table(data_table, table_name, bad_message_handler)
 
-    def good_tic_dat_table(self, data_table, table_name, bad_message_handler = lambda x : None) :
+    def good_tic_dat_table(self, data_table, table_name, bad_message_handler = lambda x : None,
+                           row_checking="generous") :
         """
         determines if an object can be can be converted to a TicDat data table.
 
@@ -997,9 +1003,14 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
         :param bad_message_handler: a call back function to receive
                description of any failure message
 
+        :param row_checking: either "generous" or "strict". If the latter, then we expect all the rows to be dicts
+                             with the correct columns (except for things like generic tables)
+                             defaults to generous since this gets used a lot internally
+
         :return: True if the dataObj can be converted to a TicDat
                  data table. False otherwise.
         """
+        assert row_checking in ["generous", "strict"]
         if table_name not in self.all_tables:
             bad_message_handler("%s is not a valid table name for this schema"%table_name)
             return False
@@ -1008,12 +1019,15 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
             verify((containerish(data_table) or callable(data_table)) and not dictish(data_table),
                    "Expecting a container of rows or a generator function of rows for %s"%table_name)
             return self._good_data_rows(data_table if containerish(data_table) else data_table(),
-                                      table_name, bad_message_handler)
+                                      table_name, bad_message_handler, row_checking)
         if pd and isinstance(data_table, pd.Series) and len(self.data_fields.get(table_name, ())) == 1:
             data_table = DataFrame(data_table)
             data_table.rename(columns = {data_table.columns[0] : self.data_fields[table_name][0]},
                               inplace=True)
         if DataFrame and isinstance(data_table, DataFrame):
+            if row_checking == "strict" and table_name not in self.generic_tables:
+                bad_message_handler(f"{table_name} is a pandas object, not a TicDat table object")
+                return False
             if table_name in self.generator_tables:
                 bad_message_handler("%s is a generator table and can not be populated with a DataFrame"
                                     %table_name)
@@ -1034,15 +1048,18 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
                 bad_message_handler("Could not find pandas columns for all the data fields for %s"%table_name)
                 return False
             return True
-        if self.primary_key_fields.get(table_name) :
+        if self.primary_key_fields.get(table_name):
+            if row_checking == "strict" and  not utils.dictish(data_table):
+                bad_message_handler(f"{table_name} is not a dict")
+                return False
             if utils.dictish(data_table) :
-                return self._good_ticdat_dict_table(data_table, table_name, bad_message_handler)
+                return self._good_ticdat_dict_table(data_table, table_name, bad_message_handler, row_checking)
             if utils.containerish(data_table):
                 return self._good_ticdat_key_container(data_table, table_name, bad_message_handler)
         else :
             verify(utils.containerish(data_table),
                    "Unexpected ticDat table type for %s."%table_name)
-            return self._good_data_rows(data_table, table_name, bad_message_handler)
+            return self._good_data_rows(data_table, table_name, bad_message_handler, row_checking)
         bad_message_handler("Unexpected ticDat table type for %s."%table_name)
         return False
     def _good_ticdat_key_container(self, ticdat_table, tablename,
@@ -1058,7 +1075,8 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
             bad_msg_handler("Inconsistent key lengths")
             return False
         return True
-    def _good_ticdat_dict_table(self, ticdat_table, table_name, bad_msg_handler = lambda x : None):
+    def _good_ticdat_dict_table(self, ticdat_table, table_name, bad_msg_handler = lambda x : None,
+                                row_checking="generous"):
         assert dictish(ticdat_table)
         if not len(ticdat_table) :
             return True
@@ -1066,8 +1084,9 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
                    for k in ticdat_table.keys()) :
             bad_msg_handler("Inconsistent key lengths")
             return False
-        return self._good_data_rows(ticdat_table.values(), table_name, bad_msg_handler)
-    def _good_data_rows(self, data_rows, table_name, bad_message_handler = lambda x : None):
+        return self._good_data_rows(ticdat_table.values(), table_name, bad_msg_handler, row_checking)
+    def _good_data_rows(self, data_rows, table_name, bad_message_handler = lambda x : None, row_checking="generous"):
+        assert row_checking in ["generous", "strict"]
         dictishrows, containerishrows, singletonishrows = [], [], []
         for x in data_rows:
             if utils.dictish(x):
@@ -1086,6 +1105,13 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
             bad_message_handler(
                 "Non-container data rows supported only for single-data-field tables")
             return False
+        if row_checking == "strict":
+            if containerishrows or singletonishrows:
+                bad_message_handler("Non dict data rows")
+                return False
+            if not all(set(x.keys()) == set(self.data_fields.get(table_name, ())) for x in dictishrows):
+                bad_message_handler("Mismatched data field name keys.")
+                return False
         return True
     def _keyless(self, obj):
         assert self.good_tic_dat_object(obj)
@@ -1105,7 +1131,8 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
             setattr(rtn, t, _rtn)
         return rtn
     def _same_data(self, obj1, obj2, epsilon = 0, nans_are_same_for_data_rows = False):
-        assert self.good_tic_dat_object(obj1) and self.good_tic_dat_object(obj2)
+        assert self.good_tic_dat_object(obj1, row_checking="generous") and \
+               self.good_tic_dat_object(obj2, row_checking="generous")
         assert epsilon >= 0
         _n_s = lambda x, y: False
         if epsilon > 0:
@@ -1180,7 +1207,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
         :return: a deep copy of the tic_dat argument
         """
         msg  = []
-        verify(self.good_tic_dat_object(tic_dat, msg.append),
+        verify(self.good_tic_dat_object(tic_dat, msg.append, row_checking="generous"),
                "tic_dat not a good object for this factory : %s"%"\n".join(msg))
         rtn = self.TicDat(**{t:getattr(tic_dat, t) for t in self.all_tables})
         return self.freeze_me(rtn) if freeze_it else rtn

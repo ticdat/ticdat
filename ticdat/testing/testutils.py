@@ -27,6 +27,11 @@ try:
 except:
     sa = None
 
+try:
+    import pandas as pd
+except:
+    pd = None
+
 def _deep_anonymize(x)  :
     if not hasattr(x, "__contains__") or utils.stringish(x):
         return x
@@ -203,7 +208,7 @@ class TestUtils(unittest.TestCase):
             return x
         dataObj = dietData()
         tdf = TicDatFactory(**dietSchema())
-        self.assertTrue(tdf.good_tic_dat_object(dataObj))
+        self.assertTrue(tdf.good_tic_dat_object(dataObj, row_checking="generous"))
         dataObj2 = tdf.copy_tic_dat(dataObj)
         dataObj3 = tdf.copy_tic_dat(dataObj, freeze_it=True)
         dataObj4 = tdf.TicDat(**tdf.as_dict(dataObj3))
@@ -220,8 +225,8 @@ class TestUtils(unittest.TestCase):
         msg = []
         dataObj.foods[("milk", "cookies")] = {"cost": float("inf")}
         dataObj.boger = object()
-        self.assertFalse(tdf.good_tic_dat_object(dataObj) or
-                         tdf.good_tic_dat_object(dataObj, bad_message_handler =msg.append))
+        self.assertFalse(tdf.good_tic_dat_object(dataObj, row_checking="generous") or
+                         tdf.good_tic_dat_object(dataObj, bad_message_handler =msg.append, row_checking="generous"))
         self.assertTrue({"foods : Inconsistent key lengths"} == set(msg))
         self.assertTrue(all(tdf.good_tic_dat_table(getattr(dataObj, t), t)
                             for t in ("categories", "nutritionQuantities")))
@@ -229,8 +234,8 @@ class TestUtils(unittest.TestCase):
         dataObj = dietData()
         dataObj.categories["boger"] = {"cost":1}
         dataObj.categories["boger"] = {"cost":1}
-        self.assertFalse(tdf.good_tic_dat_object(dataObj) or
-                         tdf.good_tic_dat_object(dataObj, bad_message_handler=msg.append))
+        self.assertFalse(tdf.good_tic_dat_object(dataObj, row_checking="generous") or
+                         tdf.good_tic_dat_object(dataObj, row_checking="generous", bad_message_handler=msg.append))
         self.assertTrue({'foods : Inconsistent key lengths',
                          'categories : Inconsistent data field name keys.'} == set(msg))
         ex = str(firesException(lambda : tdf.freeze_me(tdf.TicDat(**{t:getattr(dataObj,t)
@@ -352,7 +357,7 @@ class TestUtils(unittest.TestCase):
         def makeNewTicDat() : return newFactory.TicDat(a=ticDat.a, b=ticDat.b, c=ticDat.c)
         newTicDat = makeNewTicDat()
         self.assertFalse(staticFactory.good_tic_dat_object(newTicDat))
-        self.assertTrue(newFactory.good_tic_dat_object(ticDat))
+        self.assertTrue(newFactory.good_tic_dat_object(ticDat, row_checking="generous"))
         self.assertTrue(newFactory._same_data(makeNewTicDat(), newTicDat))
         newTicDat.a[list(ticDat.a)[0]]["aData4"]=12
         self.assertFalse(newFactory._same_data(makeNewTicDat(), newTicDat))
@@ -1072,7 +1077,7 @@ class TestUtils(unittest.TestCase):
     def testNineteen(self):
         dataObj = dietData()
         tdf = TicDatFactory(**dietSchema())
-        self.assertTrue(tdf.good_tic_dat_object(dataObj))
+        self.assertTrue(tdf.good_tic_dat_object(dataObj, row_checking="generous"))
         dataObj2 = tdf.copy_tic_dat(dataObj)
         dataObj2.categories["calories"]["minNutrition"] *= 1.00001
         dataObj2.nutritionQuantities["salad", "sodium"]["qty"]  *= 2-1.00001
@@ -1461,6 +1466,39 @@ class TestUtils(unittest.TestCase):
         self.assertTrue(set(slicer.slice('*', '*', 5)) ==
                         {(1, (2, 3, 4), 5), (2, (2, 3, 4), 5), (1, (1, 2, 3), 5), (2, (1, 2, 3), 5)})
         self.assertTrue(set(slicer.slice('*', (2, 3, 4), 5)) =={(1, (2, 3, 4), 5), (2, (2, 3, 4), 5)})
+
+    def test_good_ticdat_object_strict(self):
+        small_sch = TicDatFactory(** {
+     "categories" : (("name",),["maxNutrition"]),
+     "foods" :[["name"],("cost",)],
+     "nutritionQuantities" : (["food", "category"], [])
+    })
+        full_sch = TicDatFactory(**dietSchema())
+        small_dat = small_sch.TicDat(categories = [["boo", 100], ["woo", 200]],
+                                     foods = [["this", 10], ["that", 100], ["theother", 12]])
+        for f,c in itertools.product(small_dat.categories, small_dat.foods):
+            small_dat.nutritionQuantities[f, c] = {}
+        # we allow missing fields in the copy from object (this facilitates construction)
+        fuller_copy = full_sch.copy_tic_dat(small_dat)
+        ex = []
+        try: # we don't allow extra field in the copy from object (perhaps we should, but easy enough to munge away)
+            small_sch.copy_tic_dat(fuller_copy)
+        except Exception as _:
+            ex.append(str(_))
+        self.assertTrue("Inconsistent data field name keys" in ex[0])
+        self.assertTrue(full_sch.good_tic_dat_object(small_dat, row_checking="generous"))
+        self.assertFalse(full_sch.good_tic_dat_object(small_dat))
+        df = pd.DataFrame({"food":["boo", "woo"], "category": ["this", "that"]})
+        df.set_index(["food", "category"], inplace=True, drop=False)
+        self.assertTrue(small_sch.good_tic_dat_table(df, "nutritionQuantities"))
+        self.assertFalse(small_sch.good_tic_dat_table(df, "nutritionQuantities", row_checking="strict"))
+        by_rows = [{"food": "boo", "category": "woo"}]
+        self.assertTrue(small_sch.good_tic_dat_table(by_rows, "nutritionQuantities"))
+        self.assertFalse(small_sch.good_tic_dat_table(by_rows, "nutritionQuantities", row_checking="strict"))
+        by_rows = {"boo":1, "foo": 2}
+        self.assertTrue(small_sch.good_tic_dat_table(by_rows, "foods"))
+        self.assertFalse(small_sch.good_tic_dat_table(by_rows, "foods", row_checking="strict"))
+
 _scratchDir = TestUtils.__name__ + "_scratch"
 
 
