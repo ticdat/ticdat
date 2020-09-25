@@ -812,6 +812,36 @@ class TestPostres(unittest.TestCase):
         self.assertTrue(pdf._same_data(pan_dat, pan_dat_2, epsilon=1e-4))
         self.assertTrue(set(pan_dat.foo.columns).difference(pan_dat_2.foo.columns) == {'c'})
 
+    def testDateTimeTwo(self):
+        schema = test_schema + "_date_two"
+        tdf = TicDatFactory(table_with_stuffs = [["field one"], ["field two"]],
+                            parameters = [["a"],["b"]])
+        tdf.add_parameter("p1", "Dec 15 1970", datetime=True)
+        tdf.add_parameter("p2", None, datetime=True, nullable=True)
+        tdf.set_data_type("table_with_stuffs", "field one", datetime=True)
+        tdf.set_data_type("table_with_stuffs", "field two", datetime=True, nullable=True)
+
+        n = str(datetime.datetime.now())
+        dat = tdf.TicDat(table_with_stuffs = [[dateutil.parser.parse("July 11 1972"), None],
+                                              [dateutil.parser.parse(n[0:n.find(" ")]),
+                                               dateutil.parser.parse("Sept 11 2011")]],
+                         parameters = [["p1", "7/11/1911"], ["p2", None]])
+        self.assertFalse(tdf.find_data_type_failures(dat) or tdf.find_data_row_failures(dat))
+
+        tdf.pgsql.write_schema(self.engine, schema,
+                               forced_field_types={("table_with_stuffs", "field one"): "date",
+                                                   ("table_with_stuffs", "field two"): "date"})
+        tdf.pgsql.write_data(dat, self.engine, schema)
+
+        dat_2 = tdf.pgsql.create_tic_dat(self.engine, schema)
+        self.assertFalse(tdf._same_data(dat, dat_2, nans_are_same_for_data_rows=True))
+        dat.parameters['p1']['b'] = dateutil.parser.parse(dat.parameters['p1']['b'])
+        self.assertTrue(tdf._same_data(dat, dat_2, nans_are_same_for_data_rows=True))
+
+        pdf = PanDatFactory.create_from_full_schema(tdf.schema(include_ancillary_info=True))
+        pan_dat = pdf.pgsql.create_pan_dat(self.engine, schema)
+        dat_3 = pdf.copy_to_tic_dat(pan_dat)
+        self.assertTrue(tdf._same_data(dat, dat_3, nans_are_same_for_data_rows=True))
 
 test_schema = 'test'
 
