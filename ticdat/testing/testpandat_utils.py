@@ -691,6 +691,22 @@ class TestUtils(unittest.TestCase):
         pdf.add_foreign_key("pdf_table_two", "pdf_table_three", ["B Field", "C Field"])
         pdf.add_foreign_key("pdf_table_three", "pdf_table_one", ["C Field", "A Field"])
 
+    def test_tdf_max_failures(self):
+        pdf = PanDatFactory(table_one = [["Field"], []], table_two = [[], ["Field"]])
+        for t in ["table_one", "table_two"]:
+            pdf.set_data_type(t, "Field")
+        dat = pdf.PanDat(table_one=DataFrame({"Field": list(range(1,11)) + [-_ for _ in range(1,11)]}),
+                         table_two=DataFrame({"Field": [10.1]*10 + [-2]*10}))
+        errs = pdf.find_data_type_failures(dat)
+        self.assertTrue(len(errs) == 2 and all(len(_) == 10 for _ in errs.values()))
+        errs = pdf.find_data_type_failures(dat, max_failures=11)
+        self.assertTrue(len(errs) == 2)
+        self.assertTrue(any(len(_) == 10 for _ in errs.values()) and any(len(_) == 1 for _ in errs.values()))
+        errs = pdf.find_data_type_failures(dat, max_failures=10)
+        self.assertTrue(len(errs) == 1 and all(len(_) == 10 for _ in errs.values()))
+        errs = pdf.find_data_type_failures(dat, max_failures=9)
+        self.assertTrue(len(errs) == 1 and all(len(_) == 9 for _ in errs.values()))
+
 # Run the tests.
 if __name__ == "__main__":
     if not DataFrame :

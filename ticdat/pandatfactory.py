@@ -22,13 +22,18 @@ except:
 
 pd, DataFrame = utils.pd, utils.DataFrame # if pandas not installed will be falsey
 
-def _faster_df_apply(df, func):
+def _faster_df_apply(df, func, trip_wire_check=None):
     cols = list(df.columns)
     data, index = [], []
     for row in df.itertuples(index=True):
         row_dict = {f:v for f,v in zip(cols, row[1:])}
         data.append(func(row_dict))
         index.append(row[0])
+        if trip_wire_check:
+            new_func = trip_wire_check(data[-1])
+            if new_func:
+                func = new_func
+                trip_wire_check = None
     # will default to float for empty Series, like original pandas
     return pd.Series(data, index=index, **({"dtype": numpy.float64} if not data else {}))
 
@@ -850,7 +855,7 @@ class PanDatFactory(object):
                       inclusive_min=True, inclusive_max=True, min=-float("inf"), max=float("inf"),
                       must_be_int=False, strings_allowed='*', nullable=False, datetime=False)
         return tmp_pdf.data_types
-    def find_data_type_failures(self, pan_dat, as_table=True):
+    def find_data_type_failures(self, pan_dat, as_table=True, max_failures=float("inf")):
         """
         Finds the data type failures for a pandat object
 
@@ -859,6 +864,9 @@ class PanDatFactory(object):
         :param as_table: boolean - if truthy then the values of the return dictionary will be the
                data type failure rows themselves. Otherwise will return the boolean Series that indicates
                which rows have data type failures.
+
+        :param max_failures: number. An upper limit on the number of failures to find. Will short circuit and return
+                                     ASAP with a partial failure enumeration when this number is reached.
 
         :return: A dictionary constructed as follow:
                  The keys are namedtuples with members "table", "field". Each (table,field) pair
@@ -875,19 +883,29 @@ class PanDatFactory(object):
         msg = []
         verify(self.good_pan_dat_object(pan_dat, msg.append),
                "pan_dat not a good object for this factory : %s"%"\n".join(msg))
-
+        assert max_failures > 0, "max_failures should be a positive number"
 
         rtn = {}
         TableField = clt.namedtuple("TableField", ["table", "field"])
+        number_failures = [0]
+        check_too_many = None
+        if max_failures < float("inf"):
+            def check_too_many(is_bad_row):
+                if is_bad_row:
+                    number_failures[0] += 1
+                    if number_failures[0] >= max_failures:
+                        return lambda row: False  # all future rows will be good (i.e. not bad, i.e. False)
         for table, type_row in self._true_data_types().items():
             _table = getattr(pan_dat, table)
             for field, data_type in type_row.items():
                 def bad_row(row):
                     data = row[field]
                     return not data_type.valid_data(None if isnull(data) else data)
-                where_bad_rows = _faster_df_apply(_table, bad_row)
+                where_bad_rows = _faster_df_apply(_table, bad_row, trip_wire_check=check_too_many)
                 if where_bad_rows.any():
                     rtn[TableField(table, field)] = _table[where_bad_rows].copy() if as_table else where_bad_rows
+                if number_failures[0] >= max_failures:
+                    return rtn
         return rtn
     def replace_data_type_failures(self, pan_dat, replacement_values=None):
         """

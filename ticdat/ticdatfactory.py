@@ -1557,11 +1557,14 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
             full_row = dict(full_row, **{f:d for f,d in
                                          zip(self.primary_key_fields[table], pk)})
         return full_row
-    def find_data_type_failures(self, tic_dat):
+    def find_data_type_failures(self, tic_dat, max_failures=float("inf")):
         """
         Finds the data type failures for a ticdat object
 
         :param tic_dat: ticdat object
+
+        :param max_failures: number. An upper limit on the number of failures to find. Will short circuit and return
+                                     ASAP with a partial failure enumeration when this number is reached.
 
         :return: A dictionary constructed as follow:
 
@@ -1587,7 +1590,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
          See issue https://github.com/ticdat/ticdat/issues/46 for more info.
         """
         assert self.good_tic_dat_object(tic_dat), "tic_dat not a good object for this factory"
-
+        assert max_failures > 0, "max_failures should be a positive number"
 
         rtn_values, rtn_pks = clt.defaultdict(set), clt.defaultdict(set)
         tmp_tdf = TicDatFactory.create_from_full_schema(self.schema(include_ancillary_info=True))
@@ -1597,22 +1600,33 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
                     tmp_tdf.set_data_type(t, pk, number_allowed=True,
                       inclusive_min=True, inclusive_max=True, min=-float("inf"), max=float("inf"),
                       must_be_int=False, strings_allowed='*', nullable=False, datetime=False)
-
-        for table, type_row in tmp_tdf._data_types.items():
-            _table = getattr(tic_dat, table)
-            if dictish(_table):
-                for pk  in _table:
-                    full_row = self._get_full_row(tic_dat, table, pk)
-                    for field, data_type in type_row.items():
-                        if not data_type.valid_data(full_row[field]) :
-                            rtn_values[(table, field)].add(full_row[field])
-                            rtn_pks[(table, field)].add(pk)
-            elif containerish(_table):
-                for pk, data_row in enumerate(_table):
-                    for field, data_type in type_row.items():
-                        if not data_type.valid_data(data_row[field]) :
-                            rtn_values[(table, field)].add(data_row[field])
-                            rtn_pks[(table, field)].add(pk)
+        number_failures = [0] if max_failures < float("inf") else None
+        def populate_rtn():
+            def inc_failures_trips_end():
+                if number_failures:
+                    number_failures[0] += 1
+                    if number_failures[0] >= max_failures:
+                        return True
+            for table, type_row in tmp_tdf._data_types.items():
+                _table = getattr(tic_dat, table)
+                if dictish(_table):
+                    for pk  in _table:
+                        full_row = self._get_full_row(tic_dat, table, pk)
+                        for field, data_type in type_row.items():
+                            if not data_type.valid_data(full_row[field]) :
+                                rtn_values[(table, field)].add(full_row[field])
+                                rtn_pks[(table, field)].add(pk)
+                                if inc_failures_trips_end():
+                                    return
+                elif containerish(_table):
+                    for pk, data_row in enumerate(_table):
+                        for field, data_type in type_row.items():
+                            if not data_type.valid_data(data_row[field]) :
+                                rtn_values[(table, field)].add(data_row[field])
+                                rtn_pks[(table, field)].add(pk)
+                                if inc_failures_trips_end():
+                                    return
+        populate_rtn()
         assert set(rtn_values).issuperset(set(rtn_pks))
         TableField = clt.namedtuple("TableField", ["table", "field"])
         ValuesPks = clt.namedtuple("ValuesPks", ["bad_values", "pks"])
