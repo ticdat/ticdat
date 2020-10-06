@@ -691,7 +691,7 @@ class TestUtils(unittest.TestCase):
         pdf.add_foreign_key("pdf_table_two", "pdf_table_three", ["B Field", "C Field"])
         pdf.add_foreign_key("pdf_table_three", "pdf_table_one", ["C Field", "A Field"])
 
-    def test_tdf_max_failures(self):
+    def test_data_type_max_failures(self):
         pdf = PanDatFactory(table_one = [["Field"], []], table_two = [[], ["Field"]])
         for t in ["table_one", "table_two"]:
             pdf.set_data_type(t, "Field")
@@ -705,6 +705,30 @@ class TestUtils(unittest.TestCase):
         errs = pdf.find_data_type_failures(dat, max_failures=10)
         self.assertTrue(len(errs) == 1 and all(len(_) == 10 for _ in errs.values()))
         errs = pdf.find_data_type_failures(dat, max_failures=9)
+        self.assertTrue(len(errs) == 1 and all(len(_) == 9 for _ in errs.values()))
+
+
+    def test_data_row_max_failures(self):
+        pdf = PanDatFactory(table_one = [["Field"], []], table_two = [[], ["Field"]])
+        for t in ["table_one", "table_two"]:
+            pdf.set_data_type(t, "Field")
+        for table, dts in pdf.data_types.items():
+            for field, dt in dts.items():
+                if table == "table_one":
+                    pdf.add_data_row_predicate(t, lambda row: dt.valid_data(row["Field"]))
+                else:
+                    pdf.add_data_row_predicate(t, lambda row: True if not dt.valid_data(row["Field"]) else "Oops",
+                                               predicate_failure_response="Error Message")
+        dat = pdf.PanDat(table_one=DataFrame({"Field": list(range(1,11)) + [-_ for _ in range(1,11)]}),
+                         table_two=DataFrame({"Field": [10.1]*10 + [-2]*10}))
+        errs = pdf.find_data_row_failures(dat)
+        self.assertTrue(len(errs) == 2 and all(len(_) == 10 for _ in errs.values()))
+        errs = pdf.find_data_row_failures(dat, max_failures=11)
+        self.assertTrue(len(errs) == 2)
+        self.assertTrue(any(len(_) == 10 for _ in errs.values()) and any(len(_) == 1 for _ in errs.values()))
+        errs = pdf.find_data_row_failures(dat, max_failures=10)
+        self.assertTrue(len(errs) == 1 and all(len(_) == 10 for _ in errs.values()))
+        errs = pdf.find_data_row_failures(dat, max_failures=9)
         self.assertTrue(len(errs) == 1 and all(len(_) == 9 for _ in errs.values()))
 
 # Run the tests.
