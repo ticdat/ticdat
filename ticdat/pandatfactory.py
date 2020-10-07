@@ -1097,7 +1097,7 @@ class PanDatFactory(object):
                 if number_failures[0] >= max_failures:
                     return rtn
         return rtn
-    def find_foreign_key_failures(self, pan_dat, verbosity="High", as_table=True):
+    def find_foreign_key_failures(self, pan_dat, verbosity="High", as_table=True, max_failures=float("inf")):
         """
         Finds the foreign key failures for a pandat object
 
@@ -1109,6 +1109,9 @@ class PanDatFactory(object):
                failed rows themselves. Otherwise will return the a boolean list that indicates which rows
                have failures. (For technical reasons, not returning a boolean Series like the
                other find functions)
+
+        :param max_failures: number. An upper limit on the number of failures to find. Will short circuit and return
+                                     ASAP with a partial failure enumeration when this number is reached.
 
         :return: A dictionary constructed as follows:
 
@@ -1127,18 +1130,28 @@ class PanDatFactory(object):
         """
         # note - the as_table argument is messy here because I'm applying an index to a copy of the table
         # as a result, we provide the remove_foreign_key_failures companion function
+        assert max_failures > 0, "max_failures should be a positive number"
         verify(verbosity in ["High", "Low"], "verbosity needs to be either 'High' or 'Low'")
         rtn = {}
-        for fk, rows in self._find_foreign_key_failure_rows(pan_dat).items():
+        for fk, rows in self._find_foreign_key_failure_rows(pan_dat, max_failures).items():
             native, foreign, mappings, card = fk
             rtn[fk] = getattr(pan_dat, native)[rows] if as_table else rows
         if verbosity == "Low":
             rtn = {tuple(k[:2]) + (tuple(k[2]),): v for k,v in rtn.items()}
         return rtn
-    def _find_foreign_key_failure_rows(self, pan_dat):
+    def _find_foreign_key_failure_rows(self, pan_dat, max_failures):
         msg  = []
         verify(self.good_pan_dat_object(pan_dat, msg.append),
                "pan_dat not a good object for this factory : %s"%"\n".join(msg))
+        number_failures = [0]
+        check_too_many = None
+        if max_failures < float("inf"):
+            def check_too_many(is_bad_row):
+                if is_bad_row:
+                    number_failures[0] += 1
+                    if number_failures[0] >= max_failures:
+                        return lambda row: False  # all future rows will be good (i.e. not bad, i.e. False)
+
         rtn = {}
         for fk in self.foreign_keys:
             native, foreign, mappings, card = fk
@@ -1169,7 +1182,10 @@ class PanDatFactory(object):
                 # I'm casting to list here because child is a copy that doesn't have the original index
                 # This is fixable, (i.e. we could return a Series with an index matching the original child table)
                 # but the fix isn't high priority.
-                rtn[fk] = list(_faster_df_apply(child, lambda row: row[magic_field*2] in bad_rows))
+                rtn[fk] = list(_faster_df_apply(child, lambda row: row[magic_field*2] in bad_rows,
+                                                trip_wire_check=check_too_many))
+                if number_failures[0] >= max_failures:
+                    return rtn
         return rtn
     def create_full_parameters_dict(self, dat):
         """

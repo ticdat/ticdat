@@ -1419,11 +1419,14 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
         verify(self.good_tic_dat_object(tic_dat, msg.append),
                "tic_dat not a good object for this factory : %s"%"\n".join(msg))
         return freeze_me(tic_dat)
-    def find_foreign_key_failures(self, tic_dat, verbosity="High"):
+    def find_foreign_key_failures(self, tic_dat, verbosity="High", max_failures=float("inf")):
         """
         Finds the foreign key failures for a ticdat object
 
         :param tic_dat: ticdat object
+
+        :param max_failures: number. An upper limit on the number of failures to find. Will short circuit and return
+                                     ASAP with a partial failure enumeration when this number is reached.
 
         :param verbosity: either "High" or "Low"
 
@@ -1452,6 +1455,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
         """
         verify(verbosity in ["High", "Low"], "verbosity needs to be either 'High' or 'Low'")
         assert self.good_tic_dat_object(tic_dat), "tic_dat not a good object for this factory"
+        assert max_failures > 0, "max_failures should be a positive number"
         rtn_values, rtn_pks = clt.defaultdict(set), clt.defaultdict(set)
 
         def getcell(tblname, native_pk, native_data_row, field_name):
@@ -1473,31 +1477,39 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
                 for k,v in (tbl.items() if dictish(tbl) else enumerate(tbl)):
                     add_here.add(tuple(getcell(tblname, k, v, f) for f in fields))
             return table_data[tblname, fields]
-
-        for native, fks in self._foreign_keys_by_native().items():
-            def getcell_(native_pk, native_data_row, field_name):
-                 return getcell(native, native_pk, native_data_row, field_name)
-            for fk in fks:
-                foreign_to_native = fk.foreigntonativemapping()
-                for native_pk, native_data_row in (getattr(tic_dat, native).items()
-                            if dictish(getattr(tic_dat, native))
-                            else enumerate(getattr(tic_dat, native))):
-                    ffs = tuple(_ff for _ff in self.primary_key_fields.get(fk.foreign_table, ()) +
-                                self.data_fields.get(fk.foreign_table, ())
-                                if _ff in foreign_to_native)
-                    foreign_look_up = tuple(getcell_(native_pk, native_data_row, foreign_to_native[_ff])
-                                        for _ff in ffs)
-                    if ffs == self.primary_key_fields.get(fk.foreign_table) and len(ffs)==1:
-                        foreign_look_up = foreign_look_up[0]
-                    foreign_look_into = get_table_data(fk.foreign_table, ffs)
-                    if foreign_look_up not in foreign_look_into:
-                        rtn_pks[fk].add(native_pk)
-                        if type(fk.mapping) is ForeignKeyMapping :
-                            rtn_values[fk].add(getcell_(native_pk, native_data_row,
-                                                        fk.mapping.native_field))
-                        else:
-                            rtn_values[fk].add(tuple(getcell_(native_pk,
-                                                native_data_row, _.native_field) for _ in fk.mapping))
+        number_failures = [0] if max_failures < float("inf") else None
+        def populate_rtn():
+            def inc_failures_trips_end():
+                if number_failures:
+                    number_failures[0] += 1
+                    return number_failures[0] >= max_failures
+            for native, fks in self._foreign_keys_by_native().items():
+                def getcell_(native_pk, native_data_row, field_name):
+                     return getcell(native, native_pk, native_data_row, field_name)
+                for fk in fks:
+                    foreign_to_native = fk.foreigntonativemapping()
+                    for native_pk, native_data_row in (getattr(tic_dat, native).items()
+                                if dictish(getattr(tic_dat, native))
+                                else enumerate(getattr(tic_dat, native))):
+                        ffs = tuple(_ff for _ff in self.primary_key_fields.get(fk.foreign_table, ()) +
+                                    self.data_fields.get(fk.foreign_table, ())
+                                    if _ff in foreign_to_native)
+                        foreign_look_up = tuple(getcell_(native_pk, native_data_row, foreign_to_native[_ff])
+                                            for _ff in ffs)
+                        if ffs == self.primary_key_fields.get(fk.foreign_table) and len(ffs)==1:
+                            foreign_look_up = foreign_look_up[0]
+                        foreign_look_into = get_table_data(fk.foreign_table, ffs)
+                        if foreign_look_up not in foreign_look_into:
+                            rtn_pks[fk].add(native_pk)
+                            if type(fk.mapping) is ForeignKeyMapping :
+                                rtn_values[fk].add(getcell_(native_pk, native_data_row,
+                                                            fk.mapping.native_field))
+                            else:
+                                rtn_values[fk].add(tuple(getcell_(native_pk,
+                                                    native_data_row, _.native_field) for _ in fk.mapping))
+                            if inc_failures_trips_end():
+                                return
+        populate_rtn()
         assert set(rtn_pks) == set(rtn_values)
         RtnType = namedtuple("ForeignKeyFailures", ("native_values", "native_pks"))
 
@@ -1605,8 +1617,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
             def inc_failures_trips_end():
                 if number_failures:
                     number_failures[0] += 1
-                    if number_failures[0] >= max_failures:
-                        return True
+                    return number_failures[0] >= max_failures
             for table, type_row in tmp_tdf._data_types.items():
                 _table = getattr(tic_dat, table)
                 if dictish(_table):
@@ -1744,8 +1755,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
             def inc_failures_trips_end():
                 if number_failures:
                     number_failures[0] += 1
-                    if number_failures[0] >= max_failures:
-                        return True
+                    return number_failures[0] >= max_failures
             for tbl, row_predicates in data_row_predicates.items():
                 for pn, rpi in row_predicates.items():
                     predicate_kwargs = {}
