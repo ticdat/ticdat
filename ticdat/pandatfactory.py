@@ -1133,13 +1133,13 @@ class PanDatFactory(object):
         assert max_failures > 0, "max_failures should be a positive number"
         verify(verbosity in ["High", "Low"], "verbosity needs to be either 'High' or 'Low'")
         rtn = {}
-        for fk, rows in self._find_foreign_key_failure_rows(pan_dat, max_failures).items():
+        for fk, rows in self._find_foreign_key_failure_rows(pan_dat, max_failures=max_failures).items():
             native, foreign, mappings, card = fk
             rtn[fk] = getattr(pan_dat, native)[rows] if as_table else rows
         if verbosity == "Low":
             rtn = {tuple(k[:2]) + (tuple(k[2]),): v for k,v in rtn.items()}
         return rtn
-    def _find_foreign_key_failure_rows(self, pan_dat, max_failures):
+    def _find_foreign_key_failure_rows(self, pan_dat, max_failures=float("inf")):
         msg  = []
         verify(self.good_pan_dat_object(pan_dat, msg.append),
                "pan_dat not a good object for this factory : %s"%"\n".join(msg))

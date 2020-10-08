@@ -1522,24 +1522,35 @@ class TestUtils(unittest.TestCase):
         for table, dts in tdf.data_types.items():
             for field, dt in dts.items():
                 if table == "table_one":
-                    tdf.add_data_row_predicate(t, lambda row: dt.valid_data(row["Field"]))
+                    tdf.add_data_row_predicate(table, lambda row: dt.valid_data(row["Field"]))
                 else:
-                    tdf.add_data_row_predicate(t, lambda row: True if not dt.valid_data(row["Field"]) else "Oops",
+                    tdf.add_data_row_predicate(table, lambda row: True if not dt.valid_data(row["Field"]) else "Oops",
                                                predicate_failure_response="Error Message")
         dat = tdf.TicDat(table_one=[[_] for _ in range(1,11)] + [[-_] for _ in range(1,11)],
                          table_two=[[10.1]]*10 + [[-2]]*10)
         errs = tdf.find_data_row_failures(dat)
         self.assertTrue(len(errs) == 2 and all(len(_) == 10 for _ in errs.values()))
         errs = tdf.find_data_row_failures(dat, max_failures=11)
-        self.assertTrue(len(errs) == 2)
-        self.assertTrue(any(len(_) == 10 for _ in errs.values()) and any(len(_) == 1 for _ in errs.values()))
+        self.assertTrue(len(errs) == 2 and set(map(len, errs.values())) == {10, 1})
         errs = tdf.find_data_row_failures(dat, max_failures=10)
         self.assertTrue(len(errs) == 1 and all(len(_) == 10 for _ in errs.values()))
         errs = tdf.find_data_row_failures(dat, max_failures=9)
         self.assertTrue(len(errs) == 1 and all(len(_) == 9 for _ in errs.values()))
 
-_scratchDir = TestUtils.__name__ + "_scratch"
+    def test_fk_max_failures(self):
+        tdf = TicDatFactory(**dietSchema())
+        addDietForeignKeys(tdf)
+        dat = tdf.TicDat(nutritionQuantities=[[f"food_{_}", f"cat_{_}", 10] for _ in range(10)])
+        errs = tdf.find_foreign_key_failures(dat)
+        self.assertTrue(len(errs) == 2 and all(len(_.native_pks) == 10 for _ in errs.values()))
+        errs = tdf.find_foreign_key_failures(dat, max_failures=11)
+        self.assertTrue(len(errs) == 2 and set(map(len, [_.native_pks for _ in errs.values()])) == {10, 1})
+        errs = tdf.find_foreign_key_failures(dat, max_failures=10)
+        self.assertTrue(len(errs) == 1 and all(len(_.native_pks) == 10 for _ in errs.values()))
+        errs = tdf.find_foreign_key_failures(dat, max_failures=9)
+        self.assertTrue(len(errs) == 1 and all(len(_.native_pks) == 9 for _ in errs.values()))
 
+_scratchDir = TestUtils.__name__ + "_scratch"
 
 # Run the tests.
 if __name__ == "__main__":
