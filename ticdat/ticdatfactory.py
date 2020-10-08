@@ -1419,11 +1419,14 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
         verify(self.good_tic_dat_object(tic_dat, msg.append),
                "tic_dat not a good object for this factory : %s"%"\n".join(msg))
         return freeze_me(tic_dat)
-    def find_foreign_key_failures(self, tic_dat, verbosity="High"):
+    def find_foreign_key_failures(self, tic_dat, verbosity="High", max_failures=float("inf")):
         """
         Finds the foreign key failures for a ticdat object
 
         :param tic_dat: ticdat object
+
+        :param max_failures: number. An upper limit on the number of failures to find. Will short circuit and return
+                                     ASAP with a partial failure enumeration when this number is reached.
 
         :param verbosity: either "High" or "Low"
 
@@ -1452,6 +1455,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
         """
         verify(verbosity in ["High", "Low"], "verbosity needs to be either 'High' or 'Low'")
         assert self.good_tic_dat_object(tic_dat), "tic_dat not a good object for this factory"
+        assert max_failures > 0, "max_failures should be a positive number"
         rtn_values, rtn_pks = clt.defaultdict(set), clt.defaultdict(set)
 
         def getcell(tblname, native_pk, native_data_row, field_name):
@@ -1473,31 +1477,39 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
                 for k,v in (tbl.items() if dictish(tbl) else enumerate(tbl)):
                     add_here.add(tuple(getcell(tblname, k, v, f) for f in fields))
             return table_data[tblname, fields]
-
-        for native, fks in self._foreign_keys_by_native().items():
-            def getcell_(native_pk, native_data_row, field_name):
-                 return getcell(native, native_pk, native_data_row, field_name)
-            for fk in fks:
-                foreign_to_native = fk.foreigntonativemapping()
-                for native_pk, native_data_row in (getattr(tic_dat, native).items()
-                            if dictish(getattr(tic_dat, native))
-                            else enumerate(getattr(tic_dat, native))):
-                    ffs = tuple(_ff for _ff in self.primary_key_fields.get(fk.foreign_table, ()) +
-                                self.data_fields.get(fk.foreign_table, ())
-                                if _ff in foreign_to_native)
-                    foreign_look_up = tuple(getcell_(native_pk, native_data_row, foreign_to_native[_ff])
-                                        for _ff in ffs)
-                    if ffs == self.primary_key_fields.get(fk.foreign_table) and len(ffs)==1:
-                        foreign_look_up = foreign_look_up[0]
-                    foreign_look_into = get_table_data(fk.foreign_table, ffs)
-                    if foreign_look_up not in foreign_look_into:
-                        rtn_pks[fk].add(native_pk)
-                        if type(fk.mapping) is ForeignKeyMapping :
-                            rtn_values[fk].add(getcell_(native_pk, native_data_row,
-                                                        fk.mapping.native_field))
-                        else:
-                            rtn_values[fk].add(tuple(getcell_(native_pk,
-                                                native_data_row, _.native_field) for _ in fk.mapping))
+        number_failures = [0] if max_failures < float("inf") else None
+        def populate_rtn():
+            def inc_failures_trips_end():
+                if number_failures:
+                    number_failures[0] += 1
+                    return number_failures[0] >= max_failures
+            for native, fks in self._foreign_keys_by_native().items():
+                def getcell_(native_pk, native_data_row, field_name):
+                     return getcell(native, native_pk, native_data_row, field_name)
+                for fk in fks:
+                    foreign_to_native = fk.foreigntonativemapping()
+                    for native_pk, native_data_row in (getattr(tic_dat, native).items()
+                                if dictish(getattr(tic_dat, native))
+                                else enumerate(getattr(tic_dat, native))):
+                        ffs = tuple(_ff for _ff in self.primary_key_fields.get(fk.foreign_table, ()) +
+                                    self.data_fields.get(fk.foreign_table, ())
+                                    if _ff in foreign_to_native)
+                        foreign_look_up = tuple(getcell_(native_pk, native_data_row, foreign_to_native[_ff])
+                                            for _ff in ffs)
+                        if ffs == self.primary_key_fields.get(fk.foreign_table) and len(ffs)==1:
+                            foreign_look_up = foreign_look_up[0]
+                        foreign_look_into = get_table_data(fk.foreign_table, ffs)
+                        if foreign_look_up not in foreign_look_into:
+                            rtn_pks[fk].add(native_pk)
+                            if type(fk.mapping) is ForeignKeyMapping :
+                                rtn_values[fk].add(getcell_(native_pk, native_data_row,
+                                                            fk.mapping.native_field))
+                            else:
+                                rtn_values[fk].add(tuple(getcell_(native_pk,
+                                                    native_data_row, _.native_field) for _ in fk.mapping))
+                            if inc_failures_trips_end():
+                                return
+        populate_rtn()
         assert set(rtn_pks) == set(rtn_values)
         RtnType = namedtuple("ForeignKeyFailures", ("native_values", "native_pks"))
 
@@ -1557,11 +1569,14 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
             full_row = dict(full_row, **{f:d for f,d in
                                          zip(self.primary_key_fields[table], pk)})
         return full_row
-    def find_data_type_failures(self, tic_dat):
+    def find_data_type_failures(self, tic_dat, max_failures=float("inf")):
         """
         Finds the data type failures for a ticdat object
 
         :param tic_dat: ticdat object
+
+        :param max_failures: number. An upper limit on the number of failures to find. Will short circuit and return
+                                     ASAP with a partial failure enumeration when this number is reached.
 
         :return: A dictionary constructed as follow:
 
@@ -1587,7 +1602,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
          See issue https://github.com/ticdat/ticdat/issues/46 for more info.
         """
         assert self.good_tic_dat_object(tic_dat), "tic_dat not a good object for this factory"
-
+        assert max_failures > 0, "max_failures should be a positive number"
 
         rtn_values, rtn_pks = clt.defaultdict(set), clt.defaultdict(set)
         tmp_tdf = TicDatFactory.create_from_full_schema(self.schema(include_ancillary_info=True))
@@ -1597,22 +1612,32 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
                     tmp_tdf.set_data_type(t, pk, number_allowed=True,
                       inclusive_min=True, inclusive_max=True, min=-float("inf"), max=float("inf"),
                       must_be_int=False, strings_allowed='*', nullable=False, datetime=False)
-
-        for table, type_row in tmp_tdf._data_types.items():
-            _table = getattr(tic_dat, table)
-            if dictish(_table):
-                for pk  in _table:
-                    full_row = self._get_full_row(tic_dat, table, pk)
-                    for field, data_type in type_row.items():
-                        if not data_type.valid_data(full_row[field]) :
-                            rtn_values[(table, field)].add(full_row[field])
-                            rtn_pks[(table, field)].add(pk)
-            elif containerish(_table):
-                for pk, data_row in enumerate(_table):
-                    for field, data_type in type_row.items():
-                        if not data_type.valid_data(data_row[field]) :
-                            rtn_values[(table, field)].add(data_row[field])
-                            rtn_pks[(table, field)].add(pk)
+        number_failures = [0] if max_failures < float("inf") else None
+        def populate_rtn():
+            def inc_failures_trips_end():
+                if number_failures:
+                    number_failures[0] += 1
+                    return number_failures[0] >= max_failures
+            for table, type_row in tmp_tdf._data_types.items():
+                _table = getattr(tic_dat, table)
+                if dictish(_table):
+                    for pk  in _table:
+                        full_row = self._get_full_row(tic_dat, table, pk)
+                        for field, data_type in type_row.items():
+                            if not data_type.valid_data(full_row[field]) :
+                                rtn_values[(table, field)].add(full_row[field])
+                                rtn_pks[(table, field)].add(pk)
+                                if inc_failures_trips_end():
+                                    return
+                elif containerish(_table):
+                    for pk, data_row in enumerate(_table):
+                        for field, data_type in type_row.items():
+                            if not data_type.valid_data(data_row[field]) :
+                                rtn_values[(table, field)].add(data_row[field])
+                                rtn_pks[(table, field)].add(pk)
+                                if inc_failures_trips_end():
+                                    return
+        populate_rtn()
         assert set(rtn_values).issuperset(set(rtn_pks))
         TableField = clt.namedtuple("TableField", ["table", "field"])
         ValuesPks = clt.namedtuple("ValuesPks", ["bad_values", "pks"])
@@ -1667,7 +1692,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
         assert not set(self.find_data_type_failures(tic_dat)).intersection(real_replacements)
         return tic_dat
 
-    def find_data_row_failures(self, tic_dat, exception_handling="__debug__"):
+    def find_data_row_failures(self, tic_dat, exception_handling="__debug__", max_failures=float("inf")):
         """
         Finds the data row failures for a ticdat object
 
@@ -1682,6 +1707,9 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
               "__debug__": Since "Handled as Failure" makes more sense for production runs and "Unhandled" makes more
                            sense for debugging, this value will use the latter if __debug__ is True and the former
                            otherwise. See -o and __debug__ in Python documentation for more details.
+
+        :param max_failures: number. An upper limit on the number of failures to find. Will short circuit and return
+                                     ASAP with a partial failure enumeration when this number is reached.
 
         :return: A dictionary constructed as follow:
 
@@ -1700,6 +1728,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
          and error_message as a string.
         """
         assert self.good_tic_dat_object(tic_dat), "tic_dat not a good object for this factory"
+        assert max_failures > 0, "max_failures should be a positive number"
         verify(exception_handling in ["Handled as Failure", "Unhandled", "__debug__"],
                "bad exception_handling argument")
         if exception_handling == "__debug__":
@@ -1721,54 +1750,67 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
         predicate_kwargs_maker_results = {}
         rtn = clt.defaultdict(set)
         PKEM = clt.namedtuple("PrimaryKeyErrorMessage", ["primary_key", "error_message"])
-        for tbl, row_predicates in data_row_predicates.items():
-            for pn, rpi in row_predicates.items():
-                predicate_kwargs = {}
-                if rpi.predicate_kwargs_maker:
-                    if rpi.predicate_kwargs_maker not in predicate_kwargs_maker_results:
-                        if exception_handling == "Handled as Failure":
-                            try:
+        number_failures = [0] if max_failures < float("inf") else None
+        def populate_rtn():
+            def inc_failures_trips_end():
+                if number_failures:
+                    number_failures[0] += 1
+                    return number_failures[0] >= max_failures
+            for tbl, row_predicates in data_row_predicates.items():
+                for pn, rpi in row_predicates.items():
+                    predicate_kwargs = {}
+                    if rpi.predicate_kwargs_maker:
+                        if rpi.predicate_kwargs_maker not in predicate_kwargs_maker_results:
+                            if exception_handling == "Handled as Failure":
+                                try:
+                                    _predicate_kwargs = rpi.predicate_kwargs_maker(tic_dat)
+                                except Exception as e:
+                                    _predicate_kwargs = f"Exception<{e}>"
+                            else:
                                 _predicate_kwargs = rpi.predicate_kwargs_maker(tic_dat)
-                            except Exception as e:
-                                _predicate_kwargs = f"Exception<{e}>"
+                            predicate_kwargs_maker_results[rpi.predicate_kwargs_maker] = _predicate_kwargs
+                        predicate_kwargs = predicate_kwargs_maker_results[rpi.predicate_kwargs_maker]
+                    if not isinstance(predicate_kwargs, dict):
+                        rtn[tbl, pn] = PKEM('*', predicate_kwargs
+                                            if (isinstance(predicate_kwargs, str) and "Exception<" in predicate_kwargs)
+                                            else f"predicate_kwargs_maker failed to return a dict")
+                        if inc_failures_trips_end():
+                            return
+                    else:
+                        if rpi.predicate_failure_response == "Boolean":
+                            def _p(row):
+                                try:
+                                    return rpi.predicate(row, **predicate_kwargs)
+                                except:
+                                    return False
                         else:
-                            _predicate_kwargs = rpi.predicate_kwargs_maker(tic_dat)
-                        predicate_kwargs_maker_results[rpi.predicate_kwargs_maker] = _predicate_kwargs
-                    predicate_kwargs = predicate_kwargs_maker_results[rpi.predicate_kwargs_maker]
-                if not isinstance(predicate_kwargs, dict):
-                    rtn[tbl, pn] = PKEM('*', predicate_kwargs
-                                        if (isinstance(predicate_kwargs, str) and "Exception<" in predicate_kwargs)
-                                        else f"predicate_kwargs_maker failed to return a dict")
-                else:
-                    if rpi.predicate_failure_response == "Boolean":
-                        def _p(row):
-                            try:
-                                return rpi.predicate(row, **predicate_kwargs)
-                            except:
-                                return False
-                    else:
-                        def _p(row):
-                            try:
-                                return rpi.predicate(row, **predicate_kwargs)
-                            except Exception as e:
-                                return f"Exception<{e}>"
-                    if exception_handling == "Unhandled":
-                        _p = lambda row: rpi.predicate(row, **predicate_kwargs)
-                    _table = getattr(tic_dat, tbl)
-                    def handle_full_row(pk, full_row):
-                        if rpi.predicate_failure_response == "Boolean" and not _p(full_row):
-                            rtn[tbl, pn].add(pk)
-                        if rpi.predicate_failure_response == "Error Message":
-                            _ = _p(full_row)
-                            if not _ is True:
-                                rtn[tbl, pn].add(PKEM(pk, str(_)))
-                    if dictish(_table):
-                        for pk  in _table:
-                            full_row = self._get_full_row(tic_dat, tbl, pk)
-                            handle_full_row(pk, full_row)
-                    else:
-                        for i, data_row in enumerate(_table):
-                            handle_full_row(i, data_row)
+                            def _p(row):
+                                try:
+                                    return rpi.predicate(row, **predicate_kwargs)
+                                except Exception as e:
+                                    return f"Exception<{e}>"
+                        if exception_handling == "Unhandled":
+                            _p = lambda row: rpi.predicate(row, **predicate_kwargs)
+                        _table = getattr(tic_dat, tbl)
+                        def handle_full_row_trips_end(pk, full_row):
+                            if rpi.predicate_failure_response == "Boolean" and not _p(full_row):
+                                rtn[tbl, pn].add(pk)
+                                return inc_failures_trips_end()
+                            if rpi.predicate_failure_response == "Error Message":
+                                _ = _p(full_row)
+                                if not _ is True:
+                                    rtn[tbl, pn].add(PKEM(pk, str(_)))
+                                    return inc_failures_trips_end()
+                        if dictish(_table):
+                            for pk  in _table:
+                                full_row = self._get_full_row(tic_dat, tbl, pk)
+                                if handle_full_row_trips_end(pk, full_row):
+                                    return
+                        else:
+                            for i, data_row in enumerate(_table):
+                                if handle_full_row_trips_end(i, data_row):
+                                    return
+        populate_rtn()
         TPN = clt.namedtuple("TablePredicateName", ["table", "predicate_name"])
 
         return {TPN(*k):(v if isinstance(v, PKEM) else tuple(v)) for k,v in rtn.items()}

@@ -1499,8 +1499,58 @@ class TestUtils(unittest.TestCase):
         self.assertTrue(small_sch.good_tic_dat_table(by_rows, "foods"))
         self.assertFalse(small_sch.good_tic_dat_table(by_rows, "foods", row_checking="strict"))
 
-_scratchDir = TestUtils.__name__ + "_scratch"
+    def test_data_type_max_failures(self):
+        tdf = TicDatFactory(table_one = [["Field"], []], table_two = [[], ["Field"]])
+        for t in ["table_one", "table_two"]:
+            tdf.set_data_type(t, "Field")
+        dat = tdf.TicDat(table_one=[[_] for _ in range(1,11)] + [[-_] for _ in range(1,11)],
+                         table_two=[[10.1]]*10 + [[-2]]*10)
+        errs = tdf.find_data_type_failures(dat)
+        self.assertTrue(len(errs) == 2 and all(len(_.pks) == 10 for _ in errs.values()))
+        errs = tdf.find_data_type_failures(dat, 11)
+        self.assertTrue(len(errs) == 2)
+        self.assertTrue(any(len(_.pks) == 10 for _ in errs.values()) and any(len(_.pks) == 1 for _ in errs.values()))
+        errs = tdf.find_data_type_failures(dat, 10)
+        self.assertTrue(len(errs) == 1 and all(len(_.pks) == 10 for _ in errs.values()))
+        errs = tdf.find_data_type_failures(dat, 9)
+        self.assertTrue(len(errs) == 1 and all(len(_.pks) == 9 for _ in errs.values()))
 
+    def test_data_row_max_failures(self):
+        tdf = TicDatFactory(table_one = [["Field"], []], table_two = [[], ["Field"]])
+        for t in ["table_one", "table_two"]:
+            tdf.set_data_type(t, "Field")
+        for table, dts in tdf.data_types.items():
+            for field, dt in dts.items():
+                if table == "table_one":
+                    tdf.add_data_row_predicate(table, lambda row: dt.valid_data(row["Field"]))
+                else:
+                    tdf.add_data_row_predicate(table, lambda row: True if not dt.valid_data(row["Field"]) else "Oops",
+                                               predicate_failure_response="Error Message")
+        dat = tdf.TicDat(table_one=[[_] for _ in range(1,11)] + [[-_] for _ in range(1,11)],
+                         table_two=[[10.1]]*10 + [[-2]]*10)
+        errs = tdf.find_data_row_failures(dat)
+        self.assertTrue(len(errs) == 2 and all(len(_) == 10 for _ in errs.values()))
+        errs = tdf.find_data_row_failures(dat, max_failures=11)
+        self.assertTrue(len(errs) == 2 and set(map(len, errs.values())) == {10, 1})
+        errs = tdf.find_data_row_failures(dat, max_failures=10)
+        self.assertTrue(len(errs) == 1 and all(len(_) == 10 for _ in errs.values()))
+        errs = tdf.find_data_row_failures(dat, max_failures=9)
+        self.assertTrue(len(errs) == 1 and all(len(_) == 9 for _ in errs.values()))
+
+    def test_fk_max_failures(self):
+        tdf = TicDatFactory(**dietSchema())
+        addDietForeignKeys(tdf)
+        dat = tdf.TicDat(nutritionQuantities=[[f"food_{_}", f"cat_{_}", 10] for _ in range(10)])
+        errs = tdf.find_foreign_key_failures(dat)
+        self.assertTrue(len(errs) == 2 and all(len(_.native_pks) == 10 for _ in errs.values()))
+        errs = tdf.find_foreign_key_failures(dat, max_failures=11)
+        self.assertTrue(len(errs) == 2 and set(map(len, [_.native_pks for _ in errs.values()])) == {10, 1})
+        errs = tdf.find_foreign_key_failures(dat, max_failures=10)
+        self.assertTrue(len(errs) == 1 and all(len(_.native_pks) == 10 for _ in errs.values()))
+        errs = tdf.find_foreign_key_failures(dat, max_failures=9)
+        self.assertTrue(len(errs) == 1 and all(len(_.native_pks) == 9 for _ in errs.values()))
+
+_scratchDir = TestUtils.__name__ + "_scratch"
 
 # Run the tests.
 if __name__ == "__main__":

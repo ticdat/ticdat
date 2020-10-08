@@ -22,13 +22,18 @@ except:
 
 pd, DataFrame = utils.pd, utils.DataFrame # if pandas not installed will be falsey
 
-def _faster_df_apply(df, func):
+def _faster_df_apply(df, func, trip_wire_check=None):
     cols = list(df.columns)
     data, index = [], []
     for row in df.itertuples(index=True):
         row_dict = {f:v for f,v in zip(cols, row[1:])}
         data.append(func(row_dict))
         index.append(row[0])
+        if trip_wire_check:
+            new_func = trip_wire_check(data[-1])
+            if new_func:
+                func = new_func
+                trip_wire_check = None
     # will default to float for empty Series, like original pandas
     return pd.Series(data, index=index, **({"dtype": numpy.float64} if not data else {}))
 
@@ -850,7 +855,7 @@ class PanDatFactory(object):
                       inclusive_min=True, inclusive_max=True, min=-float("inf"), max=float("inf"),
                       must_be_int=False, strings_allowed='*', nullable=False, datetime=False)
         return tmp_pdf.data_types
-    def find_data_type_failures(self, pan_dat, as_table=True):
+    def find_data_type_failures(self, pan_dat, as_table=True, max_failures=float("inf")):
         """
         Finds the data type failures for a pandat object
 
@@ -859,6 +864,9 @@ class PanDatFactory(object):
         :param as_table: boolean - if truthy then the values of the return dictionary will be the
                data type failure rows themselves. Otherwise will return the boolean Series that indicates
                which rows have data type failures.
+
+        :param max_failures: number. An upper limit on the number of failures to find. Will short circuit and return
+                                     ASAP with a partial failure enumeration when this number is reached.
 
         :return: A dictionary constructed as follow:
                  The keys are namedtuples with members "table", "field". Each (table,field) pair
@@ -875,19 +883,29 @@ class PanDatFactory(object):
         msg = []
         verify(self.good_pan_dat_object(pan_dat, msg.append),
                "pan_dat not a good object for this factory : %s"%"\n".join(msg))
-
+        assert max_failures > 0, "max_failures should be a positive number"
 
         rtn = {}
         TableField = clt.namedtuple("TableField", ["table", "field"])
+        number_failures = [0]
+        check_too_many = None
+        if max_failures < float("inf"):
+            def check_too_many(is_bad_row):
+                if is_bad_row:
+                    number_failures[0] += 1
+                    if number_failures[0] >= max_failures:
+                        return lambda row: False  # all future rows will be good (i.e. not bad, i.e. False)
         for table, type_row in self._true_data_types().items():
             _table = getattr(pan_dat, table)
             for field, data_type in type_row.items():
                 def bad_row(row):
                     data = row[field]
                     return not data_type.valid_data(None if isnull(data) else data)
-                where_bad_rows = _faster_df_apply(_table, bad_row)
+                where_bad_rows = _faster_df_apply(_table, bad_row, trip_wire_check=check_too_many)
                 if where_bad_rows.any():
                     rtn[TableField(table, field)] = _table[where_bad_rows].copy() if as_table else where_bad_rows
+                if number_failures[0] >= max_failures:
+                    return rtn
         return rtn
     def replace_data_type_failures(self, pan_dat, replacement_values=None):
         """
@@ -941,7 +959,8 @@ class PanDatFactory(object):
                 getattr(pan_dat, table).loc[rows, field] = real_replacements[table, field]
         assert not set(self.find_data_type_failures(pan_dat)).intersection(real_replacements)
         return pan_dat
-    def find_data_row_failures(self, pan_dat, as_table=True, exception_handling="__debug__"):
+    def find_data_row_failures(self, pan_dat, as_table=True, exception_handling="__debug__",
+                               max_failures=float("inf")):
         """
         Finds the data row failures for a ticdat object
 
@@ -961,6 +980,9 @@ class PanDatFactory(object):
                            sense for debugging, this value will use the latter if __debug__ is True and the former
                            otherwise. See -o and __debug__ in Python documentation for more details.
 
+        :param max_failures: number. An upper limit on the number of failures to find. Will short circuit and return
+                                     ASAP with a partial failure enumeration when this number is reached.
+
         :return: A dictionary constructed as follows:
 
         The keys are namedtuples with members "table", "predicate_name".
@@ -977,6 +999,22 @@ class PanDatFactory(object):
         with members "primary_key" and "error message". The former will be populated with '*' (indicating all the rows)
         and the latter will be a string describing the failure.
         """
+        assert max_failures > 0, "max_failures should be a positive number"
+        number_failures = [0]
+        check_too_many_bool = check_too_many_msg = None
+        if max_failures < float("inf"):
+            def check_too_many_bool(is_bad_row):  # here _faster_df_apply is applying a function that
+                if is_bad_row:  # returns True when the row is bad and False o/wise (the boolean reverse of the
+                    number_failures[0] += 1 # of the row predicate)
+                    if number_failures[0] >= max_failures:  # all future rows will be good
+                        return lambda row: False  # which in this context is not bad (i.e. False)
+
+            def check_too_many_msg(true_or_msg):  # here _faster_df_apply is applying a function that
+                if true_or_msg is not True:  # returns True when the row is good and a string o/wise
+                    number_failures[0] += 1  # (i.e. _faster_df_applyu is using the actual row predicate)
+                    if number_failures[0] >= max_failures:  # all future rows will be good
+                        return lambda row: True  # which in this context is True
+
         msg = []
         verify(self.good_pan_dat_object(pan_dat, msg.append),
                "pan_dat not a good object for this factory : %s"%"\n".join(msg))
@@ -1022,6 +1060,7 @@ class PanDatFactory(object):
                     rtn[TPN(tbl, pn)] = PKEM('*', predicate_kwargs
                                         if (isinstance(predicate_kwargs, str) and "Exception<" in predicate_kwargs)
                                         else f"predicate_kwargs_maker failed to return a dict")
+                    number_failures[0] += 1
                 else:
                     if rpi.predicate_failure_response == "Boolean":
                         def _p(row):
@@ -1031,7 +1070,8 @@ class PanDatFactory(object):
                                 return False
                         bad_row = (lambda row: not rpi.predicate(row, **predicate_kwargs)) \
                                   if exception_handling == "Unhandled" else (lambda row: not _p(row))
-                        where_bad_rows = _faster_df_apply(_table, bad_row)
+
+                        where_bad_rows = _faster_df_apply(_table, bad_row, trip_wire_check=check_too_many_bool)
                         if where_bad_rows.any():
                             rtn[TPN(tbl, pn)] = _table[where_bad_rows].copy() if as_table else where_bad_rows
                     else:
@@ -1042,7 +1082,7 @@ class PanDatFactory(object):
                                 return f"Exception<{e}>"
                         predicate = (lambda row: rpi.predicate(row, **predicate_kwargs)) \
                                     if exception_handling == "Unhandled" else (lambda row: _p(row))
-                        predicate_result = _faster_df_apply(_table, predicate)
+                        predicate_result = _faster_df_apply(_table, predicate, trip_wire_check=check_too_many_msg)
                         where_bad_rows = predicate_result.apply(lambda x: x is not True)
                         if where_bad_rows.any():
                             if as_table:
@@ -1054,8 +1094,10 @@ class PanDatFactory(object):
                                 _df[err_column] = predicate_result[where_bad_rows].copy()
                             else:
                                 rtn[TPN(tbl, pn)] = where_bad_rows
+                if number_failures[0] >= max_failures:
+                    return rtn
         return rtn
-    def find_foreign_key_failures(self, pan_dat, verbosity="High", as_table=True):
+    def find_foreign_key_failures(self, pan_dat, verbosity="High", as_table=True, max_failures=float("inf")):
         """
         Finds the foreign key failures for a pandat object
 
@@ -1067,6 +1109,9 @@ class PanDatFactory(object):
                failed rows themselves. Otherwise will return the a boolean list that indicates which rows
                have failures. (For technical reasons, not returning a boolean Series like the
                other find functions)
+
+        :param max_failures: number. An upper limit on the number of failures to find. Will short circuit and return
+                                     ASAP with a partial failure enumeration when this number is reached.
 
         :return: A dictionary constructed as follows:
 
@@ -1085,18 +1130,28 @@ class PanDatFactory(object):
         """
         # note - the as_table argument is messy here because I'm applying an index to a copy of the table
         # as a result, we provide the remove_foreign_key_failures companion function
+        assert max_failures > 0, "max_failures should be a positive number"
         verify(verbosity in ["High", "Low"], "verbosity needs to be either 'High' or 'Low'")
         rtn = {}
-        for fk, rows in self._find_foreign_key_failure_rows(pan_dat).items():
+        for fk, rows in self._find_foreign_key_failure_rows(pan_dat, max_failures=max_failures).items():
             native, foreign, mappings, card = fk
             rtn[fk] = getattr(pan_dat, native)[rows] if as_table else rows
         if verbosity == "Low":
             rtn = {tuple(k[:2]) + (tuple(k[2]),): v for k,v in rtn.items()}
         return rtn
-    def _find_foreign_key_failure_rows(self, pan_dat):
+    def _find_foreign_key_failure_rows(self, pan_dat, max_failures=float("inf")):
         msg  = []
         verify(self.good_pan_dat_object(pan_dat, msg.append),
                "pan_dat not a good object for this factory : %s"%"\n".join(msg))
+        number_failures = [0]
+        check_too_many = None
+        if max_failures < float("inf"):
+            def check_too_many(is_bad_row):
+                if is_bad_row:
+                    number_failures[0] += 1
+                    if number_failures[0] >= max_failures:
+                        return lambda row: False  # all future rows will be good (i.e. not bad, i.e. False)
+
         rtn = {}
         for fk in self.foreign_keys:
             native, foreign, mappings, card = fk
@@ -1127,7 +1182,10 @@ class PanDatFactory(object):
                 # I'm casting to list here because child is a copy that doesn't have the original index
                 # This is fixable, (i.e. we could return a Series with an index matching the original child table)
                 # but the fix isn't high priority.
-                rtn[fk] = list(_faster_df_apply(child, lambda row: row[magic_field*2] in bad_rows))
+                rtn[fk] = list(_faster_df_apply(child, lambda row: row[magic_field*2] in bad_rows,
+                                                trip_wire_check=check_too_many))
+                if number_failures[0] >= max_failures:
+                    return rtn
         return rtn
     def create_full_parameters_dict(self, dat):
         """
