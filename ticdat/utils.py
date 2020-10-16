@@ -229,7 +229,7 @@ def _clone_to_restricted_as_needed(function, schema, name):
     if set(restricted) == set(schema.all_tables):
         return schema, set()
     return schema.clone(table_restrictions=restricted), set(restricted)
-def standard_main(input_schema, solution_schema, solve):
+def standard_main(input_schema, solution_schema, solve, case_space_table_names=False):
     """
      provides standardized command line functionality for a ticdat solve engine
 
@@ -239,6 +239,12 @@ def standard_main(input_schema, solution_schema, solve):
 
     :param solve: a function that takes a input_schema.TicDat object and
                   returns a solution_schema.TicDat object
+
+    :param case_space_table_names - passed through to any TicDatFactory/PanDatFactory write functions that have
+                                    case_space_table_names as an argument. Will also pass through to
+                                    case_space_sheet_names for Excel writers.
+                                    boolean - make best guesses how to add spaces and upper case characters to
+                                    table names when writing to the file system.
 
     :return: None
 
@@ -364,7 +370,8 @@ def standard_main(input_schema, solution_schema, solve):
 
     print("output %s %s"%(file_or_dir(output_file), output_file))
     write_func, write_kwargs = _get_write_function_and_kwargs(tdf=solution_schema, file_path=output_file,
-                                                              file_or_directory=file_or_dir(output_file))
+                                                              file_or_directory=file_or_dir(output_file),
+                                                              case_space_table_names=case_space_table_names)
     if not action_name:
         sln = solve(dat)
         if sln:
@@ -389,7 +396,8 @@ def standard_main(input_schema, solution_schema, solve):
         return all(hasattr(dat, t) for t in tdf.all_tables)
     def dat_write(dat):
         w_func, w_kwargs = _get_write_function_and_kwargs(tdf=input_schema, file_path=input_file,
-                                                          file_or_directory=file_or_dir(input_file))
+                                                          file_or_directory=file_or_dir(input_file),
+                                                          case_space_table_names=case_space_table_names)
         print("%s input %s %s" % ("Overwriting" if os.path.exists(input_file) else "Creating",
                                    file_or_dir(input_file), input_file))
         w_func(dat, input_file, **w_kwargs)
@@ -436,7 +444,7 @@ def _get_dat_object(tdf, create_routine, file_path, file_or_directory, check_for
     verify(dat, f"Failed to read from and/or recognize {file_path}{_extra_input_file_check_str(file_path)}")
     return dat
 
-def _get_write_function_and_kwargs(tdf, file_path, file_or_directory):
+def _get_write_function_and_kwargs(tdf, file_path, file_or_directory, case_space_table_names):
     write_func = None
     if file_or_directory == "file":
         if file_path.endswith(".json"):
@@ -452,8 +460,9 @@ def _get_write_function_and_kwargs(tdf, file_path, file_or_directory):
     else:
         write_func = tdf.csv.write_directory
     verify(write_func, f"Unable to resolve write function for {file_path}")
-    write_func_args = inspect.getfullargspec(write_func).args
-    kwargs = {_: True for _ in {"case_space_table_names", "allow_overwrite"}.intersection(write_func_args)}
+    kwargs = {"case_space_table_names": case_space_table_names, "case_space_sheet_names": case_space_table_names,
+              "allow_overwrite": True}
+    kwargs = {k: v for k, v in kwargs.items() if k in inspect.getfullargspec(write_func).args}
     return write_func, kwargs
 
 def _extra_input_file_check_str(input_file):

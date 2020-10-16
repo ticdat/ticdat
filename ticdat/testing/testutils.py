@@ -1210,7 +1210,8 @@ class TestUtils(unittest.TestCase):
         for attr, path in [["csv", core_path+"_csv"], ["xls", core_path+".xlsx"], ["sql", core_path+".sql"],
                            ["json", core_path+".json"]]:
             f_or_d = "directory" if attr == "csv" else "file"
-            write_func, write_kwargs = utils._get_write_function_and_kwargs(tdf, path, f_or_d)
+            write_func, write_kwargs = utils._get_write_function_and_kwargs(tdf, path, f_or_d,
+                                                                            case_space_table_names=False)
             write_func(dat, path, **write_kwargs)
             dat_1 = utils._get_dat_object(tdf, "create_tic_dat", path, f_or_d, False)
             self.assertTrue(tdf._same_data(dat, dat_1))
