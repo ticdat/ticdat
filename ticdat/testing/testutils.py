@@ -1369,6 +1369,7 @@ class TestUtils(unittest.TestCase):
         sln = read_sln()
         self.assertTrue({t:len(getattr(sln, t)) for t in funky_diet.solution_schema.all_tables} ==
                         {"buy_food": 3, "consume_nutrition": 4, "weird_table": 0, "parameters": 1})
+
         dat.nutrition_quantities["pizza", "junk"] = {}
         dat.categories["weirdness"] = dat.categories["wokeness"] = [100, 20]
         funky_diet.input_schema.json.write_file(dat, os.path.join(data_path, "input.json"), allow_overwrite=True)
@@ -1392,6 +1393,16 @@ class TestUtils(unittest.TestCase):
         with patch.object(sys, 'argv', [module_path, "-i", "junk", "-o", os.path.join(data_path, "output.json"),
                                         "-a", "checks_the_unit_test_result"]):
             utils.standard_main(funky_diet.input_schema, funky_diet.solution_schema, funky_diet.solve)
+
+        with patch.object(sys, 'argv', [module_path, "-i", os.path.join(data_path, "input.json"),
+                                        "-o", os.path.join(data_path, "output_csvs")]):
+            utils.standard_main(funky_diet.input_schema, funky_diet.solution_schema, funky_diet.solve)
+        self.assertTrue(os.path.exists(os.path.join(data_path, "output_csvs", "consume_nutrition.csv")))
+        with patch.object(sys, 'argv', [module_path, "-i", os.path.join(data_path, "input.json"),
+                                        "-o", os.path.join(data_path, "output_csvs_2")]):
+            utils.standard_main(funky_diet.input_schema, funky_diet.solution_schema, funky_diet.solve,
+                                case_space_table_names=True)
+        self.assertTrue(os.path.exists(os.path.join(data_path, "output_csvs_2", "Consume Nutrition.csv")))
         sys.modules.pop(funky_diet.solve.__module__)
 
     def testThirty(self):
