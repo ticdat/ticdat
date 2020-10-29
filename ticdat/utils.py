@@ -308,7 +308,7 @@ def standard_main(input_schema, solution_schema, solve, case_space_table_names=F
             action_name = a
         else:
             verify(False, "unhandled option")
-
+    original_input_schema = input_schema
     if action_name:
         module = sys.modules[solve.__module__.split('.')[0]]
         verify(hasattr(module, action_name), f"{action_name} is not an attribute of the module")
@@ -328,9 +328,8 @@ def standard_main(input_schema, solution_schema, solve, case_space_table_names=F
     if enframe_config:
         enframe_handler = make_enframe_offline_handler(enframe_config, input_schema, solution_schema,
                                                        solve if not action_name else action_func)
-        if "copy" in enframe_handler.solve_type.lower() and input_restrictions:
-            print("\nNote - only the following subset of tables will be copied from the file system\n" +
-                  str(input_restrictions) + "\n")
+        if enframe_handler.solve_type.lower() ==  "Copy Input to Postgres".lower():
+            input_schema, input_restrictions = original_input_schema, set()
         if "solve" in enframe_handler.solve_type.lower() and solution_restrictions:
             print("\nNote - only the following subset of tables will be written to the local Enframe DB\n" +
                   str(solution_restrictions) + "\n")
