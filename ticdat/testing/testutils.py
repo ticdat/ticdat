@@ -1413,6 +1413,7 @@ class TestUtils(unittest.TestCase):
         data_path = os.path.join(_scratchDir, "custom_module_four")
         makeCleanDir(data_path)
         module_path = get_testing_file_path("funky_diet.py")
+
         import ticdat.testing.funky_diet as funky_diet
         for w in ["solve", "remove_the_pizza", "checks_the_unit_test_result", "a_solvish_act"]:
             _w = getattr(funky_diet, w)
@@ -1423,6 +1424,8 @@ class TestUtils(unittest.TestCase):
         d = json.loads(tdf.json.write_file(dat, "", verbose=False))
         d["nutrition_quantities"] = d.pop("nutritionQuantities")
         dat = funky_diet.input_schema.TicDat(**d)
+        clean_dat = funky_diet.input_schema.copy_tic_dat(dat)
+        clean_dat.stupid_table['a', 'b'] = 2
         dat.stupid_table["ju", "nk"] = 10
         funky_diet.input_schema.json.write_file(dat, os.path.join(data_path, "input.json"))
         def make_the_json(solve_type, scenario_name="", master_schema=""):
@@ -1468,6 +1471,23 @@ class TestUtils(unittest.TestCase):
         dat = funky_diet.input_schema.pgsql.create_tic_dat(engine, "scenario_1")
         self.assertTrue({t: len(getattr(dat, t)) for t in funky_diet.input_schema.all_tables} ==
                         {"foods": 8, "nutrition_quantities": 32, "categories":6, "stupid_table": 0})
+
+        engine.dispose()
+        postgresql.stop()
+
+        postgresql = testing_postgresql.Postgresql()
+        engine = sa.create_engine(postgresql.url())
+        funky_diet.input_schema.json.write_file(clean_dat, os.path.join(data_path, "input.json"), allow_overwrite=True)
+        e_json = make_the_json("Copy Input to Postgres", master_schema="the_master", scenario_name="the_scenario")
+        test_args_five = [module_path, "-i", os.path.join(data_path, "input.json"), "-o", "junk", "-e", e_json]
+        with patch.object(sys, 'argv', test_args_five):
+            utils.standard_main(funky_diet.input_schema, funky_diet.solution_schema, funky_diet.solve)
+        e_json = make_the_json("proxy EnFramE solve", master_schema="the_master", scenario_name="the_scenario")
+        test_args_six = [module_path, "-i", "junk", "-o", "alsojunk", "-e", e_json]
+        with patch.object(sys, 'argv', test_args_six):
+            utils.standard_main(funky_diet.input_schema, funky_diet.solution_schema, funky_diet.solve)
+
+        ### put specific testing results from calling engine here!!!
 
         engine.dispose()
         postgresql.stop()
