@@ -1487,7 +1487,23 @@ class TestUtils(unittest.TestCase):
         with patch.object(sys, 'argv', test_args_six):
             utils.standard_main(funky_diet.input_schema, funky_diet.solution_schema, funky_diet.solve)
 
-        ### put specific testing results from calling engine here!!!
+        self.assertTrue([('hamburger', 1, 'the_scenario'), ('ice cream', 1, 'the_scenario'),
+                         ('milk', 1, 'the_scenario')] ==
+                        sorted(_[:3] for _ in engine.execute("Select * from the_master.s_buy_food")))
+
+        self.assertTrue(sorted(engine.execute("Select * from the_master.foods")) ==
+                        [('chicken', 1, 'the_scenario', 2.89), ('fries', 1, 'the_scenario', 1.89),
+                         ('hamburger', 1, 'the_scenario', 2.49), ('hot dog', 1, 'the_scenario', 1.5),
+                         ('ice cream', 1, 'the_scenario', 1.59), ('macaroni', 1, 'the_scenario', 2.09),
+                         ('milk', 1, 'the_scenario', 0.89), ('pizza', 1, 'the_scenario', 1.99),
+                         ('salad', 1, 'the_scenario', 2.49)])
+
+        test_args_seven = [module_path, "-i", "junk", "-o", "alsojunk", "-e", e_json, "-a", "remove_the_pizza"]
+        with patch.object(sys, 'argv', test_args_seven):
+            utils.standard_main(funky_diet.input_schema, funky_diet.solution_schema, funky_diet.solve)
+        self.assertTrue(set(_[0] for _ in engine.execute("Select * from the_master.foods")) ==
+                        set(_[0] for _ in engine.execute("Select * from scenario_1.foods")) ==
+                        {'hamburger', 'ice cream', 'salad', 'milk', 'macaroni', 'fries', 'chicken', 'hot dog'})
 
         engine.dispose()
         postgresql.stop()
