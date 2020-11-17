@@ -373,6 +373,9 @@ def standard_main(input_schema, solution_schema, solve, case_space_table_names=F
                                                               case_space_table_names=case_space_table_names)
     if not action_name:
         sln = solve(dat)
+        verify(not (sln is not None and safe_apply(bool)(sln) is None),
+               "The solve (or action) function should return either a TicDat/PanDat object (for success), " +
+               "or something falsey (to indicate failure)")
         if sln:
             print("%s output %s %s"%("Overwriting" if os.path.exists(output_file) else "Creating",
                                      file_or_dir(output_file), output_file))
