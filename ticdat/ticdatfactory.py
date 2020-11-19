@@ -200,6 +200,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
         self._data_types[table][field] = TypeDictionary.safe_creator(number_allowed, inclusive_min, inclusive_max,
                                                                      min, max, must_be_int, strings_allowed, nullable,
                                                                      datetime)
+        self._none_as_infinity_bias_cache.clear()
 
     def clear_data_type(self, table, field):
         """
@@ -218,6 +219,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
         verify(not self._has_been_used,
                "The data types can't be changed after a TicDatFactory has been used.")
         del(self._data_types[table][field])
+        self._none_as_infinity_bias_cache.clear()
 
     def add_data_row_predicate(self, table, predicate, predicate_name=None,
                                predicate_kwargs_maker=None,
@@ -822,6 +824,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
         self._prepends = {}
         self._parameters = {}
         self._infinity_io_flag = ["N/A"]
+        self._none_as_infinity_bias_cache = {}
         self._isFrozen=True
 
     @property
@@ -829,7 +832,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
         """
         see __doc__ for set_infinity_io_flag
         """
-        return  self._infinity_io_flag[0]
+        return self._infinity_io_flag[0]
     def set_infinity_io_flag(self, value):
         """
         Set the infinity_io_flag for the TicDatFactory.
@@ -860,6 +863,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
         verify(value == "N/A" or (utils.numericish(value) and (0 < value < float("inf"))) or (value is None),
            "infinity_io_flag needs to be 'N/A' (to indicate it isn't being used), or None, or a positive finite number")
         self._infinity_io_flag[0] = value
+        self._none_as_infinity_bias_cache.clear()
 
     def _general_read_cell(self, t, f, x):
         '''
@@ -893,7 +897,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
         :param x: cell value which might need to be adjusted
         :return: x, adjusted as required
         """
-        if t == "parameters" and self.parameters:
+        if t == "parameters" and self._parameters: # SPEED IS IMPORTANT
             # I will assume a parameters table without parameters specification is just a naive developer
             return None if x is None or (utils.pd and utils.pd.isnull(x)) else str(x)
         if self.infinity_io_flag is None and (self._none_as_infinity_bias(t, f) or float("nan"))*float("inf") == x:
@@ -905,13 +909,17 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
         if self.infinity_io_flag is not None:
             return None
         assert t in self.all_tables
-        fld_type = self.data_types.get(t, {}).get(f)
-        if fld_type and fld_type.number_allowed and not fld_type.valid_data(None):
-            verify(not (fld_type.valid_data(float("inf")) and fld_type.valid_data(-float("inf"))),
-                   "")
-            for rtn in [1, -1]:
-                if fld_type.valid_data(rtn * float("inf")):
-                    return rtn
+        if (t,f) not in self._none_as_infinity_bias_cache:
+            def _f():
+                fld_type = self.data_types.get(t, {}).get(f)
+                if fld_type and fld_type.number_allowed and not fld_type.valid_data(None):
+                    verify(not (fld_type.valid_data(float("inf")) and fld_type.valid_data(-float("inf"))),
+                           f"None cannot be used as an infinity IO flag for {t}.{f}")
+                    for rtn in [1, -1]:
+                        if fld_type.valid_data(rtn * float("inf")):
+                            return rtn
+            self._none_as_infinity_bias_cache[t, f] = _f()
+        return self._none_as_infinity_bias_cache[t, f]
     def _parameter_table_post_read_adjustment(self, dat):
         """
         we expect other routines inside ticdat to access this routine, even though it starts with _

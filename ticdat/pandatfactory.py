@@ -207,17 +207,22 @@ class PanDatFactory(object):
         verify(value == "N/A" or (utils.numericish(value) and (0 < value < float("inf"))) or (value is None),
            "infinity_io_flag needs to be 'N/A' (to indicate it isn't being used), or None, or a positive finite number")
         self._infinity_io_flag[0] = value
+        self._none_as_infinity_bias_cache.clear()
     def _none_as_infinity_bias(self, t, f):
         if self.infinity_io_flag is not None:
             return None
         assert t in self.all_tables
-        fld_type = self.data_types.get(t, {}).get(f)
-        if fld_type and fld_type.number_allowed and not fld_type.valid_data(None):
-            verify(not (fld_type.valid_data(float("inf")) and fld_type.valid_data(-float("inf"))),
-                   f"None cannot be used as an infinity IO flag ")
-            for rtn in [1, -1]:
-                if fld_type.valid_data(rtn * float("inf")):
-                    return rtn
+        if (t,f) not in self._none_as_infinity_bias_cache:
+            def _f():
+                fld_type = self.data_types.get(t, {}).get(f)
+                if fld_type and fld_type.number_allowed and not fld_type.valid_data(None):
+                    verify(not (fld_type.valid_data(float("inf")) and fld_type.valid_data(-float("inf"))),
+                           f"None cannot be used as an infinity IO flag for {t}.{f}")
+                    for rtn in [1, -1]:
+                        if fld_type.valid_data(rtn * float("inf")):
+                            return rtn
+            self._none_as_infinity_bias_cache[t, f] = _f()
+        return self._none_as_infinity_bias_cache[t, f]
     def _dtypes_for_pandas_read(self, table):
         '''
         we expect other routines inside ticdat to access this routine, even though it starts with _
@@ -381,6 +386,7 @@ class PanDatFactory(object):
 
         self._data_types[table][field] = TypeDictionary.safe_creator(number_allowed, inclusive_min, inclusive_max,
                                             min, max, must_be_int, strings_allowed, nullable, datetime)
+        self._none_as_infinity_bias_cache.clear()
 
     def clear_data_type(self, table, field):
         """
@@ -399,6 +405,7 @@ class PanDatFactory(object):
         verify(not self._has_been_used,
                "The data types can't be changed after a PanDatFactory has been used.")
         del(self._data_types[table][field])
+        self._none_as_infinity_bias_cache.clear()
 
     def add_data_row_predicate(self, table, predicate, predicate_name=None,
                                predicate_kwargs_maker=None,
@@ -704,6 +711,8 @@ class PanDatFactory(object):
         self._foreign_keys = clt.defaultdict(set)
         self._parameters = {}
         self._infinity_io_flag = ["N/A"]
+        self._none_as_infinity_bias_cache = {}
+
 
         self.all_tables = frozenset(init_fields)
         superself = self
