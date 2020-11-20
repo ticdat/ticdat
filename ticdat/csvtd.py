@@ -34,6 +34,7 @@ class CsvTicFactory(freezable_factory(object, "_isFrozen")) :
         :return:
         """
         self.tic_dat_factory = tic_dat_factory
+        self._dv_dt = {}
         self._isFrozen = True
     def create_tic_dat(self, dir_path, dialect='excel', headers_present = True,
                        freeze_it = False, encoding=None):
@@ -80,13 +81,19 @@ class CsvTicFactory(freezable_factory(object, "_isFrozen")) :
         if freeze_it:
             return self.tic_dat_factory.freeze_me(rtn)
         return rtn
+    def _get_dv_dt(self, table, field):
+        # reminder - data fields have a default default of zero, primary keys don't get a default default
+        if (table, field) not in self._dv_dt:
+            self._dv_dt[table, field] = (
+                self.tic_dat_factory.default_values.get(table, {}).get(field, ["LIST", "NOT", "POSSIBLE"]),
+                self.tic_dat_factory.data_types.get(table, {}).get(field)
+            )
+        return self._dv_dt[table, field]
     def _read_cell(self, table, field, x):
         def _inner_rtn(x):
             if table == "parameters" and self.tic_dat_factory.parameters:
                 return x
-            # reminder - data fields have a default default of zero, primary keys don't get a default default
-            dv = self.tic_dat_factory.default_values.get(table, {}).get(field, ["LIST", "NOT", "POSSIBLE"])
-            dt = self.tic_dat_factory.data_types.get(table, {}).get(field)
+            dv, dt = self._get_dv_dt(table, field)
             if x == "" and ((dt and dt.nullable) or (not dt and dv is None) or
                             numericish(self.tic_dat_factory._general_read_cell(table, field, None))):
                 return None

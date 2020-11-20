@@ -27,6 +27,11 @@ try:
 except:
     sa = None
 
+try:
+    import pandas as pd
+except:
+    pd = None
+
 def _deep_anonymize(x)  :
     if not hasattr(x, "__contains__") or utils.stringish(x):
         return x
@@ -203,7 +208,7 @@ class TestUtils(unittest.TestCase):
             return x
         dataObj = dietData()
         tdf = TicDatFactory(**dietSchema())
-        self.assertTrue(tdf.good_tic_dat_object(dataObj))
+        self.assertTrue(tdf.good_tic_dat_object(dataObj, row_checking="generous"))
         dataObj2 = tdf.copy_tic_dat(dataObj)
         dataObj3 = tdf.copy_tic_dat(dataObj, freeze_it=True)
         dataObj4 = tdf.TicDat(**tdf.as_dict(dataObj3))
@@ -220,8 +225,8 @@ class TestUtils(unittest.TestCase):
         msg = []
         dataObj.foods[("milk", "cookies")] = {"cost": float("inf")}
         dataObj.boger = object()
-        self.assertFalse(tdf.good_tic_dat_object(dataObj) or
-                         tdf.good_tic_dat_object(dataObj, bad_message_handler =msg.append))
+        self.assertFalse(tdf.good_tic_dat_object(dataObj, row_checking="generous") or
+                         tdf.good_tic_dat_object(dataObj, bad_message_handler =msg.append, row_checking="generous"))
         self.assertTrue({"foods : Inconsistent key lengths"} == set(msg))
         self.assertTrue(all(tdf.good_tic_dat_table(getattr(dataObj, t), t)
                             for t in ("categories", "nutritionQuantities")))
@@ -229,8 +234,8 @@ class TestUtils(unittest.TestCase):
         dataObj = dietData()
         dataObj.categories["boger"] = {"cost":1}
         dataObj.categories["boger"] = {"cost":1}
-        self.assertFalse(tdf.good_tic_dat_object(dataObj) or
-                         tdf.good_tic_dat_object(dataObj, bad_message_handler=msg.append))
+        self.assertFalse(tdf.good_tic_dat_object(dataObj, row_checking="generous") or
+                         tdf.good_tic_dat_object(dataObj, row_checking="generous", bad_message_handler=msg.append))
         self.assertTrue({'foods : Inconsistent key lengths',
                          'categories : Inconsistent data field name keys.'} == set(msg))
         ex = str(firesException(lambda : tdf.freeze_me(tdf.TicDat(**{t:getattr(dataObj,t)
@@ -352,7 +357,7 @@ class TestUtils(unittest.TestCase):
         def makeNewTicDat() : return newFactory.TicDat(a=ticDat.a, b=ticDat.b, c=ticDat.c)
         newTicDat = makeNewTicDat()
         self.assertFalse(staticFactory.good_tic_dat_object(newTicDat))
-        self.assertTrue(newFactory.good_tic_dat_object(ticDat))
+        self.assertTrue(newFactory.good_tic_dat_object(ticDat, row_checking="generous"))
         self.assertTrue(newFactory._same_data(makeNewTicDat(), newTicDat))
         newTicDat.a[list(ticDat.a)[0]]["aData4"]=12
         self.assertFalse(newFactory._same_data(makeNewTicDat(), newTicDat))
@@ -1072,7 +1077,7 @@ class TestUtils(unittest.TestCase):
     def testNineteen(self):
         dataObj = dietData()
         tdf = TicDatFactory(**dietSchema())
-        self.assertTrue(tdf.good_tic_dat_object(dataObj))
+        self.assertTrue(tdf.good_tic_dat_object(dataObj, row_checking="generous"))
         dataObj2 = tdf.copy_tic_dat(dataObj)
         dataObj2.categories["calories"]["minNutrition"] *= 1.00001
         dataObj2.nutritionQuantities["salad", "sodium"]["qty"]  *= 2-1.00001
@@ -1205,7 +1210,8 @@ class TestUtils(unittest.TestCase):
         for attr, path in [["csv", core_path+"_csv"], ["xls", core_path+".xlsx"], ["sql", core_path+".sql"],
                            ["json", core_path+".json"]]:
             f_or_d = "directory" if attr == "csv" else "file"
-            write_func, write_kwargs = utils._get_write_function_and_kwargs(tdf, path, f_or_d)
+            write_func, write_kwargs = utils._get_write_function_and_kwargs(tdf, path, f_or_d,
+                                                                            case_space_table_names=False)
             write_func(dat, path, **write_kwargs)
             dat_1 = utils._get_dat_object(tdf, "create_tic_dat", path, f_or_d, False)
             self.assertTrue(tdf._same_data(dat, dat_1))
@@ -1363,6 +1369,7 @@ class TestUtils(unittest.TestCase):
         sln = read_sln()
         self.assertTrue({t:len(getattr(sln, t)) for t in funky_diet.solution_schema.all_tables} ==
                         {"buy_food": 3, "consume_nutrition": 4, "weird_table": 0, "parameters": 1})
+
         dat.nutrition_quantities["pizza", "junk"] = {}
         dat.categories["weirdness"] = dat.categories["wokeness"] = [100, 20]
         funky_diet.input_schema.json.write_file(dat, os.path.join(data_path, "input.json"), allow_overwrite=True)
@@ -1386,6 +1393,16 @@ class TestUtils(unittest.TestCase):
         with patch.object(sys, 'argv', [module_path, "-i", "junk", "-o", os.path.join(data_path, "output.json"),
                                         "-a", "checks_the_unit_test_result"]):
             utils.standard_main(funky_diet.input_schema, funky_diet.solution_schema, funky_diet.solve)
+
+        with patch.object(sys, 'argv', [module_path, "-i", os.path.join(data_path, "input.json"),
+                                        "-o", os.path.join(data_path, "output_csvs")]):
+            utils.standard_main(funky_diet.input_schema, funky_diet.solution_schema, funky_diet.solve)
+        self.assertTrue(os.path.exists(os.path.join(data_path, "output_csvs", "consume_nutrition.csv")))
+        with patch.object(sys, 'argv', [module_path, "-i", os.path.join(data_path, "input.json"),
+                                        "-o", os.path.join(data_path, "output_csvs_2")]):
+            utils.standard_main(funky_diet.input_schema, funky_diet.solution_schema, funky_diet.solve,
+                                case_space_table_names=True)
+        self.assertTrue(os.path.exists(os.path.join(data_path, "output_csvs_2", "Consume Nutrition.csv")))
         sys.modules.pop(funky_diet.solve.__module__)
 
     def testThirty(self):
@@ -1396,6 +1413,7 @@ class TestUtils(unittest.TestCase):
         data_path = os.path.join(_scratchDir, "custom_module_four")
         makeCleanDir(data_path)
         module_path = get_testing_file_path("funky_diet.py")
+
         import ticdat.testing.funky_diet as funky_diet
         for w in ["solve", "remove_the_pizza", "checks_the_unit_test_result", "a_solvish_act"]:
             _w = getattr(funky_diet, w)
@@ -1406,6 +1424,8 @@ class TestUtils(unittest.TestCase):
         d = json.loads(tdf.json.write_file(dat, "", verbose=False))
         d["nutrition_quantities"] = d.pop("nutritionQuantities")
         dat = funky_diet.input_schema.TicDat(**d)
+        clean_dat = funky_diet.input_schema.copy_tic_dat(dat)
+        clean_dat.stupid_table['a', 'b'] = 2
         dat.stupid_table["ju", "nk"] = 10
         funky_diet.input_schema.json.write_file(dat, os.path.join(data_path, "input.json"))
         def make_the_json(solve_type, scenario_name="", master_schema=""):
@@ -1454,10 +1474,131 @@ class TestUtils(unittest.TestCase):
 
         engine.dispose()
         postgresql.stop()
+
+        postgresql = testing_postgresql.Postgresql()
+        engine = sa.create_engine(postgresql.url())
+        funky_diet.input_schema.json.write_file(clean_dat, os.path.join(data_path, "input.json"), allow_overwrite=True)
+        e_json = make_the_json("Copy Input to Postgres", master_schema="the_master", scenario_name="the_scenario")
+        test_args_five = [module_path, "-i", os.path.join(data_path, "input.json"), "-o", "junk", "-e", e_json]
+        with patch.object(sys, 'argv', test_args_five):
+            utils.standard_main(funky_diet.input_schema, funky_diet.solution_schema, funky_diet.solve)
+        e_json = make_the_json("proxy EnFramE solve", master_schema="the_master", scenario_name="the_scenario")
+        test_args_six = [module_path, "-i", "junk", "-o", "alsojunk", "-e", e_json]
+        with patch.object(sys, 'argv', test_args_six):
+            utils.standard_main(funky_diet.input_schema, funky_diet.solution_schema, funky_diet.solve)
+
+        self.assertTrue([('hamburger', 1, 'the_scenario'), ('ice cream', 1, 'the_scenario'),
+                         ('milk', 1, 'the_scenario')] ==
+                        sorted(_[:3] for _ in engine.execute("Select * from the_master.s_buy_food")))
+
+        self.assertTrue(sorted(engine.execute("Select * from the_master.foods")) ==
+                        [('chicken', 1, 'the_scenario', 2.89), ('fries', 1, 'the_scenario', 1.89),
+                         ('hamburger', 1, 'the_scenario', 2.49), ('hot dog', 1, 'the_scenario', 1.5),
+                         ('ice cream', 1, 'the_scenario', 1.59), ('macaroni', 1, 'the_scenario', 2.09),
+                         ('milk', 1, 'the_scenario', 0.89), ('pizza', 1, 'the_scenario', 1.99),
+                         ('salad', 1, 'the_scenario', 2.49)])
+
+        test_args_seven = [module_path, "-i", "junk", "-o", "alsojunk", "-e", e_json, "-a", "remove_the_pizza"]
+        with patch.object(sys, 'argv', test_args_seven):
+            utils.standard_main(funky_diet.input_schema, funky_diet.solution_schema, funky_diet.solve)
+        self.assertTrue(set(_[0] for _ in engine.execute("Select * from the_master.foods")) ==
+                        set(_[0] for _ in engine.execute("Select * from scenario_1.foods")) ==
+                        {'hamburger', 'ice cream', 'salad', 'milk', 'macaroni', 'fries', 'chicken', 'hot dog'})
+
+        engine.dispose()
+        postgresql.stop()
         sys.modules.pop(funky_diet.solve.__module__)
 
-_scratchDir = TestUtils.__name__ + "_scratch"
+    def testThirtyOne(self):
+        slicer  = utils.Slicer(itertools.product([1, 2], [(1, 2, 3), (2, 3, 4)], [4, 5, 6]))
+        self.assertTrue(set(slicer.slice('*', '*', 5)) ==
+                        {(1, (2, 3, 4), 5), (2, (2, 3, 4), 5), (1, (1, 2, 3), 5), (2, (1, 2, 3), 5)})
+        self.assertTrue(set(slicer.slice('*', (2, 3, 4), 5)) =={(1, (2, 3, 4), 5), (2, (2, 3, 4), 5)})
 
+    def test_good_ticdat_object_strict(self):
+        small_sch = TicDatFactory(** {
+     "categories" : (("name",),["maxNutrition"]),
+     "foods" :[["name"],("cost",)],
+     "nutritionQuantities" : (["food", "category"], [])
+    })
+        full_sch = TicDatFactory(**dietSchema())
+        small_dat = small_sch.TicDat(categories = [["boo", 100], ["woo", 200]],
+                                     foods = [["this", 10], ["that", 100], ["theother", 12]])
+        for f,c in itertools.product(small_dat.categories, small_dat.foods):
+            small_dat.nutritionQuantities[f, c] = {}
+        # we allow missing fields in the copy from object (this facilitates construction)
+        fuller_copy = full_sch.copy_tic_dat(small_dat)
+        ex = []
+        try: # we don't allow extra field in the copy from object (perhaps we should, but easy enough to munge away)
+            small_sch.copy_tic_dat(fuller_copy)
+        except Exception as _:
+            ex.append(str(_))
+        self.assertTrue("Inconsistent data field name keys" in ex[0])
+        self.assertTrue(full_sch.good_tic_dat_object(small_dat, row_checking="generous"))
+        self.assertFalse(full_sch.good_tic_dat_object(small_dat))
+        df = pd.DataFrame({"food":["boo", "woo"], "category": ["this", "that"]})
+        df.set_index(["food", "category"], inplace=True, drop=False)
+        self.assertTrue(small_sch.good_tic_dat_table(df, "nutritionQuantities"))
+        self.assertFalse(small_sch.good_tic_dat_table(df, "nutritionQuantities", row_checking="strict"))
+        by_rows = [{"food": "boo", "category": "woo"}]
+        self.assertTrue(small_sch.good_tic_dat_table(by_rows, "nutritionQuantities"))
+        self.assertFalse(small_sch.good_tic_dat_table(by_rows, "nutritionQuantities", row_checking="strict"))
+        by_rows = {"boo":1, "foo": 2}
+        self.assertTrue(small_sch.good_tic_dat_table(by_rows, "foods"))
+        self.assertFalse(small_sch.good_tic_dat_table(by_rows, "foods", row_checking="strict"))
+
+    def test_data_type_max_failures(self):
+        tdf = TicDatFactory(table_one = [["Field"], []], table_two = [[], ["Field"]])
+        for t in ["table_one", "table_two"]:
+            tdf.set_data_type(t, "Field")
+        dat = tdf.TicDat(table_one=[[_] for _ in range(1,11)] + [[-_] for _ in range(1,11)],
+                         table_two=[[10.1]]*10 + [[-2]]*10)
+        errs = tdf.find_data_type_failures(dat)
+        self.assertTrue(len(errs) == 2 and all(len(_.pks) == 10 for _ in errs.values()))
+        errs = tdf.find_data_type_failures(dat, 11)
+        self.assertTrue(len(errs) == 2)
+        self.assertTrue(any(len(_.pks) == 10 for _ in errs.values()) and any(len(_.pks) == 1 for _ in errs.values()))
+        errs = tdf.find_data_type_failures(dat, 10)
+        self.assertTrue(len(errs) == 1 and all(len(_.pks) == 10 for _ in errs.values()))
+        errs = tdf.find_data_type_failures(dat, 9)
+        self.assertTrue(len(errs) == 1 and all(len(_.pks) == 9 for _ in errs.values()))
+
+    def test_data_row_max_failures(self):
+        tdf = TicDatFactory(table_one = [["Field"], []], table_two = [[], ["Field"]])
+        for t in ["table_one", "table_two"]:
+            tdf.set_data_type(t, "Field")
+        for table, dts in tdf.data_types.items():
+            for field, dt in dts.items():
+                if table == "table_one":
+                    tdf.add_data_row_predicate(table, lambda row: dt.valid_data(row["Field"]))
+                else:
+                    tdf.add_data_row_predicate(table, lambda row: True if not dt.valid_data(row["Field"]) else "Oops",
+                                               predicate_failure_response="Error Message")
+        dat = tdf.TicDat(table_one=[[_] for _ in range(1,11)] + [[-_] for _ in range(1,11)],
+                         table_two=[[10.1]]*10 + [[-2]]*10)
+        errs = tdf.find_data_row_failures(dat)
+        self.assertTrue(len(errs) == 2 and all(len(_) == 10 for _ in errs.values()))
+        errs = tdf.find_data_row_failures(dat, max_failures=11)
+        self.assertTrue(len(errs) == 2 and set(map(len, errs.values())) == {10, 1})
+        errs = tdf.find_data_row_failures(dat, max_failures=10)
+        self.assertTrue(len(errs) == 1 and all(len(_) == 10 for _ in errs.values()))
+        errs = tdf.find_data_row_failures(dat, max_failures=9)
+        self.assertTrue(len(errs) == 1 and all(len(_) == 9 for _ in errs.values()))
+
+    def test_fk_max_failures(self):
+        tdf = TicDatFactory(**dietSchema())
+        addDietForeignKeys(tdf)
+        dat = tdf.TicDat(nutritionQuantities=[[f"food_{_}", f"cat_{_}", 10] for _ in range(10)])
+        errs = tdf.find_foreign_key_failures(dat)
+        self.assertTrue(len(errs) == 2 and all(len(_.native_pks) == 10 for _ in errs.values()))
+        errs = tdf.find_foreign_key_failures(dat, max_failures=11)
+        self.assertTrue(len(errs) == 2 and set(map(len, [_.native_pks for _ in errs.values()])) == {10, 1})
+        errs = tdf.find_foreign_key_failures(dat, max_failures=10)
+        self.assertTrue(len(errs) == 1 and all(len(_.native_pks) == 10 for _ in errs.values()))
+        errs = tdf.find_foreign_key_failures(dat, max_failures=9)
+        self.assertTrue(len(errs) == 1 and all(len(_.native_pks) == 9 for _ in errs.values()))
+
+_scratchDir = TestUtils.__name__ + "_scratch"
 
 # Run the tests.
 if __name__ == "__main__":

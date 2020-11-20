@@ -706,7 +706,8 @@ class TestIO(unittest.TestCase):
         for attr, path in [["csv", core_path+"_csv"], ["xls", core_path+".xlsx"], ["sql", core_path+".db"],
                            ["json", core_path+".json"]]:
             f_or_d = "directory" if attr == "csv" else "file"
-            write_func, write_kwargs = utils._get_write_function_and_kwargs(pdf, path, f_or_d)
+            write_func, write_kwargs = utils._get_write_function_and_kwargs(pdf, path, f_or_d,
+                                                                            case_space_table_names=False)
             write_func(dat, path, **write_kwargs)
             dat_1 = utils._get_dat_object(pdf, "create_pan_dat", path, f_or_d, False)
             self.assertTrue(pdf._same_data(dat, dat_1, nans_are_same_for_data_rows=True))

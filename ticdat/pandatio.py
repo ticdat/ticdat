@@ -31,13 +31,17 @@ class _DummyContextManager(object):
     def __exit__(self, *excinfo) :
         pass
 
-def _clean_pandat_creator(pdf, df_dict, push_parameters_to_be_valid=True, json_read=False):
+def _clean_pandat_creator(pdf, df_dict, push_parameters_to_be_valid=True, json_read=False,
+                          print_missing_tables=False):
     # note that pandas built in IO routines tend to be a bit overy pushy with the typing, hence
     # the push_parameters_to_be_valid argument
     pandat = pdf.PanDat(**df_dict)
     for t in set(pdf.all_tables).difference(pdf.generic_tables):
         flds = [f for f in chain(pdf.primary_key_fields[t], pdf.data_fields[t])]
         setattr(pandat, t, getattr(pandat, t)[flds])
+    missing_tables = '\n'.join(sorted({t for t in pdf.all_tables if not len(getattr(pandat, t))}))
+    if missing_tables and print_missing_tables:
+        print(f"The following table names could not be found (or were empty).\n{missing_tables}\n")
     msg = []
     assert pdf.good_pan_dat_object(pandat, msg.append), str(msg)
     return pdf._general_post_read_adjustment(pandat, json_read=json_read,
@@ -265,7 +269,7 @@ class CsvPanFactory(freezable_factory(object, "_isFrozen")):
         verify(fill_missing_fields or not missing_fields,
                "The following (table, file_name, field) triplets are missing fields.\n%s" %
                [(t, os.path.basename(tbl_names[t]), f) for t,f in missing_fields])
-        return _clean_pandat_creator(self.pan_dat_factory, rtn)
+        return _clean_pandat_creator(self.pan_dat_factory, rtn, print_missing_tables=True)
 
     def _get_table_names(self, dir_path):
         rtn = {}
@@ -502,7 +506,7 @@ class XlsPanFactory(freezable_factory(object, "_isFrozen")):
                 rtn[t][f] = self.pan_dat_factory.default_values[t][f]
         verify(fill_missing_fields or not missing_fields,
                "The following are (table, field) pairs missing from the %s file.\n%s" % (xls_file_path, missing_fields))
-        return _clean_pandat_creator(self.pan_dat_factory, rtn)
+        return _clean_pandat_creator(self.pan_dat_factory, rtn, print_missing_tables=True)
 
     def _get_sheet_names(self, xls_file_path):
         sheets = defaultdict(list)
