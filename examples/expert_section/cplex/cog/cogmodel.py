@@ -35,30 +35,37 @@ from ticdat import TicDatFactory, Progress, LogFile, Slicer, standard_main
 
 # ------------------------ define the input schema --------------------------------
 # There are three input tables, with 4 primary key fields  and 4 data fields.
-dataFactory = TicDatFactory (
-     sites      = [['name'],['demand', 'center_status']],
-     distance   = [['source', 'destination'],['distance']],
-     parameters = [["key"], ["value"]])
+input_schema = TicDatFactory (
+     sites      = [['Name'],['Demand', 'Center Status']],
+     distance   = [['Source', 'Destination'],['Distance']],
+     parameters = [["Parameter"], ["Value"]])
 
 # add foreign key constraints
-dataFactory.add_foreign_key("distance", "sites", ['source', 'name'])
-dataFactory.add_foreign_key("distance", "sites", ['destination', 'name'])
+input_schema.add_foreign_key("distance", "sites", ['Source', 'Name'])
+input_schema.add_foreign_key("distance", "sites", ['Destination', 'Name'])
 
 # center_status is a flag field which can take one of two string values.
-dataFactory.set_data_type("sites", "center_status", number_allowed=False,
+input_schema.set_data_type("sites", "Center Status", number_allowed=False,
                           strings_allowed=["Can Be Center", "Pure Demand Point"])
-# The default type of non infinite, non negative works for distance
-dataFactory.set_data_type("distance", "distance")
+# The default type of non infinite, non negative works for distance and demand
+input_schema.set_data_type("sites", "Demand")
+input_schema.set_data_type("distance", "Distance")
+
+input_schema.add_parameter("Number of Centroids", default_value=1, inclusive_min=False, inclusive_max=False, min=0,
+                                max=float("inf"), must_be_int=True)
+input_schema.add_parameter("MIP Gap", default_value=0.001, inclusive_min=False, inclusive_max=False, min=0,
+                                max=float("inf"), must_be_int=False)
+input_schema.add_parameter("Formulation", "Strong", number_allowed=False, strings_allowed=["Weak", "Strong"])
 # ---------------------------------------------------------------------------------
 
 
 # ------------------------ define the output schema -------------------------------
 # There are three solution tables, with 2 primary key fields and 3
 # data fields amongst them.
-solutionFactory = TicDatFactory(
-    openings    = [['site'],[]],
-    assignments = [['site', 'assigned_to'],[]],
-    parameters  = [["key"], ["value"]])
+solution_schema = TicDatFactory(
+    openings    = [['Site'],[]],
+    assignments = [['Site', 'Assigned To'],[]],
+    parameters  = [["Parameter"], ["Value"]])
 # ---------------------------------------------------------------------------------
 
 # ------------------------ create a solve function --------------------------------
@@ -69,27 +76,28 @@ def time_stamp() :
 def solve(dat, out, err, progress):
     assert isinstance(progress, Progress)
     assert isinstance(out, LogFile) and isinstance(err, LogFile)
-    assert dataFactory.good_tic_dat_object(dat)
-    assert not dataFactory.find_foreign_key_failures(dat)
-    assert not dataFactory.find_data_type_failures(dat)
+    assert input_schema.good_tic_dat_object(dat)
+    assert not input_schema.find_foreign_key_failures(dat)
+    assert not input_schema.find_data_type_failures(dat)
     out.write("COG output log\n%s\n\n"%time_stamp())
     err.write("COG error log\n%s\n\n"%time_stamp())
+    full_parameters = input_schema.create_full_parameters_dict(dat)
 
     def get_distance(x,y):
         if (x,y) in dat.distance:
-            return dat.distance[x,y]["distance"]
+            return dat.distance[x,y]["Distance"]
         if (y,x) in dat.distance:
-            return dat.distance[y,x]["distance"]
+            return dat.distance[y,x]["Distance"]
         return float("inf")
 
     def can_assign(x, y):
-        return dat.sites[y]["center_status"] == "Can Be Center" \
+        return dat.sites[y]["Center Status"] == "Can Be Center" \
                and get_distance(x,y)<float("inf")
 
 
     unassignables = [n for n in dat.sites if not
                      any(can_assign(n,y) for y in dat.sites) and
-                     dat.sites[n]["demand"] > 0]
+                     dat.sites[n]["Demand"] > 0]
     if unassignables:
         # Infeasibility detected. Generate an error table and return None
         err.write("The following sites have demand, but can't be " +
@@ -99,7 +107,7 @@ def solve(dat, out, err, progress):
         return
 
     useless = [n for n in dat.sites if not any(can_assign(y,n) for y in dat.sites) and
-                                             dat.sites[n]["demand"] == 0]
+                                             dat.sites[n]["Demand"] == 0]
     if useless:
         # Log in the error table as a warning, but can still try optimization.
         err.write("The following sites have no demand, and can't serve as the " +
@@ -115,7 +123,7 @@ def solve(dat, out, err, progress):
                     if can_assign(n, assigned_to)}
     open_vars = {n : m.binary_var(name = "open_%s"%n)
                      for n in dat.sites
-                     if dat.sites[n]["center_status"] == "Can Be Center"}
+                     if dat.sites[n]["Center Status"] == "Can Be Center"}
     if not open_vars:
         err.write("Nothing can be a center!\n") # Infeasibility detected.
         return
@@ -125,16 +133,15 @@ def solve(dat, out, err, progress):
     assign_slicer = Slicer(assign_vars)
 
     for n, r in dat.sites.items():
-        if r["demand"] > 0:
+        if r["Demand"] > 0:
             m.add_constraint(m.sum(assign_vars[n, assign_to]
                                     for _, assign_to in assign_slicer.slice(n, "*"))
                              == 1,
                             ctname = "must_assign_%s"%n)
 
-    crippledfordemo = "formulation" in dat.parameters and \
-                      dat.parameters["formulation"]["value"] == "weak"
+    crippledfordemo = full_parameters["Formulation"] == "Weak"
     for assigned_to, r in dat.sites.items():
-        if r["center_status"] == "Can Be Center":
+        if r["Center Status"] == "Can Be Center":
             _assign_vars = [assign_vars[n, assigned_to]
                             for n,_ in assign_slicer.slice("*", assigned_to)]
             if crippledfordemo:
@@ -146,21 +153,16 @@ def solve(dat, out, err, progress):
                     m.add_constraint(var <= open_vars[assigned_to],
                                 ctname = "strong_force_open_%s"%assigned_to)
 
-    number_of_centroids = dat.parameters["Number of Centroids"]["value"] \
-                          if "Number of Centroids" in dat.parameters else 1
-    if number_of_centroids <= 0:
-        err.write("Need to specify a positive number of centroids\n") # Infeasibility detected.
-        return
+    number_of_centroids = full_parameters["Number of Centroids"]
 
     m.add_constraint(m.sum(v for v in open_vars.values()) == number_of_centroids,
                 ctname= "numCentroids")
 
-    if "mipGap" in dat.parameters:
-        m.parameters.mip.tolerances.mipgap = dat.parameters["mipGap"]["value"]
+    m.parameters.mip.tolerances.mipgap = full_parameters["MIP Gap"]
 
     progress.numerical_progress("Core Model Creation", 100)
 
-    m.minimize(m.sum(var * get_distance(n,assigned_to) * dat.sites[n]["demand"]
+    m.minimize(m.sum(var * get_distance(n,assigned_to) * dat.sites[n]["Demand"]
                      for (n, assigned_to),var in assign_vars.items()))
 
     progress.add_cplex_listener("COG Optimization", m)
@@ -169,15 +171,15 @@ def solve(dat, out, err, progress):
 
         progress.numerical_progress("Core Optimization", 100)
         cplex_soln = m.solution
-        sln = solutionFactory.TicDat()
+        sln = solution_schema.TicDat()
         # see code trick http://ibm.co/2aQwKYG
         if m.solve_details.status == 'optimal':
             sln.parameters["Lower Bound"] = cplex_soln.get_objective_value()
         else:
-            sln.parameters["Lower Bound"] = m.solve_details.get_best_bound()
+            sln.parameters["Lower Bound"] = m.solve_details.best_bound
         sln.parameters["Upper Bound"] = cplex_soln.get_objective_value()
-        out.write('Upper Bound: %g\n' % sln.parameters["Upper Bound"]["value"])
-        out.write('Lower Bound: %g\n' % sln.parameters["Lower Bound"]["value"])
+        out.write('Upper Bound: %g\n' % sln.parameters["Upper Bound"]["Value"])
+        out.write('Lower Bound: %g\n' % sln.parameters["Lower Bound"]["Value"])
 
         def almostone(x) :
             return abs(x-1) < 0.0001
@@ -220,15 +222,15 @@ if __name__ == "__main__":
             with LogFile("error.txt") as err :
                 solution = solve(dat, out, err, CogStopProgress())
                 if solution :
-                    print('\n\nUpper Bound   : %g' % solution.parameters["Upper Bound"]["value"])
-                    print('Lower Bound   : %g' % solution.parameters["Lower Bound"]["value"])
-                    print('Percent Error : %s' % percent_error(solution.parameters["Lower Bound"]["value"],
-                                                               solution.parameters["Upper Bound"]["value"]))
+                    print('\n\nUpper Bound   : %g' % solution.parameters["Upper Bound"]["Value"])
+                    print('Lower Bound   : %g' % solution.parameters["Lower Bound"]["Value"])
+                    print('Percent Error : %s' % percent_error(solution.parameters["Lower Bound"]["Value"],
+                                                               solution.parameters["Upper Bound"]["Value"]))
                     return solution
                 else :
                     print('\nNo solution')
 
-    standard_main(dataFactory, solutionFactory, _solve)
+    standard_main(input_schema, solution_schema, _solve)
 # ---------------------------------------------------------------------------------
 
 
