@@ -1056,8 +1056,9 @@ class Progress(object):
         super_self = self
         class MyListener(cplexprogress.ProgressListener):
             def notify_progress(self, progress_data):
-                keep_going = super_self.mip_progress(theme, progress_data.best_bound,
-                                                     progress_data.current_objective)
+                # this is assuming a minimization problem.
+                ub = float("inf") if progress_data.current_objective is None else progress_data.current_objective
+                keep_going = super_self.mip_progress(theme, progress_data.best_bound, ub)
                 if not keep_going:
                     self.abort()
         model.add_progress_listener(MyListener())
