@@ -1,10 +1,11 @@
-from ticdat import TicDatFactory, Model, utils
+from ticdat import TicDatFactory, Model, utils, Progress
 from ticdat.model import cplex, gurobi, xpress
 from ticdat.testing.ticdattestutils import dietSolver, nearlySame, netflowSolver
 from ticdat.testing.ticdattestutils import fail_to_debugger, flagged_as_run_alone
 import unittest
 import os
 import inspect
+import ticdat.testing.cogmodel as cogmodel
 
 def _codeFile() :
     return  os.path.realpath(os.path.abspath(inspect.getsourcefile(_codeFile)))
@@ -16,6 +17,17 @@ def _codeDir():
 
 #@fail_to_debugger
 class TestModel(unittest.TestCase):
+    def _testCog(self, modelType):
+        dat = cogmodel.input_schema.sql.create_tic_dat_from_sql(os.path.join(_codeDir(), "cog_sample_data.sql"))
+        dat.parameters["Core Model Type"] = modelType
+        class CogStopProgress(Progress):
+            def mip_progress(self, theme, lower_bound, upper_bound):
+                super(CogStopProgress, self).mip_progress(theme, lower_bound, upper_bound)
+                # return True (to continue optimization) if the bounds look nutty far apart
+                return lower_bound < upper_bound * 0.1
+        sln =cogmodel.solve(dat, CogStopProgress())
+        self.assertTrue(sln.parameters["Upper Bound"]["Value"] < 1e10)
+        self.assertTrue(sln.parameters["Lower Bound"]["Value"] > 0.1 * sln.parameters["Upper Bound"]["Value"])
     def _testDiet(self, modelType):
         sln, cost = dietSolver(modelType)
         self.assertTrue(sln)
@@ -36,12 +48,14 @@ class TestModel(unittest.TestCase):
         mdl.set_parameters(MIP_Gap =  0.01)
     def testCplex(self):
         self.assertFalse(utils.stringish(cplex))
+        self._testCog("cplex")
         self._testDiet("cplex")
         self._testNetflow("cplex")
         self._testFantop("cplex")
         self._testParameters("cplex")
     def testGurobi(self):
         self.assertFalse(utils.stringish(gurobi))
+        self._testCog("gurobi")
         self._testDiet("gurobi")
         self._testNetflow("gurobi")
         self._testFantop("gurobi")
