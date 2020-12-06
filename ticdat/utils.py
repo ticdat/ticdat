@@ -1036,10 +1036,10 @@ class Progress(object):
         return True
     def gurobi_call_back_factory(self, theme, model) :
         """
-        create a MIP call back handler for Gurobi
+        Allow a Gurobi  model to call mip_progress. **Only for minimize**
         :param theme: string describing the type of MIP solve underway
-        :param model: a Gurobi model
-        :return: a call_back function that can be passed to optimize
+        :param model: a Gurobi model (or ticdat.Model.core_model)
+        :return: a call_back function that can be passed to Model.optimize
         """
         verify(gu, "gurobipy is not installed and properly licensed")
         def rtn(gu_model, where) :
@@ -1052,12 +1052,19 @@ class Progress(object):
                     model.terminate()
         return rtn
     def add_cplex_listener(self, theme, model):
+        '''
+        Allow a CPLEX model to call mip_progress. **Only for minimize**
+        :param theme: short descriptive string
+        :param model: cplex.Model object (or ticdat.Model.core_model)
+        :return:
+        '''
         verify(cplexprogress, "docplex is not installed")
         super_self = self
         class MyListener(cplexprogress.ProgressListener):
             def notify_progress(self, progress_data):
-                keep_going = super_self.mip_progress(theme, progress_data.best_bound,
-                                                     progress_data.current_objective)
+                # this is assuming a minimization problem.
+                ub = float("inf") if progress_data.current_objective is None else progress_data.current_objective
+                keep_going = super_self.mip_progress(theme, progress_data.best_bound, ub)
                 if not keep_going:
                     self.abort()
         model.add_progress_listener(MyListener())
