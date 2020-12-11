@@ -1140,7 +1140,9 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
                     _rtn.append(dict(dr))
             setattr(rtn, t, _rtn)
         return rtn
-    def _same_data(self, obj1, obj2, epsilon = 0, nans_are_same_for_data_rows = False):
+    def _same_data(self, obj1, obj2, epsilon = 0, nans_are_same_for_data_rows = False,
+                   empty_strings_can_be_nan = False):
+        is_nan = lambda x : (x == "" and empty_strings_can_be_nan) or safe_apply(math.isnan)(x) or (pd and pd.isnull(x))
         assert self.good_tic_dat_object(obj1, row_checking="generous") and \
                self.good_tic_dat_object(obj2, row_checking="generous")
         assert epsilon >= 0
@@ -1154,8 +1156,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
                 for _k in r1:
                     if r1[_k] != r2[_k] and not _n_s(r1[_k], r2[_k]) and \
                         not (nans_are_same_for_data_rows and
-                             (all(map(safe_apply(math.isnan), [r1[_k], r2[_k]])) or
-                             (pd and all(map(pd.isnull, [r1[_k], r2[_k]]))))):
+                             all(map(safe_apply(is_nan), [r1[_k], r2[_k]]))):
                         return False
                 return True
             if dictish(r2) and not dictish(r1) :
