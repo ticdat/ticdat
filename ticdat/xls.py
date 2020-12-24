@@ -47,6 +47,7 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
         :return:
         """
         self.tic_dat_factory = tic_dat_factory
+        self._dv_dt = {}
         self._isFrozen = True
     def create_tic_dat(self, xls_file_path, row_offsets=None, headers_present = True,
                        treat_inf_as_infinity = True,
@@ -248,15 +249,21 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
             if not rtn[t]:
                 del(rtn[t])
         return rtn
+    def _get_dv_dt(self, table, field):
+        # reminder - data fields have a default default of zero, primary keys don't get a default default
+        if (table, field) not in self._dv_dt:
+            self._dv_dt[table, field] = (
+                self.tic_dat_factory.default_values.get(table, {}).get(field, ["LIST", "NOT", "POSSIBLE"]),
+                self.tic_dat_factory.data_types.get(table, {}).get(field)
+            )
+        return self._dv_dt[table, field]
     def _sub_tuple(self, table, fields, field_indicies, treat_inf_as_infinity, datemode) :
         assert set(fields).issubset(field_indicies)
         if self.tic_dat_factory.infinity_io_flag != "N/A" or \
             (table == "parameters" and self.tic_dat_factory.parameters):
             treat_inf_as_infinity = False
         def _read_cell(x, field):
-            # reminder - data fields have a default default of zero, primary keys don't get a default default
-            dv = self.tic_dat_factory.default_values.get(table, {}).get(field, ["LIST", "NOT", "POSSIBLE"])
-            dt = self.tic_dat_factory.data_types.get(table, {}).get(field)
+            dv, dt = self._get_dv_dt(table, field)
             rtn = x[field_indicies[field]]
             if rtn == "" and ((dt and dt.nullable) or (not dt and dv is None)):
                 return None
