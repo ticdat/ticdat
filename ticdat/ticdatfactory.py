@@ -1372,7 +1372,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
                                 into the index.
                                 If None, then pk fields will be dropped only for tables with data fields
         :param reset_index: boolean. If true, then drop_pk_columns is ignored and the returned DataFrames have
-                                     a simple integer index with all both primary key and data fields as columns.
+                                     a simple integer index with both primary key and data fields as columns.
 
         :return: a deep copy of the tic_dat argument into DataFrames
                  To get a valid pan_object object, either set drop_pk_columns to False or set reset_index to True.
