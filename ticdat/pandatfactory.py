@@ -717,6 +717,11 @@ class PanDatFactory(object):
         self.all_tables = frozenset(init_fields)
         superself = self
         class PanDat(object):
+            def len_dict(self):
+                '''
+                :return: a dictionary summarizing table lengths. Zero length tables omitted
+                '''
+                return {t: l for t in superself.all_tables for l in [len(getattr(self, t))] if l}
             def __repr__(self):
                 tlen = lambda t: len(getattr(self, t)) if isinstance(getattr(self, t), DataFrame) else None
                 return "pd: {" + ", ".join("%s: %s"%(t, tlen(t)) for t in sorted(superself.all_tables)) + "}"
