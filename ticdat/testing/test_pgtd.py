@@ -309,11 +309,11 @@ class TestPostres(unittest.TestCase):
             big_dat.categories[str(k)] = [0,100]
         pgtf.write_schema(self.engine, test_schema)
         pgtf.write_data(big_dat, self.engine, test_schema, dsn=self.postgresql.dsn())
-        print(f"\n**** tdf writing {big_dat.len_dict()} : {time.time()-now}****\n")
+        print(f"\n**** tdf writing {big_dat._len_dict()} : {time.time()-now}****\n")
         now = time.time()
         self.assertFalse(pgtf.find_duplicates(self.engine, test_schema))
         pg_tic_dat = pgtf.create_tic_dat(self.engine, test_schema)
-        print(f"**** tdf reading {big_dat.len_dict()} : {time.time()-now}****")
+        print(f"**** tdf reading {big_dat._len_dict()} : {time.time()-now}****")
         self.assertTrue(diet_schema._same_data(big_dat, pg_tic_dat))
 
         med_dat = diet_schema.copy_tic_dat(diet_dat)
@@ -335,11 +335,11 @@ class TestPostres(unittest.TestCase):
             big_dat.categories[str(k)] = [0,100]
         pgtf.write_schema(self.engine, test_schema)
         pgtf.write_data(big_dat, self.engine, test_schema, dsn=self.postgresql.url())
-        print(f"\ntdf writing {big_dat.len_dict()} {time.time()-now}*!!*\n")
+        print(f"\ntdf writing {big_dat._len_dict()} {time.time()-now}*!!*\n")
         now = time.time()
         self.assertFalse(pgtf.find_duplicates(self.engine, test_schema))
         pg_tic_dat = pgtf.create_tic_dat(self.engine, test_schema)
-        print(f"\ntdf reading and dup {big_dat.len_dict()} {time.time()-now}****\n")
+        print(f"\ntdf reading and dup {big_dat._len_dict()} {time.time()-now}****\n")
         self.assertTrue(diet_schema._same_data(big_dat, pg_tic_dat))
 
         med_dat = diet_schema.copy_tic_dat(diet_dat)
@@ -492,10 +492,10 @@ class TestPostres(unittest.TestCase):
         now = time.time()
         pgpf.write_schema(self.engine, schema)
         pgpf.write_data(pan_dat, self.engine, schema)
-        print(f"\npdf writing {big_dat.len_dict()} : {time.time()-now}**&&**\n")
+        print(f"\npdf writing {big_dat._len_dict()} : {time.time()-now}**&&**\n")
         now = time.time()
         pg_pan_dat = pgpf.create_pan_dat(self.engine, schema)
-        print(f"\npdf reading {big_dat.len_dict()} : {time.time()-now}**&&**\n")
+        print(f"\npdf reading {big_dat._len_dict()} : {time.time()-now}**&&**\n")
         self.assertTrue(pdf._same_data(pan_dat, pg_pan_dat))
 
     def test_extra_fields_pd(self):

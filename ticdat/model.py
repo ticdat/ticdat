@@ -150,7 +150,7 @@ class Model(object):
         Optimize the model.
         :param args: Optional engine-specific arguments to pass to the model_type API
         :param kwargs: Optional engine-specific arguments to pass to the model_type API
-        :return: Turthy if the model solves successfully, Falsey otherwise.
+        :return: Truthy if the model solves successfully, Falsey otherwise.
                  For a cplex model, a sucessful optimization returns the cplex.Model.solve result
         """
         if self.model_type == "gurobi":

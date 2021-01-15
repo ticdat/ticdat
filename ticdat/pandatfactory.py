@@ -717,9 +717,9 @@ class PanDatFactory(object):
         self.all_tables = frozenset(init_fields)
         superself = self
         class PanDat(object):
-            def len_dict(self):
+            def _len_dict(self):
                 '''
-                :return: a dictionary summarizing table lengths. Zero length tables omitted
+                :return: a dictionary summarizing table lengths. Zero length tables omitted. Safe to use, I won't change
                 '''
                 return {t: l for t in superself.all_tables for l in [len(getattr(self, t))] if l}
             def __repr__(self):

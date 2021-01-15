@@ -694,9 +694,9 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
                 tlen = lambda t: utils.safe_apply(len)(getattr(self, t))
                 return "td: {" + ", ".join("%s: %s"%(t, tlen(t)) for t in sorted(superself.all_tables)) + "}"
         class TicDat(_TicDat) :
-            def len_dict(self):
+            def _len_dict(self):
                 '''
-                :return: a dictionary summarizing table lengths. Zero length tables omitted
+                :return: a dictionary summarizing table lengths. Zero length tables omitted. Safe to use, I won't change
                 '''
                 return {t: l for t in superself.all_tables for l in [len(getattr(self, t))] if l}
             def _generatorfactory(self, data, tableName):
