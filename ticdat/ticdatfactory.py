@@ -1356,7 +1356,8 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
                                                 if t in table_to_set_name else []))
             except:
                 raise utils.TicDatError(t + " cannot be passed as an argument to AMPL.setData()")
-    def copy_to_pandas(self, tic_dat, table_restrictions = None, drop_pk_columns = None):
+    def copy_to_pandas(self, tic_dat, table_restrictions = None, drop_pk_columns = None,
+                       reset_index=False):
         """
         copies the tic_dat object into a new object populated with pandas.DataFrame objects
         performs a deep copy
@@ -1370,12 +1371,15 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
                                 from the data frames after they have been incorporated
                                 into the index.
                                 If None, then pk fields will be dropped only for tables with data fields
+        :param reset_index: boolean. If true, then drop_pk_columns is ignored and the returned DataFrames have
+                                     a simple integer index with all both primary key and data fields as columns.
 
         :return: a deep copy of the tic_dat argument into DataFrames
-                 If table_restrictions is falsey and drop_pk_columns is False, then the return object
-                 will be a valid pan_dat object. I.e.
-                    assert PanDatFactory(**self.schema()).good_pan_dat_object(rtn)
-                 works.
+                 To get a valid pan_object object, either set drop_pk_columns to False or set reset_index to True.
+                 I.e.
+                    copy_1 = tdf.copy_to_pandas(dat, drop_pk_columns=False)
+                    copy_2 = tdf.copy_to_pandas(dat, reset_index=True)
+                    assert all(PanDatFactory(**tdf.schema()).good_pan_dat_object(_) for _ in [copy_1, copy_2])
 
                 Note that None will be converted to nan in the returned object (as is the norm for pandas.DataFrame)
 
@@ -1413,7 +1417,8 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
                 df = DataFrame([ (list(k) if containerish(k) else [k]) + [v[_] for _ in dfs]
                               for k,v in _sorted(getattr(tic_dat, tname).items())],
                               columns =cols)
-                df.set_index(list(pks), inplace=True,
+                if not reset_index:
+                    df.set_index(list(pks), inplace=True,
                              drop= bool(dfs if drop_pk_columns == None else drop_pk_columns))
                 utils.Sloc.add_sloc(df)
             else :

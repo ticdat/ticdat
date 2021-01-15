@@ -289,10 +289,7 @@ def netflowData() :
     return dat
 
 def copy_to_pandas_with_reset(tdf, dat):
-    rtn = tdf.copy_to_pandas(dat, drop_pk_columns=False)
-    for t in tdf.all_tables:
-        getattr(rtn, t).reset_index(drop=True, inplace=True)
-    return rtn
+    return tdf.copy_to_pandas(dat, reset_index=True)
 
 def netflowPandasData():
     tdf = TicDatFactory(**netflowSchema())
