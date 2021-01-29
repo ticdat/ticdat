@@ -130,7 +130,7 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
                "xls_file_path argument %s is not a valid file path."%xls_file_path)
         if xls_file_path.endswith('.xlsx'):
             try:
-                book = openpyxl.load_workbook(xls_file_path)
+                book = openpyxl.load_workbook(xls_file_path, data_only=True)
                 book.datemode = 0
             except Exception as e:
                 raise TicDatError("Unable to open %s as xlsx file : %s"%(xls_file_path, e))
