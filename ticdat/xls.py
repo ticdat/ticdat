@@ -21,6 +21,10 @@ try:
     import xlsxwriter as xlsx
 except:
     xlsx=None
+try:
+    import openpyxl
+except:
+    openpyxl=None
 
 _can_unit_test = xlrd and xlwt and xlsx
 
@@ -31,9 +35,9 @@ _longest_sheet = 30
 class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
     """
     Primary class for reading/writing Excel files with TicDat objects.
-    Your system will need the xlrd package to read .xls and .xlsx files,
-    the xlwt package to write .xls files, and the xlsxwriter package to
-    write .xlsx files.
+    Your system will need the xlrd package to read .xls and the openpyxl
+    to read .xlsx files, the xlwt package to write .xls files, and the
+    xlsxwriter package to write .xlsx files.
     Don't create this object explicitly. A XlsTicDatFactory will
     automatically be associated with the xls attribute of the parent
     TicDatFactory.
@@ -86,7 +90,10 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
                      is to set must_be_int to true in data_types.
         """
         self._verify_differentiable_sheet_names()
-        verify(xlrd, "xlrd needs to be installed to use this subroutine")
+        if xls_file_path.endswith('.xlsx'):
+            verify(openpyxl, "openpyxl needs to be installed to use this subroutine")
+        else:
+            verify(xlrd, "xlrd needs to be installed to use this subroutine")
         tdf = self.tic_dat_factory
         verify(not(treat_inf_as_infinity and tdf.generator_tables),
                "treat_inf_as_infinity not implemented for generator tables")
@@ -121,18 +128,33 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
                                print_missing_tables = False):
         verify(utils.stringish(xls_file_path) and os.path.exists(xls_file_path),
                "xls_file_path argument %s is not a valid file path."%xls_file_path)
-        try :
-            book = xlrd.open_workbook(xls_file_path)
-        except Exception as e:
-            raise TicDatError("Unable to open %s as xls file : %s"%(xls_file_path, e))
+        if xls_file_path.endswith('.xlsx'):
+            try:
+                book = openpyxl.load_workbook(xls_file_path)
+                book.datemode = 0
+            except Exception as e:
+                raise TicDatError("Unable to open %s as xlsx file : %s"%(xls_file_path, e))
+        else:
+            try :
+                book = xlrd.open_workbook(xls_file_path)
+            except Exception as e:
+                raise TicDatError("Unable to open %s as xls file : %s"%(xls_file_path, e))
         sheets = defaultdict(list)
-        for table, sheet in product(all_tables, book.sheets()) :
-            if table.lower()[:_longest_sheet] == sheet.name.lower().replace(' ', '_')[:_longest_sheet]:
-                sheets[table].append(sheet)
+        if xls_file_path.endswith('.xlsx'):
+            for table, sheet in product(all_tables, book._sheets):
+                if table.lower()[:_longest_sheet] == sheet.title.lower().replace(' ', '_')[:_longest_sheet]:
+                    sheets[table].append(sheet)
+        else:
+            for table, sheet in product(all_tables, book.sheets()) :
+                if table.lower()[:_longest_sheet] == sheet.name.lower().replace(' ', '_')[:_longest_sheet]:
+                    sheets[table].append(sheet)
         duplicated_sheets = tuple(_t for _t,_s in sheets.items() if len(_s) > 1)
         verify(not duplicated_sheets, "The following sheet names were duplicated : " +
                ",".join(duplicated_sheets))
-        sheets = FrozenDict({k:v[0] for k,v in sheets.items() })
+        if xls_file_path.endswith('.xlsx'):
+            sheets = FrozenDict({k: v[0] for k, v in sheets.items()})
+        else:
+            sheets = FrozenDict({k:v[0] for k,v in sheets.items() })
         missing_tables = {t for t in all_tables if t not in sheets}
         if missing_tables and print_missing_tables:
             print ("The following table names could not be found in the %s file.\n%s\n"%
@@ -140,7 +162,7 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
         field_indicies, missing_fields, dup_fields = {}, {}, {}
         for table, sheet in sheets.items() :
             field_indicies[table], missing_fields[table], dup_fields[table] = \
-                self._get_field_indicies(table, sheet, row_offsets[table], headers_present)
+                self._get_field_indicies(xls_file_path, table, sheet, row_offsets[table], headers_present)
         verify(not any(_ for _ in missing_fields.values()),
                "The following field names could not be found : \n" +
                "\n".join("%s : "%t + ",".join(bf) for t,bf in missing_fields.items() if bf))
@@ -154,13 +176,23 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
         def tableObj() :
             sheets, field_indicies, datemode = self._get_sheets_and_fields(xlsFilePath,
                                         (table,), {table:row_offset}, headers_present)
-            if table in sheets :
-                sheet = sheets[table]
-                table_len = min(len(sheet.col_values(field_indicies[table][field]))
-                               for field in tdf.data_fields[table])
-                for x in (sheet.row_values(i) for i in range(table_len)[row_offset+ho:]):
-                    yield self._sub_tuple(table, tdf.data_fields[table],
-                                          field_indicies[table], treat_inf_as_infinity, datemode)(x)
+            if xlsFilePath.endswith('.xlsx'):
+                if table in sheets :
+                    sheet = sheets[table]
+                    table_len = min(len(list(self.iter_cols(sheet))[field_indicies[table][field]])
+                                   for field in tdf.data_fields[table])
+                    row_list = list(self.iter_rows(sheet))
+                    for x in (row_list[i] for i in range(table_len)[row_offset+ho:]):
+                        yield self._sub_tuple(table, tdf.data_fields[table],
+                                              field_indicies[table], treat_inf_as_infinity, datemode)(x)
+            else:
+                if table in sheets :
+                    sheet = sheets[table]
+                    table_len = min(len(sheet.col_values(field_indicies[table][field]))
+                                   for field in tdf.data_fields[table])
+                    for x in (sheet.row_values(i) for i in range(table_len)[row_offset+ho:]):
+                        yield self._sub_tuple(table, tdf.data_fields[table],
+                                              field_indicies[table], treat_inf_as_infinity, datemode)(x)
         return tableObj
 
     def _create_tic_dat_dict(self, xls_file_path, row_offsets, headers_present, treat_inf_as_infinity):
@@ -176,25 +208,48 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
                                     set(tdf.all_tables).difference(tdf.generator_tables),
                                     row_offsets, headers_present, print_missing_tables=True)
         ho = 1 if headers_present else 0
-        for tbl, sheet in sheets.items() :
-            fields = tdf.primary_key_fields.get(tbl, ()) + tdf.data_fields.get(tbl, ())
-            assert fields or tbl in self.tic_dat_factory.generic_tables
-            indicies = field_indicies[tbl]
-            table_len = min(len(sheet.col_values(indicies[field]))
-                            for field in (fields or indicies))
-            if tdf.primary_key_fields.get(tbl, ()) :
-                tableObj = {self._sub_tuple(tbl, tdf.primary_key_fields[tbl], indicies, tiai, dm)(x):
-                            self._sub_tuple(tbl, tdf.data_fields.get(tbl, ()), indicies, tiai, dm)(x)
-                            for x in (sheet.row_values(i) for i in
-                                        range(table_len)[row_offsets[tbl]+ho:])}
-            elif tbl in tdf.generic_tables:
-                tableObj = None # will be read via PanDatFactory
-            else :
-                tableObj = [self._sub_tuple(tbl, tdf.data_fields.get(tbl, ()), indicies, tiai, dm)(x)
-                            for x in (sheet.row_values(i) for i in
-                                        range(table_len)[row_offsets[tbl]+ho:])]
-            if tableObj is not None:
-                rtn[tbl] = tableObj
+        if xls_file_path.endswith('.xlsx'):
+            for tbl, sheet in sheets.items() :
+                fields = tdf.primary_key_fields.get(tbl, ()) + tdf.data_fields.get(tbl, ())
+                assert fields or tbl in self.tic_dat_factory.generic_tables
+                indicies = field_indicies[tbl]
+                table_len = min(len(list(self.iter_cols(sheet))[indicies[field]])
+                                for field in (fields or indicies))
+                if tdf.primary_key_fields.get(tbl, ()) :
+                    row_list = list(self.iter_rows(sheet))
+                    tableObj = {self._sub_tuple(tbl, tdf.primary_key_fields[tbl], indicies, tiai, dm)(x):
+                                self._sub_tuple(tbl, tdf.data_fields.get(tbl, ()), indicies, tiai, dm)(x)
+                                for x in (row_list[i] for i in
+                                            range(table_len)[row_offsets[tbl]+ho:])}
+                elif tbl in tdf.generic_tables:
+                    tableObj = None # will be read via PanDatFactory
+                else :
+                    row_list = list(self.iter_rows(sheet))
+                    tableObj = [self._sub_tuple(tbl, tdf.data_fields.get(tbl, ()), indicies, tiai, dm)(x)
+                                for x in (row_list[i] for i in
+                                            range(table_len)[row_offsets[tbl]+ho:])]
+                if tableObj is not None:
+                    rtn[tbl] = tableObj
+        else:
+            for tbl, sheet in sheets.items():
+                fields = tdf.primary_key_fields.get(tbl, ()) + tdf.data_fields.get(tbl, ())
+                assert fields or tbl in self.tic_dat_factory.generic_tables
+                indicies = field_indicies[tbl]
+                table_len = min(len(sheet.col_values(indicies[field]))
+                                for field in (fields or indicies))
+                if tdf.primary_key_fields.get(tbl, ()):
+                    tableObj = {self._sub_tuple(tbl, tdf.primary_key_fields[tbl], indicies, tiai, dm)(x):
+                                    self._sub_tuple(tbl, tdf.data_fields.get(tbl, ()), indicies, tiai, dm)(x)
+                                for x in (sheet.row_values(i) for i in
+                                          range(table_len)[row_offsets[tbl] + ho:])}
+                elif tbl in tdf.generic_tables:
+                    tableObj = None  # will be read via PanDatFactory
+                else:
+                    tableObj = [self._sub_tuple(tbl, tdf.data_fields.get(tbl, ()), indicies, tiai, dm)(x)
+                                for x in (sheet.row_values(i) for i in
+                                          range(table_len)[row_offsets[tbl] + ho:])]
+                if tableObj is not None:
+                    rtn[tbl] = tableObj
         for tbl in tdf.generator_tables :
             rtn[tbl] = self._create_generator_obj(xls_file_path, tbl, row_offsets[tbl],
                                                     headers_present, tiai)
@@ -237,17 +292,31 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
         sheets, fieldIndicies, dm = self._get_sheets_and_fields(xls_file_path, pk_tables,
                                         row_offsets, headers_present)
         ho = 1 if headers_present else 0
-        for table, sheet in sheets.items() :
-            fields = tdf.primary_key_fields[table] + tdf.data_fields.get(table, ())
-            indicies = fieldIndicies[table]
-            table_len = min(len(sheet.col_values(indicies[field])) for field in fields)
-            for x in (sheet.row_values(i) for i in range(table_len)[row_offsets[table]+ho:]) :
-                rtn[table][self._sub_tuple(table, tdf.primary_key_fields[table],
-                                           indicies, treat_inf_as_infinity=True, datemode=dm)(x)] += 1
-        for t in list(rtn.keys()):
-            rtn[t] = {k:v for k,v in rtn[t].items() if v > 1}
-            if not rtn[t]:
-                del(rtn[t])
+        if xls_file_path.endswith('.xlsx'):
+            for table, sheet in sheets.items() :
+                fields = tdf.primary_key_fields[table] + tdf.data_fields.get(table, ())
+                indicies = fieldIndicies[table]
+                table_len = min(len(list(self.iter_cols(sheet))[indicies[field]]) for field in fields)
+                row_list = list(self.iter_rows(sheet))
+                for x in (row_list[i] for i in range(table_len)[row_offsets[table]+ho:]) :
+                    rtn[table][self._sub_tuple(table, tdf.primary_key_fields[table],
+                                               indicies, treat_inf_as_infinity=True, datemode=dm)(x)] += 1
+            for t in list(rtn.keys()):
+                rtn[t] = {k:v for k,v in rtn[t].items() if v > 1}
+                if not rtn[t]:
+                    del(rtn[t])
+        else:
+            for table, sheet in sheets.items() :
+                fields = tdf.primary_key_fields[table] + tdf.data_fields.get(table, ())
+                indicies = fieldIndicies[table]
+                table_len = min(len(sheet.col_values(indicies[field])) for field in fields)
+                for x in (sheet.row_values(i) for i in range(table_len)[row_offsets[table]+ho:]) :
+                    rtn[table][self._sub_tuple(table, tdf.primary_key_fields[table],
+                                               indicies, treat_inf_as_infinity=True, datemode=dm)(x)] += 1
+            for t in list(rtn.keys()):
+                rtn[t] = {k:v for k,v in rtn[t].items() if v > 1}
+                if not rtn[t]:
+                    del(rtn[t])
         return rtn
     def _get_dv_dt(self, table, field):
         # reminder - data fields have a default default of zero, primary keys don't get a default default
@@ -289,25 +358,52 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
             return tuple(_read_cell(x, field) for field in fields)
         return rtn
 
-    def _get_field_indicies(self, table, sheet, row_offset, headers_present) :
+    def iter_rows(self, ws):
+        for row in ws.iter_rows():
+            yield  [cell.value for cell in row]
+
+    def iter_cols(self, ws):
+        for col in ws.iter_cols():
+            yield [cell.value for cell in col]
+
+    def _get_field_indicies(self, xls_file_path, table, sheet, row_offset, headers_present) :
         fields = self.tic_dat_factory.primary_key_fields.get(table, ()) + \
                  self.tic_dat_factory.data_fields.get(table, ())
         if not headers_present:
-            row_len = len(sheet.row_values(row_offset)) if sheet.nrows > 0  else len(fields)
-            return ({f : i for i,f in enumerate(fields) if i < row_len},
-                    [f for i,f in enumerate(fields) if i >= row_len], [])
-        if sheet.nrows - row_offset <= 0 :
-            return {}, fields, []
+            if xls_file_path.endswith('.xlsx'):
+                row_len = len(list(self.iter_rows(sheet))) if sheet.max_row > 0 else len(fields)
+                return ({f: i for i, f in enumerate(fields) if i < row_len},
+                        [f for i, f in enumerate(fields) if i >= row_len], [])
+            else:
+                row_len = len(sheet.row_values(row_offset)) if sheet.nrows > 0  else len(fields)
+                return ({f : i for i,f in enumerate(fields) if i < row_len},
+                        [f for i,f in enumerate(fields) if i >= row_len], [])
+        if xls_file_path.endswith('.xlsx'):
+            if sheet.max_row - row_offset <= 0 :
+                return {}, fields, []
+        else:
+            if sheet.nrows - row_offset <= 0 :
+                return {}, fields, []
         if table in self.tic_dat_factory.generic_tables:
             temp_rtn = defaultdict(list)
-            for ind, val in enumerate(sheet.row_values(row_offset)):
-                temp_rtn[val].append(ind)
+            if xls_file_path.endswith('.xlsx'):
+                for ind, val in enumerate(list(self.iter_rows(sheet))[row_offset]):
+                    temp_rtn[val].append(ind)
+            else:
+                for ind, val in enumerate(sheet.row_values(row_offset)):
+                    temp_rtn[val].append(ind)
         else:
             temp_rtn =  {field:list() for field in fields}
-            for field, (ind, val) in product(fields, enumerate(sheet.row_values(row_offset))) :
-                if field == val or (all(map(utils.stringish, (field, val))) and
-                                    field.lower() == val.lower()):
-                    temp_rtn[field].append(ind)
+            if xls_file_path.endswith('.xlsx'):
+                for field, (ind, val) in product(fields, enumerate(list(self.iter_rows(sheet))[row_offset])):
+                    if field == val or (all(map(utils.stringish, (field, val))) and
+                                        field.lower() == val.lower()):
+                        temp_rtn[field].append(ind)
+            else:
+                for field, (ind, val) in product(fields, enumerate(sheet.row_values(row_offset))) :
+                    if field == val or (all(map(utils.stringish, (field, val))) and
+                                        field.lower() == val.lower()):
+                        temp_rtn[field].append(ind)
         return ({field : inds[0] for field, inds in temp_rtn.items() if len(inds)==1},
                 [field for field, inds in temp_rtn.items() if len(inds) == 0],
                 [field for field, inds in temp_rtn.items() if len(inds) > 1])
