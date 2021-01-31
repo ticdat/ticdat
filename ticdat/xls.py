@@ -21,8 +21,12 @@ try:
     import xlsxwriter as xlsx
 except:
     xlsx=None
+try:
+    import openpyxl
+except:
+    openpyxl=None
 
-_can_unit_test = xlrd and xlwt and xlsx
+_can_unit_test = xlrd and xlwt and xlsx and openpyxl
 
 # https://github.com/jmcnamara/XlsxWriter/issues/150 ...
 # the xlsxwriter doesn't handle infinity as seamlessly as xls
@@ -31,9 +35,9 @@ _longest_sheet = 30
 class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
     """
     Primary class for reading/writing Excel files with TicDat objects.
-    Your system will need the xlrd package to read .xls and .xlsx files,
-    the xlwt package to write .xls files, and the xlsxwriter package to
-    write .xlsx files.
+    Your system will need the xlrd package to read .xls files, the openpyxl package
+    to read xlsx files, the xlwt package to write .xls files, and the xlsxwriter
+    package to write .xlsx files.
     Don't create this object explicitly. A XlsTicDatFactory will
     automatically be associated with the xls attribute of the parent
     TicDatFactory.
