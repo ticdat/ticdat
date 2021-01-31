@@ -568,7 +568,7 @@ class TestXls(unittest.TestCase):
         self.assertTrue(all(isinstance(_, datetime.datetime) or _ is None for v in dat_1.table_with_stuffs.values()
                             for _ in v.values()))
 
-    def testDateTimeTwo(self): # this is doo test for datetime stuff
+    def testDateTimeTwo(self): # this is good test for datetime stuff
         file = os.path.join(_scratchDir, "datetime_pd.xls")
         df = utils.pd.DataFrame({"a":list(map(utils.pd.Timestamp,
             ["June 13 1960 4:30PM", "Dec 11 1970 1AM", "Sept 11 2001 9:30AM"]))})
