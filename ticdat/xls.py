@@ -165,17 +165,22 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
         verify(utils.stringish(xls_file_path) and os.path.exists(xls_file_path),
                "xls_file_path argument %s is not a valid file path."%xls_file_path)
         try :
-            book = xlrd.open_workbook(xls_file_path)
+            book = xlrd.open_workbook(xls_file_path) if xls_file_path.endswith(".xls") else \
+                openpyxl.load_workbook(xls_file_path, data_only=True)
         except Exception as e:
             raise TicDatError("Unable to open %s as xls file : %s"%(xls_file_path, e))
+        sheet_name = lambda sheet: sheet.name if xls_file_path.endswith(".xls") else sheet.title
         sheets = defaultdict(list)
-        for table, sheet in product(all_tables, book.sheets()) :
-            if table.lower()[:_longest_sheet] == sheet.name.lower().replace(' ', '_')[:_longest_sheet]:
+        book_sheets = lambda: book.sheets() if xls_file_path.endswith(".xls") else book.worksheets
+        for table, sheet in product(all_tables, book_sheets()) :
+            if table.lower()[:_longest_sheet] == sheet_name(sheet).lower().replace(' ', '_')[:_longest_sheet]:
                 sheets[table].append(sheet)
         duplicated_sheets = tuple(_t for _t,_s in sheets.items() if len(_s) > 1)
         verify(not duplicated_sheets, "The following sheet names were duplicated s: " +
                ",".join(duplicated_sheets))
-        sheets = FrozenDict({k: _XlrdSheetWrapper(v[0], book.datemode) for k,v in sheets.items()})
+        wrapped_sheet = lambda sheet: _XlrdSheetWrapper(sheet, book.datemode) if xls_file_path.endswith(".xls") else \
+                                      _OpenPyxlSheetWrapper(sheet)
+        sheets = FrozenDict({k: wrapped_sheet(v[0]) for k,v in sheets.items()})
         missing_tables = {t for t in all_tables if t not in sheets}
         if missing_tables and print_missing_tables:
             print ("The following table names could not be found in the %s file.\n%s\n"%
