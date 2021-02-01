@@ -344,10 +344,11 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
         if table in self.tic_dat_factory.generic_tables:
             temp_rtn = defaultdict(list)
             for ind, val in enumerate(sheet.row_values(row_offset)):
-                temp_rtn[val].append(ind)
+                temp_rtn[sheet.post_read_munge(val)].append(ind)
         else:
             temp_rtn =  {field:list() for field in fields}
             for field, (ind, val) in product(fields, enumerate(sheet.row_values(row_offset))) :
+                val = sheet.post_read_munge(val)
                 if field == val or (all(map(utils.stringish, (field, val))) and
                                     field.lower() == val.lower()):
                     temp_rtn[field].append(ind)
