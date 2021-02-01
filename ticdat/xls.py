@@ -56,13 +56,20 @@ class _XlrdSheetWrapper(object): # main purpose of this routine is to enforce th
 class _OpenPyxlSheetWrapper(object): # this file initially used xlrd for xls and xlsx files.
     def __init__(self, sheet):       # this class allows an openpyxl.sheet to present as a limited xlrd.sheet
         self._sheet = sheet          # although this choice of abstractions is historical, the resulting code
-    @property                        # seems readable enough, and is at least free from lots of "if/else" silliness
+                                     # seems readable enough, and is at least free from lots of "if/else" silliness
+        # for performance reasons, need to capture the range on __init__
+        self._max_col = sheet.max_column
+        self._max_row = sheet.max_row
+    @property
     def nrows(self):
         return self._sheet.max_row-self._sheet.min_row
     def row_values(self, row_index): # openpyxl used 1 based indexing
-        return next(iter(self._sheet.iter_rows(min_row=row_index+1, max_row=row_index+1)))
+
+        return next(iter(self._sheet.iter_rows(min_row=row_index+1, max_row=row_index+1, min_col=1,
+                                               max_col=self._max_col)))
     def col_values(self, col_index): # openpyxl used 1 based indexing
-        return next(iter(self._sheet.iter_cols(min_col=col_index+1, max_col=col_index+1)))
+        return next(iter(self._sheet.iter_cols(min_col=col_index+1, max_col=col_index+1, min_row=1,
+                                               max_row=self._max_row)))
     def post_read_munge(self, x):
         return x.value
 
