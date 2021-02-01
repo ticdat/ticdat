@@ -53,13 +53,18 @@ class _XlrdSheetWrapper(object): # main purpose of this routine is to enforce th
                 f = utils.pd.Timestamp
             return f(year=rtn[0], month=rtn[1], day=rtn[2], hour=rtn[3], minute=rtn[4], second=rtn[5])
 
-# class _OpenPyxlSheetWrapper(object): # this file initially used xlrd for xls and xlsx files.
-#     def __init__(self, sheet):       # this class allows an openpyxl.sheet to present as a limited xlrd.sheet
-#         self._sheet = sheet          # although this choice of abstractions is historical, the resulting code
-#     @property                        # seems readable enough, and is at least free from lots of "if/else" silliness
-#     def nrows(self):
-#         return self._sheet.max_row-self._sheet.min_row
-
+class _OpenPyxlSheetWrapper(object): # this file initially used xlrd for xls and xlsx files.
+    def __init__(self, sheet):       # this class allows an openpyxl.sheet to present as a limited xlrd.sheet
+        self._sheet = sheet          # although this choice of abstractions is historical, the resulting code
+    @property                        # seems readable enough, and is at least free from lots of "if/else" silliness
+    def nrows(self):
+        return self._sheet.max_row-self._sheet.min_row
+    def row_values(self, row_index): # openpyxl used 1 based indexing
+        return next(iter(self._sheet.iter_rows(min_row=row_index+1, max_row=row_index+1)))
+    def col_values(self, col_index): # openpyxl used 1 based indexing
+        return next(iter(self._sheet.iter_cols(min_col=col_index+1, max_col=col_index+1)))
+    def post_read_munge(self, x):
+        return x.value
 
 class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
     """
