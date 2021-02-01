@@ -43,6 +43,8 @@ class _XlrdSheetWrapper(object): # main purpose of this routine is to enforce th
         return self._sheet.row_values(row_index)
     def col_values(self, col_index):
         return self._sheet.col_values(col_index)
+    def post_read_munge(self, x):
+        return x
     def xldate_as_tuple_munge(self, x): # only needed for xlrd
         rtn = utils.safe_apply(lambda: xlrd.xldate_as_tuple(x, self._datemode))()
         if rtn is not None:
@@ -53,10 +55,10 @@ class _XlrdSheetWrapper(object): # main purpose of this routine is to enforce th
 
 # class _OpenPyxlSheetWrapper(object): # this file initially used xlrd for xls and xlsx files.
 #     def __init__(self, sheet):       # this class allows an openpyxl.sheet to present as a limited xlrd.sheet
-#         self.sheet = sheet           # although this choice of abstractions is historical, the resulting code
+#         self._sheet = sheet          # although this choice of abstractions is historical, the resulting code
 #     @property                        # seems readable enough, and is at least free from lots of "if/else" silliness
 #     def nrows(self):
-#         return
+#         return self._sheet.max_row-self._sheet.min_row
 
 
 class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
@@ -300,7 +302,7 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
             treat_inf_as_infinity = False
         def _read_cell(x, field):
             dv, dt = self._get_dv_dt(table, field)
-            rtn = x[field_indicies[field]]
+            rtn = sheet.post_read_munge(x[field_indicies[field]])
             if rtn == "" and ((dt and dt.nullable) or (not dt and dv is None)):
                 return None
             if treat_inf_as_infinity and utils.stringish(rtn) and rtn.lower() in ["inf", "-inf"]:
