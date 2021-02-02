@@ -43,8 +43,6 @@ class _XlrdSheetWrapper(object): # main purpose of this routine is to enforce th
         return self._sheet.row_values(row_index)
     def col_values(self, col_index):
         return self._sheet.col_values(col_index)
-    def post_read_munge(self, x):
-        return x
     def xldate_as_tuple_munge(self, x): # only needed for xlrd
         rtn = utils.safe_apply(lambda: xlrd.xldate_as_tuple(x, self._datemode))()
         if rtn is not None:
@@ -64,14 +62,11 @@ class _OpenPyxlSheetWrapper(object): # this file initially used xlrd for xls and
     def nrows(self):
         return self._sheet.max_row-self._sheet.min_row
     def row_values(self, row_index): # openpyxl used 1 based indexing
-
-        return next(iter(self._sheet.iter_rows(min_row=row_index+1, max_row=row_index+1, min_col=1,
-                                               max_col=self._max_col)))
+        return tuple(x.value for x in next(iter(self._sheet.iter_rows(min_row=row_index+1, max_row=row_index+1,
+                                                                      min_col=1, max_col=self._max_col))))
     def col_values(self, col_index): # openpyxl used 1 based indexing
-        return next(iter(self._sheet.iter_cols(min_col=col_index+1, max_col=col_index+1, min_row=1,
-                                               max_row=self._max_row)))
-    def post_read_munge(self, x):
-        return x.value
+        return tuple(x.value for x in next(iter(self._sheet.iter_cols(min_col=col_index+1, max_col=col_index+1,
+                                                                      min_row=1, max_row=self._max_row))))
 
 class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
     """
@@ -322,7 +317,7 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
             treat_inf_as_infinity = False
         def _read_cell(x, field):
             dv, dt = self._get_dv_dt(table, field)
-            rtn = sheet.post_read_munge(x[field_indicies[field]])
+            rtn = x[field_indicies[field]]
             if rtn == "" and ((dt and dt.nullable) or (not dt and dv is None)):
                 return None
             if treat_inf_as_infinity and utils.stringish(rtn) and rtn.lower() in ["inf", "-inf"]:
@@ -354,11 +349,10 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
         if table in self.tic_dat_factory.generic_tables:
             temp_rtn = defaultdict(list)
             for ind, val in enumerate(sheet.row_values(row_offset)):
-                temp_rtn[sheet.post_read_munge(val)].append(ind)
+                temp_rtn[val].append(ind)
         else:
             temp_rtn =  {field:list() for field in fields}
             for field, (ind, val) in product(fields, enumerate(sheet.row_values(row_offset))) :
-                val = sheet.post_read_munge(val)
                 if field == val or (all(map(utils.stringish, (field, val))) and
                                     field.lower() == val.lower()):
                     temp_rtn[field].append(ind)
