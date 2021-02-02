@@ -60,7 +60,7 @@ class _OpenPyxlSheetWrapper(object): # this file initially used xlrd for xls and
         self._max_row = sheet.max_row
     @property
     def nrows(self):
-        return self._sheet.max_row-self._sheet.min_row
+        return self._sheet.max_row-self._sheet.min_row+1
     def row_values(self, row_index): # openpyxl used 1 based indexing
         return tuple(x.value for x in next(iter(self._sheet.iter_rows(min_row=row_index+1, max_row=row_index+1,
                                                                       min_col=1, max_col=self._max_col))))

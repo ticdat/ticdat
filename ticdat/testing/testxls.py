@@ -618,6 +618,14 @@ class TestXls(unittest.TestCase):
         # my hands are sort of tied here, xlrd has a disturbing tendency to read data as floats when it reads numbers
         # that said, not sure I really need to do more, since these two tests pass.
 
+    def testColumnsWithoutData(self):
+        tdf = TicDatFactory(data=[["a"], ["b"]])
+        for x in ["", "x"]:
+            file = os.path.join(_scratchDir, "no_data.xls" + x)
+            tdf.xls.write_file(tdf.TicDat(), file)
+            dat = tdf.xls.create_tic_dat(file)
+            self.assertFalse(dat._len_dict())
+
 _scratchDir = TestXls.__name__ + "_scratch"
 
 # Run the tests.
