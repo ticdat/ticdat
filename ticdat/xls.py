@@ -280,7 +280,10 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
                  Row counts smaller than 2 are pruned off, as they aren't duplicates
         """
         self._verify_differentiable_sheet_names()
-        verify(xlrd, "xlrd needs to be installed to use this subroutine")
+        if xls_file_path.endswith(".xls"):
+            verify(xlrd, "xlrd needs to be installed to use this subroutine")
+        else:
+            verify(openpyxl, "openpyxl needs to be installed to use this subroutine")
         verify(utils.dictish(row_offsets) and
                set(row_offsets).issubset(self.tic_dat_factory.all_tables) and
                all(utils.numericish(x) and (x>=0) for x in row_offsets.values()),

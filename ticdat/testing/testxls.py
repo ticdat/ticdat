@@ -270,11 +270,11 @@ class TestXls(unittest.TestCase):
         self.assertTrue(tdf._same_data(ticDat, ticDatNone))
         self.assertTrue(ticDatNone.a["theboger"]["aData2"] == None)
 
-        # checking the same thing with .xlsx
+        # checking the same thing with .xlsx - using openpyxl, None is indeed recovered even without tdfwa munging!
         tdf.xls.write_file(ticDat, filePath+"x", allow_overwrite=True)
         ticDatNone = tdf.xls.create_tic_dat(filePath+"x", freeze_it=True)
-        self.assertFalse(tdf._same_data(ticDat, ticDatNone))
-        self.assertTrue(ticDatNone.a["theboger"]["aData2"] == "")
+        self.assertTrue(tdf._same_data(ticDat, ticDatNone))
+        self.assertTrue(ticDatNone.a["theboger"]["aData2"] == None)
         ticDatNone = tdfwa.xls.create_tic_dat(filePath+"x", freeze_it=True)
         self.assertTrue(tdf._same_data(ticDat, ticDatNone))
         self.assertTrue(ticDatNone.a["theboger"]["aData2"] == None)
@@ -580,7 +580,9 @@ class TestXls(unittest.TestCase):
         file = file + "x"
         df.to_excel(file, "Cool Runnings")
         dat = tdf.xls.create_tic_dat(file)
-        self.assertTrue(set(dat.cool_runnings) == set(df["a"]))
+        for x, y in zip(sorted(dat.cool_runnings), sorted(set(df["a"]))):
+            delta = x-y
+            self.assertTrue(abs(delta.total_seconds()) < 1e-4)
 
     def testIssue45(self):
         tdf = TicDatFactory(data=[["a"], ["b"]])
