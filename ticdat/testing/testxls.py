@@ -214,6 +214,7 @@ class TestXls(unittest.TestCase):
         self.assertTrue(hasattr(ticDat6, "d") and utils.dictish(ticDat6.d))
 
         def writeData(data, write_header = "same"):
+            assert filePath.endswith(".xls")
             assert not write_header or write_header in ("lower", "same", "duped")
             import xlwt
             book = xlwt.Workbook()
@@ -229,6 +230,23 @@ class TestXls(unittest.TestCase):
             if os.path.exists(filePath):
                 os.remove(filePath)
             book.save(filePath)
+            if write_header in ["lower", "same"]: # will use pandas to generate the xlsx file version
+                file_path_x = filePath + "x"
+                if os.path.exists(file_path_x):
+                    os.remove(file_path_x)
+                writer = utils.pd.ExcelWriter(file_path_x)
+                for t, (pks, dfs) in tdf.schema().items():
+                    fields = pks+dfs
+                    if write_header == "lower":
+                        fields = [_.lower() for _ in fields]
+                    d = {f:[] for f in fields}
+                    for row in data:
+                        for f, c in zip(fields, row):
+                            d[f].append(c)
+                    utils.pd.DataFrame(d).to_excel(writer, t, index=False)
+                writer.save()
+
+
 
         writeData([(1, 2, 3, 4), (1, 20, 30, 40), (10, 20, 30, 40)], write_header="duped")
         self.assertTrue(self.firesException(lambda : tdf.xls.create_tic_dat(filePath, freeze_it=True)))
@@ -237,15 +255,17 @@ class TestXls(unittest.TestCase):
         ticDatMan = tdf.xls.create_tic_dat(filePath, freeze_it=True)
         self.assertTrue(len(ticDatMan.a) == 2 and len(ticDatMan.b) == 3)
         self.assertTrue(ticDatMan.b[1, 20, 30]["bData"] == 40)
-        rowCount = tdf.xls.find_duplicates(filePath)
-        self.assertTrue(set(rowCount) == {'a'} and set(rowCount["a"]) == {1} and rowCount["a"][1]==2)
+        for f in [filePath, filePath+"x"]:
+            rowCount = tdf.xls.find_duplicates(f)
+            self.assertTrue(set(rowCount) == {'a'} and set(rowCount["a"]) == {1} and rowCount["a"][1]==2)
 
         writeData([(1, 2, 3, 4), (1, 20, 30, 40), (10, 20, 30, 40)], write_header="lower")
         ticDatMan = tdf.xls.create_tic_dat(filePath, freeze_it=True)
         self.assertTrue(len(ticDatMan.a) == 2 and len(ticDatMan.b) == 3)
         self.assertTrue(ticDatMan.b[1, 20, 30]["bData"] == 40)
-        rowCount = tdf.xls.find_duplicates(filePath)
-        self.assertTrue(set(rowCount) == {'a'} and set(rowCount["a"]) == {1} and rowCount["a"][1]==2)
+        for f in [filePath, filePath+"x"]:
+            rowCount = tdf.xls.find_duplicates(f)
+            self.assertTrue(set(rowCount) == {'a'} and set(rowCount["a"]) == {1} and rowCount["a"][1]==2)
 
 
         writeData([(1, 2, 3, 4), (1, 20, 30, 40), (10, 20, 30, 40)], write_header=False)
@@ -270,19 +290,20 @@ class TestXls(unittest.TestCase):
         self.assertTrue(tdf._same_data(ticDat, ticDatNone))
         self.assertTrue(ticDatNone.a["theboger"]["aData2"] == None)
 
-        # checking the same thing with .xlsx
+        # checking the same thing with .xlsx - using openpyxl, None is indeed recovered even without tdfwa munging!
         tdf.xls.write_file(ticDat, filePath+"x", allow_overwrite=True)
         ticDatNone = tdf.xls.create_tic_dat(filePath+"x", freeze_it=True)
-        self.assertFalse(tdf._same_data(ticDat, ticDatNone))
-        self.assertTrue(ticDatNone.a["theboger"]["aData2"] == "")
+        self.assertTrue(tdf._same_data(ticDat, ticDatNone))
+        self.assertTrue(ticDatNone.a["theboger"]["aData2"] == None)
         ticDatNone = tdfwa.xls.create_tic_dat(filePath+"x", freeze_it=True)
         self.assertTrue(tdf._same_data(ticDat, ticDatNone))
         self.assertTrue(ticDatNone.a["theboger"]["aData2"] == None)
 
         writeData([(1, 2, 3, 4), (1, 20, 30, 40), (10, 20, 30, 40), (1,20,30,12)])
-        rowCount = tdf.xls.find_duplicates(filePath)
-        self.assertTrue(set(rowCount) == {'a', 'b'} and set(rowCount["a"]) == {1} and rowCount["a"][1]==3)
-        self.assertTrue(set(rowCount["b"]) == {(1,20,30)} and rowCount["b"][1,20,30]==2)
+        for f in [filePath, filePath+"x"]:
+            rowCount = tdf.xls.find_duplicates(f)
+            self.assertTrue(set(rowCount) == {'a', 'b'} and set(rowCount["a"]) == {1} and rowCount["a"][1]==3)
+            self.assertTrue(set(rowCount["b"]) == {(1,20,30)} and rowCount["b"][1,20,30]==2)
 
     def testSpacey(self):
         if not self.can_run:
@@ -568,15 +589,21 @@ class TestXls(unittest.TestCase):
         self.assertTrue(all(isinstance(_, datetime.datetime) or _ is None for v in dat_1.table_with_stuffs.values()
                             for _ in v.values()))
 
-    def testDateTimeTwo(self):
+    def testDateTimeTwo(self): # this is good test for datetime stuff
         file = os.path.join(_scratchDir, "datetime_pd.xls")
         df = utils.pd.DataFrame({"a":list(map(utils.pd.Timestamp,
             ["June 13 1960 4:30PM", "Dec 11 1970 1AM", "Sept 11 2001 9:30AM"]))})
-        df.to_excel(file, "Cool Runnings")
         tdf = TicDatFactory(cool_runnings = [["a"],[]])
         tdf.set_data_type("cool_runnings", "a", datetime=True)
+        df.to_excel(file, "Cool Runnings")
         dat = tdf.xls.create_tic_dat(file)
         self.assertTrue(set(dat.cool_runnings) == set(df["a"]))
+        file = file + "x"
+        df.to_excel(file, "Cool Runnings")
+        dat = tdf.xls.create_tic_dat(file)
+        for x, y in zip(sorted(dat.cool_runnings), sorted(set(df["a"]))):
+            delta = x-y
+            self.assertTrue(abs(delta.total_seconds()) < 1e-4)
 
     def testIssue45(self):
         tdf = TicDatFactory(data=[["a"], ["b"]])
