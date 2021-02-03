@@ -26,7 +26,7 @@ try:
 except:
     openpyxl=None
 
-_the_openpyxl_ext = {".xlsx", ".xlsm", ".xltx", ".xltm"}
+_the_openpyxl_ext = {".xlsx", ".xlsm"}
 _is_openpyxl_ext = lambda s : any(s.endswith(_) for _ in _the_openpyxl_ext)
 _can_unit_test = xlrd and xlwt and xlsx and openpyxl
 
