@@ -26,6 +26,8 @@ try:
 except:
     openpyxl=None
 
+_the_openpyxl_ext = {".xlsx", ".xlsm", ".xltx", ".xltm"}
+_is_openpyxl_ext = lambda s : any(s.endswith(_) for _ in _the_openpyxl_ext)
 _can_unit_test = xlrd and xlwt and xlsx and openpyxl
 
 # https://github.com/jmcnamara/XlsxWriter/issues/150 ...
@@ -72,7 +74,7 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
     """
     Primary class for reading/writing Excel files with TicDat objects.
     Your system will need the xlrd package to read .xls files, the openpyxl package
-    to read xlsx files, the xlwt package to write .xls files, and the xlsxwriter
+    to read xlsx/xlsm/xltx/xltm files, the xlwt package to write .xls files, and the xlsxwriter
     package to write .xlsx files.
     Don't create this object explicitly. A XlsTicDatFactory will
     automatically be associated with the xls attribute of the parent
@@ -127,7 +129,8 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
         """
         self._verify_differentiable_sheet_names()
         verify(utils.safe_apply(os.path.isfile)(xls_file_path), f"{xls_file_path} not a file path")
-        verify(xls_file_path.endswith(".xls") or xls_file_path.endswith(".xlsx"), "")
+        verify(xls_file_path.endswith(".xls") or _is_openpyxl_ext(xls_file_path),
+               f"invalid file extension for {xls_file_path}")
         if xls_file_path.endswith(".xls"):
             verify(xlrd, "xlrd needs to be installed to use this subroutine")
         else:
@@ -371,7 +374,7 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
                           Needs to end in either ".xls" or ".xlsx"
                           The latter is capable of writing out larger tables,
                           but the former handles infinity seamlessly.
-                          If ".xlsx", then be advised that +/- float("inf") will be replaced
+                          If ".xlsx" then be advised that +/- float("inf") will be replaced
                           with "inf"/"-inf", unless infinity_io_flag is being applied.
 
         :param allow_overwrite: boolean - are we allowed to overwrite an
