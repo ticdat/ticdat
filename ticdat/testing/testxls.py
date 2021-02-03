@@ -5,7 +5,7 @@ from ticdat.testing.ticdattestutils import dietData, dietSchema, netflowData, ne
 from ticdat.testing.ticdattestutils import sillyMeData, sillyMeSchema, makeCleanDir, fail_to_debugger
 from ticdat.testing.ticdattestutils import spacesData, spacesSchema, memo, flagged_as_run_alone
 from ticdat.testing.ticdattestutils import makeCleanPath, sillyMeDataTwoTables
-from ticdat.xls import _can_unit_test
+import ticdat.xls as ticdat_xlsx
 import shutil
 import unittest
 import datetime
@@ -626,6 +626,41 @@ class TestXls(unittest.TestCase):
             dat = tdf.xls.create_tic_dat(file)
             self.assertFalse(dat._len_dict())
 
+    def testEmptyWorkbooks(self):
+        file = os.path.join(_scratchDir, "empty_wb.xlsx")
+        book = ticdat_xlsx.xlsx.Workbook(file)
+        book.add_worksheet("data")
+        book.close()
+        tdf = TicDatFactory(data=[["a"], ["b"]])
+        ex = []
+        try:
+            tdf.xls.create_tic_dat(file)
+        except utils.TicDatError as e:
+            ex.append(e)
+        self.assertTrue(ex)
+        self.assertTrue("The following field names could not be found :" in str(ex[0]))
+
+    def testEndingAllNones(self): # unfortunately, not really programmatically testing set_xlsx_trailing_empty_rows
+        # due to underlying library weirdness. I did some manually testing originally. Hopefully not going to bit
+        # on this one, its not mission critical functionality anyway.
+        file_path = os.path.join(_scratchDir, "ending_all_nones.xlsx")
+        tdf = TicDatFactory(data=[[],["a", "b"]])
+        dat_write = tdf.TicDat(data=[["x", "v"], ["y", "k"], ["xx", None], [None, None], [None, None]])
+        tdf.xls.write_file(dat_write, file_path)
+        dat = tdf.TicDat(data=[["x", "v"], ["y", "k"], ["xx", None]])
+        dat_2 = tdf.xls.create_tic_dat(file_path)
+        self.assertTrue(tdf._same_data(dat, dat_2))
+        tdf.set_xlsx_trailing_empty_rows("ignore")
+        dat_2 = tdf.xls.create_tic_dat(file_path)
+        # self.assertTrue(tdf._same_data(dat_2, dat_write)) # this is how it ought to work!
+        self.assertTrue(tdf._same_data(dat_2, dat))  # this is whats happening!
+        # to be more specific, here is the inner deal
+        book = ticdat_xlsx.openpyxl.load_workbook(file_path, data_only=True)
+        sheet = book["data"]
+        self.assertTrue(sheet.max_row == 4) # 1 based indexing, the column row, three data rows (BUT NOT 5 DATA ROWS)
+
+
+
 _scratchDir = TestXls.__name__ + "_scratch"
 
 # Run the tests.
@@ -633,7 +668,7 @@ if __name__ == "__main__":
     td = TicDatFactory()
     if not utils.DataFrame :
         print("!!!!!!!!!FAILING XLS UNIT TESTS DUE TO FAILURE TO LOAD PANDAS LIBRARIES!!!!!!!!")
-    elif not _can_unit_test :
+    elif not ticdat_xlsx._can_unit_test :
         print("!!!!!!!!!FAILING XLS UNIT TESTS DUE TO FAILURE TO LOAD XLS LIBRARIES!!!!!!!!")
     else:
         TestXls.can_run = True
