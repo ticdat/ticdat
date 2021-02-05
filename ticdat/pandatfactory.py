@@ -377,13 +377,16 @@ class PanDatFactory(object):
             for f in self.primary_key_fields.get(t, ()) + self.data_fields.get(t, ()):
                 if utils.numericish(self.infinity_io_flag):
                     fixme = apply(df, lambda row: utils.numericish(row[f]) and row[f] >= self.infinity_io_flag)
-                    df.loc[fixme, f] = self.infinity_io_flag
+                    if fixme.any():
+                        df.loc[fixme, f] = self.infinity_io_flag
                     fixme = apply(df, lambda row: utils.numericish(row[f]) and row[f] <= -self.infinity_io_flag)
-                    df.loc[fixme, f] = -self.infinity_io_flag
+                    if fixme.any():
+                        df.loc[fixme, f] = -self.infinity_io_flag
                 elif utils.numericish(self._none_as_infinity_bias(t, f)):
                     assert self.infinity_io_flag is None
                     fixme = apply(df, lambda row: row[f] == float("inf") * self._none_as_infinity_bias(t, f))
-                    df.loc[fixme, f] = None
+                    if fixme.any():
+                        df.loc[fixme, f] = None
         return rtn
     def set_data_type(self, table, field, number_allowed = True,
                       inclusive_min = True, inclusive_max = False, min = 0, max = float("inf"),
