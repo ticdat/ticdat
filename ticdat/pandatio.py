@@ -47,10 +47,6 @@ def _clean_pandat_creator(pdf, df_dict, push_parameters_to_be_valid=True, json_r
     return pdf._general_post_read_adjustment(pandat, json_read=json_read,
                                              push_parameters_to_be_valid=push_parameters_to_be_valid)
 
-def _remove_trailing_all_nan(df):
-    print("NOT DOING YET!")
-    return df
-
 class JsonPanFactory(freezable_factory(object, "_isFrozen")):
     """
     Primary class for reading/writing json data with PanDat objects.
@@ -517,8 +513,9 @@ class XlsPanFactory(freezable_factory(object, "_isFrozen")):
         xl.close()
         rtn = _clean_pandat_creator(self.pan_dat_factory, rtn, print_missing_tables=True)
         if self.pan_dat_factory.xlsx_trailing_empty_rows == "prune":
+            from ticdat.pandatfactory import remove_trailing_all_nan
             for t in self.pan_dat_factory.all_tables:
-                setattr(rtn, t, _remove_trailing_all_nan(getattr(rtn, t)))
+                setattr(rtn, t, remove_trailing_all_nan(getattr(rtn, t)))
         return rtn
 
 

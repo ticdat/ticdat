@@ -8,6 +8,7 @@ from ticdat.utils import ForeignKey, ForeignKeyMapping, TypeDictionary, verify, 
 from ticdat.utils import lupish, deep_freeze, containerish, FrozenDict, safe_apply, stringish
 import ticdat.pandatio as pandatio
 from itertools import count
+import math
 try:
     from pandas import isnull
     import numpy
@@ -36,6 +37,30 @@ def _faster_df_apply(df, func, trip_wire_check=None):
                 trip_wire_check = None
     # will default to float for empty Series, like original pandas
     return pd.Series(data, index=index, **({"dtype": numpy.float64} if not data else {}))
+
+def _is_last_rows_all_nan(df, last_rows):
+    assert last_rows > 0
+    # quick last row check to make faster
+    all_nan_row =  lambda row: all(map(pd.isnull, row.values()))
+    return _faster_df_apply(df.tail(1), all_nan_row).all() and \
+           _faster_df_apply(df.tail(last_rows), all_nan_row,
+                            trip_wire_check=lambda x: all_nan_row if x else lambda row: False).all()
+
+def _find_number_all_nan_last_rows(df, min_rtn, max_rtn):
+    assert max_rtn >= min_rtn
+    if min_rtn == max_rtn:
+        assert min_rtn == 0 or _is_last_rows_all_nan(df, min_rtn)
+        return min_rtn
+    med_rtn =  math.ceil((min_rtn+max_rtn)/2)
+    if _is_last_rows_all_nan(df, med_rtn):
+        return _find_number_all_nan_last_rows(df, med_rtn, max_rtn)
+    return _find_number_all_nan_last_rows(df, min_rtn, med_rtn-1)
+
+def remove_trailing_all_nan(df):
+    all_nan_last_rows = _find_number_all_nan_last_rows(df, 0, len(df))
+    if all_nan_last_rows:
+        return df.head(len(df)-all_nan_last_rows).copy(deep=True)
+    return df
 
 class PanDatFactory(object):
     """

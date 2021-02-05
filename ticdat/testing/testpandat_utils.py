@@ -1,5 +1,5 @@
 import unittest
-from ticdat.pandatfactory import PanDatFactory
+from ticdat.pandatfactory import PanDatFactory, remove_trailing_all_nan
 from ticdat.utils import DataFrame, numericish, ForeignKey, ForeignKeyMapping
 import ticdat.utils as utils
 from ticdat.testing.ticdattestutils import fail_to_debugger, flagged_as_run_alone, netflowPandasData
@@ -747,6 +747,34 @@ class TestUtils(unittest.TestCase):
         errs = pdf.find_foreign_key_failures(pan_dat, max_failures=9)
         self.assertTrue(len(errs) == 1 and all(len(_) == 9 for _ in errs.values()))
 
+    def test_trailing_all_nan(self):
+        df = utils.pd.DataFrame({"a": [1, 2, None, None], "b": [10, 20, None, None]})
+        df2 = remove_trailing_all_nan(df)
+        df3 = remove_trailing_all_nan(df2)
+        self.assertTrue([tuple(x) for x in df2.itertuples(index=False)] ==
+                        [tuple(x) for x in df3.itertuples(index=False)] == [(1.0, 10.0), (2.0, 20.0)])
+        df = utils.pd.DataFrame({"a": [1, 2] * 10 + [None, None] * 3, "b": [10, 20] * 10 + [None, float("nan")] * 3})
+        df2 = remove_trailing_all_nan(df)
+        df3 = remove_trailing_all_nan(df2)
+        self.assertTrue([tuple(x) for x in df2.itertuples(index=False)] ==
+                        [tuple(x) for x in df3.itertuples(index=False)] == [(1.0, 10.0), (2.0, 20.0)]*10)
+        df = utils.pd.DataFrame({"a": [1, 2] * 10 + [None] + [2,1] + [None, None] * 3,
+                                 "b": [10, 20] * 10 + [None] + [20,11] + [None, None] * 3})
+        df2 = remove_trailing_all_nan(df)
+        df3 = remove_trailing_all_nan(df2)
+        _tuple = lambda x: tuple(None if utils.pd.isnull(_) else _ for _ in x)
+        self.assertTrue([_tuple(x) for x in df2.itertuples(index=False)] ==
+                        [_tuple(x) for x in df3.itertuples(index=False)] == [(1.0, 10.0), (2.0, 20.0)]*10 +
+                         [(None, None)] + [(2, 20), (1, 11)])
+        df = utils.pd.DataFrame({"a": [1, 2]*1000000 + [None, None]*30, "b": [10, 20]*1000000 +
+                                                                             [float("nan"), None]*30})
+        df2 = remove_trailing_all_nan(df)
+        df3 = remove_trailing_all_nan(df2)
+        self.assertTrue([tuple(x) for x in df2.itertuples(index=False)] ==
+                        [tuple(x) for x in df3.itertuples(index=False)] == [(1.0, 10.0), (2.0, 20.0)]*1000000)
+
+        self.assertTrue(len(remove_trailing_all_nan(utils.pd.DataFrame({"a": [None, float("nan"), None],
+                                                                        "b":[None]*3}))) == 0)
 # Run the tests.
 if __name__ == "__main__":
     if not DataFrame :
