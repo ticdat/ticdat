@@ -7,7 +7,7 @@ import json
 
 import os
 from ticdat.utils import freezable_factory, verify, case_space_to_pretty, pd, TicDatError, FrozenDict, all_fields
-from ticdat.utils import all_underscore_replacements, stringish, dictish
+from ticdat.utils import all_underscore_replacements, stringish, dictish, debug_break
 from itertools import product, chain
 from collections import defaultdict
 import inspect
@@ -46,6 +46,10 @@ def _clean_pandat_creator(pdf, df_dict, push_parameters_to_be_valid=True, json_r
     assert pdf.good_pan_dat_object(pandat, msg.append), str(msg)
     return pdf._general_post_read_adjustment(pandat, json_read=json_read,
                                              push_parameters_to_be_valid=push_parameters_to_be_valid)
+
+def _remove_trailing_all_nan(df):
+    print("NOT DOING YET!")
+    return df
 
 class JsonPanFactory(freezable_factory(object, "_isFrozen")):
     """
@@ -511,7 +515,12 @@ class XlsPanFactory(freezable_factory(object, "_isFrozen")):
         verify(fill_missing_fields or not missing_fields,
                "The following are (table, field) pairs missing from the %s file.\n%s" % (xls_file_path, missing_fields))
         xl.close()
-        return _clean_pandat_creator(self.pan_dat_factory, rtn, print_missing_tables=True)
+        rtn = _clean_pandat_creator(self.pan_dat_factory, rtn, print_missing_tables=True)
+        if self.pan_dat_factory.xlsx_trailing_empty_rows == "prune":
+            for t in self.pan_dat_factory.all_tables:
+                setattr(rtn, t, _remove_trailing_all_nan(getattr(rtn, t)))
+        return rtn
+
 
     def _get_sheet_names(self, xl):
         sheets = defaultdict(list)
