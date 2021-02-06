@@ -557,3 +557,4 @@ class XlsPanFactory(freezable_factory(object, "_isFrozen")):
             getattr(pan_dat, t).to_excel(writer, case_space_to_pretty(t) if case_space_sheet_names else t,
                                          index=False)
         writer.save()
+        writer.close()
