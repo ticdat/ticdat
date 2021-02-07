@@ -14,7 +14,7 @@ from ticdat.utils import Sloc, LogFile, Progress, Slicer, standard_main, \
 from ticdat.opl import opl_run, create_opl_mod_text, create_opl_mod_output_text
 from ticdat.model import Model
 from ticdat.pandatfactory import PanDatFactory
-__version__ = '0.2.20.1'
+__version__ = '0.2.20.2'
 __all__ = ["TicDatFactory", "PanDatFactory", "freeze_me", "LogFile", "Sloc", "Slicer", "Progress", "standard_main",
            "Model", "opl_run", "create_opl_mod_text", "create_opl_mod_output_text", "ampl_format",
            "gurobi_env", "verify", "dat_restricted", "sln_restricted"]
