@@ -7,5 +7,7 @@ Repository for Gurobi webinar on ML and Optimization.
                                prescriptive portion of the predict-and-prescribe demo.
  * soda_sales_historical_data.json The historical data in human-readable .json format.
  * super_bowl_promotion_data.json The Super Bowl (i.e. current) data in .json format.
+ * price_optimization_demo.ipynb : A notebook the relates this example to the functionality
+                                   in the Opalytics Price Optimization application.
 
 See http://bit.ly/2qV2WEr for a detailed walk-through on using this directory.
