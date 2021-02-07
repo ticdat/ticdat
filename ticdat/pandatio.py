@@ -7,7 +7,7 @@ import json
 
 import os
 from ticdat.utils import freezable_factory, verify, case_space_to_pretty, pd, TicDatError, FrozenDict, all_fields
-from ticdat.utils import all_underscore_replacements, stringish, dictish
+from ticdat.utils import all_underscore_replacements, stringish, dictish, debug_break
 from itertools import product, chain
 from collections import defaultdict
 import inspect
@@ -493,8 +493,12 @@ class XlsPanFactory(freezable_factory(object, "_isFrozen")):
         This problem is even worse with df = pd.DataFrame({"a":["0100", "1200", "2300"]})
         """
         rtn = {}
-        for t, s in self._get_sheet_names(xls_file_path).items():
-            rtn[t] = pd.read_excel(xls_file_path, s, dtype=self.pan_dat_factory._dtypes_for_pandas_read(t))
+        try :
+            xl = pd.ExcelFile(xls_file_path)
+        except Exception as e:
+            raise TicDatError("Unable to open %s as xls file : %s"%(xls_file_path, e))
+        for t, s in self._get_sheet_names(xl).items():
+            rtn[t] = pd.read_excel(xl, s, dtype=self.pan_dat_factory._dtypes_for_pandas_read(t))
         missing_tables = {t for t in self.pan_dat_factory.all_tables if t not in rtn}
         if missing_tables:
             print ("The following table names could not be found in the %s file.\n%s\n"%
@@ -506,14 +510,17 @@ class XlsPanFactory(freezable_factory(object, "_isFrozen")):
                 rtn[t][f] = self.pan_dat_factory.default_values[t][f]
         verify(fill_missing_fields or not missing_fields,
                "The following are (table, field) pairs missing from the %s file.\n%s" % (xls_file_path, missing_fields))
-        return _clean_pandat_creator(self.pan_dat_factory, rtn, print_missing_tables=True)
+        xl.close()
+        rtn = _clean_pandat_creator(self.pan_dat_factory, rtn, print_missing_tables=True)
+        if self.pan_dat_factory.xlsx_trailing_empty_rows == "prune":
+            from ticdat.pandatfactory import remove_trailing_all_nan
+            for t in self.pan_dat_factory.all_tables:
+                setattr(rtn, t, remove_trailing_all_nan(getattr(rtn, t)))
+        return rtn
 
-    def _get_sheet_names(self, xls_file_path):
+
+    def _get_sheet_names(self, xl):
         sheets = defaultdict(list)
-        try :
-            xl = pd.ExcelFile(xls_file_path)
-        except Exception as e:
-            raise TicDatError("Unable to open %s as xls file : %s"%(xls_file_path, e))
         for table, sheet in product(self.pan_dat_factory.all_tables, xl.sheet_names) :
             if table.lower()[:_longest_sheet] == sheet.lower().replace(' ', '_')[:_longest_sheet]:
                 sheets[table].append(sheet)
@@ -550,3 +557,4 @@ class XlsPanFactory(freezable_factory(object, "_isFrozen")):
             getattr(pan_dat, t).to_excel(writer, case_space_to_pretty(t) if case_space_sheet_names else t,
                                          index=False)
         writer.save()
+        writer.close()

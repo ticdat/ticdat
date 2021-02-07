@@ -13,13 +13,14 @@ try:
     import kehaar
 except:
     kehaar = None
-from ticdat.testing.ticdattestutils import flagged_as_run_alone, fail_to_debugger
+from ticdat.testing.ticdattestutils import flagged_as_run_alone, fail_to_debugger, makeCleanDir
 import ticdat.utils as utils
 import unittest
 import os
 import inspect
 from functools import wraps
 import time
+import shutil
 from ticdat import PanDatFactory
 
 def _codeFile() :
@@ -63,11 +64,14 @@ class TestSlowBernardo(unittest.TestCase):
             for test_schema in test_schemas:
                 if utils.safe_apply(lambda: test_schema in sa.inspect(self.engine).get_schema_names())():
                     self.engine.execute(sa.schema.DropSchema(test_schema, cascade=True))
+        makeCleanDir(_scratchDir)
 
     def tearDown(self):
         if self.postgresql:
             self.engine.dispose()
             self.postgresql.stop()
+        shutil.rmtree(_scratchDir)
+
 
     def test_tdf(self):
         tdf = kehaar.input_schema
@@ -76,6 +80,12 @@ class TestSlowBernardo(unittest.TestCase):
                                forced_field_types=_forced_field_types())
         _timeit(tdf.pgsql.write_data, 90)(dat, self.engine, test_schemas[0], dsn=self.postgresql.dsn())
         _timeit(tdf.pgsql.create_tic_dat, 50)(self.engine, test_schemas[0])
+
+    def test_tdf_2(self):
+        tdf = kehaar.input_schema
+        dat = _timeit(tdf.csv.create_tic_dat, 90)(os.path.join(_codeDir(), "bernardo_slowby"))
+        _timeit(tdf.xls.write_file, 150)(dat, os.path.join(_scratchDir, "bernslow.xlsx"))
+        _timeit(tdf.xls.create_tic_dat, 150)(os.path.join(_scratchDir, "bernslow.xlsx"))
 
     def test_pdf(self):
         pdf = PanDatFactory.create_from_full_schema(kehaar.input_schema.schema(include_ancillary_info=True))
@@ -97,6 +107,7 @@ class TestSlowBernardo(unittest.TestCase):
         _timeit(pdf.pgsql.create_pan_dat, 5)(self.engine, test_schemas[2])
 
 test_schemas = [f"test_schema_{_}" for _ in range(5)]
+_scratchDir = TestSlowBernardo.__name__ + "_scratch"
 
 # Run the tests.
 if __name__ == "__main__":

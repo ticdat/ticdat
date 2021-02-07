@@ -1146,6 +1146,7 @@ class TestUtils(unittest.TestCase):
             new_sch = tdf.schema(include_ancillary_info=True)
             self.assertFalse(new_sch.pop("parameters"))
             self.assertTrue(new_sch.pop("infinity_io_flag") == "N/A")
+            self.assertTrue(new_sch.pop("xlsx_trailing_empty_rows") == "prune")
             new_sch = json.loads(json.dumps(new_sch))
             new_sch["foreign_keys"] = sorted(new_sch["foreign_keys"])
             self.assertTrue(new_sch == simple_sch)
@@ -1338,7 +1339,7 @@ class TestUtils(unittest.TestCase):
                                                 'Max Nutrition': [True, True, True, 0, inf, False, [], False, False]},
                                  'nutrition_quantities': {'Quantity': [True, True, False, 0, inf, False, [], False,
                                                                        False]}},
-                 'parameters': {}, 'infinity_io_flag': 'N/A'})
+                 'parameters': {}, 'infinity_io_flag': 'N/A', "xlsx_trailing_empty_rows": "prune"})
 
     def testTwentyNine(self):
         data_path = os.path.join(_scratchDir, "custom_module_three")
@@ -1597,6 +1598,23 @@ class TestUtils(unittest.TestCase):
         self.assertTrue(len(errs) == 1 and all(len(_.native_pks) == 10 for _ in errs.values()))
         errs = tdf.find_foreign_key_failures(dat, max_failures=9)
         self.assertTrue(len(errs) == 1 and all(len(_.native_pks) == 9 for _ in errs.values()))
+
+    def test_copy_to_pandas(self):
+        # needs pandas installed
+        tdf = TicDatFactory(**dietSchema())
+        dat = tdf.copy_tic_dat(dietData())
+        copy_1 = tdf.copy_to_pandas(dat, drop_pk_columns=False)
+        copy_2 = tdf.copy_to_pandas(dat, reset_index=True)
+        self.assertTrue(all(PanDatFactory(**tdf.schema()).good_pan_dat_object(_) for _ in [copy_1, copy_2]))
+        self.assertTrue(PanDatFactory(**tdf.schema())._same_data(copy_1, copy_2))
+        for t in ["categories", "foods"]:
+            df = getattr(copy_1, t)
+            self.assertTrue(all(isinstance(_, str) for _ in list(df.index)))
+        self.assertTrue(all(isinstance(_, str) for row in list(copy_1.nutritionQuantities.index) for _ in row))
+        for t in tdf.all_tables:
+            df = getattr(copy_2, t)
+            self.assertTrue(list(df.index) == list(range(len(df))))
+
 
 _scratchDir = TestUtils.__name__ + "_scratch"
 

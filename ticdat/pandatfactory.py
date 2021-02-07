@@ -8,6 +8,7 @@ from ticdat.utils import ForeignKey, ForeignKeyMapping, TypeDictionary, verify, 
 from ticdat.utils import lupish, deep_freeze, containerish, FrozenDict, safe_apply, stringish
 import ticdat.pandatio as pandatio
 from itertools import count
+import math
 try:
     from pandas import isnull
     import numpy
@@ -36,6 +37,30 @@ def _faster_df_apply(df, func, trip_wire_check=None):
                 trip_wire_check = None
     # will default to float for empty Series, like original pandas
     return pd.Series(data, index=index, **({"dtype": numpy.float64} if not data else {}))
+
+def _is_last_rows_all_nan(df, last_rows):
+    assert last_rows > 0
+    # quick last row check to make faster
+    all_nan_row =  lambda row: all(map(pd.isnull, row.values()))
+    return _faster_df_apply(df.tail(1), all_nan_row).all() and \
+           _faster_df_apply(df.tail(last_rows), all_nan_row,
+                            trip_wire_check=lambda x: all_nan_row if x else lambda row: False).all()
+
+def _find_number_all_nan_last_rows(df, min_rtn, max_rtn):
+    assert max_rtn >= min_rtn
+    if min_rtn == max_rtn:
+        assert min_rtn == 0 or _is_last_rows_all_nan(df, min_rtn)
+        return min_rtn
+    med_rtn =  math.ceil((min_rtn+max_rtn)/2)
+    if _is_last_rows_all_nan(df, med_rtn):
+        return _find_number_all_nan_last_rows(df, med_rtn, max_rtn)
+    return _find_number_all_nan_last_rows(df, min_rtn, med_rtn-1)
+
+def remove_trailing_all_nan(df):
+    all_nan_last_rows = _find_number_all_nan_last_rows(df, 0, len(df))
+    if all_nan_last_rows:
+        return df.head(len(df)-all_nan_last_rows).copy(deep=True)
+    return df
 
 class PanDatFactory(object):
     """
@@ -94,7 +119,8 @@ class PanDatFactory(object):
                 "default_values" : self.default_values,
                 "data_types" : self.data_types,
                 "parameters": self.parameters,
-                "infinity_io_flag": self.infinity_io_flag}
+                "infinity_io_flag": self.infinity_io_flag,
+                "xlsx_trailing_empty_rows": self.xlsx_trailing_empty_rows}
     @staticmethod
     def create_from_full_schema(full_schema):
         """
@@ -109,7 +135,7 @@ class PanDatFactory(object):
         """
         old_schema = {"tables_fields", "foreign_keys", "default_values", "data_types"}
         verify(dictish(full_schema) and set(full_schema).issuperset(old_schema) and set(full_schema) in
-               utils.all_subsets(old_schema.union({"parameters", "infinity_io_flag"})),
+               utils.all_subsets(old_schema.union({"parameters", "infinity_io_flag", "xlsx_trailing_empty_rows"})),
                "full_schema should be the result of calling schema(True) for some PanDatFactory")
         fks = full_schema["foreign_keys"]
         verify( (not fks) or (lupish(fks) and all(lupish(_) and len(_) >= 3 for _ in fks)),
@@ -144,6 +170,8 @@ class PanDatFactory(object):
                 rtn.add_parameter(p, *((df,) + tuple(dt)), enforce_type_rules=True)
         if "infinity_io_flag" in full_schema:
             rtn.set_infinity_io_flag(full_schema["infinity_io_flag"])
+        if "xlsx_trailing_empty_rows" in full_schema:
+            rtn.set_xlsx_trailing_empty_rows(full_schema["xlsx_trailing_empty_rows"])
         return rtn
     def clone(self, table_restrictions=None):
         """
@@ -173,6 +201,25 @@ class PanDatFactory(object):
     @property
     def parameters(self):
         return FrozenDict(self._parameters)
+    @property
+    def xlsx_trailing_empty_rows(self):
+        """
+        see __doc__ for set_xlsx_trailing_empty_rows
+        """
+        return self._xlsx_trailing_empty_rows[0]
+    def set_xlsx_trailing_empty_rows(self, value):
+        """
+        Set the xlsx_trailing_empty_rows for the PanDatFactory. Choices are:
+        --> 'prune' : (the default) when reading an xlsx/xlsm file, look for trailing all pd.isnull rows in each table,
+                      and prune them
+        --> 'ignore': retain such rows
+        With the move to openpyxl for xlsx/xlsm file reading, its more likely that Excel users accidentally creating
+        trailing all none rows.
+        :param value: either 'prune' or 'ignore'
+        :return:
+        """
+        verify(value in ["prune", "ignore"], f"bad value {value}")
+        self._xlsx_trailing_empty_rows[0] = value
     @property
     def infinity_io_flag(self):
         """
@@ -330,13 +377,16 @@ class PanDatFactory(object):
             for f in self.primary_key_fields.get(t, ()) + self.data_fields.get(t, ()):
                 if utils.numericish(self.infinity_io_flag):
                     fixme = apply(df, lambda row: utils.numericish(row[f]) and row[f] >= self.infinity_io_flag)
-                    df.loc[fixme, f] = self.infinity_io_flag
+                    if fixme.any():
+                        df.loc[fixme, f] = self.infinity_io_flag
                     fixme = apply(df, lambda row: utils.numericish(row[f]) and row[f] <= -self.infinity_io_flag)
-                    df.loc[fixme, f] = -self.infinity_io_flag
+                    if fixme.any():
+                        df.loc[fixme, f] = -self.infinity_io_flag
                 elif utils.numericish(self._none_as_infinity_bias(t, f)):
                     assert self.infinity_io_flag is None
                     fixme = apply(df, lambda row: row[f] == float("inf") * self._none_as_infinity_bias(t, f))
-                    df.loc[fixme, f] = None
+                    if fixme.any():
+                        df.loc[fixme, f] = None
         return rtn
     def set_data_type(self, table, field, number_allowed = True,
                       inclusive_min = True, inclusive_max = False, min = 0, max = float("inf"),
@@ -711,12 +761,18 @@ class PanDatFactory(object):
         self._foreign_keys = clt.defaultdict(set)
         self._parameters = {}
         self._infinity_io_flag = ["N/A"]
+        self._xlsx_trailing_empty_rows = ["prune"]
         self._none_as_infinity_bias_cache = {}
 
 
         self.all_tables = frozenset(init_fields)
         superself = self
         class PanDat(object):
+            def _len_dict(self):
+                '''
+                :return: a dictionary summarizing table lengths. Zero length tables omitted. Safe to use, I won't change
+                '''
+                return {t: l for t in superself.all_tables for l in [len(getattr(self, t))] if l}
             def __repr__(self):
                 tlen = lambda t: len(getattr(self, t)) if isinstance(getattr(self, t), DataFrame) else None
                 return "pd: {" + ", ".join("%s: %s"%(t, tlen(t)) for t in sorted(superself.all_tables)) + "}"
