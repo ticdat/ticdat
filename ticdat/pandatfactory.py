@@ -210,7 +210,7 @@ class PanDatFactory(object):
     def set_xlsx_trailing_empty_rows(self, value):
         """
         Set the xlsx_trailing_empty_rows for the PanDatFactory. Choices are:
-        --> 'prune' : (the default) when reading an xlsx/xlsm file, look for trailing all pd.isnan rows in each table,
+        --> 'prune' : (the default) when reading an xlsx/xlsm file, look for trailing all pd.isnull rows in each table,
                       and prune them
         --> 'ignore': retain such rows
         With the move to openpyxl for xlsx/xlsm file reading, its more likely that Excel users accidentally creating
