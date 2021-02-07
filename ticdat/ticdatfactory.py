@@ -87,7 +87,8 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
                 "default_values" : self.default_values,
                 "data_types" : self.data_types,
                 "parameters": self.parameters,
-                "infinity_io_flag": self.infinity_io_flag}
+                "infinity_io_flag": self.infinity_io_flag,
+                "xlsx_trailing_empty_rows": self.xlsx_trailing_empty_rows}
     @staticmethod
     def create_from_full_schema(full_schema):
         """
@@ -102,7 +103,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
         """
         old_schema = {"tables_fields", "foreign_keys", "default_values", "data_types"}
         verify(dictish(full_schema) and set(full_schema).issuperset(old_schema) and  set(full_schema) in
-               utils.all_subsets(old_schema.union({"parameters", "infinity_io_flag"})),
+               utils.all_subsets(old_schema.union({"parameters", "infinity_io_flag", "xlsx_trailing_empty_rows"})),
                "full_schema should be the result of calling schema(True) for some TicDatFactory")
         fks = full_schema["foreign_keys"]
         verify( (not fks) or (lupish(fks) and all(lupish(_) and len(_) >= 3 for _ in fks)),
@@ -136,6 +137,8 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
                 rtn.add_parameter(p, *((df,) + tuple(dt)), enforce_type_rules=True)
         if "infinity_io_flag" in full_schema:
             rtn.set_infinity_io_flag(full_schema["infinity_io_flag"])
+        if "xlsx_trailing_empty_rows" in full_schema:
+            rtn.set_xlsx_trailing_empty_rows(full_schema["xlsx_trailing_empty_rows"])
         return rtn
     @property
     def generator_tables(self):
@@ -829,8 +832,29 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
         self._prepends = {}
         self._parameters = {}
         self._infinity_io_flag = ["N/A"]
+        self._xlsx_trailing_empty_rows = ["prune"]
         self._none_as_infinity_bias_cache = {}
         self._isFrozen=True
+
+    @property
+    def xlsx_trailing_empty_rows(self):
+        """
+        see __doc__ for set_xlsx_trailing_empty_rows
+        """
+        return self._xlsx_trailing_empty_rows[0]
+    def set_xlsx_trailing_empty_rows(self, value):
+        """
+        Set the xlsx_trailing_empty_rows for the TicDatFactory. Choices are:
+        --> 'prune' : (the default) when reading an xlsx/xlsm file, look for trailing all None rows in each table, and
+                      prune them
+        --> 'ignore': retain such rows
+        With the move to openpyxl for xlsx/xlsm file reading, its more likely that Excel users accidentally creating
+        trailing all none rows.
+        :param value: either 'prune' or 'ignore'
+        :return:
+        """
+        verify(value in ["prune", "ignore"], f"bad value {value}")
+        self._xlsx_trailing_empty_rows[0] = value
 
     @property
     def infinity_io_flag(self):

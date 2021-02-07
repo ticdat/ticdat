@@ -7,7 +7,7 @@ import json
 
 import os
 from ticdat.utils import freezable_factory, verify, case_space_to_pretty, pd, TicDatError, FrozenDict, all_fields
-from ticdat.utils import all_underscore_replacements, stringish, dictish
+from ticdat.utils import all_underscore_replacements, stringish, dictish, debug_break
 from itertools import product, chain
 from collections import defaultdict
 import inspect
@@ -511,7 +511,13 @@ class XlsPanFactory(freezable_factory(object, "_isFrozen")):
         verify(fill_missing_fields or not missing_fields,
                "The following are (table, field) pairs missing from the %s file.\n%s" % (xls_file_path, missing_fields))
         xl.close()
-        return _clean_pandat_creator(self.pan_dat_factory, rtn, print_missing_tables=True)
+        rtn = _clean_pandat_creator(self.pan_dat_factory, rtn, print_missing_tables=True)
+        if self.pan_dat_factory.xlsx_trailing_empty_rows == "prune":
+            from ticdat.pandatfactory import remove_trailing_all_nan
+            for t in self.pan_dat_factory.all_tables:
+                setattr(rtn, t, remove_trailing_all_nan(getattr(rtn, t)))
+        return rtn
+
 
     def _get_sheet_names(self, xl):
         sheets = defaultdict(list)
@@ -551,3 +557,4 @@ class XlsPanFactory(freezable_factory(object, "_isFrozen")):
             getattr(pan_dat, t).to_excel(writer, case_space_to_pretty(t) if case_space_sheet_names else t,
                                          index=False)
         writer.save()
+        writer.close()

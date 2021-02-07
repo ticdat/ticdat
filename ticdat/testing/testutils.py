@@ -1146,6 +1146,7 @@ class TestUtils(unittest.TestCase):
             new_sch = tdf.schema(include_ancillary_info=True)
             self.assertFalse(new_sch.pop("parameters"))
             self.assertTrue(new_sch.pop("infinity_io_flag") == "N/A")
+            self.assertTrue(new_sch.pop("xlsx_trailing_empty_rows") == "prune")
             new_sch = json.loads(json.dumps(new_sch))
             new_sch["foreign_keys"] = sorted(new_sch["foreign_keys"])
             self.assertTrue(new_sch == simple_sch)
@@ -1338,7 +1339,7 @@ class TestUtils(unittest.TestCase):
                                                 'Max Nutrition': [True, True, True, 0, inf, False, [], False, False]},
                                  'nutrition_quantities': {'Quantity': [True, True, False, 0, inf, False, [], False,
                                                                        False]}},
-                 'parameters': {}, 'infinity_io_flag': 'N/A'})
+                 'parameters': {}, 'infinity_io_flag': 'N/A', "xlsx_trailing_empty_rows": "prune"})
 
     def testTwentyNine(self):
         data_path = os.path.join(_scratchDir, "custom_module_three")

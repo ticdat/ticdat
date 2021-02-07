@@ -53,13 +53,21 @@ class _XlrdSheetWrapper(object): # main purpose of this routine is to enforce th
                 f = utils.pd.Timestamp
             return f(year=rtn[0], month=rtn[1], day=rtn[2], hour=rtn[3], minute=rtn[4], second=rtn[5])
 
-class _OpenPyxlSheetWrapper(object): # this file initially used xlrd for xls and xlsx files.
-    def __init__(self, sheet):       # this class allows an openpyxl.sheet to present as a limited xlrd.sheet
-        self._sheet = sheet          # although this choice of abstractions is historical, the resulting code
-                                     # seems readable enough, and is at least free from lots of "if/else" silliness
-        # for performance reasons, need to capture the range on __init__
-        self._max_col = sheet.max_column
+class _OpenPyxlSheetWrapper(object):
+    '''
+    This file initially used xlrd for xls and xlsx files. This class allows an openpyxl.sheet to present as a
+    limited xlrd.sheet. Although this choice of abstractions is historical, the resulting code is at least
+    free from lots of "if/else" silliness
+    '''
+    def __init__(self, sheet, prune_trailing_empty_rows):
+        self._sheet = sheet
+        self._max_col = sheet.max_column # for performance reasons, need to capture the range on __init__
         self._max_row = sheet.max_row
+        if prune_trailing_empty_rows:
+            i = self.nrows-1
+            while i >= 0 and all(x is None for x in self.row_values(i)):
+                i -= 1
+            self._max_row = i+1
     @property
     def nrows(self):
         return self._sheet.max_row-self._sheet.min_row+1
@@ -184,7 +192,8 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
         verify(not duplicated_sheets, "The following sheet names were duplicated s: " +
                ",".join(duplicated_sheets))
         wrapped_sheet = lambda sheet: _XlrdSheetWrapper(sheet, book.datemode) if xls_file_path.endswith(".xls") else \
-                                      _OpenPyxlSheetWrapper(sheet)
+                                      _OpenPyxlSheetWrapper(sheet, prune_trailing_empty_rows=
+                                        self.tic_dat_factory.xlsx_trailing_empty_rows == "prune")
         sheets = FrozenDict({k: wrapped_sheet(v[0]) for k,v in sheets.items()})
         missing_tables = {t for t in all_tables if t not in sheets}
         if missing_tables and print_missing_tables:

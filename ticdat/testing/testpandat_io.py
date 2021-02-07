@@ -76,7 +76,7 @@ def create_inputset_mock_with_active_hack(tdf, dat, hack_table_names=False):
             return rtn
     return RtnObject()
 
-#uncomment decorator to drop into debugger for assertTrue, assertFalse failures
+#uncomment decorator to drop into debugger for assertTrue, assertFalse failures (also hides a bunch of warnings)
 #@fail_to_debugger
 class TestIO(unittest.TestCase):
     can_run = False
@@ -274,7 +274,6 @@ class TestIO(unittest.TestCase):
             self.assertFalse(pdf._same_data(dat_inf, dat_1))
             dat_inf = make_dat([[float("-inf"), 100], [200, 109], [0, 300], [300, -float("inf")], [400, 0]])
             self.assertTrue(pdf._same_data(dat_inf, dat_1))
-
 
     def testXlsSpacey(self):
         if not self.can_run:
