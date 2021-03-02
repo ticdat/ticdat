@@ -1,0 +1,38 @@
+Category,Food,Quantity
+protein,ice cream,8.0
+fat,ice cream,10.0
+sodium,fries,270.0
+calories,fries,380.0
+fat,hamburger,26.0
+sodium,macaroni,930.0
+sodium,hot dog,1800.0
+sodium,chicken,1190.0
+calories,salad,320.0
+calories,ice cream,330.0
+sodium,milk,125.0
+sodium,salad,1230.0
+sodium,pizza,820.0
+protein,pizza,15.0
+calories,pizza,320.0
+calories,hamburger,410.0
+fat,milk,2.5
+protein,salad,31.0
+protein,milk,8.0
+fat,macaroni,10.0
+fat,salad,12.0
+fat,hot dog,32.0
+fat,chicken,
+protein,chicken,32.0
+protein,fries,4.0
+fat,pizza,12.0
+calories,milk,100.0
+sodium,ice cream,180.0
+calories,chicken,420.0
+sodium,hamburger,730.0
+calories,macaroni,
+fat,fries,19.0
+calories,hot dog,560.0
+protein,hot dog,20.0
+protein,macaroni,12.0
+protein,hamburger,24.0
+fat,milk,1.0
