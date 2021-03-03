@@ -143,8 +143,10 @@ class _PostgresFactory(freezable_factory(object, "_isFrozen"),):
             rtn = self.tdf.default_values[t][f]
             if forced_field_types.get((t, f)) in ("bool", "boolean"):
                 return bool(rtn)
-            if rtn is None:
+            if rtn is None or rtn == "":
                 return "NULL"
+            if stringish(rtn) and rtn:
+                return f"'{rtn}'"
             return rtn
 
         def nullable(t, f):
