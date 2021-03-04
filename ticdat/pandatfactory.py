@@ -778,7 +778,9 @@ class PanDatFactory(object):
                 return "pd: {" + ", ".join("%s: %s"%(t, tlen(t)) for t in sorted(superself.all_tables)) + "}"
             def __init__(self, **init_tables):
                 superself._trigger_has_been_used()
-                for t in init_tables :
+                init_tables = {k: v for k,v in init_tables.items() if isinstance(v, (pd.DataFrame, pd.Series)) or
+                               utils.safe_apply(bool)(v)}
+                for t in init_tables:
                     verify(t in superself.all_tables, "Unexpected table name %s"%t)
                     tbl = safe_apply(DataFrame)(init_tables[t])
                     if tbl is None and dictish(init_tables[t]) and all(map(stringish, init_tables[t])):

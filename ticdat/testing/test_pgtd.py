@@ -843,6 +843,26 @@ class TestPostres(unittest.TestCase):
         dat_3 = pdf.copy_to_tic_dat(pan_dat)
         self.assertTrue(tdf._same_data(dat, dat_3, nans_are_same_for_data_rows=True))
 
+    def test_pgtd_pandas_none_null(self):
+        # roundoff (issue 5) is particularly interested in getting the PG NULL to map onto None with PanDatFactory
+        if not self.can_run:
+            return
+        schema = test_schema+"_none_null"
+        tdf_1 = TicDatFactory(t_one=[["Field One"], ["Field Two"]])
+        tdf_1.set_data_type("t_one", "Field Two", strings_allowed='*', number_allowed=False, nullable=True)
+        dat = tdf_1.TicDat(t_one = [["a", None], ["b", "b"], [None, "c"], ["c", "c"]])
+        self.assertTrue(len(dat.t_one) == 4)
+        tdf_1.pgsql.write_schema(self.engine, schema, include_ancillary_info=False)
+        tdf_1.pgsql.write_data(dat, self.engine, schema)
+        dat_2 = tdf_1.pgsql.create_tic_dat(self.engine, schema)
+        self.assertTrue(tdf_1._same_data(dat, dat_2))
+        pdf = PanDatFactory.create_from_full_schema(tdf_1.schema(include_ancillary_info=True))
+        pan_dat = pdf.pgsql.create_pan_dat(self.engine, schema)
+        dat_3 = pdf.copy_to_tic_dat(pan_dat)
+        self.assertTrue(tdf_1._same_data(dat, dat_3))
+        self.assertTrue((dat_3.t_one["a"]['Field Two'] == None) and None in dat_3.t_one)
+
+
 test_schema = 'test'
 
 

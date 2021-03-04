@@ -775,6 +775,12 @@ class TestUtils(unittest.TestCase):
 
         self.assertTrue(len(remove_trailing_all_nan(utils.pd.DataFrame({"a": [None, float("nan"), None],
                                                                         "b":[None]*3}))) == 0)
+    def test_empty_maker(self):
+        pdf = PanDatFactory(**dietSchema())
+        dat = pdf.PanDat(nutritionQuantities=[[f"food_{_}", f"cat_{_}", 10] for _ in range(10)],
+                         foods = [[f"food_{_}", 10] for _ in range(1, 0)]) # empty list results
+        self.assertTrue(dat._len_dict() == {"nutritionQuantities": 10})
+
 # Run the tests.
 if __name__ == "__main__":
     if not DataFrame :
