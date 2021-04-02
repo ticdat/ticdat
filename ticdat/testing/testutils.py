@@ -12,7 +12,7 @@ import itertools
 import shutil
 import json
 try:
-    import dateutil
+    import dateutil, dateutil.parser
 except:
     dateutil = None
 import datetime

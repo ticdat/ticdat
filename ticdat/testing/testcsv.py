@@ -12,7 +12,7 @@ import unittest
 from ticdat.csvtd import _can_unit_test
 import datetime
 try:
-    import dateutil
+    import dateutil, dateutil.parser
 except:
     dateutil=None
 

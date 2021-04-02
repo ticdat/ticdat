@@ -21,7 +21,7 @@ try:
 except:
     pd = None
 try:
-    import dateutil
+    import dateutil, dateutil.parser
 except:
     dateutil = None
 

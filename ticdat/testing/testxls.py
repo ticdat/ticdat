@@ -10,7 +10,7 @@ import shutil
 import unittest
 import datetime
 try:
-    import dateutil
+    import dateutil, dateutil.parser
 except:
     dateutil=None
 
