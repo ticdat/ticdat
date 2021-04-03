@@ -12,7 +12,7 @@ import os
 from collections import namedtuple
 import datetime as datetime_
 try:
-    import dateutil
+    import dateutil, dateutil.parser
 except:
     dateutil = None
 

@@ -17,7 +17,7 @@ except:
     numpy = pd = None
 import math
 try:
-    import dateutil
+    import dateutil, dateutil.parser
 except:
     dateutil = None
 import datetime
