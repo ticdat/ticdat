@@ -39,11 +39,6 @@ input_schema = PanDatFactory(
 input_schema.add_foreign_key("players", "roster_requirements", ['Position', 'Position'])
 
 # set data types (optional, but helps with preventing garbage-in, garbage-out)
-input_schema.set_data_type("parameters", "Parameter", number_allowed=False,
-                          strings_allowed = ["Starter Weight", "Reserve Weight",
-                                             "Maximum Number of Flex Starters"])
-input_schema.set_data_type("parameters", "Value", min=0, max=float("inf"),
-                          inclusive_min=True, inclusive_max=False)
 input_schema.set_data_type("players", "Average Draft Position", min=0, max=float("inf"),
                           inclusive_min=False, inclusive_max=False)
 input_schema.set_data_type("players", "Expected Points", min=-float("inf"), max=float("inf"),
