@@ -1222,7 +1222,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
         :param table_restrictions : if None, then argument is ignored. Otherwise, a container listing the
                                     tables to keep in the clone. Tables outside table_restrictions are removed from
                                     the clone.
-        :param clone_factory : optional. Defaults to TicDatFactory. Can also be TicDatFactory,
+        :param clone_factory : optional. Defaults to TicDatFactory. Can also be PanDatFactory,
         :return: a clone of the TicDatFactory. Returned object will be same type as clone_factory if provided.
         """
         clone_factory = clone_factory or TicDatFactory
