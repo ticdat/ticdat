@@ -1222,12 +1222,15 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
         :param table_restrictions : if None, then argument is ignored. Otherwise, a container listing the
                                     tables to keep in the clone. Tables outside table_restrictions are removed from
                                     the clone.
-        :param clone_factory : optional. Defaults to TicDatFactory. Can also be PanDatFactory,
-        :return: a clone of the TicDatFactory. Returned object will be same type as clone_factory if provided.
+        :param clone_factory : optional. Defaults to TicDatFactory. Can also be PanDatFactory. Can also be a function,
+                               in which case it should behave similarly to create_from_full_schema.
+        :return: a clone of the TicDatFactory. Returned object will based on clone_factory, if provided.
         """
         clone_factory = clone_factory or TicDatFactory
+        if hasattr(clone_factory, "create_from_full_schema"):
+            clone_factory = clone_factory.create_from_full_schema
         full_schema = utils.clone_a_anchillary_info_schema(self.schema(include_ancillary_info=True), table_restrictions)
-        rtn = clone_factory.create_from_full_schema(full_schema)
+        rtn = clone_factory(full_schema)
         if hasattr(rtn, "set_generator_tables"):
             rtn.set_generator_tables(self.generator_tables)
         for tbl, row_predicates in self._data_row_predicates.items():
