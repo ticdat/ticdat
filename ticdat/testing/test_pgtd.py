@@ -419,6 +419,30 @@ class TestPostres(unittest.TestCase):
         dups = tdf.pgsql.find_duplicates(self.engine, test_schema)
         self.assertTrue(dups == {'three': {(1, 2, 2): 2}, 'two': {(1, 2): 3}, 'one': {1: 3, 2: 2}})
 
+    def test_pd_progress(self):
+        if not self.can_run:
+            return
+        schema = "t_pg_d_pd"
+        tdf = diet_schema
+        pdf = PanDatFactory.create_from_full_schema(tdf.schema(include_ancillary_info=True))
+        pdf.set_infinity_io_flag(1e12)
+        pgpf = pdf.pgsql
+        pan_dat = pan_dat_maker(tdf.schema(), diet_dat)
+        pgpf.write_schema(self.engine, schema, include_ancillary_info=False)
+        class MyProgress(utils.Progress):
+            def __init__(self):
+                self.uploaded=0
+                super().__init__(quiet=True)
+            def numerical_progress(self, theme, progress):
+                self.uploaded+=1
+                return self.uploaded < 2
+        progress = MyProgress()
+        pgpf.write_data(pan_dat, self.engine, schema, progress=progress)
+        self.assertTrue(progress.uploaded == 2)
+        pg_pan_dat = pgpf.create_pan_dat(self.engine, schema)
+        self.assertFalse(pdf._same_data(pan_dat, pg_pan_dat))
+        self.assertTrue(pg_pan_dat._len_dict() == {'categories': 4, 'foods': 9})
+
     def test_diet_pd(self):
         if not self.can_run:
             return
