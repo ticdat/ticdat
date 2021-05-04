@@ -9,7 +9,7 @@ import unittest
 from ticdat.jsontd import _can_unit_test, json
 import datetime
 try:
-    import dateutil
+    import dateutil, dateutil.parser
 except:
     dateutil=None
 

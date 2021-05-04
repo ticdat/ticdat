@@ -17,7 +17,7 @@ except:
     numpy = pd = None
 import math
 try:
-    import dateutil
+    import dateutil, dateutil.parser
 except:
     dateutil = None
 import datetime
@@ -710,6 +710,20 @@ class TestIO(unittest.TestCase):
             write_func(dat, path, **write_kwargs)
             dat_1 = utils._get_dat_object(pdf, "create_pan_dat", path, f_or_d, False)
             self.assertTrue(pdf._same_data(dat, dat_1, nans_are_same_for_data_rows=True))
+
+    def testLongName(self):
+        prepend = "b"*20
+        pdf = PanDatFactory(**{prepend*2+t:v for t,v in dietSchema().items()})
+        self.assertTrue(self.firesException(lambda : pdf.xls._verify_differentiable_sheet_names()))
+
+        pdf = PanDatFactory(**{prepend+t:v for t,v in dietSchema().items()})
+        tdf = TicDatFactory(**pdf.schema())
+        panDat = tdf.copy_to_pandas(tdf.TicDat(**{t:getattr(dietData(),t.replace(prepend, ""))
+                                             for t in pdf.primary_key_fields}), reset_index=True)
+        filePath = os.path.join(_scratchDir, "longname.xlsx")
+        pdf.xls.write_file(panDat, filePath)
+        panDat2 = pdf.xls.create_pan_dat(filePath)
+        self.assertTrue(pdf._same_data(panDat, panDat2))
 
 _scratchDir = TestIO.__name__ + "_scratch"
 

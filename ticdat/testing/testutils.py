@@ -12,7 +12,7 @@ import itertools
 import shutil
 import json
 try:
-    import dateutil
+    import dateutil, dateutil.parser
 except:
     dateutil = None
 import datetime
@@ -906,8 +906,11 @@ class TestUtils(unittest.TestCase):
 
     def testEighteen(self):
         # this test won't run properly if the -O flag is applied
-        for cloning in [True, False, "*"]:
-            clone_me_maybe = lambda x : x.clone(tdf.all_tables if cloning == "*" else None) if cloning else x
+        for cloning in [True, False, "*", "roundtrip"]:
+            if cloning == "roundtrip":
+                clone_me_maybe = lambda x: x.clone(clone_factory=PanDatFactory).clone(clone_factory=TicDatFactory)
+            else:
+                clone_me_maybe = lambda x : x.clone(tdf.all_tables if cloning == "*" else None) if cloning else x
             tdf = TicDatFactory(**dietSchema())
             dat = tdf.TicDat()
             dat.foods["a"] = 12

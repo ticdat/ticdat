@@ -9,7 +9,7 @@ from ticdat.testing.ticdattestutils import copyDataDietWeirdCase, copyDataDietWe
 from ticdat.sqlitetd import _can_unit_test, sql
 import datetime
 try:
-    import dateutil
+    import dateutil, dateutil.parser
 except:
     dateutil=None
 

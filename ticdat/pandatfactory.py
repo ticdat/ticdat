@@ -173,17 +173,22 @@ class PanDatFactory(object):
         if "xlsx_trailing_empty_rows" in full_schema:
             rtn.set_xlsx_trailing_empty_rows(full_schema["xlsx_trailing_empty_rows"])
         return rtn
-    def clone(self, table_restrictions=None):
+    def clone(self, table_restrictions=None, clone_factory=None):
         """
 
         clones the PanDatFactory
         :param table_restrictions : if None, then argument is ignored. Otherwise, a container listing the
                                     tables to keep in the clone. Tables outside table_restrictions are removed from
                                     the clone.
-        :return: a clone of the PanDatFactory
+        :param clone_factory : optional. Defaults to PanDatFactory. Can also be TicDatFactory.  Can also be a function,
+                               in which case it should behave similarly to create_from_full_schema.
+        :return: a clone of the PanDatFactory. Returned object will be based on clone_factory, if provided.
         """
+        clone_factory = clone_factory or PanDatFactory
+        if hasattr(clone_factory, "create_from_full_schema"):
+            clone_factory = clone_factory.create_from_full_schema
         full_schema = utils.clone_a_anchillary_info_schema(self.schema(include_ancillary_info=True), table_restrictions)
-        rtn = PanDatFactory.create_from_full_schema(full_schema)
+        rtn = clone_factory(full_schema)
         for tbl, row_predicates in self._data_row_predicates.items():
             if table_restrictions is None or tbl in table_restrictions:
                 for pn, rpi in row_predicates.items():

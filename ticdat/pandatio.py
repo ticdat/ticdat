@@ -487,11 +487,12 @@ class XlsPanFactory(freezable_factory(object, "_isFrozen")):
             df.to_excel("something.xlsx")
             df2 = pd.read_excel("something.xlsx")
 
-        results in a numeric column in df2. To address this, you need to either use set_data_type for your
+        results in a numeric column in df2. To address this, you need to use set_data_type for your
         PanDatFactory.
 
         This problem is even worse with df = pd.DataFrame({"a":["0100", "1200", "2300"]})
         """
+        self._verify_differentiable_sheet_names()
         rtn = {}
         try :
             xl = pd.ExcelFile(xls_file_path)
@@ -517,7 +518,13 @@ class XlsPanFactory(freezable_factory(object, "_isFrozen")):
             for t in self.pan_dat_factory.all_tables:
                 setattr(rtn, t, remove_trailing_all_nan(getattr(rtn, t)))
         return rtn
-
+    def _verify_differentiable_sheet_names(self):
+        rtn = defaultdict(set)
+        for t in self.pan_dat_factory.all_tables:
+            rtn[t[:_longest_sheet]].add(t)
+        rtn = [v for k,v in rtn.items() if len(v) > 1]
+        verify(not rtn, "The following tables collide when names are truncated to %s characters.\n%s"%
+               (_longest_sheet, sorted(map(sorted, rtn))))
 
     def _get_sheet_names(self, xl):
         sheets = defaultdict(list)
@@ -544,6 +551,7 @@ class XlsPanFactory(freezable_factory(object, "_isFrozen")):
 
         caveats: The row names (index) isn't written.
         """
+        self._verify_differentiable_sheet_names()
         msg = []
         verify(self.pan_dat_factory.good_pan_dat_object(pan_dat, msg.append),
                "pan_dat not a good object for this factory : %s"%"\n".join(msg))
@@ -554,7 +562,8 @@ class XlsPanFactory(freezable_factory(object, "_isFrozen")):
                                  len(set(map(case_space_to_pretty, self.pan_dat_factory.all_tables)))
         writer = pd.ExcelWriter(file_path)
         for t in self.pan_dat_factory.all_tables:
-            getattr(pan_dat, t).to_excel(writer, case_space_to_pretty(t) if case_space_sheet_names else t,
+            getattr(pan_dat, t).to_excel(writer,
+                                         (case_space_to_pretty(t) if case_space_sheet_names else t)[:_longest_sheet],
                                          index=False)
         writer.save()
         writer.close()
