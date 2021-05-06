@@ -4,7 +4,7 @@
 # to terminate the solve prior to achieving the "a priori" goal for the optimization gap.
 #
 # Solve the Center of Gravity problem from _A Deep Dive into Strategic Network Design Programming_
-# http://amzn.to/1Lbd6By
+# https://bit.ly/3eorJrA
 #
 # Implement core functionality needed to achieve modularity.
 # 1. Define the input data schema
