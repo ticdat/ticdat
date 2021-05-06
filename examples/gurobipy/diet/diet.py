@@ -1,5 +1,10 @@
 #
-# Solve the standard diet problem
+# Using the standard diet problem to demonstrate the ticdat principles of Tidy, Tested, Safe.
+# Please refer to the following for an introduction.
+# https://github.com/ticdat/ticdat/wiki/1-Beginner-ticdat-intro
+#
+# This file is training material meant to guide you towards a well organized GitHub repository.
+# https://github.com/ticdat/tts_diet
 #
 # Implement core functionality needed to achieve modularity.
 # 1. Define the input data schema
