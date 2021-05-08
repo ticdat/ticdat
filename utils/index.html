@@ -133,6 +133,21 @@
           
             <li class="toctree-l1">
 		
+    <span class="caption-text">pgtd.py</span>
+    <ul class="subnav">
+                <li class="">
+                    
+    <a class="" href="../pgtd/">PostgresPanFactory</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../pgtd/">PostgresTicFactory</a>
+                </li>
+    </ul>
+	    </li>
+          
+            <li class="toctree-l1">
+		
     <span class="caption-text">sqlitetd.py</span>
     <ul class="subnav">
                 <li class="">
@@ -189,17 +204,6 @@
     </ul>
 	    </li>
           
-            <li class="toctree-l1">
-		
-    <span class="caption-text">lingo.py</span>
-    <ul class="subnav">
-                <li class="">
-                    
-    <a class="" href="../lingo/">Lingo</a>
-                </li>
-    </ul>
-	    </li>
-          
         </ul>
       </div>
       &nbsp;
@@ -241,7 +245,7 @@
               
                 <h1 id="ticdat.utils.standard_main">standard_main</h1>
 
-<pre><code class="python">standard_main(input_schema, solution_schema, solve)
+<pre><code class="python">standard_main(input_schema, solution_schema, solve, case_space_table_names=False)
 </code></pre>
 
 <p>provides standardized command line functionality for a ticdat solve engine</p>
@@ -249,6 +253,11 @@
 <p>:param solution_schema: a TicDatFactory or PanDatFactory defining the output schema</p>
 <p>:param solve: a function that takes a input_schema.TicDat object and
              returns a solution_schema.TicDat object</p>
+<p>:param case_space_table_names - passed through to any TicDatFactory/PanDatFactory write functions that have
+                               case_space_table_names as an argument. Will also pass through to
+                               case_space_sheet_names for Excel writers.
+                               boolean - make best guesses how to add spaces and upper case characters to
+                               table names when writing to the file system.</p>
 <p>:return: None</p>
 <p>Implements a command line signature of</p>
 <p>"python engine_file.py --input <input_file_or_dir> --output <output_file_or_dir>"</p>
@@ -309,7 +318,7 @@ to AMPL developers.</p>
 <p>Perform a multi-index slice. (Not to be confused with the native Python slice)
 :param <em>args a series of index values or '</em>'. The latter means 'match every value'
 :return: a list of tuples which match  args.
-:caveat will run faster if gurobipy is available</p>
+:caveat will run faster if gurobipy is available and tuplelist can accommodate the interior iterables</p>
 <h2 id="ticdat.utils.Slicer.clear">clear</h2>
 
 <pre><code class="python">Slicer.clear(self)
@@ -345,7 +354,7 @@ https://github.com/pydata/pandas/issues/10695</p>
 Also enables writing on-the-fly tables into log files.</p>
 <h2 id="ticdat.utils.LogFile.log_table">log_table</h2>
 
-<pre><code class="python">LogFile.log_table(self, table_name, seq, formatter=&lt;function LogFile.&lt;lambda&gt; at 0x11975d048&gt;, max_write=10)
+<pre><code class="python">LogFile.log_table(self, table_name, seq, formatter=&lt;function LogFile.&lt;lambda&gt; at 0x117414268&gt;, max_write=10)
 </code></pre>
 
 <p>Writes a table to the log file. Extremely useful functionality for
@@ -390,10 +399,19 @@ on the fly errors, warnings and diagnostics.
 <pre><code class="python">Progress.gurobi_call_back_factory(self, theme, model)
 </code></pre>
 
-<p>create a MIP call back handler for Gurobi
+<p>Allow a Gurobi  model to call mip_progress. <strong>Only for minimize</strong>
 :param theme: string describing the type of MIP solve underway
-:param model: a Gurobi model
-:return: a call_back function that can be passed to optimize</p>
+:param model: a Gurobi model (or ticdat.Model.core_model)
+:return: a call_back function that can be passed to Model.optimize</p>
+<h2 id="ticdat.utils.Progress.add_cplex_listener">add_cplex_listener</h2>
+
+<pre><code class="python">Progress.add_cplex_listener(self, theme, model)
+</code></pre>
+
+<p>Allow a CPLEX model to call mip_progress. <strong>Only for minimize</strong>
+:param theme: short descriptive string
+:param model: cplex.Model object (or ticdat.Model.core_model)
+:return:</p>
               
             </div>
           </div>

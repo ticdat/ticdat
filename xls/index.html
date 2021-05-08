@@ -133,6 +133,21 @@
           
             <li class="toctree-l1">
 		
+    <span class="caption-text">pgtd.py</span>
+    <ul class="subnav">
+                <li class="">
+                    
+    <a class="" href="../pgtd/">PostgresPanFactory</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../pgtd/">PostgresTicFactory</a>
+                </li>
+    </ul>
+	    </li>
+          
+            <li class="toctree-l1">
+		
     <span class="caption-text">sqlitetd.py</span>
     <ul class="subnav">
                 <li class="">
@@ -189,17 +204,6 @@
     </ul>
 	    </li>
           
-            <li class="toctree-l1">
-		
-    <span class="caption-text">lingo.py</span>
-    <ul class="subnav">
-                <li class="">
-                    
-    <a class="" href="../lingo/">Lingo</a>
-                </li>
-    </ul>
-	    </li>
-          
         </ul>
       </div>
       &nbsp;
@@ -245,9 +249,9 @@
 </code></pre>
 
 <p>Primary class for reading/writing Excel files with TicDat objects.
-Your system will need the xlrd package to read .xls and .xlsx files,
-the xlwt package to write .xls files, and the xlsxwriter package to
-write .xlsx files.
+Your system will need the xlrd package to read .xls files, the openpyxl package
+to read xlsx/xlsm/xltx/xltm files, the xlwt package to write .xls files, and the xlsxwriter
+package to write .xlsx files.
 Don't create this object explicitly. A XlsTicDatFactory will
 automatically be associated with the xls attribute of the parent
 TicDatFactory.</p>
@@ -312,7 +316,7 @@ TicDatFactory.</p>
                   Needs to end in either ".xls" or ".xlsx"
                   The latter is capable of writing out larger tables,
                   but the former handles infinity seamlessly.
-                  If ".xlsx", then be advised that +/- float("inf") will be replaced
+                  If ".xlsx" then be advised that +/- float("inf") will be replaced
                   with "inf"/"-inf", unless infinity_io_flag is being applied.</p>
 <p>:param allow_overwrite: boolean - are we allowed to overwrite an
                         existing file?

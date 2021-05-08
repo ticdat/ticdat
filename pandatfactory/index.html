@@ -136,6 +136,21 @@
           
             <li class="toctree-l1">
 		
+    <span class="caption-text">pgtd.py</span>
+    <ul class="subnav">
+                <li class="">
+                    
+    <a class="" href="../pgtd/">PostgresPanFactory</a>
+                </li>
+                <li class="">
+                    
+    <a class="" href="../pgtd/">PostgresTicFactory</a>
+                </li>
+    </ul>
+	    </li>
+          
+            <li class="toctree-l1">
+		
     <span class="caption-text">sqlitetd.py</span>
     <ul class="subnav">
                 <li class="">
@@ -185,17 +200,6 @@
                 <li class="">
                     
     <a class="" href="../opl/">OPL</a>
-                </li>
-    </ul>
-	    </li>
-          
-            <li class="toctree-l1">
-		
-    <span class="caption-text">lingo.py</span>
-    <ul class="subnav">
-                <li class="">
-                    
-    <a class="" href="../lingo/">Lingo</a>
                 </li>
     </ul>
 	    </li>
@@ -261,11 +265,42 @@ sources, thus facilitating the "separate model from data" design goal.</p>
 <p>ex:
    <code>PanDatFactory (typical_table = [["Primary Key Field"],["Data Field"]],
                       generic_table = '*')</code></p>
-<h1 id="ticdat.pandatfactory.PanDatFactory.add_data_row_predicate">add_data_row_predicate</h1>
+<h1 id="ticdat.pandatfactory.PanDatFactory.add_parameter">add_parameter</h1>
 
-<pre><code class="python">PanDatFactory.add_data_row_predicate(self, table, predicate, predicate_name=None)
+<pre><code class="python">PanDatFactory.add_parameter(self, name, default_value, number_allowed=True, inclusive_min=True, inclusive_max=False, min=0, max=inf, must_be_int=False, strings_allowed=(), nullable=False, datetime=False, enforce_type_rules=True)
 </code></pre>
 
+<p>Add (or reset) a parameters option. Requires that a parameters table with one primary key field and one
+data field already be present. The legal parameters options will be enforced as part of find_data_row_failures
+Note that if you are using this function, then you would typically read from the parameters table indirectly,
+by using the dictionary returned by create_full_parameters_dict.</p>
+<p>:param name: name of the parameter to add or reset</p>
+<p>:param default_value: default value for the parameter (used for create_full_parameters_dict)</p>
+<p>:param number_allowed: boolean does this parameter allow numbers?</p>
+<p>:param inclusive_min: if number allowed, is the min inclusive?</p>
+<p>:param inclusive_max: if number allowed, is the max inclusive?</p>
+<p>:param min: if number allowed, the minimum value</p>
+<p>:param max: if number allowed, the maximum value</p>
+<p>:param must_be_int: boolean : if number allowed, must the number be integral?</p>
+<p>:param strings_allowed: if a collection - then a list of the strings allowed.
+                        The empty collection prohibits strings.
+                        If a "*", then any string is accepted.</p>
+<p>:param nullable:  boolean : can this parameter be set to null (aka None)</p>
+<p>:param datetime: If truthy, then number_allowed through strings_allowed are ignored. Should the data either
+                 be a datetime.datetime object or a string that can be parsed into a datetime.datetime object?
+                 Note that the various readers will try to coerce strings into datetime.datetime objects
+                 on read for parameters with datetime data types. pandas.Timestamp is itself a datetime.datetime,
+                 and the bias will be to create such an object.</p>
+<p>:param enforce_type_rules: boolean: ignore all of number_allowed through datetime, and only
+                           enforce the parameter names and default values
+:return:</p>
+<h1 id="ticdat.pandatfactory.PanDatFactory.add_data_row_predicate">add_data_row_predicate</h1>
+
+<pre><code class="python">PanDatFactory.add_data_row_predicate(self, table, predicate, predicate_name=None, predicate_kwargs_maker=None, predicate_failure_response='Boolean')
+</code></pre>
+
+<p>The purpose of calling add_data_row_predicate is to prepare for a future call to find_data_row_failures.
+See https://bit.ly/3e9pdCP for more details on these two functions.</p>
 <p>Adds a data row predicate for a table. Row predicates can be used to check for
 sophisticated data integrity problems of the sort that can't be easily handled with
 a data type rule. For example, a min_supply column can be verified to be no larger than
@@ -276,14 +311,24 @@ a max_supply column.</p>
 <p>!!!!!!!!!!</p>
 <p>:param table: table in the schema</p>
 <p>:param predicate: A one argument function that accepts a table row as an argument and returns
-                  Truthy if the row is valid and Falsey otherwise. The argument passed to
-                  predicate will be a dict that maps field name to data value for all fields
-                  (both primary key and data field) in the table.
+                  Truthy if the row is valid and Falsey otherwise. (See below, there are other arguments that
+                  can refine how predicate works). The row argument passed to predicate will be a dict that
+                  maps field name to data value for all fields (both primary key and data field) in the table.
                   Note - if None is passed as a predicate, then any previously added
-                  predicate matching (table, predicate_name) will be removed.</p>
+                  predicate matching (table, predicate_name) will be removed.
+.</p>
 <p>:param predicate_name: The name of the predicate. If omitted, the smallest non-colliding
                        number will be used.</p>
-<p>:return:</p>
+<p>:param predicate_kwargs_maker: A function used to support predicate if predicate accepts more than just
+                               the row argument. This function accepts a single dat argument and is called
+                               exactly once per find_data_row_failures call. If predicate_kwargs_maker returns a
+                               dict, then this dict is unpacked for each call to predicate. An error (or a bulk
+                               row failure) results if predicate_kwargs_maker fails to return a dict.</p>
+<p>:param predicate_failure_response: Either "Boolean" or "Error Message". If the latter then predicate indicates
+                                   a clean row by returning True (the one and only literal True in Python)
+                                   and a dirty row by returning a non-empty string (which is an error message).</p>
+<p>See find_data_row_failures for details on handling exceptions thrown by predicate or predicate_kwargs_maker.
+:return:</p>
 <h1 id="ticdat.pandatfactory.PanDatFactory.add_foreign_key">add_foreign_key</h1>
 
 <pre><code class="python">PanDatFactory.add_foreign_key(self, native_table, foreign_table, mappings)
@@ -320,11 +365,16 @@ If no data type is specified (the default) then no errant data will be recognize
                      If omitted, all foreign keys are cleared.</p>
 <h1 id="ticdat.pandatfactory.PanDatFactory.clone">clone</h1>
 
-<pre><code class="python">PanDatFactory.clone(self)
+<pre><code class="python">PanDatFactory.clone(self, table_restrictions=None, clone_factory=None)
 </code></pre>
 
-<p>clones the PanDatFactory</p>
-<p>:return: a clone of the PanDatFactory</p>
+<p>clones the PanDatFactory
+:param table_restrictions : if None, then argument is ignored. Otherwise, a container listing the
+                            tables to keep in the clone. Tables outside table_restrictions are removed from
+                            the clone.
+:param clone_factory : optional. Defaults to PanDatFactory. Can also be TicDatFactory.  Can also be a function,
+                       in which case it should behave similarly to create_from_full_schema.
+:return: a clone of the PanDatFactory. Returned object will be based on clone_factory, if provided.</p>
 <h1 id="ticdat.pandatfactory.PanDatFactory.copy_from_ampl_variables">copy_from_ampl_variables</h1>
 
 <pre><code class="python">PanDatFactory.copy_from_ampl_variables(self, ampl_variables)
@@ -383,9 +433,19 @@ performs a deep copy</p>
                     with include_ancillary_info = True</p>
 <p>:return: a PanDatFactory reflecting the tables, fields, default values, data types,
          and foreign keys consistent with the full_schema argument</p>
+<h1 id="ticdat.pandatfactory.PanDatFactory.create_full_parameters_dict">create_full_parameters_dict</h1>
+
+<pre><code class="python">PanDatFactory.create_full_parameters_dict(self, dat)
+</code></pre>
+
+<p>create a fully populated dictionary of all the parameters</p>
+<p>:param dat: a PanDat object that has a parameters table</p>
+<p>:return: a dictionary that maps parameter option to actual dat.parameters value.
+         if the specific option isn't part of dat.parameters, then the default value is used.
+         Note that for datetime parameters, the default will be coerced into a datetime object, if possible.</p>
 <h1 id="ticdat.pandatfactory.PanDatFactory.find_data_row_failures">find_data_row_failures</h1>
 
-<pre><code class="python">PanDatFactory.find_data_row_failures(self, pan_dat, as_table=True)
+<pre><code class="python">PanDatFactory.find_data_row_failures(self, pan_dat, as_table=True, exception_handling='__debug__', max_failures=inf)
 </code></pre>
 
 <p>Finds the data row failures for a ticdat object</p>
@@ -393,13 +453,31 @@ performs a deep copy</p>
 <p>:param as_table: boolean - if truthy then the values of the return dictionary will be the
        predicate failure rows themselves. Otherwise will return the boolean Series that indicates
        which rows have predicate failures.</p>
+<p>:param exception_handling: One of "Handled as Failure",  "Unhandled" or "<strong>debug</strong>"
+      "Handled as Failure": Any exception generated by calling a row predicate function will indicate a data
+                            failure for that row. (Similarly, predicate_kwargs_maker exceptions create an entry
+                            in the returned failure dictionary).
+      "Unhandled": Exceptions resulting from calling a row predicate (or a predicate_kwargs_maker) will not be
+                   handled by data_row_failures.
+      "<strong>debug</strong>": Since "Handled as Failure" makes more sense for production runs and "Unhandled" makes more
+                   sense for debugging, this value will use the latter if <strong>debug</strong> is True and the former
+                   otherwise. See -o and <strong>debug</strong> in Python documentation for more details.</p>
+<p>:param max_failures: number. An upper limit on the number of failures to find. Will short circuit and return
+                             ASAP with a partial failure enumeration when this number is reached.</p>
 <p>:return: A dictionary constructed as follows:</p>
 <p>The keys are namedtuples with members "table", "predicate_name".</p>
 <p>The values are DataFrames that contain the subset of rows that exhibit data failures
 for this specific table, predicate pair (or the Series that identifies these rows).</p>
+<p>If the predicate_failure_response for the predicate is "Error Message" (instead of "Boolean")
+and as_table is truthy, then an "Error Message" column will be added to the appropriate DataFrame in the
+returned dict.</p>
+<p>If a predicate_kwargs_maker is provided and it fails (either by failing to return a dictionary or by
+throwing a handled exception) then appropriate value of the dictionary will be a namedtuple
+with members "primary_key" and "error message". The former will be populated with '*' (indicating all the rows)
+and the latter will be a string describing the failure.</p>
 <h1 id="ticdat.pandatfactory.PanDatFactory.find_data_type_failures">find_data_type_failures</h1>
 
-<pre><code class="python">PanDatFactory.find_data_type_failures(self, pan_dat, as_table=True)
+<pre><code class="python">PanDatFactory.find_data_type_failures(self, pan_dat, as_table=True, max_failures=inf)
 </code></pre>
 
 <p>Finds the data type failures for a pandat object</p>
@@ -407,6 +485,8 @@ for this specific table, predicate pair (or the Series that identifies these row
 <p>:param as_table: boolean - if truthy then the values of the return dictionary will be the
        data type failure rows themselves. Otherwise will return the boolean Series that indicates
        which rows have data type failures.</p>
+<p>:param max_failures: number. An upper limit on the number of failures to find. Will short circuit and return
+                             ASAP with a partial failure enumeration when this number is reached.</p>
 <p>:return: A dictionary constructed as follow:
          The keys are namedtuples with members "table", "field". Each (table,field) pair
          has data values that are inconsistent with its data type. (table, field) pairs
@@ -434,7 +514,7 @@ for this specific table, predicate pair (or the Series that identifies these row
          Series that identifies these rows)</p>
 <h1 id="ticdat.pandatfactory.PanDatFactory.find_foreign_key_failures">find_foreign_key_failures</h1>
 
-<pre><code class="python">PanDatFactory.find_foreign_key_failures(self, pan_dat, verbosity='High', as_table=True)
+<pre><code class="python">PanDatFactory.find_foreign_key_failures(self, pan_dat, verbosity='High', as_table=True, max_failures=inf)
 </code></pre>
 
 <p>Finds the foreign key failures for a pandat object</p>
@@ -444,6 +524,8 @@ for this specific table, predicate pair (or the Series that identifies these row
        failed rows themselves. Otherwise will return the a boolean list that indicates which rows
        have failures. (For technical reasons, not returning a boolean Series like the
        other find functions)</p>
+<p>:param max_failures: number. An upper limit on the number of failures to find. Will short circuit and return
+                             ASAP with a partial failure enumeration when this number is reached.</p>
 <p>:return: A dictionary constructed as follows:</p>
 <p>The keys are namedtuples with members "native_table", "foreign_table",
  "mapping", "cardinality".</p>
@@ -456,7 +538,7 @@ for this specific table, predicate pair (or the Series that identifies these row
  and omits the foreign key cardinality.</p>
 <h1 id="ticdat.pandatfactory.PanDatFactory.good_pan_dat_object">good_pan_dat_object</h1>
 
-<pre><code class="python">PanDatFactory.good_pan_dat_object(self, data_obj, bad_message_handler=&lt;function PanDatFactory.&lt;lambda&gt; at 0x119cda048&gt;)
+<pre><code class="python">PanDatFactory.good_pan_dat_object(self, data_obj, bad_message_handler=&lt;function PanDatFactory.&lt;lambda&gt; at 0x117983f28&gt;)
 </code></pre>
 
 <p>determines if an object is a valid PanDat object for this schema</p>
@@ -530,6 +612,11 @@ with find_data_type_failures(). Errant data entries can be replaced with replace
 <p>:param table: a table in the schema</p>
 <p>:param field: a field in the table</p>
 <p>:param default_value: the default value to apply</p>
+<p>Note - the data fields of a schema will have the default default of zero. The primary key fields will
+have no default at all (NOT None, but rather, no default). replace_data_type_failures will only perform
+replacements on fields for which there is a default, unless there is some explicit override provided.
+(see replace_data_type_failures for details).
+This is deliberate, since a bulk replacement in a primary key field is likely to create a duplication failure.</p>
 <p>:return:</p>
 <h1 id="ticdat.pandatfactory.PanDatFactory.set_default_values">set_default_values</h1>
 
@@ -543,6 +630,27 @@ with find_data_type_failures(). Errant data entries can be replaced with replace
 <p>Ex:</p>
 <p><code>pdf.set_default_values(categories = {"minNutrition":0, "maxNutrition":float("inf")},
                  foods = {"cost":0}, nutritionQuantities = {"qty":0})</code></p>
+<p>:return:</p>
+<h1 id="ticdat.pandatfactory.PanDatFactory.set_infinity_io_flag">set_infinity_io_flag</h1>
+
+<pre><code class="python">PanDatFactory.set_infinity_io_flag(self, value)
+</code></pre>
+
+<p>Set the infinity_io_flag for the TicDatFactory.
+'N/A' (the default) is recognized as a flag to disable infinity I/O buffering.</p>
+<p>If numeric, when writing data to the file system (or a database), float("inf") will be replaced by the
+infinity_io_flag and float("-inf") will be replaced by -infinity_io_flag, prior to writing.
+Similarly, the read data will replace any number &gt;= the infinity_io_flag with float("inf") and any
+number smaller than float("-inf") with -infinity_io_flag.</p>
+<p>If None, then +/- infinity will be replaced by None prior to writing.
+Similarly, subsequent to reading, None will be replaced either by float("inf") or float("-inf"), depending
+on field data types.
+Note that None flagging will only perform replacements on fields whose data types allow infinity and not None.</p>
+<p>For all cases, these replacements will be done on a temporary copy of the data that is created prior to writing.</p>
+<p>Also note that none of the these replacements will be done on the parameters table. The assumption is the
+parameters table will be serialized to a string/string database table. Infinity can thus be represented by
+"inf"/"-inf" in such serializations.</p>
+<p>:param value: a valid infinity_io_flag</p>
 <p>:return:</p>
               
             </div>

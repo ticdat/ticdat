@@ -8,7 +8,7 @@
   
   
   <link rel="shortcut icon" href="../img/favicon.ico">
-  <title>JsonTicFactory - Ticdat</title>
+  <title>PostgresTicFactory - Ticdat</title>
   <link href='https://fonts.googleapis.com/css?family=Lato:400,700|Roboto+Slab:400,700|Inconsolata:400,700' rel='stylesheet' type='text/css'>
 
   <link rel="stylesheet" href="../css/theme.css" type="text/css" />
@@ -17,8 +17,8 @@
   
   <script>
     // Current page data
-    var mkdocs_page_name = "JsonTicFactory";
-    var mkdocs_page_input_path = "jsontd.md";
+    var mkdocs_page_name = "PostgresTicFactory";
+    var mkdocs_page_input_path = "pgtd.md";
     var mkdocs_page_url = null;
   </script>
   
@@ -113,12 +113,9 @@
 		
     <span class="caption-text">jsontd.py</span>
     <ul class="subnav">
-                <li class=" current">
+                <li class="">
                     
-    <a class="current" href="./">JsonTicFactory</a>
-    <ul class="subnav">
-            
-    </ul>
+    <a class="" href="../jsontd/">JsonTicFactory</a>
                 </li>
     </ul>
 	    </li>
@@ -140,11 +137,14 @@
     <ul class="subnav">
                 <li class="">
                     
-    <a class="" href="../pgtd/">PostgresPanFactory</a>
+    <a class="" href="./">PostgresPanFactory</a>
                 </li>
-                <li class="">
+                <li class=" current">
                     
-    <a class="" href="../pgtd/">PostgresTicFactory</a>
+    <a class="current" href="./">PostgresTicFactory</a>
+    <ul class="subnav">
+            
+    </ul>
                 </li>
     </ul>
 	    </li>
@@ -226,14 +226,14 @@
     
       
         
-          <li>jsontd.py &raquo;</li>
+          <li>pgtd.py &raquo;</li>
         
       
     
-    <li>JsonTicFactory</li>
+    <li>PostgresTicFactory</li>
     <li class="wy-breadcrumbs-aside">
       
-        <a href="https://github.com/ticdat/ticdat/edit/master/docs/jsontd.md"
+        <a href="https://github.com/ticdat/ticdat/edit/master/docs/pgtd.md"
           class="icon icon-github"> Edit on GitHub</a>
       
     </li>
@@ -243,63 +243,113 @@
           <div role="main">
             <div class="section">
               
-                <h1 id="ticdat.jsontd.make_json_dict">make_json_dict</h1>
+                <h1 id="ticdat.pgtd.PostgresPanFactory">PostgresPanFactory</h1>
 
-<pre><code class="python">make_json_dict(tdf, tic_dat, verbose=False, use_infinity_io_flag_if_provided=False)
+<pre><code class="python">PostgresPanFactory(self, pan_dat_factory)
 </code></pre>
 
-<h1 id="ticdat.jsontd.JsonTicFactory">JsonTicFactory</h1>
+<p>Primary class for reading/writing PostGres databases with PanDat objects.</p>
+<p>Don't create this object explicitly. A PostgresPanFactory will automatically be associated with the
+pgsql attribute of the parent PanDatFactory.</p>
+<p>Will need to have pandas installed to do anything.</p>
+<p>postgres doesn't support brackets, and putting spaces in postgres field names is frowned upon.
+https://bit.ly/2xWLZL3.
+You <strong>are</strong> encouraged to continue to use field names like "Min Nutrition" in your ticdat Python code, and the
+pgtd code here will match such fields up with postgres field names like min_nutrition when reading/writing from
+a postgres DB. (Non alphamnumeric characters in general, and not just spaces, are replaced with underscores
+for generating PGSQL field names).</p>
+<h2 id="ticdat.pgtd.PostgresPanFactory.create_pan_dat">create_pan_dat</h2>
 
-<pre><code class="python">JsonTicFactory(self, tic_dat_factory)
+<pre><code class="python">PostgresPanFactory.create_pan_dat(self, engine, schema, active_fld='')
 </code></pre>
 
-<p>Primary class for reading/writing json files with TicDat objects.
-You need the json package to be installed to use it.</p>
-<h2 id="ticdat.jsontd.JsonTicFactory.create_tic_dat">create_tic_dat</h2>
+<p>Create a PanDat object from a PostGres connection</p>
+<p>:param engine: A sqlalchemy connection to the PostGres database</p>
+<p>:param schema : The name of the schema to read from</p>
+<p>:param active_fld: if provided, a string for a boolean filter field.
+                   Must be compliant w PG naming conventions, which are different from ticdat field naming
+                   conventions. Typically developer can ignore this argument, designed for expert support.</p>
+<p>:return: a PanDat object populated by the matching tables. Missing tables issue a warning and resolve
+         to empty.</p>
+<h2 id="ticdat.pgtd.PostgresPanFactory.write_data">write_data</h2>
 
-<pre><code class="python">JsonTicFactory.create_tic_dat(self, json_file_path, freeze_it=False, from_pandas=False)
+<pre><code class="python">PostgresPanFactory.write_data(self, pan_dat, engine, schema, pre_existing_rows=None, active_fld='', progress=None)
 </code></pre>
 
-<p>Create a TicDat object from a json file</p>
-<p>:param json_file_path: A json file path. It should encode a dictionary
-                       with table names as keys. Could also be an actual JSON string</p>
+<p>write the PanDat data to a postgres database</p>
+<p>:param pan_dat: a PanDat object</p>
+<p>:param engine: A sqlalchemy connection to the PostGres database</p>
+<p>:param schema: The postgres schema to write to (call self.write_schema explicitly as needed)</p>
+<p>:param pre_existing_rows: if provided, a dict mapping table name to either "delete" or "append"
+                          default behavior is "delete"</p>
+<p>:param active_fld: if provided, a string for a boolean filter field which will be populated with True.
+                   Must be compliant w PG naming conventions, which are different from ticdat field naming
+                   conventions. Typically developer can ignore this argument, designed for expert support.</p>
+<p>:param progress: if provided, a ticdat.Progress object that is called every time a table is uploaded</p>
+<p>:return:</p>
+<h1 id="ticdat.pgtd.PostgresTicFactory">PostgresTicFactory</h1>
+
+<pre><code class="python">PostgresTicFactory(self, tic_dat_factory)
+</code></pre>
+
+<p>Primary class for reading/writing PostGres databases with TicDat objects.
+You need the sqlalchemy package to be installed to use it.</p>
+<p>Don't create this object explicitly. A PostgresTicFactory will automatically be associated with the
+pgsql attribute of the parent TicDatFactory.</p>
+<p>postgres doesn't support brackets, and putting spaces in postgres field names is frowned upon.
+https://bit.ly/2xWLZL3.
+You <strong>are</strong> encouraged to continue to use field names like "Min Nutrition" in your ticdat Python code, and the
+pgtd code here will match such fields up with postgres field names like min_nutrition when reading/writing from
+a postgres DB. (Non alphamnumeric characters in general, and not just spaces, are replaced with underscores
+for generating PGSQL field names)</p>
+<h2 id="ticdat.pgtd.PostgresTicFactory.create_tic_dat">create_tic_dat</h2>
+
+<pre><code class="python">PostgresTicFactory.create_tic_dat(self, engine, schema, freeze_it=False, active_fld='')
+</code></pre>
+
+<p>Create a TicDat object from a PostGres connection</p>
+<p>:param engine: A sqlalchemy connection to the PostGres database</p>
+<p>:param schema : The name of the schema to read from</p>
 <p>:param freeze_it: boolean. should the returned object be frozen?</p>
-<p>:param from_pandas: boolean.  If truthy, then use pandas json readers. See
-                    PanDatFactory json readers for more details.</p>
-<p>:return: a TicDat object populated by the matching tables.</p>
-<p>caveats: Table names matches are case insensitive and also
-         underscore-space insensitive.
-         Tables that don't find a match are interpreted as an empty table.
-         Dictionary keys that don't match any table are ignored.</p>
-<h2 id="ticdat.jsontd.JsonTicFactory.find_duplicates">find_duplicates</h2>
+<p>:param active_fld: if provided, a string for a boolean filter field.
+                   Must be compliant w PG naming conventions, which are different from ticdat field naming
+                   conventions. Typically developer can ignore this argument, designed for expert support.</p>
+<p>:return: a TicDat object populated by the matching tables. Missing tables issue a warning and resolve
+         to empty.</p>
+<h2 id="ticdat.pgtd.PostgresTicFactory.find_duplicates">find_duplicates</h2>
 
-<pre><code class="python">JsonTicFactory.find_duplicates(self, json_file_path, from_pandas=False)
+<pre><code class="python">PostgresTicFactory.find_duplicates(self, engine, schema, active_fld='')
 </code></pre>
 
 <p>Find the row counts for duplicated rows.</p>
-<p>:param json_file_path: A json file path. It should encode a dictionary
-                       with table names as keys.</p>
-<p>:param from_pandas: boolean.  If truthy, then use pandas json readers. See
-                    PanDatFactory json readers for more details.</p>
+<p>:param engine: A sqlalchemy Engine object that can connect to our postgres instance</p>
+<p>:param schema: Name of the schema within the engine's database to use</p>
+<p>:param active_fld: if provided, a string for a boolean filter field.
+                   Must be compliant w PG naming conventions, which are different from ticdat field naming
+                   conventions. Typically developer can ignore this argument, designed for expert support.</p>
 <p>:return: A dictionary whose keys are table names for the primary-ed key tables.
          Each value of the return dictionary is itself a dictionary.
          The inner dictionary is keyed by the primary key values encountered in the table,
-         and the value is the count of records in the json entry with this primary key.
+         and the value is the count of records in the postgres table with this primary key.
          Row counts smaller than 2 are pruned off, as they aren't duplicates</p>
-<h2 id="ticdat.jsontd.JsonTicFactory.write_file">write_file</h2>
+<h2 id="ticdat.pgtd.PostgresTicFactory.write_data">write_data</h2>
 
-<pre><code class="python">JsonTicFactory.write_file(self, tic_dat, json_file_path, allow_overwrite=False, verbose=False, to_pandas=False)
+<pre><code class="python">PostgresTicFactory.write_data(self, tic_dat, engine, schema, dsn=None, pre_existing_rows=None, active_fld='')
 </code></pre>
 
-<p>write the ticDat data to a json file (or json string)</p>
-<p>:param tic_dat: the data object to write (typically a TicDat)</p>
-<p>:param json_file_path: The file path of the json file to create. If empty string, then return a JSON string.</p>
-<p>:param allow_overwrite: boolean - are we allowed to overwrite an
-                        existing file?</p>
-<p>:param verbose: boolean. Verbose mode writes the data rows as dicts
-                keyed by field name. Otherwise, they are lists.</p>
-<p>:param to_pandas: boolean. if truthy, then use the PanDatFactory method of writing to json.</p>
-<p>:return:</p>
+<p>write the ticDat data to a PostGres database</p>
+<p>:param tic_dat: the data object to write</p>
+<p>:param engine: a sqlalchemy database engine with drivertype postgres</p>
+<p>:param schema: the postgres schema to write to (call self.write_schema explicitly as needed)</p>
+<p>:param dsn: optional - if truthy, a dict that can be unpacked as arguments to
+            psycopg2.connect. Will speed up bulk writing compared to engine.execute
+            If truthy and not a dict, then will be passed directly to psycopg2.connect as the sole argument.</p>
+<p>:param pre_existing_rows: if provided, a dict mapping table name to either "delete" or "append"
+                          default behavior is "delete"</p>
+<p>:param active_fld: if provided, a string for a boolean filter field which will be populated with True.
+                   Must be compliant w PG naming conventions, which are different from ticdat field naming
+                   conventions. Typically developer can ignore this argument, designed for expert support.
+:return:</p>
               
             </div>
           </div>
@@ -307,10 +357,10 @@ You need the json package to be installed to use it.</p>
   
     <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
       
-        <a href="../mdb/" class="btn btn-neutral float-right" title="MdbTicFactory">Next <span class="icon icon-circle-arrow-right"></span></a>
+        <a href="../sqlitetd/" class="btn btn-neutral float-right" title="SQLiteTicFactory">Next <span class="icon icon-circle-arrow-right"></span></a>
       
       
-        <a href="../csvtd/" class="btn btn-neutral" title="CsvTicFactory"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="./" class="btn btn-neutral" title="PostgresPanFactory"><span class="icon icon-circle-arrow-left"></span> Previous</a>
       
     </div>
   
@@ -338,10 +388,10 @@ You need the json package to be installed to use it.</p>
           <a href="https://github.com/ticdat/ticdat/" class="fa fa-github" style="float: left; color: #fcfcfc"> GitHub</a>
       
       
-        <span><a href="../csvtd/" style="color: #fcfcfc;">&laquo; Previous</a></span>
+        <span><a href="./" style="color: #fcfcfc;">&laquo; Previous</a></span>
       
       
-        <span style="margin-left: 15px"><a href="../mdb/" style="color: #fcfcfc">Next &raquo;</a></span>
+        <span style="margin-left: 15px"><a href="../sqlitetd/" style="color: #fcfcfc">Next &raquo;</a></span>
       
     </span>
 </div>
