@@ -70,13 +70,19 @@ input_schema.add_parameter("Maximum Number of Flex Starters", default_value=floa
                            inclusive_min=True, inclusive_max=True)
 # ---------------------------------------------------------------------------------
 
-
 # ------------------------ define the output schema -------------------------------
 solution_schema = PanDatFactory(
     parameters=[["Parameter"], ["Value"]],
     my_draft=[['Player Name'], ['Draft Position', 'Position', 'Planned Or Actual',
                                 'Starter Or Reserve']])
 # ---------------------------------------------------------------------------------
+
+# roundoff app building tool needs to tweak the field types for one input field and 4 solution fields
+roundoff_configurations = {"input_configurations": {"field_types": {("players", "Position"): "text"}},
+                           "solution_configurations": {"field_types": {("parameters", "Value"): "text"}}}
+for _ in ["Position", "Planned Or Actual", "Starter Or Reserve"]:
+    roundoff_configurations["solution_configurations"]["field_types"]["my_draft", _] = "text"
+
 
 # ------------------------ create a solve function --------------------------------
 def solve(dat):
