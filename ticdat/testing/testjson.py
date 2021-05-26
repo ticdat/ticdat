@@ -36,32 +36,32 @@ class TestJson(unittest.TestCase):
     def testDiet(self):
         if not self.can_run:
             return
-        for verbose in [True, False]:
+        for kwargs in [{"verbose": True}, {"verbose": False}, {"to_pandas": True}]:
             tdf = TicDatFactory(**dietSchema())
             ticDat = tdf.freeze_me(tdf.TicDat(**{t:getattr(dietData(),t) for t in tdf.primary_key_fields}))
             writePath = os.path.join(makeCleanDir(os.path.join(_scratchDir, "diet")), "file.json")
-            tdf.json.write_file(ticDat, writePath, verbose=verbose)
+            tdf.json.write_file(ticDat, writePath, **kwargs)
             self.assertFalse(tdf.json.find_duplicates(writePath))
             jsonTicDat = tdf.json.create_tic_dat(writePath)
-            self.assertTrue(tdf._same_data(ticDat, jsonTicDat))
+            self.assertTrue(tdf._same_data(ticDat, jsonTicDat, epsilon=1e-5))
 
             def change() :
                 jsonTicDat.categories["calories"]["minNutrition"]=12
             self.assertFalse(firesException(change))
-            self.assertFalse(tdf._same_data(ticDat, jsonTicDat))
+            self.assertFalse(tdf._same_data(ticDat, jsonTicDat, epsilon=1e-5))
             jsonTicDat = tdf.json.create_tic_dat(writePath, freeze_it=True)
             self.assertTrue(firesException(change))
-            self.assertTrue(tdf._same_data(ticDat, jsonTicDat))
+            self.assertTrue(tdf._same_data(ticDat, jsonTicDat, epsilon=1e-5))
 
         tdf2 = TicDatFactory(**dietSchemaWeirdCase())
         dat2 = copyDataDietWeirdCase(ticDat)
-        tdf2.json.write_file(dat2, writePath, allow_overwrite=True, verbose=verbose)
+        tdf2.json.write_file(dat2, writePath, allow_overwrite=True)
         jsonTicDat2 = tdf.json.create_tic_dat(writePath, freeze_it=True)
         self.assertTrue(tdf._same_data(ticDat, jsonTicDat2))
 
         tdf3 = TicDatFactory(**dietSchemaWeirdCase2())
         dat3 = copyDataDietWeirdCase2(ticDat)
-        tdf3.json.write_file(dat3, writePath, allow_overwrite=True, verbose=verbose)
+        tdf3.json.write_file(dat3, writePath, allow_overwrite=True)
         with open(writePath, "r") as f:
             jdict = json.load(f)
         jdict["nutrition quantities"] = jdict["nutrition_quantities"]
@@ -79,12 +79,12 @@ class TestJson(unittest.TestCase):
         if not self.can_run:
             return
 
-        for verbose in [True, False]:
+        for kwargs in [{"verbose": True}, {"verbose": False}, {"to_pandas": True}]:
 
             tdf = TicDatFactory(**sillyMeSchema())
             ticDat = tdf.TicDat(**sillyMeDataTwoTables())
             writePath = os.path.join(makeCleanDir(os.path.join(_scratchDir, "sillyTwoTables")), "file.json")
-            tdf.json.write_file(ticDat, writePath, verbose=verbose)
+            tdf.json.write_file(ticDat, writePath, **kwargs)
             self.assertFalse(tdf.json.find_duplicates(writePath))
             jsonTicDat = tdf.json.create_tic_dat(writePath)
             self.assertTrue(tdf._same_data(ticDat, jsonTicDat))
@@ -152,7 +152,7 @@ class TestJson(unittest.TestCase):
                                 for t in tdf.all_tables})
             writePath = os.path.join(makeCleanDir(os.path.join(_scratchDir, "dups")), "file.json")
             tdf2.json.write_file(td, writePath, **kwargs)
-            dups = tdf.json.find_duplicates(writePath, from_pandas=kwargs.get("to_pandas", False))
+            dups = tdf.json.find_duplicates(writePath)
             self.assertTrue(dups == {'three': {(1, 2, 2): 2}, 'two': {(1, 2): 3}, 'one': {1: 3, 2: 2}})
 
     def testSilly(self):
