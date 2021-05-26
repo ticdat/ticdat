@@ -4,7 +4,7 @@ try:
 except:
     sql = None
 import json
-
+import uuid
 import os
 from ticdat.utils import freezable_factory, verify, case_space_to_pretty, pd, TicDatError, FrozenDict, all_fields
 from ticdat.utils import all_underscore_replacements, stringish, dictish, debug_break
@@ -161,7 +161,11 @@ class JsonPanFactory(freezable_factory(object, "_isFrozen")):
         :param kwargs: additional named arguments to pass to pandas.to_json
 
         :return:
+
+        NB - pandas seems stubbornly unable to inject Infinity into json, but it can read Infinity from
+        json. We work around this with a GUID created flagging string when encountering float("inf"), float(-"inf").
         """
+        infinity_flagging_str = str(uuid.uuid4())[-9:]
         msg = []
         verify(self.pan_dat_factory.good_pan_dat_object(pan_dat, msg.append),
                "pan_dat not a good object for this factory : %s"%"\n".join(msg))
@@ -178,7 +182,8 @@ class JsonPanFactory(freezable_factory(object, "_isFrozen")):
         rtn = {}
         from ticdat.pandatfactory import _faster_df_apply
         for t in self.pan_dat_factory.all_tables:
-            df = getattr(pan_dat, t).copy(deep=True).replace(float("inf"), "inf").replace(-float("inf"), "-inf")
+            df = getattr(pan_dat, t).copy(deep=True).replace(float("inf"), infinity_flagging_str).\
+                 replace(-float("inf"), f"-{infinity_flagging_str}")
             for f in df.columns:
                 dt = self.pan_dat_factory.data_types.get(t, {}).get(f, None)
                 if dt and dt.datetime:
@@ -191,7 +196,9 @@ class JsonPanFactory(freezable_factory(object, "_isFrozen")):
                         return row[f]
                     df[f] = _faster_df_apply(df, fixed)
             k = case_space_to_pretty(t) if case_space_table_names else t
-            rtn[k] = json.loads(df.to_json(path_or_buf=None, orient=orient, **kwargs))
+            rtn[k] = json.loads(df.to_json(path_or_buf=None, orient=orient, **kwargs).
+                                replace(f'"{infinity_flagging_str}"', "Infinity").replace(
+                                f'"-{infinity_flagging_str}"', "-Infinity"))
             if orient == 'split' and not index:
                 rtn[k].pop("index", None)
         if json_file_path:
