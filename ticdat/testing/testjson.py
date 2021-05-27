@@ -38,7 +38,9 @@ class TestJson(unittest.TestCase):
             return
         for kwargs in [{"verbose": True}, {"verbose": False}, {"to_pandas": True}]:
             tdf = TicDatFactory(**dietSchema())
-            ticDat = tdf.freeze_me(tdf.TicDat(**{t:getattr(dietData(),t) for t in tdf.primary_key_fields}))
+            ticDat = tdf.TicDat(**{t:getattr(dietData(),t) for t in tdf.primary_key_fields})
+            ticDat.categories["fat"]["minNutrition"] = -float("inf") # violates integrity but better testing
+            ticDat = tdf.freeze_me(ticDat)
             writePath = os.path.join(makeCleanDir(os.path.join(_scratchDir, "diet")), "file.json")
             tdf.json.write_file(ticDat, writePath, **kwargs)
             self.assertFalse(tdf.json.find_duplicates(writePath))
