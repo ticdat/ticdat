@@ -7,6 +7,7 @@ from collections import defaultdict
 from ticdat.utils import freezable_factory, TicDatError, verify, stringish, dictish, containerish
 from ticdat.utils import find_duplicates_from_dict_ticdat
 import datetime
+import itertools
 
 try:
     import json
@@ -60,6 +61,9 @@ class JsonTicFactory(freezable_factory(object, "_isFrozen")) :
         """
         self.tic_dat_factory = tic_dat_factory
         self._isFrozen = True
+    def _looks_pandas(self, jdict):
+        if not all(set(itertools.chain(*v)) == {'columns', 'data'} for v in self.tic_dat_factory.schema().values()):
+            return all(dictish(v) and set(v.keys()) == {'columns', 'data'} for v in  jdict.values())
     def create_tic_dat(self, json_file_path, freeze_it = False, from_pandas = False):
         """
         Create a TicDat object from a json file
@@ -70,7 +74,9 @@ class JsonTicFactory(freezable_factory(object, "_isFrozen")) :
         :param freeze_it: boolean. should the returned object be frozen?
 
         :param from_pandas: boolean.  If truthy, then use pandas json readers. See
-                            PanDatFactory json readers for more details.
+                            PanDatFactory json readers for more details. This argument is historical, as a
+                            json format that matches the PanDatFactory.json format will be detected automatically,
+                            and thus client code is generally safe ignoring this argument completely.
 
         :return: a TicDat object populated by the matching tables.
 
@@ -84,8 +90,10 @@ class JsonTicFactory(freezable_factory(object, "_isFrozen")) :
             from ticdat import PanDatFactory
             pdf = PanDatFactory.create_from_full_schema(self.tic_dat_factory.schema(include_ancillary_info=True))
             _rtn = pdf.json.create_pan_dat(json_file_path)
-            return pdf.copy_to_tic_dat(_rtn)
+            return pdf.copy_to_tic_dat(_rtn, freeze_it=freeze_it)
         jdict = self._create_jdict(json_file_path)
+        if self._looks_pandas(jdict):
+            return self.create_tic_dat(json_file_path, freeze_it=freeze_it, from_pandas=True)
         tic_dat_dict = self._create_tic_dat_dict(jdict)
         missing_tables = set(self.tic_dat_factory.all_tables).difference(tic_dat_dict)
         if missing_tables:
@@ -120,6 +128,8 @@ class JsonTicFactory(freezable_factory(object, "_isFrozen")) :
             jdict = {t: [tuple(_) for _ in getattr(_rtn, t).itertuples(index=False)] for t in pdf.all_tables}
         else:
             jdict = self._create_jdict(json_file_path)
+            if self._looks_pandas(jdict):
+                return self.find_duplicates(json_file_path, from_pandas=True)
         rtn = find_duplicates_from_dict_ticdat(self.tic_dat_factory, jdict)
         return rtn or {}
     def _create_jdict(self, path_or_buf):

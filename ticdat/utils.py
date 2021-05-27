@@ -1072,8 +1072,8 @@ class Progress(object):
 EPSILON = 1e-05
 
 def per_error(x1, x2) :
-    x1 = float(x1)
-    x2 = float(x2)
+    x1 = float(x1) if numericish(x1) else x1
+    x2 = float(x2) if numericish(x2) else x2
     if (x1 < 0) and (x2 < 0) :
         return per_error(-x1, -x2)
     if x1 == float("inf") :
