@@ -74,7 +74,9 @@ class JsonTicFactory(freezable_factory(object, "_isFrozen")) :
         :param freeze_it: boolean. should the returned object be frozen?
 
         :param from_pandas: boolean.  If truthy, then use pandas json readers. See
-                            PanDatFactory json readers for more details.
+                            PanDatFactory json readers for more details. This argument is historical, as a
+                            json format that matches the PanDatFactory.json format will be detected automatically,
+                            and thus client code is generally safe ignoring this argument completely.
 
         :return: a TicDat object populated by the matching tables.
 
