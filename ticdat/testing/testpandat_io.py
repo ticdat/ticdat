@@ -131,6 +131,16 @@ class TestIO(unittest.TestCase):
         xlsPanDat = pdf2.xls.create_pan_dat(filePath)
         self.assertTrue(pdf._same_data(panDat, xlsPanDat))
 
+    def testReadingJsonFromTDF(self):
+        tdf = TicDatFactory(**dietSchema())
+        pdf = PanDatFactory(**dietSchema())
+        ticDat = tdf.TicDat(**{t: getattr(dietData(), t) for t in tdf.primary_key_fields})
+        ticDat.categories["fat"]["minNutrition"] = -float("inf")  # violates integrity but better testing
+        writePath = os.path.join(_scratchDir, "read_from_TDF.json")
+        tdf.json.write_file(ticDat, writePath)
+        dat2 = pdf.copy_to_tic_dat(pdf.json.create_pan_dat(writePath))
+        self.assertTrue(tdf._same_data(ticDat, dat2, epsilon=1e-5))
+
     def testDietWithInfFlagging(self):
         diet_pdf = PanDatFactory(**dietSchema())
         addDietDataTypes(diet_pdf)

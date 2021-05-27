@@ -7,7 +7,7 @@ import json
 import uuid
 import os
 from ticdat.utils import freezable_factory, verify, case_space_to_pretty, pd, TicDatError, FrozenDict, all_fields
-from ticdat.utils import all_underscore_replacements, stringish, dictish, debug_break
+from ticdat.utils import all_underscore_replacements, stringish, dictish, containerish, debug_break
 from itertools import product, chain
 from collections import defaultdict
 import inspect
@@ -103,24 +103,27 @@ class JsonPanFactory(freezable_factory(object, "_isFrozen")):
             verify(stringish(path_or_buf), "%s isn't a string" % path_or_buf)
             loaded_dict = json.loads(path_or_buf)
         verify(dictish(loaded_dict), "the json.load result doesn't resolve to a dictionary")
-        verify(all(map(dictish, loaded_dict.values())),
-               "the json.load result doesn't resolve to a dictionary whose values are themselves dictionaries")
-
         tbl_names = self._get_table_names(loaded_dict)
-        verify("orient" not in kwargs, "orient should be passed as a non-kwargs argument")
-        rtn = {}
-        for t, f in tbl_names.items():
-            kwargs_ = dict(kwargs)
-            if "dtype" not in kwargs_:
-                kwargs_["dtype"] = self.pan_dat_factory._dtypes_for_pandas_read(t)
-            rtn[t] = pd.read_json(json.dumps(loaded_dict[f]), orient=orient, **kwargs_)
-        missing_fields = {(t, f) for t in rtn for f in all_fields(self.pan_dat_factory, t)
-                          if f not in rtn[t].columns}
-        if fill_missing_fields:
-            for t,f in missing_fields:
-                rtn[t][f] = self.pan_dat_factory.default_values[t][f]
-        verify(fill_missing_fields or not missing_fields,
-               "The following (table, field) pairs are missing fields.\n%s" % [(t, f) for t,f in missing_fields])
+        if all(map(containerish, loaded_dict.values())) and not any(map(dictish, loaded_dict.values())):
+            rtn ={k: loaded_dict[v] for k,v in tbl_names.items()}
+        else:
+            verify(all(map(dictish, loaded_dict.values())),
+                   "the json.load result doesn't resolve to a dictionary whose values are themselves dictionaries")
+
+            verify("orient" not in kwargs, "orient should be passed as a non-kwargs argument")
+            rtn = {}
+            for t, f in tbl_names.items():
+                kwargs_ = dict(kwargs)
+                if "dtype" not in kwargs_:
+                    kwargs_["dtype"] = self.pan_dat_factory._dtypes_for_pandas_read(t)
+                rtn[t] = pd.read_json(json.dumps(loaded_dict[f]), orient=orient, **kwargs_)
+            missing_fields = {(t, f) for t in rtn for f in all_fields(self.pan_dat_factory, t)
+                              if f not in rtn[t].columns}
+            if fill_missing_fields:
+                for t,f in missing_fields:
+                    rtn[t][f] = self.pan_dat_factory.default_values[t][f]
+            verify(fill_missing_fields or not missing_fields,
+                   "The following (table, field) pairs are missing fields.\n%s" % [(t, f) for t,f in missing_fields])
         missing_tables = sorted(set(self.pan_dat_factory.all_tables).difference(rtn))
         if missing_tables:
             print("The following table names could not be found in the json file/string.\n%s\n" %
