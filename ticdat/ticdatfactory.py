@@ -928,7 +928,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
         """
         if t == "parameters" and self._parameters: # SPEED IS IMPORTANT
             # I will assume a parameters table without parameters specification is just a naive developer
-            return None if x is None or (utils.pd and utils.pd.isnull(x)) else str(x)
+            return None if x is None or (utils.pd and utils.pd.isnull(x)) else str(x) # this goofs up parameters
         if self.infinity_io_flag is None and (self._none_as_infinity_bias(t, f) or float("nan"))*float("inf") == x:
             return None
         if utils.numericish(self.infinity_io_flag) and utils.numericish(x):
