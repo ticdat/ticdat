@@ -483,15 +483,14 @@ class TestXls(unittest.TestCase):
         self.assertTrue(dat.parameters.shape == (4, 2))
 
     def test_parameters(self):
-        filePath = os.path.join(_scratchDir, "parameters.xls")
+        filePath = os.path.join(_scratchDir, "parameters.xlsx")
         tdf = TicDatFactory(parameters=[["Key"], ["Value"]])
         tdf.add_parameter("Something", 100)
         tdf.add_parameter("Different", 'boo', strings_allowed='*', number_allowed=False)
         dat = tdf.TicDat(parameters = [["Something",float("inf")], ["Different", "inf"]])
-        for _ in ["", "x"]:
-            tdf.xls.write_file(dat, filePath+_)
-            dat_ = tdf.xls.create_tic_dat(filePath+_)
-            self.assertTrue(tdf._same_data(dat, dat_))
+        tdf.xls.write_file(dat, filePath)
+        dat_ = tdf.xls.create_tic_dat(filePath)
+        self.assertTrue(tdf._same_data(dat, dat_))
 
     def testDietWithInfFlagging(self):
         tdf = TicDatFactory(**dietSchema())

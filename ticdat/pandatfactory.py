@@ -373,7 +373,7 @@ class PanDatFactory(object):
         if self.parameters: # Assuming a parameters table without parameters specification is just a naive developer
             fld = self.data_fields["parameters"][0]
             rtn.parameters[fld] = _faster_df_apply(rtn.parameters,
-                                                   lambda row: None if isnull(row[fld]) else str(row[fld]))
+                                                   lambda row: None if isnull(row[fld]) else row[fld])
         if self.infinity_io_flag == "N/A":
             return rtn
         apply = _faster_df_apply

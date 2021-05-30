@@ -1,10 +1,13 @@
 import os
 import shutil
 from ticdat.ticdatfactory import TicDatFactory
+from ticdat.pandatfactory import PanDatFactory
 from ticdat.testing.ticdattestutils import dietData, dietSchema, netflowData, dietSchemaWeirdCase
 from ticdat.testing.ticdattestutils import  netflowSchema, firesException, copyDataDietWeirdCase
 from ticdat.testing.ticdattestutils import sillyMeData, sillyMeSchema, sillyMeDataTwoTables, fail_to_debugger
 from ticdat.testing.ticdattestutils import makeCleanDir, dietSchemaWeirdCase2, copyDataDietWeirdCase2, makeCleanPath
+from ticdat.testing.ticdattestutils import flagged_as_run_alone
+
 import unittest
 from ticdat.jsontd import _can_unit_test, json
 import datetime
@@ -230,6 +233,7 @@ class TestJson(unittest.TestCase):
         dat_1 = tdf.json.create_tic_dat(file_one)
         self.assertFalse(tdf._same_data(dat, dat_1))
 
+
     def test_parameters(self):
         path = os.path.join(_scratchDir, "parameters.json")
         tdf = TicDatFactory(parameters=[["Key"], ["Value"]])
@@ -239,6 +243,15 @@ class TestJson(unittest.TestCase):
         tdf.json.write_file(dat, path)
         dat_ = tdf.json.create_tic_dat(path)
         self.assertTrue(tdf._same_data(dat, dat_))
+        tdf2 = TicDatFactory(parameters=[["Key"], ["Value"]])
+        pdf = PanDatFactory(parameters=[["Key"], ["Value"]])
+        dat = tdf.TicDat(parameters = [["Something", 2]])
+        dat_ = tdf2.json.create_tic_dat(tdf.json.write_file(dat, ""))
+        self.assertTrue(tdf._same_data(dat, dat_))
+        dat_2 = pdf.copy_to_tic_dat(pdf.json.create_pan_dat(tdf.json.write_file(dat, "", to_pandas=True)))
+        self.assertTrue(tdf._same_data(dat, dat_2))
+
+
 
     def testDateTime(self):
         tdf = TicDatFactory(table_with_stuffs = [["field one"], ["field two"]],
