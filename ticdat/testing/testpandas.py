@@ -121,10 +121,8 @@ class TestPandas(unittest.TestCase):
                             for src, r in oldDat.nodes["Boston"].arcs_destination.items()))
         ticDat = tdf.copy_to_pandas(oldDat, drop_pk_columns=True)
         rebornTicDat = tdf.TicDat(**{t:getattr(ticDat, t) for t in tdf.all_tables})
-        # because we have single pk field tables, dropping the pk columns is probelmatic
-        self.assertFalse(tdf._same_data(rebornTicDat, oldDat))
+        self.assertTrue(tdf._same_data(rebornTicDat, oldDat))
 
-        # but with the default argument all is well
         ticDat = tdf.copy_to_pandas(oldDat)
         rebornTicDat = tdf.TicDat(**{t:getattr(ticDat, t) for t in tdf.all_tables})
         self.assertTrue(tdf._same_data(rebornTicDat, oldDat))

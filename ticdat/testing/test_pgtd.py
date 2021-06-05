@@ -191,12 +191,9 @@ class TestPostres(unittest.TestCase):
         pgtf.write_data(pan_dat, self.engine, test_schema)
         pg_pan_dat = pgtf.create_pan_dat(self.engine, test_schema)
         self.assertTrue(pdf._same_data(pan_dat, pg_pan_dat))
-        from ticdat.pandatfactory import _faster_df_apply
-        pan_dat.categories["Max Nutrition"] = _faster_df_apply(pan_dat.categories,
+        pan_dat.categories["Max Nutrition"] = utils.faster_df_apply(pan_dat.categories,
                                                                lambda row: numpy.int64(row["Max Nutrition"]))
-        pan_dat.foods["Cost"] = _faster_df_apply(pan_dat.foods, lambda row: numpy.float64(row["Cost"]))
-        from framework_utils.helper_utils import memo
-        memo(pan_dat)
+        pan_dat.foods["Cost"] = utils.faster_df_apply(pan_dat.foods, lambda row: numpy.float64(row["Cost"]))
         pgtf.write_data(pan_dat, self.engine, test_schema)
         pg_pan_dat = pgtf.create_pan_dat(self.engine, test_schema)
         self.assertTrue(pdf._same_data(pan_dat, pg_pan_dat))
