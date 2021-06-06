@@ -7,7 +7,7 @@ import json
 import uuid
 import os
 from ticdat.utils import freezable_factory, verify, case_space_to_pretty, pd, TicDatError, FrozenDict, all_fields
-from ticdat.utils import all_underscore_replacements, stringish, dictish, containerish, debug_break
+from ticdat.utils import all_underscore_replacements, stringish, dictish, containerish, debug_break, faster_df_apply
 from itertools import product, chain
 from collections import defaultdict
 import inspect
@@ -183,7 +183,6 @@ class JsonPanFactory(freezable_factory(object, "_isFrozen")):
                                  len(set(self.pan_dat_factory.all_tables)) == \
                                  len(set(map(case_space_to_pretty, self.pan_dat_factory.all_tables)))
         rtn = {}
-        from ticdat.pandatfactory import _faster_df_apply
         for t in self.pan_dat_factory.all_tables:
             df = getattr(pan_dat, t).copy(deep=True).replace(float("inf"), infinity_flagging_str).\
                  replace(-float("inf"), f"-{infinity_flagging_str}")
@@ -197,7 +196,7 @@ class JsonPanFactory(freezable_factory(object, "_isFrozen")):
                         if pd.isnull(row[f]):
                             return None
                         return row[f]
-                    df[f] = _faster_df_apply(df, fixed)
+                    df[f] = faster_df_apply(df, fixed)
             k = case_space_to_pretty(t) if case_space_table_names else t
             rtn[k] = json.loads(df.to_json(path_or_buf=None, orient=orient, **kwargs).
                                 replace(f'"{infinity_flagging_str}"', "Infinity").replace(

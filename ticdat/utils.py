@@ -29,6 +29,21 @@ except:
     drm = None
 import inspect
 
+def faster_df_apply(df, func, trip_wire_check=None):
+    cols = list(df.columns)
+    data, index = [], []
+    for row in df.itertuples(index=True):
+        row_dict = {f:v for f,v in zip(cols, row[1:])}
+        data.append(func(row_dict))
+        index.append(row[0])
+        if trip_wire_check:
+            new_func = trip_wire_check(data[-1])
+            if new_func:
+                func = new_func
+                trip_wire_check = None
+    # will default to float for empty Series, like original pandas
+    return pd.Series(data, index=index, **({"dtype": numpy.float64} if not data else {}))
+
 def dat_restricted(table_list):
     '''
     Decorator factory used to decorate action functions (or solve function) to restrict the access to the

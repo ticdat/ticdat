@@ -722,14 +722,20 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
                         v = DataFrame(v)
                         v.rename(columns = {v.columns[0] : superself.data_fields[t][0]}, inplace=True)
                     if DataFrame and isinstance(v, DataFrame):
-                      row_dict = lambda r : {df:r[df] for df in superself.data_fields.get(t, ())}
+                      apply = utils.faster_df_apply
                       setattr(self, t, ticdattablefactory(self._all_data_dicts, t)())
-                      if superself.primary_key_fields.get(t) :
-                          def add_row(r):
-                              getattr(self, t)[r.name] = row_dict(r)
-                          v.apply(add_row, axis=1)
+                      _rd_ = lambda row_dict: {k: row_dict[k] for k in superself.data_fields.get(t, [])}
+                      if superself.primary_key_fields.get(t):
+                          if not set(superself.primary_key_fields[t]).issubset(v.columns):
+                              v = v.reset_index(drop=False)
+                          key_maker = (lambda rd: rd[superself.primary_key_fields[t][0]]) \
+                                      if len(superself.primary_key_fields[t]) == 1 else  \
+                                      (lambda rd: tuple(rd[_] for _ in superself.primary_key_fields[t]))
+                          def add_row(row_dict):
+                              getattr(self, t)[key_maker(row_dict)] = _rd_(row_dict)
+                          apply(v, add_row)
                       else :
-                          v.apply(lambda r : getattr(self, t).append(row_dict(r)), axis=1)
+                          apply(v, lambda row_dict: getattr(self, t).append(_rd_(row_dict)))
                     elif superself.primary_key_fields.get(t) and not utils.dictish(v):
                          pklen = len(superself.primary_key_fields[t])
                          def handle_row_dict(r):
@@ -1080,11 +1086,12 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
                 bad_message_handler("%s has the string 'name' as part of a multi-field "%table_name +
                                     "primary key and thus cannot be populated with a DataFrame")
                 return False
-            if pks and (pks != utils.safe_apply(lambda : tuple(data_table.index.names))()) :
-                bad_message_handler("Could not find a pandas index matching the primary key for %s"%table_name)
-                return False
-            if not set(data_table.columns).issuperset(self.data_fields.get(table_name, ())) :
+            if not set(data_table.columns).issuperset(self.data_fields.get(table_name, ())):
                 bad_message_handler("Could not find pandas columns for all the data fields for %s"%table_name)
+                return False
+            if pks and (pks != utils.safe_apply(lambda : tuple(data_table.index.names))()) and \
+                not set(data_table.columns).issuperset(pks):
+                bad_message_handler("Unable to find pandas column nor index matching the primary key for %s"%table_name)
                 return False
             return True
         if self.primary_key_fields.get(table_name):

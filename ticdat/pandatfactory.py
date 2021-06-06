@@ -23,27 +23,12 @@ except:
 
 pd, DataFrame = utils.pd, utils.DataFrame # if pandas not installed will be falsey
 
-def _faster_df_apply(df, func, trip_wire_check=None):
-    cols = list(df.columns)
-    data, index = [], []
-    for row in df.itertuples(index=True):
-        row_dict = {f:v for f,v in zip(cols, row[1:])}
-        data.append(func(row_dict))
-        index.append(row[0])
-        if trip_wire_check:
-            new_func = trip_wire_check(data[-1])
-            if new_func:
-                func = new_func
-                trip_wire_check = None
-    # will default to float for empty Series, like original pandas
-    return pd.Series(data, index=index, **({"dtype": numpy.float64} if not data else {}))
-
 def _is_last_rows_all_nan(df, last_rows):
     assert last_rows > 0
     # quick last row check to make faster
     all_nan_row =  lambda row: all(map(pd.isnull, row.values()))
-    return _faster_df_apply(df.tail(1), all_nan_row).all() and \
-           _faster_df_apply(df.tail(last_rows), all_nan_row,
+    return utils.faster_df_apply(df.tail(1), all_nan_row).all() and \
+           utils.faster_df_apply(df.tail(last_rows), all_nan_row,
                             trip_wire_check=lambda x: all_nan_row if x else lambda row: False).all()
 
 def _find_number_all_nan_last_rows(df, min_rtn, max_rtn):
@@ -300,7 +285,7 @@ class PanDatFactory(object):
         :param json_read: special 'None'->None override needed for pandas json reader
         '''
         assert push_parameters_to_be_valid or not json_read, "json_read should always push_parameters_to_be_valid"
-        apply = _faster_df_apply
+        apply = utils.faster_df_apply
         for t in set(self.all_tables).difference(["parameters"]): # parameters table is handled differently
             df = getattr(dat, t)
             for f in self.primary_key_fields.get(t, ()) + self.data_fields.get(t, ()):
@@ -353,7 +338,7 @@ class PanDatFactory(object):
                 if number_v is not None and safe_apply(int)(number_v) == number_v:
                     number_v = int(number_v)
                 return value if number_v is None else number_v
-            dat.parameters[val_fld] = _faster_df_apply(dat.parameters, lambda row: fix_value(row))
+            dat.parameters[val_fld] = utils.faster_df_apply(dat.parameters, lambda row: fix_value(row))
         return dat
     def _pre_write_adjustment(self, dat):
         '''
@@ -372,11 +357,11 @@ class PanDatFactory(object):
         rtn = self.copy_pan_dat(rtn) # deep copy so data changes don't side effect
         if self.parameters: # Assuming a parameters table without parameters specification is just a naive developer
             fld = self.data_fields["parameters"][0]
-            rtn.parameters[fld] = _faster_df_apply(rtn.parameters,
+            rtn.parameters[fld] = utils.faster_df_apply(rtn.parameters,
                                                    lambda row: None if isnull(row[fld]) else row[fld])
         if self.infinity_io_flag == "N/A":
             return rtn
-        apply = _faster_df_apply
+        apply = utils.faster_df_apply
         for t in set(self.all_tables).difference(["parameters"]): # parameters table is handled differently
             df = getattr(rtn, t)
             for f in self.primary_key_fields.get(t, ()) + self.data_fields.get(t, ()):
@@ -794,6 +779,10 @@ class PanDatFactory(object):
                            "Failed to provide a valid DataFrame or DataFrame construction argument for %s"%t)
                     setattr(self, t, tbl.copy())
                     df = getattr(self, t)
+                    pks = superself.primary_key_fields.get(t, ())
+                    if pks and not set(pks).intersection(df.columns) and \
+                       set(pks) == utils.safe_apply(lambda: set(df.index.names))():
+                        df.reset_index(drop=False, inplace=True)
                     if list(df.columns) == list(range(len(df.columns))) and \
                        len(df.columns) >= len(superself._all_fields(t)):
                         df.rename(columns={f1:f2 for f1, f2 in zip(df.columns, superself._all_fields(t))},
@@ -894,8 +883,6 @@ class PanDatFactory(object):
         tdf = TicDatFactory(**sch)
         def df(t):
             rtn = getattr(pan_dat, t)
-            if self.primary_key_fields.get(t, ()):
-                return rtn.set_index(list(self.primary_key_fields[t]), drop=False)
             if t in self.generic_tables and not keep_generics_as_df:
                 return list(map(list, rtn.itertuples(index=False)))
             return rtn
@@ -973,7 +960,7 @@ class PanDatFactory(object):
                 def bad_row(row):
                     data = row[field]
                     return not data_type.valid_data(None if isnull(data) else data)
-                where_bad_rows = _faster_df_apply(_table, bad_row, trip_wire_check=check_too_many)
+                where_bad_rows = utils.faster_df_apply(_table, bad_row, trip_wire_check=check_too_many)
                 if where_bad_rows.any():
                     rtn[TableField(table, field)] = _table[where_bad_rows].copy() if as_table else where_bad_rows
                 if number_failures[0] >= max_failures:
@@ -1075,15 +1062,15 @@ class PanDatFactory(object):
         number_failures = [0]
         check_too_many_bool = check_too_many_msg = None
         if max_failures < float("inf"):
-            def check_too_many_bool(is_bad_row):  # here _faster_df_apply is applying a function that
+            def check_too_many_bool(is_bad_row):  # here faster_df_apply is applying a function that
                 if is_bad_row:  # returns True when the row is bad and False o/wise (the boolean reverse of the
                     number_failures[0] += 1 # of the row predicate)
                     if number_failures[0] >= max_failures:  # all future rows will be good
                         return lambda row: False  # which in this context is not bad (i.e. False)
 
-            def check_too_many_msg(true_or_msg):  # here _faster_df_apply is applying a function that
+            def check_too_many_msg(true_or_msg):  # here faster_df_apply is applying a function that
                 if true_or_msg is not True:  # returns True when the row is good and a string o/wise
-                    number_failures[0] += 1  # (i.e. _faster_df_applyu is using the actual row predicate)
+                    number_failures[0] += 1  # (i.e. faster_df_applyu is using the actual row predicate)
                     if number_failures[0] >= max_failures:  # all future rows will be good
                         return lambda row: True  # which in this context is True
 
@@ -1143,7 +1130,7 @@ class PanDatFactory(object):
                         bad_row = (lambda row: not rpi.predicate(row, **predicate_kwargs)) \
                                   if exception_handling == "Unhandled" else (lambda row: not _p(row))
 
-                        where_bad_rows = _faster_df_apply(_table, bad_row, trip_wire_check=check_too_many_bool)
+                        where_bad_rows = utils.faster_df_apply(_table, bad_row, trip_wire_check=check_too_many_bool)
                         if where_bad_rows.any():
                             rtn[TPN(tbl, pn)] = _table[where_bad_rows].copy() if as_table else where_bad_rows
                     else:
@@ -1154,7 +1141,7 @@ class PanDatFactory(object):
                                 return f"Exception<{e}>"
                         predicate = (lambda row: rpi.predicate(row, **predicate_kwargs)) \
                                     if exception_handling == "Unhandled" else (lambda row: _p(row))
-                        predicate_result = _faster_df_apply(_table, predicate, trip_wire_check=check_too_many_msg)
+                        predicate_result = utils.faster_df_apply(_table, predicate, trip_wire_check=check_too_many_msg)
                         where_bad_rows = predicate_result.apply(lambda x: x is not True)
                         if where_bad_rows.any():
                             if as_table:
@@ -1254,8 +1241,8 @@ class PanDatFactory(object):
                 # I'm casting to list here because child is a copy that doesn't have the original index
                 # This is fixable, (i.e. we could return a Series with an index matching the original child table)
                 # but the fix isn't high priority.
-                rtn[fk] = list(_faster_df_apply(child, lambda row: row[magic_field*2] in bad_rows,
-                                                trip_wire_check=check_too_many))
+                rtn[fk] = list(utils.faster_df_apply(child, lambda row: row[magic_field*2] in bad_rows,
+                                                     trip_wire_check=check_too_many))
                 if number_failures[0] >= max_failures:
                     return rtn
         return rtn

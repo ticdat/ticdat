@@ -5,7 +5,7 @@ import ticdat.utils as utils
 from ticdat.testing.ticdattestutils import fail_to_debugger, flagged_as_run_alone, netflowPandasData
 from ticdat.testing.ticdattestutils import netflowSchema, copy_to_pandas_with_reset, dietSchema, netflowData
 from ticdat.testing.ticdattestutils import addNetflowForeignKeys, sillyMeSchema, dietData, pan_dat_maker
-from ticdat.testing.ticdattestutils import addDietForeignKeys
+from ticdat.testing.ticdattestutils import addDietForeignKeys, dietData
 from ticdat.ticdatfactory import TicDatFactory
 import itertools
 from math import isnan
@@ -21,6 +21,25 @@ def _deep_anonymize(x)  :
 #@fail_to_debugger
 class TestUtils(unittest.TestCase):
     canRun = False
+
+    def testCopying(self):
+        tdf = TicDatFactory(**dietSchema())
+        pdf = PanDatFactory(**dietSchema())
+        dat = tdf.copy_tic_dat(dietData())
+        def make_pan_dat(reset_index):
+            rtn = tdf.copy_to_pandas(dat, reset_index=reset_index)
+            return pdf.PanDat(**{k: getattr(rtn, k) for k in tdf.all_tables})
+        dat2 = pdf.copy_to_tic_dat(make_pan_dat(False))
+        dat3 = pdf.copy_to_tic_dat(tdf.copy_to_pandas(dat, reset_index=True))
+        self.assertTrue(tdf._same_data(dat, dat2))
+        self.assertTrue(tdf._same_data(dat, dat3))
+        def make_tic_dat_dat(reset_index):
+            rtn = tdf.copy_to_pandas(dat, reset_index=reset_index)
+            return tdf.TicDat(**{k: getattr(rtn, k) for k in tdf.all_tables})
+        dat2 = make_tic_dat_dat(False)
+        dat3 = make_tic_dat_dat(True)
+        self.assertTrue(tdf._same_data(dat, dat2))
+        self.assertTrue(tdf._same_data(dat, dat3))
 
     def testSimple(self):
         if not self.canRun:
