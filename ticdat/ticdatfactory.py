@@ -1086,11 +1086,12 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
                 bad_message_handler("%s has the string 'name' as part of a multi-field "%table_name +
                                     "primary key and thus cannot be populated with a DataFrame")
                 return False
-            if pks and (pks != utils.safe_apply(lambda : tuple(data_table.index.names))()) :
-                bad_message_handler("Could not find a pandas index matching the primary key for %s"%table_name)
-                return False
-            if not set(data_table.columns).issuperset(self.data_fields.get(table_name, ())) :
+            if not set(data_table.columns).issuperset(self.data_fields.get(table_name, ())):
                 bad_message_handler("Could not find pandas columns for all the data fields for %s"%table_name)
+                return False
+            if pks and (pks != utils.safe_apply(lambda : tuple(data_table.index.names))()) and \
+                not set(data_table.columns).issuperset(pks):
+                bad_message_handler("Unable to find pandas column nor index matching the primary key for %s"%table_name)
                 return False
             return True
         if self.primary_key_fields.get(table_name):

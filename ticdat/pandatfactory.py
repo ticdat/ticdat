@@ -779,6 +779,10 @@ class PanDatFactory(object):
                            "Failed to provide a valid DataFrame or DataFrame construction argument for %s"%t)
                     setattr(self, t, tbl.copy())
                     df = getattr(self, t)
+                    pks = superself.primary_key_fields.get(t, ())
+                    if pks and not set(pks).intersection(df.columns) and \
+                       set(pks) == utils.safe_apply(lambda: set(df.index.names))():
+                        df.reset_index(drop=False, inplace=True)
                     if list(df.columns) == list(range(len(df.columns))) and \
                        len(df.columns) >= len(superself._all_fields(t)):
                         df.rename(columns={f1:f2 for f1, f2 in zip(df.columns, superself._all_fields(t))},
@@ -879,8 +883,6 @@ class PanDatFactory(object):
         tdf = TicDatFactory(**sch)
         def df(t):
             rtn = getattr(pan_dat, t)
-            if self.primary_key_fields.get(t, ()):
-                return rtn.set_index(list(self.primary_key_fields[t]), drop=False)
             if t in self.generic_tables and not keep_generics_as_df:
                 return list(map(list, rtn.itertuples(index=False)))
             return rtn
