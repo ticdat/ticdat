@@ -1,5 +1,5 @@
 #
-# Solve a multi-commodity flow problem as python package.
+# Solve a multi-commodity flow problem.
 #
 # Implement core functionality needed to achieve modularity.
 # 1. Define the input data schema

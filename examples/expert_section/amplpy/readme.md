@@ -1,4 +1,4 @@
-Repository for amplpy examples.
+Repository for `amplpy` examples.
 
 ---
 
@@ -7,7 +7,7 @@ Repository for amplpy examples.
 While the `amplpy` package is itself very professional, as of this writing, AMPL digital rights management is quite
 primitive. It is far below the level of sophistication of what `gurobipy` allows you to do with a `gurobi.lic` file.
 Until AMPL upgrades their DRM code, you will likely end up using `amplpy` exclusively to write Python code that 
-has serious portability problems due to AMPL's primitive DRM. Such problems will likely render your `amplpy`
+has serious portability problems due to AMPL's primitive licensing technology. Such problems will likely render your `amplpy`
 based work incompatible with modern cloud based architectures. 
 
 Feel free to prove me wrong, however. I am only relaying my unhappy experience trying to help AMPL join the 21st century.
