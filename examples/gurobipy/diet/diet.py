@@ -21,9 +21,9 @@
 # this version of the file uses Gurobi
 
 try: # if you don't have gurobipy installed, the code will still load and then fail on solve
-    import gurobipy as gu
+    import gurobipy as gp
 except:
-    gu = None
+    gp = None
 
 from ticdat import TicDatFactory, standard_main
 
@@ -80,9 +80,9 @@ def solve(dat):
     assert not input_schema.find_data_type_failures(dat)
     assert not input_schema.find_data_row_failures(dat)
 
-    if gu is None: # even if you don't have gurobipy installed, you can still import this file for other uses
+    if gp is None: # even if you don't have gurobipy installed, you can still import this file for other uses
         print("*****\ngurobipy needs to be installed for this example code to solve!\n*****\n")
-    mdl = gu.Model("diet")
+    mdl = gp.Model("diet")
 
     nutrition = {c:mdl.addVar(lb=n["Min Nutrition"], ub=n["Max Nutrition"], name=c)
                 for c,n in dat.categories.items()}
@@ -92,15 +92,15 @@ def solve(dat):
 
      # Nutrition constraints
     for c in dat.categories:
-        mdl.addConstr(gu.quicksum(dat.nutrition_quantities[f,c]["Quantity"] * buy[f]
-                      for f in dat.foods) == nutrition[c],
+        mdl.addConstr(gp.quicksum(dat.nutrition_quantities[f, c]["Quantity"] * buy[f]
+                                  for f in dat.foods) == nutrition[c],
                       name = c)
 
-    mdl.setObjective(gu.quicksum(buy[f] * c["Cost"] for f,c in dat.foods.items()),
-                     sense=gu.GRB.MINIMIZE)
+    mdl.setObjective(gp.quicksum(buy[f] * c["Cost"] for f, c in dat.foods.items()),
+                     sense=gp.GRB.MINIMIZE)
     mdl.optimize()
 
-    if mdl.status == gu.GRB.OPTIMAL:
+    if mdl.status == gp.GRB.OPTIMAL:
         sln = solution_schema.TicDat()
         for f,x in buy.items():
             if x.x > 0:
