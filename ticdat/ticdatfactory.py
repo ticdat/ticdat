@@ -708,6 +708,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
                 superself._trigger_has_been_used()
                 self._all_data_dicts = []
                 self._made_foreign_links = False
+                lens = {t: l for t, v in init_tables.items() for l in [utils.safe_apply(len)(v)] if l is not None}
                 for t in init_tables :
                     verify(t in superself.all_tables, "Unexpected table name %s"%t)
                     if t in superself.generic_tables:
@@ -773,6 +774,8 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
                         setattr(self, t, ticdattablefactory(self._all_data_dicts, t)())
                 if init_tables :
                     self._try_make_foreign_links()
+                if any(v > (l or 0) for k, v in lens.items() for l in [utils.safe_apply(len)(getattr(self, k))]):
+                    print("--> Warning: Some rows have been lost due to duplicate rows passed to TicDat.__init__")
             def _try_make_foreign_links(self):
                 if not superself._foreign_key_links_enabled:
                     return
