@@ -84,11 +84,11 @@ def solve(dat):
         print("*****\ngurobipy needs to be installed for this example code to solve!\n*****\n")
     mdl = gp.Model("diet")
 
-    nutrition = {c:mdl.addVar(lb=n["Min Nutrition"], ub=n["Max Nutrition"], name=c)
+    nutrition = {c: mdl.addVar(lb=n["Min Nutrition"], ub=n["Max Nutrition"], name=c)
                 for c,n in dat.categories.items()}
 
     # Create decision variables for the foods to buy
-    buy = {f:mdl.addVar(name=f) for f in dat.foods}
+    buy = {f: mdl.addVar(name=f) for f in dat.foods}
 
      # Nutrition constraints
     for c in dat.categories:
