@@ -30,9 +30,9 @@ from ticdat import TicDatFactory, standard_main
 # ------------------------ define the input schema --------------------------------
 # There are three input tables, with 4 primary key fields and 4 data fields.
 input_schema = TicDatFactory (
-    categories = [["Name"],["Min Nutrition", "Max Nutrition"]],
-    foods  = [["Name"],["Cost"]],
-    nutrition_quantities = [["Food", "Category"], ["Quantity"]])
+    categories=[["Name"], ["Min Nutrition", "Max Nutrition"]],
+    foods=[["Name"], ["Cost"]],
+    nutrition_quantities=[["Food", "Category"], ["Quantity"]])
 
 # Define the foreign key relationships
 input_schema.add_foreign_key("nutrition_quantities", "foods", ["Food", "Name"])
@@ -62,9 +62,9 @@ input_schema.set_default_value("categories", "Max Nutrition", float("inf"))
 # ------------------------ define the output schema -------------------------------
 # There are three solution tables, with 3 primary key fields and 3 data fields.
 solution_schema = TicDatFactory(
-    parameters = [["Parameter"],["Value"]],
-    buy_food = [["Food"],["Quantity"]],
-    consume_nutrition = [["Category"],["Quantity"]])
+    parameters=[["Parameter"], ["Value"]],
+    buy_food=[["Food"], ["Quantity"]],
+    consume_nutrition=[["Category"], ["Quantity"]])
 # ---------------------------------------------------------------------------------
 
 
@@ -85,7 +85,7 @@ def solve(dat):
     mdl = gp.Model("diet")
 
     nutrition = {c: mdl.addVar(lb=n["Min Nutrition"], ub=n["Max Nutrition"], name=c)
-                for c,n in dat.categories.items()}
+                for c, n in dat.categories.items()}
 
     # Create decision variables for the foods to buy
     buy = {f: mdl.addVar(name=f) for f in dat.foods}
@@ -94,7 +94,7 @@ def solve(dat):
     for c in dat.categories:
         mdl.addConstr(gp.quicksum(dat.nutrition_quantities[f, c]["Quantity"] * buy[f]
                                   for f in dat.foods) == nutrition[c],
-                      name = c)
+                      name=c)
 
     mdl.setObjective(gp.quicksum(buy[f] * c["Cost"] for f, c in dat.foods.items()),
                      sense=gp.GRB.MINIMIZE)
@@ -108,7 +108,7 @@ def solve(dat):
         for c,x in nutrition.items():
             sln.consume_nutrition[c] = x.x
         sln.parameters['Total Cost'] = sum(dat.foods[f]["Cost"] * r["Quantity"]
-                                           for f,r in sln.buy_food.items())
+                                           for f, r in sln.buy_food.items())
         return sln
 # ---------------------------------------------------------------------------------
 
