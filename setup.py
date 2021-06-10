@@ -12,7 +12,7 @@ setup(
 	long_description_content_type='text/markdown',
 	license = 'BSD 2-Clause',
 	author = 'Pete Cacioppi',
-	author_email= 'peter.cacioppi@opexanalytics.com',
+	author_email= 'peter.cacioppi@gmail.com',
 	maintainer_email = '12samn@gmail.com',
 	url = 'https://github.com/ticdat/ticdat/',
 	classifiers = [
