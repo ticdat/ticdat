@@ -153,7 +153,8 @@ class JsonPanFactory(freezable_factory(object, "_isFrozen")):
         :param case_space_table_names: boolean - make best guesses how to add spaces and upper case
                                        characters to table names
 
-        :param orient: Indication of expected JSON string format. See pandas.to_json for more details.
+        :param orient: Passed through to pandas.to_json. Default of "split", combined with index=False, writes
+                       a smaller json file.
 
         :param index: boolean - whether or not to write the index.
 
