@@ -387,11 +387,8 @@ class TestIO(unittest.TestCase):
         panDat3.foods.drop("extra", axis=1, inplace=True)
         self.assertTrue(pdf._same_data(panDat, panDat3, epsilon=1e-5))
 
-        panDat3 = pdf3.json.create_pan_dat(pdf.json.write_file(panDat, ""), fill_missing_fields=True)
-        self.assertTrue(set(panDat3.foods["extra"]) == {13})
-        panDat3.foods.drop("extra", axis=1, inplace=True)
-        self.assertTrue(pdf._same_data(panDat, panDat3, epsilon=1e-5))
-
+        # the list-of-lists json doesn't add columns, it just throws an error - test this and verify
+        # that TicDatFactory is same
 
     def testSqlSimple(self):
         if not self.can_run:
@@ -588,7 +585,7 @@ class TestIO(unittest.TestCase):
             getattr(pdf.json, func)(panDat, filePath)
             panDat2 = pdf.json.create_pan_dat(filePath)
             self.assertTrue(pdf._same_data(panDat, panDat2, epsilon=1e-5))
-            pdf2 = PanDatFactory(**{t:'*' for t in pdf.all_tables})
+            pdf2 = PanDatFactory(**{t:'*' for t in pdf.all_tables}) if func == "write_file_pd" else pdf
             getattr(pdf.json, func)(panDat, filePath)
             panDat2 = pdf2.json.create_pan_dat(filePath)
             self.assertTrue(pdf._same_data(panDat, panDat2, epsilon=1e-5))
@@ -614,7 +611,7 @@ class TestIO(unittest.TestCase):
             dicted = json.loads(getattr(pdf.json, func)(panDat, ""))
             panDat4 = pdf.PanDat(**dicted)
             self.assertTrue(pdf._same_data(panDat, panDat4))
-            pdf2 = PanDatFactory(**{t:'*' for t in pdf.all_tables})
+            pdf2 = PanDatFactory(**{t:'*' for t in pdf.all_tables}) if func == "write_file_pd" else pdf
             panDat5 = pdf2.PanDat(**dicted)
             self.assertTrue(pdf._same_data(panDat, panDat5))
 
