@@ -140,10 +140,13 @@ class JsonPanFactory(freezable_factory(object, "_isFrozen")):
             else:
                 rtn.pop(table)
         return rtn
-    def write_file(self, pan_dat, json_file_path, case_space_table_names=False, orient='split',
+    def write_file_pd(self, pan_dat, json_file_path, case_space_table_names=False, orient='split',
                    index=False, indent=2, sort_keys=False, **kwargs):
         """
-        write the PanDat data to a json file (or json string)
+        write the PanDat data to a json file (or json string).
+        Use this routine to write json text that is consistent with what pandas.to_json.
+        The list-of-lists format is created with write_file. In older ticdat releases, write_file
+        implemented the functionaltiy now provided with write_file_pd.
 
         :param pan_dat: the PanDat object to write
 
