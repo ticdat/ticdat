@@ -10,6 +10,7 @@ from ticdat.utils import freezable_factory, verify, case_space_to_pretty, pd, Ti
 from ticdat.utils import all_underscore_replacements, stringish, dictish, containerish, debug_break, faster_df_apply
 from itertools import product, chain
 from collections import defaultdict
+import datetime
 import inspect
 try:
     import numpy
@@ -140,6 +141,34 @@ class JsonPanFactory(freezable_factory(object, "_isFrozen")):
             else:
                 rtn.pop(table)
         return rtn
+    def write_file(self, pan_dat, json_file_path):
+        """
+        :param pan_dat:
+        :param json_file_path:
+        :return:
+        """
+        msg = []
+        verify(self.pan_dat_factory.good_pan_dat_object(pan_dat, msg.append),
+               "pan_dat not a good object for this factory : %s"%"\n".join(msg))
+        pan_dat = self.pan_dat_factory._pre_write_adjustment(pan_dat)
+        jdict = {}
+        def fix_cell(x):
+            if isinstance(x, (pd.Timestamp, numpy.datetime64, datetime.datetime)):
+                return str(x)
+            if pd.isnull(x):
+                return None
+            return x
+
+        for t, (pks, dfs) in self.pan_dat_factory.schema().items():
+            jdict[t] = []
+            def append_row_list(row):
+                jdict[t].append([fix_cell(row[f]) for f in pks + dfs])
+            faster_df_apply(getattr(pan_dat, t), append_row_list)
+        if not json_file_path:
+            return json.dumps(jdict, sort_keys=True, indent=2)
+        with open(json_file_path, "w") as fp:
+            json.dump(jdict, fp, sort_keys=True, indent=2)
+
     def write_file_pd(self, pan_dat, json_file_path, case_space_table_names=False, orient='split',
                    index=False, indent=2, sort_keys=False, **kwargs):
         """
