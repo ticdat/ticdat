@@ -151,9 +151,10 @@ class TestIO(unittest.TestCase):
         diet_pdf.sql.write_file(dat, core_path+".db")
         diet_pdf.csv.write_directory(dat, core_path+"_csv")
         diet_pdf.json.write_file_pd(dat, core_path+".json")
+        diet_pdf.json.write_file(dat, core_path+"2.json")
         diet_pdf.xls.write_file(dat, core_path+".xlsx")
         for attr, f in [["sql", core_path+".db"], ["csv", core_path+"_csv"], ["json", core_path+".json"],
-                        ["xls", core_path+".xlsx"]]:
+                        ["json", core_path+"2.json"], ["xls", core_path+".xlsx"]]:
             dat_1 = getattr(diet_pdf, attr).create_pan_dat(f)
             self.assertTrue(diet_pdf._same_data(dat, dat_1, epsilon=1e-5))
             pdf = diet_pdf.clone()
@@ -175,6 +176,7 @@ class TestIO(unittest.TestCase):
         for attr, path, func in [["sql", core_path+".db", "write_file"],
                            ["csv", core_path+"_csv", "write_directory"],
                            ["json", core_path+".json", "write_file_pd"],
+                           ["json", core_path + "2.json", "write_file"],
                            ["xls", core_path+".xlsx", "write_file"]]:
             getattr(getattr(pdf_1, attr), func)(dat, path)
             dat_1 = getattr(pdf_2, attr).create_pan_dat(path)
@@ -199,6 +201,7 @@ class TestIO(unittest.TestCase):
         for attr, path, func in [["sql", core_path+".db", "write_file"],
                            ["csv", core_path+"_csv", "write_directory"],
                            ["json", core_path+".json", "write_file_pd"],
+                           ["json", core_path + "2.json", "write_file"],
                            ["xls", core_path+".xlsx", "write_file"]]:
             getattr(getattr(pdf, attr), func)(dat, path)
             dat_1 = getattr(pdf, attr).create_pan_dat(path)
@@ -237,6 +240,7 @@ class TestIO(unittest.TestCase):
         for attr, path, func in [["sql", core_path+".db", "write_file"],
                            ["csv", core_path+"_csv", "write_directory"],
                            ["json", core_path+".json", "write_file_pd"],
+                           ["json", core_path + "2.json", "write_file"],
                            ["xls", core_path+".xlsx", "write_file"]]:
             getattr(getattr(pdf, attr), func)(dat, path)
             dat_1 = getattr(pdf, attr).create_pan_dat(path)
@@ -247,6 +251,7 @@ class TestIO(unittest.TestCase):
         for attr, path, func in [["sql", core_path+".db", "write_file"],
                            ["csv", core_path+"_csv", "write_directory"],
                            ["json", core_path+".json", "write_file_pd"],
+                           ["json", core_path + "2.json", "write_file"],
                            ["xls", core_path+".xlsx", "write_file"]]:
             getattr(getattr(pdf, attr), func)(dat, path)
             dat_1 = getattr(pdf, attr).create_pan_dat(path)
@@ -265,6 +270,7 @@ class TestIO(unittest.TestCase):
         for attr, path, func in [["sql", core_path+".db", "write_file"],
                                  ["csv", core_path+"_csv", "write_directory"],
                                  ["json", core_path+".json", "write_file_pd"],
+                                 ["json", core_path + "2.json", "write_file"],
                                  ["xls", core_path+".xlsx", "write_file"]]:
             getattr(getattr(pdf, attr), func)(dat, path)
             dat_1 = getattr(pdf, attr).create_pan_dat(path)
@@ -336,6 +342,8 @@ class TestIO(unittest.TestCase):
         self.assertTrue("missing" in ex and "extra" in ex)
         ex = self.firesException(lambda : pdf2.json.create_pan_dat(pdf.json.write_file_pd(panDat, "")))
         self.assertTrue("missing" in ex and "extra" in ex)
+        ex = self.firesException(lambda : pdf2.json.create_pan_dat(pdf.json.write_file(panDat, "")))
+        self.assertTrue("missing" in ex and "extra" in ex)
 
         panDat2 = pdf2.sql.create_pan_dat(sqlFilePath, fill_missing_fields=True)
         self.assertTrue(set(panDat2.foods["extra"]) == {0})
@@ -375,6 +383,11 @@ class TestIO(unittest.TestCase):
         self.assertTrue(pdf._same_data(panDat, panDat3))
 
         panDat3 = pdf3.json.create_pan_dat(pdf.json.write_file_pd(panDat, ""), fill_missing_fields=True)
+        self.assertTrue(set(panDat3.foods["extra"]) == {13})
+        panDat3.foods.drop("extra", axis=1, inplace=True)
+        self.assertTrue(pdf._same_data(panDat, panDat3, epsilon=1e-5))
+
+        panDat3 = pdf3.json.create_pan_dat(pdf.json.write_file(panDat, ""), fill_missing_fields=True)
         self.assertTrue(set(panDat3.foods["extra"]) == {13})
         panDat3.foods.drop("extra", axis=1, inplace=True)
         self.assertTrue(pdf._same_data(panDat, panDat3, epsilon=1e-5))
@@ -566,43 +579,44 @@ class TestIO(unittest.TestCase):
     def testJsonSimple(self):
         if not self.can_run:
             return
-        tdf = TicDatFactory(**dietSchema())
-        pdf = PanDatFactory(**dietSchema())
-        ticDat = tdf.freeze_me(tdf.TicDat(**{t:getattr(dietData(),t) for t in tdf.primary_key_fields}))
-        panDat = pan_dat_maker(dietSchema(), ticDat)
-        filePath = os.path.join(_scratchDir, "diet.json")
-        pdf.json.write_file_pd(panDat, filePath)
-        panDat2 = pdf.json.create_pan_dat(filePath)
-        self.assertTrue(pdf._same_data(panDat, panDat2, epsilon=1e-5))
-        pdf2 = PanDatFactory(**{t:'*' for t in pdf.all_tables})
-        pdf2.json.write_file_pd(panDat, filePath)
-        panDat2 = pdf2.json.create_pan_dat(filePath)
-        self.assertTrue(pdf._same_data(panDat, panDat2, epsilon=1e-5))
+        for func in ["write_file", "write_file_pd"]:
+            tdf = TicDatFactory(**dietSchema())
+            pdf = PanDatFactory(**dietSchema())
+            ticDat = tdf.freeze_me(tdf.TicDat(**{t:getattr(dietData(),t) for t in tdf.primary_key_fields}))
+            panDat = pan_dat_maker(dietSchema(), ticDat)
+            filePath = os.path.join(_scratchDir, "diet.json")
+            getattr(pdf.json, func)(panDat, filePath)
+            panDat2 = pdf.json.create_pan_dat(filePath)
+            self.assertTrue(pdf._same_data(panDat, panDat2, epsilon=1e-5))
+            pdf2 = PanDatFactory(**{t:'*' for t in pdf.all_tables})
+            getattr(pdf.json, func)(panDat, filePath)
+            panDat2 = pdf2.json.create_pan_dat(filePath)
+            self.assertTrue(pdf._same_data(panDat, panDat2, epsilon=1e-5))
 
-        re_fielded_schema = {"categories" : (("name",),["maxNutrition", "minNutrition"]),
-     "foods" :[["name"],[]],
-     "nutritionQuantities" : (["food", "category"], ["qty"])}
-        pdf3 = PanDatFactory(**re_fielded_schema)
-        panDat3 = pdf3.json.create_pan_dat(filePath)
-        for t, (pks, dfs) in re_fielded_schema.items():
-            self.assertTrue(list(pks) + list(dfs) == list(getattr(panDat3, t).columns))
+            re_fielded_schema = {"categories" : (("name",),["maxNutrition", "minNutrition"]),
+         "foods" :[["name"],[]],
+         "nutritionQuantities" : (["food", "category"], ["qty"])}
+            pdf3 = PanDatFactory(**re_fielded_schema)
+            panDat3 = pdf3.json.create_pan_dat(filePath)
+            for t, (pks, dfs) in re_fielded_schema.items():
+                self.assertTrue(list(pks) + list(dfs) == list(getattr(panDat3, t).columns))
 
-        tdf = TicDatFactory(**netflowSchema())
-        pdf = PanDatFactory(**netflowSchema())
-        ticDat = tdf.freeze_me(tdf.TicDat(**{t:getattr(netflowData(),t) for t in tdf.primary_key_fields}))
-        panDat = pan_dat_maker(netflowSchema(), ticDat)
-        filePath = os.path.join(_scratchDir, "netflow.json")
-        pdf.json.write_file_pd(panDat, filePath)
-        panDat2 = pdf.json.create_pan_dat(filePath)
-        self.assertTrue(pdf._same_data(panDat, panDat2, epsilon=1e-5))
-        panDat3 = pdf.json.create_pan_dat(pdf.json.write_file_pd(panDat, ""))
-        self.assertTrue(pdf._same_data(panDat, panDat3))
-        dicted = json.loads(pdf.json.write_file_pd(panDat, ""))
-        panDat4 = pdf.PanDat(**dicted)
-        self.assertTrue(pdf._same_data(panDat, panDat4))
-        pdf2 = PanDatFactory(**{t:'*' for t in pdf.all_tables})
-        panDat5 = pdf2.PanDat(**dicted)
-        self.assertTrue(pdf._same_data(panDat, panDat5))
+            tdf = TicDatFactory(**netflowSchema())
+            pdf = PanDatFactory(**netflowSchema())
+            ticDat = tdf.freeze_me(tdf.TicDat(**{t:getattr(netflowData(),t) for t in tdf.primary_key_fields}))
+            panDat = pan_dat_maker(netflowSchema(), ticDat)
+            filePath = os.path.join(_scratchDir, "netflow.json")
+            getattr(pdf.json, func)(panDat, filePath)
+            panDat2 = pdf.json.create_pan_dat(filePath)
+            self.assertTrue(pdf._same_data(panDat, panDat2, epsilon=1e-5))
+            panDat3 = pdf.json.create_pan_dat(getattr(pdf.json, func)(panDat, ""))
+            self.assertTrue(pdf._same_data(panDat, panDat3))
+            dicted = json.loads(getattr(pdf.json, func)(panDat, ""))
+            panDat4 = pdf.PanDat(**dicted)
+            self.assertTrue(pdf._same_data(panDat, panDat4))
+            pdf2 = PanDatFactory(**{t:'*' for t in pdf.all_tables})
+            panDat5 = pdf2.PanDat(**dicted)
+            self.assertTrue(pdf._same_data(panDat, panDat5))
 
 
         tdf = TicDatFactory(**dietSchema())
@@ -624,17 +638,18 @@ class TestIO(unittest.TestCase):
     def testJsonCross(self):
         if not self.can_run:
             return
-        tdf = TicDatFactory(**dietSchema())
-        pdf = PanDatFactory(**dietSchema())
-        ticDat = tdf.freeze_me(tdf.TicDat(**{t: getattr(dietData(),t) for t in tdf.primary_key_fields}))
-        panDat = pan_dat_maker(dietSchema(), ticDat)
-        filePath = os.path.join(_scratchDir, "diet_cross.json")
-        pdf.json.write_file_pd(panDat, filePath)
-        ticDat2 = tdf.json.create_tic_dat(filePath, from_pandas=True)
-        self.assertTrue(tdf._same_data(ticDat, ticDat2, epsilon=0.0001))
-        tdf.json.write_file(ticDat, filePath, allow_overwrite=True, to_pandas=True)
-        panDat2 = pdf.json.create_pan_dat(filePath)
-        self.assertTrue(pdf._same_data(panDat, panDat2, epsilon=0.0001))
+        for func in ["write_file", "write_file_pd"]:
+            tdf = TicDatFactory(**dietSchema())
+            pdf = PanDatFactory(**dietSchema())
+            ticDat = tdf.freeze_me(tdf.TicDat(**{t: getattr(dietData(),t) for t in tdf.primary_key_fields}))
+            panDat = pan_dat_maker(dietSchema(), ticDat)
+            filePath = os.path.join(_scratchDir, "diet_cross.json")
+            getattr(pdf.json, func)(panDat, filePath)
+            ticDat2 = tdf.json.create_tic_dat(filePath, from_pandas=True)
+            self.assertTrue(tdf._same_data(ticDat, ticDat2, epsilon=0.0001))
+            tdf.json.write_file(ticDat, filePath, allow_overwrite=True, to_pandas=True)
+            panDat2 = pdf.json.create_pan_dat(filePath)
+            self.assertTrue(pdf._same_data(panDat, panDat2, epsilon=0.0001))
 
     def testJsonSpacey(self):
         if not self.can_run:

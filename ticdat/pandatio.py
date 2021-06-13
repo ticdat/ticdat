@@ -143,9 +143,15 @@ class JsonPanFactory(freezable_factory(object, "_isFrozen")):
         return rtn
     def write_file(self, pan_dat, json_file_path):
         """
-        :param pan_dat:
-        :param json_file_path:
-        :return:
+        Write the PanDat data to a json file (or json string). Writes each table as a list-of-lists.
+        See write_file_pd for other formats.
+
+        :param pan_dat: the PanDat object to write
+
+        :param json_file_path: the json file into which the data is to be written. If falsey, will return a
+                               JSON string
+
+        :return: A JSON string if json_file_path is falsey, otherwise None
         """
         msg = []
         verify(self.pan_dat_factory.good_pan_dat_object(pan_dat, msg.append),
