@@ -387,8 +387,12 @@ class TestIO(unittest.TestCase):
         panDat3.foods.drop("extra", axis=1, inplace=True)
         self.assertTrue(pdf._same_data(panDat, panDat3, epsilon=1e-5))
 
-        # the list-of-lists json doesn't add columns, it just throws an error - test this and verify
-        # that TicDatFactory is same
+        ex = []
+        try:
+            pdf3.json.create_pan_dat(pdf.json.write_file(panDat, ""), fill_missing_fields=True)
+        except utils.TicDatError as e:
+            ex.append(e)
+        self.assertTrue(ex)
 
     def testSqlSimple(self):
         if not self.can_run:

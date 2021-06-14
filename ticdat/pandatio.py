@@ -32,8 +32,7 @@ class _DummyContextManager(object):
     def __exit__(self, *excinfo) :
         pass
 
-def _clean_pandat_creator(pdf, df_dict, push_parameters_to_be_valid=True, json_read=False,
-                          print_missing_tables=False):
+def _clean_pandat_creator(pdf, df_dict, push_parameters_to_be_valid=True, json_read=False):
     # note that pandas built in IO routines tend to be a bit overy pushy with the typing, hence
     # the push_parameters_to_be_valid argument
     pandat = pdf.PanDat(**df_dict)
@@ -41,8 +40,6 @@ def _clean_pandat_creator(pdf, df_dict, push_parameters_to_be_valid=True, json_r
         flds = [f for f in chain(pdf.primary_key_fields[t], pdf.data_fields[t])]
         setattr(pandat, t, getattr(pandat, t)[flds])
     missing_tables = '\n'.join(sorted({t for t in pdf.all_tables if not len(getattr(pandat, t))}))
-    if missing_tables and print_missing_tables:
-        print(f"The following table names could not be found (or were empty).\n{missing_tables}\n")
     msg = []
     assert pdf.good_pan_dat_object(pandat, msg.append), str(msg)
     return pdf._general_post_read_adjustment(pandat, json_read=json_read,
@@ -76,7 +73,7 @@ class JsonPanFactory(freezable_factory(object, "_isFrozen")):
 
         :param fill_missing_fields: boolean. If truthy, missing fields will be filled in
                                     with their default value. Otherwise, missing fields
-                                    throw an Exception.
+                                    throw an Exception. Doesn't work with list-of-lists format.
 
         :param orient: Indication of expected JSON string format. See pandas.read_json for more details.
 
@@ -106,6 +103,9 @@ class JsonPanFactory(freezable_factory(object, "_isFrozen")):
         verify(dictish(loaded_dict), "the json.load result doesn't resolve to a dictionary")
         tbl_names = self._get_table_names(loaded_dict)
         if all(map(containerish, loaded_dict.values())) and not any(map(dictish, loaded_dict.values())):
+            if fill_missing_fields:
+                # there is no obvious assumption for which columns are being supplied and which are missing
+                print("fill_missing_fields isn't appropriate for list-of-lists format.")
             rtn ={k: loaded_dict[v] for k,v in tbl_names.items()}
         else:
             verify(all(map(dictish, loaded_dict.values())),
@@ -317,7 +317,7 @@ class CsvPanFactory(freezable_factory(object, "_isFrozen")):
         verify(fill_missing_fields or not missing_fields,
                "The following (table, file_name, field) triplets are missing fields.\n%s" %
                [(t, os.path.basename(tbl_names[t]), f) for t,f in missing_fields])
-        return _clean_pandat_creator(self.pan_dat_factory, rtn, print_missing_tables=True)
+        return _clean_pandat_creator(self.pan_dat_factory, rtn)
 
     def _get_table_names(self, dir_path):
         rtn = {}
@@ -560,7 +560,7 @@ class XlsPanFactory(freezable_factory(object, "_isFrozen")):
         verify(fill_missing_fields or not missing_fields,
                "The following are (table, field) pairs missing from the %s file.\n%s" % (xls_file_path, missing_fields))
         xl.close()
-        rtn = _clean_pandat_creator(self.pan_dat_factory, rtn, print_missing_tables=True)
+        rtn = _clean_pandat_creator(self.pan_dat_factory, rtn)
         if self.pan_dat_factory.xlsx_trailing_empty_rows == "prune":
             from ticdat.pandatfactory import remove_trailing_all_nan
             for t in self.pan_dat_factory.all_tables:
