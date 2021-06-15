@@ -33,4 +33,4 @@ tables in Python. There are two choices.
    
    The `expert_section/amplpy` directory demonstrates the `ticdat`  convenience functions that can help you
    use the AMPL programming language within a Python based engine. Unfortunately, such an approach is not currently 
-   recommended due to the primitive state of the AMPL licensing technology.
+   recommended due to the immature state of the AMPL licensing technology.
