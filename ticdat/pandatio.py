@@ -121,9 +121,11 @@ class JsonPanFactory(freezable_factory(object, "_isFrozen")):
             missing_fields = {(t, f) for t in rtn for f in all_fields(self.pan_dat_factory, t)
                               if f not in rtn[t].columns}
             if fill_missing_fields:
-                for t,f in missing_fields:
-                    rtn[t][f] = self.pan_dat_factory.default_values[t][f]
-            verify(fill_missing_fields or not missing_fields,
+                for t, f in list(missing_fields):
+                    if f in self.pan_dat_factory.default_values.get(t, {}):
+                        rtn[t][f] = self.pan_dat_factory.default_values[t][f]
+                        missing_fields.remove((t, f))
+            verify(not missing_fields,
                    "The following (table, field) pairs are missing fields.\n%s" % [(t, f) for t,f in missing_fields])
         missing_tables = sorted(set(self.pan_dat_factory.all_tables).difference(rtn))
         if missing_tables:
@@ -312,9 +314,11 @@ class CsvPanFactory(freezable_factory(object, "_isFrozen")):
         missing_fields = {(t, f) for t in rtn for f in all_fields(self.pan_dat_factory, t)
                           if f not in rtn[t].columns}
         if fill_missing_fields:
-            for t,f in missing_fields:
-                rtn[t][f] = self.pan_dat_factory.default_values[t][f]
-        verify(fill_missing_fields or not missing_fields,
+            for t, f in list(missing_fields):
+                if f in self.pan_dat_factory.default_values.get(t, {}):
+                    rtn[t][f] = self.pan_dat_factory.default_values[t][f]
+                    missing_fields.remove((t, f))
+        verify(not missing_fields,
                "The following (table, file_name, field) triplets are missing fields.\n%s" %
                [(t, os.path.basename(tbl_names[t]), f) for t,f in missing_fields])
         return _clean_pandat_creator(self.pan_dat_factory, rtn)
@@ -420,9 +424,11 @@ class SqlPanFactory(freezable_factory(object, "_isFrozen")):
         missing_fields = {(t, f) for t in rtn for f in all_fields(self.pan_dat_factory, t)
                           if f not in rtn[t].columns}
         if fill_missing_fields:
-            for t,f in missing_fields:
-                rtn[t][f] = self.pan_dat_factory.default_values[t][f]
-        verify(fill_missing_fields or not missing_fields,
+            for t, f in list(missing_fields):
+                if f in self.pan_dat_factory.default_values.get(t, {}):
+                    rtn[t][f] = self.pan_dat_factory.default_values[t][f]
+                    missing_fields.remove((t, f))
+        verify(not missing_fields,
                "The following are (table, field) pairs missing from the %s file.\n%s" % (db_file_path, missing_fields))
         missing_tables = sorted(set(self.pan_dat_factory.all_tables).difference(rtn))
         if missing_tables:
@@ -555,9 +561,11 @@ class XlsPanFactory(freezable_factory(object, "_isFrozen")):
         missing_fields = {(t, f) for t in rtn for f in all_fields(self.pan_dat_factory, t)
                           if f not in rtn[t].columns}
         if fill_missing_fields:
-            for t,f in missing_fields:
-                rtn[t][f] = self.pan_dat_factory.default_values[t][f]
-        verify(fill_missing_fields or not missing_fields,
+            for t, f in list(missing_fields):
+                if f in self.pan_dat_factory.default_values.get(t, {}):
+                    rtn[t][f] = self.pan_dat_factory.default_values[t][f]
+                    missing_fields.remove((t, f))
+        verify(not missing_fields,
                "The following are (table, field) pairs missing from the %s file.\n%s" % (xls_file_path, missing_fields))
         xl.close()
         rtn = _clean_pandat_creator(self.pan_dat_factory, rtn)
