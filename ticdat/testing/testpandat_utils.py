@@ -22,6 +22,24 @@ def _deep_anonymize(x)  :
 class TestUtils(unittest.TestCase):
     canRun = False
 
+    def testDefaultAdd(self):
+        if not self.canRun:
+            return
+        tdf = TicDatFactory(**dietSchema())
+        ticDat = tdf.freeze_me(tdf.TicDat(**{t:getattr(dietData(),t) for t in tdf.primary_key_fields}))
+        panDat = pan_dat_maker(dietSchema(), ticDat)
+        tdf2 = TicDatFactory(**{k:[p,d] if k!="foods" else [p, list(d)+["extra"]] for k,(p,d) in dietSchema().items()})
+        pdf2 = tdf2.clone(clone_factory=PanDatFactory)
+        panDat2 = pdf2.PanDat(**{t: getattr(panDat, t) for t in tdf.all_tables})
+        ticDat2 = tdf2.TicDat(**{t: getattr(ticDat, t) for t in tdf.all_tables})
+        self.assertTrue(tdf2._same_data(ticDat2, pdf2.copy_to_tic_dat(panDat2), epsilon=1e-5))
+        self.assertTrue(set(panDat2.foods["extra"]) == {0})
+        pdf3 = pdf2.clone()
+        pdf3.set_default_value("foods", "extra", 100)
+        panDat3 = pdf3.PanDat(**{t: getattr(panDat, t) for t in tdf.all_tables})
+        self.assertFalse(tdf2._same_data(ticDat2, pdf3.copy_to_tic_dat(panDat3), epsilon=1e-5))
+        self.assertTrue(set(panDat3.foods["extra"]) == {100})
+
     def testCopying(self):
         tdf = TicDatFactory(**dietSchema())
         pdf = PanDatFactory(**dietSchema())

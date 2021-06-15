@@ -787,6 +787,10 @@ class PanDatFactory(object):
                        len(df.columns) >= len(superself._all_fields(t)):
                         df.rename(columns={f1:f2 for f1, f2 in zip(df.columns, superself._all_fields(t))},
                                   inplace=True)
+                    if list(df.columns) != list(range(len(df.columns))):
+                        for f, d in superself.default_values.get(t, {}).items():
+                            if f not in df.columns:
+                                df[f] = d
                 for t in set(superself.all_tables).difference(init_tables):
                     setattr(self, t, DataFrame({f:[] for f in utils.all_fields(superself, t)}))
                 missing_fields = {(t, f) for t in superself.all_tables for f in superself._all_fields(t)
