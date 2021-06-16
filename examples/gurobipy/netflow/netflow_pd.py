@@ -9,9 +9,9 @@
 # can dramatically help you pre-define the pre and post conditions of your solve subroutine.
 #
 try:
-    import gurobipy as gu
+    import gurobipy as gp
 except:
-    gu = None
+    gp = None
 from ticdat import PanDatFactory, standard_main, Slicer
 
 # ------------------------ define the input schema --------------------------------
@@ -68,7 +68,7 @@ def solve(dat):
 
 
     # Create optimization model
-    mdl = gu.Model('netflow')
+    mdl = gp.Model('netflow')
 
     # itertuples is the most performant way to iterate over the rows of a DataFrame
     flow = {(h, i, j): mdl.addVar(name=f'flow_{h}_{i}_{j}', obj=cost)
@@ -79,7 +79,7 @@ def solve(dat):
 
     # Arc Capacity constraints
     for i, j, capacity in dat.arcs.itertuples(index=False):
-        mdl.addConstr(gu.quicksum(flow[_h, _i, _j] * volume[_h]
+        mdl.addConstr(gp.quicksum(flow[_h, _i, _j] * volume[_h]
                                   for _h, _i, _j in flowslice.slice('*', i, j))
                       <= capacity, name=f'cap_{i}_{j}')
 
@@ -89,15 +89,15 @@ def solve(dat):
     # quantity, or at least one inbound flow variable, or at least one outbound flow variable.
     for h, j in set(inflow).union({(h, i) for h, i, j in flow}, {(h, j) for h, i, j in flow}):
         mdl.addConstr(
-            gu.quicksum(flow[h_i_j] for h_i_j in flowslice.slice(h, '*', j)) +
+            gp.quicksum(flow[h_i_j] for h_i_j in flowslice.slice(h, '*', j)) +
             inflow.get((h, j), 0) ==
-            gu.quicksum(flow[h_j_i] for h_j_i in flowslice.slice(h, j, '*')),
+            gp.quicksum(flow[h_j_i] for h_j_i in flowslice.slice(h, j, '*')),
             name=f'node_{h}_{j}')
 
     # Compute optimal solution
     mdl.optimize()
 
-    if mdl.status == gu.GRB.status.OPTIMAL:
+    if mdl.status == gp.GRB.status.OPTIMAL:
         # PanDatFactory also makes it easy to create DataFrame objects from rows of data
         rtn = solution_schema.PanDat(flow=[[h, i, j, var.x] for (h, i, j), var in flow.items() if var.x > 0],
                                      parameters=[["Total Cost",  mdl.objVal]])

@@ -7,7 +7,7 @@
 # tries to balance the workload among the workers.
 #
 
-import gurobipy as gu
+import gurobipy as gp
 from ticdat import TicDatFactory,  standard_main, gurobi_env
 
 # ------------------------ define the input schema --------------------------------
@@ -47,10 +47,10 @@ def solve(dat):
     assert not input_schema.find_foreign_key_failures(dat)
     assert not input_schema.find_data_type_failures(dat)
 
-    m = gu.Model("assignment", env=gurobi_env())
+    m = gp.Model("assignment", env=gurobi_env())
 
     # Assignment variables: x[w,s] == 1 if worker w is assigned to shift s.
-    x = m.addVars(dat.availability, vtype=gu.GRB.BINARY, name="x")
+    x = m.addVars(dat.availability, vtype=gp.GRB.BINARY, name="x")
 
     # Slack variables for each shift constraint
     slacks = m.addVars(dat.shifts, name="Slack")
@@ -72,9 +72,9 @@ def solve(dat):
     m.setObjective(totSlack)
     def _solve():
         m.optimize()
-        if m.status in [gu.GRB.Status.INF_OR_UNBD, gu.GRB.Status.INFEASIBLE, gu.GRB.Status.UNBOUNDED]:
+        if m.status in [gp.GRB.Status.INF_OR_UNBD, gp.GRB.Status.INFEASIBLE, gp.GRB.Status.UNBOUNDED]:
             print('The model cannot be solved because it is infeasible or unbounded')
-        elif m.status != gu.GRB.Status.OPTIMAL:
+        elif m.status != gp.GRB.Status.OPTIMAL:
             print('Optimization was stopped with status %d' % m.status)
         else:
             return True
@@ -83,7 +83,7 @@ def solve(dat):
         totSlack.ub = totSlack.lb = totSlack.x
 
         totalPayments = m.addVar(name="totalPayments")
-        m.addConstr(totalPayments == gu.quicksum(dat.workers[w]["Payment"]*x[w,s]
+        m.addConstr(totalPayments == gp.quicksum(dat.workers[w]["Payment"] * x[w, s]
                                                  for w,s in dat.availability))
         m.setObjective(totalPayments)
         if _solve():
@@ -94,7 +94,7 @@ def solve(dat):
 
             # Variables to count the difference from average for each worker;
             # note that these variables can take negative values.
-            diffShifts = m.addVars(dat.workers, lb=-gu.GRB.INFINITY, name="Diff")
+            diffShifts = m.addVars(dat.workers, lb=-gp.GRB.INFINITY, name="Diff")
 
             # Constraint: compute the average number of shifts worked
             m.addConstr(len(dat.workers) * avgShifts == totShifts.sum(), "avgShifts")
@@ -105,7 +105,7 @@ def solve(dat):
 
             # Objective: minimize the sum of the square of the difference from the
             # average number of shifts worked
-            m.setObjective(gu.quicksum(diffShifts[w]*diffShifts[w] for w in dat.workers))
+            m.setObjective(gp.quicksum(diffShifts[w] * diffShifts[w] for w in dat.workers))
             if _solve():
                 sln = solution_schema.TicDat()
                 for (w,s),x_var in x.items():

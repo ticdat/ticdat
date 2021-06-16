@@ -17,9 +17,9 @@
 # unneeded constraints. See the simplest_examples directory for a simpler version of this model.
 
 try: # if you don't have gurobipy installed, the code will still load and then fail on solve
-    import gurobipy as gu
+    import gurobipy as gp
 except:
-    gu = None
+    gp = None
 from ticdat import TicDatFactory, standard_main, Slicer
 
 # ------------------------ define the input schema --------------------------------
@@ -71,7 +71,7 @@ def solve(dat):
     assert not input_schema.find_foreign_key_failures(dat)
     assert not input_schema.find_data_type_failures(dat)
 
-    mdl = gu.Model("netflow")
+    mdl = gp.Model("netflow")
 
     flow = {(h, i, j): mdl.addVar(name='flow_%s_%s_%s' % (h, i, j))
             for h, i, j in dat.cost if (i,j) in dat.arcs}
@@ -80,7 +80,7 @@ def solve(dat):
 
     # Arc Capacity constraints
     for i,j in dat.arcs:
-        mdl.addConstr(gu.quicksum(flow[_h, _i, _j] * dat.commodities[_h]["Volume"]
+        mdl.addConstr(gp.quicksum(flow[_h, _i, _j] * dat.commodities[_h]["Volume"]
                                   for _h, _i, _j in flowslice.slice('*', i, j))
                       <= dat.arcs[i,j]["Capacity"],
                       name='cap_%s_%s' % (i, j))
@@ -91,17 +91,17 @@ def solve(dat):
     for h,j in set((h,i) for (h,i), v in dat.inflow.items() if abs(v["Quantity"]) > 0)\
                .union({(h,i) for h,i,j in flow}, {(h,j) for h,i,j in flow}):
         mdl.addConstr(
-            gu.quicksum(flow[h_i_j] for h_i_j in flowslice.slice(h,'*',j)) +
+            gp.quicksum(flow[h_i_j] for h_i_j in flowslice.slice(h, '*', j)) +
             dat.inflow.get((h,j), {"Quantity":0})["Quantity"] ==
-            gu.quicksum(flow[h_j_i] for h_j_i in flowslice.slice(h, j, '*')),
+            gp.quicksum(flow[h_j_i] for h_j_i in flowslice.slice(h, j, '*')),
             name='node_%s_%s' % (h, j))
 
-    mdl.setObjective(gu.quicksum(flow * dat.cost[h, i, j]["Cost"]
+    mdl.setObjective(gp.quicksum(flow * dat.cost[h, i, j]["Cost"]
                                  for (h, i, j), flow in flow.items()),
-                     sense=gu.GRB.MINIMIZE)
+                     sense=gp.GRB.MINIMIZE)
     mdl.optimize()
 
-    if mdl.status == gu.GRB.OPTIMAL:
+    if mdl.status == gp.GRB.OPTIMAL:
         rtn = solution_schema.TicDat()
         for (h, i, j), var in flow.items():
             if var.x > 0:

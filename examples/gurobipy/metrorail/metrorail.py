@@ -16,9 +16,9 @@
 # solution to metrorail_solution_data.json.
 
 try: # if you don't have gurobipy installed, the code will still load and then fail on solve
-    import gurobipy as gu
+    import gurobipy as gp
 except:
-    gu = None
+    gp = None
 from ticdat import TicDatFactory, standard_main
 from itertools import product
 
@@ -71,10 +71,10 @@ def solve(dat):
     # solve a distinct MIP for each pair of (# of one-way-trips, amount leftover)
     for number_trips, amount_leftover in product(dat.number_of_one_way_trips, dat.amount_leftover):
 
-        mdl = gu.Model("metrorail")
+        mdl = gp.Model("metrorail")
 
         # Create decision variables
-        number_vists = {la:mdl.addVar(vtype = gu.GRB.INTEGER, name="load_amount_%s"%la)
+        number_vists = {la:mdl.addVar(vtype = gp.GRB.INTEGER, name="load_amount_%s" % la)
                         for la in dat.load_amounts}
         amount_leftover_var = mdl.addVar(name="amount_leftover", lb=0, ub=amount_leftover)
 
@@ -84,22 +84,22 @@ def solve(dat):
         # for left-over is multiple, we will still respect the amount leftover upper bound
         # but will also enforce that the amount leftover is a multiple of the one way price
         if full_parameters["Amount Leftover Constraint"] == "Upper Bound With Leftover Multiple Rule":
-            leftover_multiple = mdl.addVar(vtype = gu.GRB.INTEGER, name="leftover_multiple")
+            leftover_multiple = mdl.addVar(vtype = gp.GRB.INTEGER, name="leftover_multiple")
             mdl.addConstr(amount_leftover_var == full_parameters["One Way Price"] * leftover_multiple,
                           name="set_leftover_multiple")
 
         # add a constraint to set the amount leftover
         mdl.addConstr(amount_leftover_var ==
-                      gu.quicksum(la * number_vists[la] for la in dat.load_amounts) -
+                      gp.quicksum(la * number_vists[la] for la in dat.load_amounts) -
                       full_parameters["One Way Price"] * number_trips,
                       name="set_amount_leftover")
 
 
         # minimize the total number of visits to the ticket office
-        mdl.setObjective(gu.quicksum(number_vists.values()), sense=gu.GRB.MINIMIZE)
+        mdl.setObjective(gp.quicksum(number_vists.values()), sense=gp.GRB.MINIMIZE)
         mdl.optimize()
 
-        if mdl.status in [gu.GRB.OPTIMAL, gu.GRB.SUBOPTIMAL]:
+        if mdl.status in [gp.GRB.OPTIMAL, gp.GRB.SUBOPTIMAL]:
             # store the results if and only if the model is feasible
             for la,x in number_vists.items():
                 if round(x.x) > 0:
