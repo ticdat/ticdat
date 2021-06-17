@@ -22,6 +22,54 @@ def _deep_anonymize(x)  :
 class TestUtils(unittest.TestCase):
     canRun = False
 
+    def test_advanced_kwargs_cloning(self):
+        if not self.canRun:
+            return
+        tdf = TicDatFactory(foo=[["Primary Key Field"], ["Data Field"]])
+        tdf.set_data_type("foo", "Primary Key Field", number_allowed=True, min=0, max=float("inf"), inclusive_min=True,
+                          inclusive_max=False)
+        tdf.add_data_row_predicate("foo", lambda row: True, predicate_name="normal")
+        tdf.add_data_row_predicate("foo", lambda row, dummy: dummy, predicate_name="advanced one",
+                                   predicate_kwargs_maker=lambda dat: {"dummy": True})
+        tdf.add_data_row_predicate("foo", lambda row, min_pk: row["Primary Key Field"] != min_pk+1,
+                                   predicate_name="advanced two",
+                                   predicate_kwargs_maker=lambda dat: {"min_pk": min(dat.foo)})
+        tdf.clone()
+        dat_one = tdf.TicDat(foo=[[1, "junk"], [12, "junk"]])
+        tdf.freeze_me(dat_one)
+        dat_two = tdf.TicDat(foo=[[1, "junk"], [2, "junk"]])
+        tdf.freeze_me(dat_two)
+        self.assertFalse(tdf.find_data_row_failures(dat_one, exception_handling="Handled as Failure"))
+        self.assertTrue(tdf.find_data_row_failures(dat_two, exception_handling="Handled as Failure"))
+        pdat_one = tdf.copy_to_pandas(dat_one, reset_index=True)
+        pdat_two = tdf.copy_to_pandas(dat_two, reset_index=True)
+        # the advanced row predicates don't copy over when cloning to an explicitly different type
+        pdf = tdf.clone(clone_factory=PanDatFactory)
+        self.assertFalse(pdf.find_data_row_failures(pdat_one, exception_handling="Handled as Failure"))
+        self.assertFalse(pdf.find_data_row_failures(pdat_two, exception_handling="Handled as Failure"))
+        pdf.add_data_row_predicate("foo", lambda row, dummy: dummy, predicate_name="advanced one",
+                                   predicate_kwargs_maker=lambda dat: {"dummy": True})
+        pdf.add_data_row_predicate("foo", lambda row, min_pk: row["Primary Key Field"] != min_pk+1,
+                                   predicate_name="advanced two",
+                                   predicate_kwargs_maker=lambda dat: {"min_pk": min(dat.foo["Primary Key Field"])})
+        pdf = pdf.clone()
+        self.assertFalse(pdf.find_data_row_failures(pdat_one, exception_handling="Handled as Failure"))
+        self.assertTrue(pdf.find_data_row_failures(pdat_two, exception_handling="Handled as Failure"))
+
+        pdf_w_bum_preds = tdf.clone(clone_factory=PanDatFactory.create_from_full_schema)
+        self.assertFalse(any(pdf_w_bum_preds.find_data_type_failures(_) for _ in [pdat_one, pdat_two]))
+        self.assertTrue(all(pdf_w_bum_preds.find_data_row_failures(_, exception_handling="Handled as Failure")
+                            for _ in [pdat_one, pdat_two]))
+        tdf2 = pdf.clone(clone_factory=TicDatFactory)
+        # the advanced row predicates don't copy over when cloning to an explicitly different type
+        self.assertFalse(tdf2.find_data_row_failures(dat_one, exception_handling="Handled as Failure"))
+        self.assertFalse(tdf2.find_data_row_failures(dat_two, exception_handling="Handled as Failure"))
+        tdf_w_bum_preds = pdf.clone(clone_factory=TicDatFactory.create_from_full_schema)
+        self.assertFalse(any(tdf_w_bum_preds.find_data_type_failures(_) for _ in [dat_one, dat_two]))
+        self.assertTrue(all(tdf_w_bum_preds.find_data_row_failures(_, exception_handling="Handled as Failure")
+                            for _ in [dat_one, dat_two]))
+
+
     def testDefaultAdd(self):
         if not self.canRun:
             return

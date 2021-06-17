@@ -165,11 +165,17 @@ class PanDatFactory(object):
         :param table_restrictions : if None, then argument is ignored. Otherwise, a container listing the
                                     tables to keep in the clone. Tables outside table_restrictions are removed from
                                     the clone.
+
         :param clone_factory : optional. Defaults to PanDatFactory. Can also be TicDatFactory.  Can also be a function,
                                in which case it should behave similarly to create_from_full_schema.
+                               If clone_factory=TicDatFactory, the row predicates that use predicate_kwargs_maker
+                               won't be copied over.
+
         :return: a clone of the PanDatFactory. Returned object will be based on clone_factory, if provided.
         """
         clone_factory = clone_factory or PanDatFactory
+        from ticdat import TicDatFactory
+        no_copy_predicate_kwargs_maker = clone_factory == TicDatFactory
         if hasattr(clone_factory, "create_from_full_schema"):
             clone_factory = clone_factory.create_from_full_schema
         full_schema = utils.clone_a_anchillary_info_schema(self.schema(include_ancillary_info=True), table_restrictions)
@@ -177,9 +183,10 @@ class PanDatFactory(object):
         for tbl, row_predicates in self._data_row_predicates.items():
             if table_restrictions is None or tbl in table_restrictions:
                 for pn, rpi in row_predicates.items():
-                    rtn.add_data_row_predicate(tbl, predicate=rpi.predicate, predicate_name=pn,
-                                               predicate_kwargs_maker=rpi.predicate_kwargs_maker,
-                                               predicate_failure_response=rpi.predicate_failure_response)
+                    if not (rpi.predicate_kwargs_maker and no_copy_predicate_kwargs_maker):
+                        rtn.add_data_row_predicate(tbl, predicate=rpi.predicate, predicate_name=pn,
+                                                   predicate_kwargs_maker=rpi.predicate_kwargs_maker,
+                                                   predicate_failure_response=rpi.predicate_failure_response)
         return rtn
     @property
     def default_values(self):
@@ -1038,7 +1045,7 @@ class PanDatFactory(object):
               "Unhandled": Exceptions resulting from calling a row predicate (or a predicate_kwargs_maker) will not be
                            handled by data_row_failures.
               "__debug__": Since "Handled as Failure" makes more sense for production runs and "Unhandled" makes more
-                           sense for debugging, this value will use the latter if __debug__ is True and the former
+                           sense for debugging, this option will use the latter if __debug__ is True and the former
                            otherwise. See -o and __debug__ in Python documentation for more details.
 
         :param max_failures: number. An upper limit on the number of failures to find. Will short circuit and return
