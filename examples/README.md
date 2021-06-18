@@ -1,5 +1,16 @@
 ## ticdat examples
 
+The examples files here are meant to demonstrate `ticdat` functionality, and to 
+illustrate the principles of 
+[Tidy, Tested, Safe](https://github.com/ticdat/tidy_tested_safe/wiki/What-is-Tidy,-Tested,-Safe%3F). 
+As a rule, I strongly recommend you build your engines as properly versioned Python packages, as opposed to 
+the free standing .py files you see here. Any one of these example files could trivially be
+organized into a dedicated repository [consistent](https://docs.python-guide.org/writing/structure/) with Python best 
+practices. For example, see 
+[tts_diet](https://github.com/ticdat/tts_diet), 
+[tts_netflow_a](https://github.com/ticdat/tts_netflow_a) and 
+[tts_netflow_b](https://github.com/ticdat/tts_netflow_b).
+
 When building an engine with `ticdat`, the first decision to make is how to represent the input data
 tables in Python. There are two choices.
 
