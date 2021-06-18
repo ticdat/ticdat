@@ -162,6 +162,7 @@ class PanDatFactory(object):
         """
 
         clones the PanDatFactory
+
         :param table_restrictions : if None, then argument is ignored. Otherwise, a container listing the
                                     tables to keep in the clone. Tables outside table_restrictions are removed from
                                     the clone.
