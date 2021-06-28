@@ -452,6 +452,32 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
         :return:
         """
         self._foreign_key_links_enabled[:] = [True]
+    def add_implied_foreign_keys(self):
+        '''
+        Cascades foreign keys downward (i.e. computes implied foreign key relationships)
+        Calling this routine won't change the boolean result of subsequent calls to find_foreign_key_failures,
+        but it might change the size of the find_foreign_key_failures returned dictionary.
+        :return:
+        '''
+        verify(not self._has_been_used,
+                "The foreign keys can't be changed after a TicDatFactory has been used.")
+        def findderivedforeignkey():
+            curFKs = self._foreign_keys_by_native()
+            if not self._complex_fks():
+                for (nativetable, bridgetable), nativebridgemappings in list(self._foreign_keys.items()):
+                    for nb_map in nativebridgemappings :
+                      for bfk in curFKs.get(bridgetable,()):
+                        nativefields = bfk.nativefields()
+                        assert set(nativefields).issubset(self._allFields(bridgetable))
+                        bridgetonative = {bf:nf for nf,bf in nb_map}
+                        foreigntobridge = bfk.foreigntonativemapping()
+                        newnativeft = tuple((bridgetonative[bf], ff) for ff,bf in
+                                             foreigntobridge.items() if bf in bridgetonative)
+                        fkSet = self._foreign_keys[nativetable, bfk.foreign_table]
+                        if newnativeft not in fkSet and self._simple_fk(bfk.foreign_table, newnativeft):
+                            return fkSet.add(newnativeft) or True
+        while findderivedforeignkey():
+            pass
     def add_foreign_key(self, native_table, foreign_table, mappings):
         """
         Adds a foreign key relationship to the schema.  Adding a foreign key doesn't block
@@ -507,24 +533,6 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
     def _trigger_has_been_used(self):
         if self._has_been_used :
             return # idempotent
-        def findderivedforeignkey():
-            # this cascades foreign keys downward (i.e. computes implied foreign key relationships)
-            curFKs = self._foreign_keys_by_native()
-            if not self._complex_fks():
-                for (nativetable, bridgetable), nativebridgemappings in list(self._foreign_keys.items()):
-                    for nb_map in nativebridgemappings :
-                      for bfk in curFKs.get(bridgetable,()):
-                        nativefields = bfk.nativefields()
-                        assert set(nativefields).issubset(self._allFields(bridgetable))
-                        bridgetonative = {bf:nf for nf,bf in nb_map}
-                        foreigntobridge = bfk.foreigntonativemapping()
-                        newnativeft = tuple((bridgetonative[bf], ff) for ff,bf in
-                                             foreigntobridge.items() if bf in bridgetonative)
-                        fkSet = self._foreign_keys[nativetable, bfk.foreign_table]
-                        if newnativeft not in fkSet and self._simple_fk(bfk.foreign_table, newnativeft):
-                            return fkSet.add(newnativeft) or True
-        while findderivedforeignkey():
-            pass
         for (nativetable, foreigntable), nativeforeignmappings in self._foreign_keys.items():
             nativeFieldsSet = frozenset(frozenset(_[0] for _ in nfm) for nfm in nativeforeignmappings
                                         if self._simple_fk(foreigntable, nfm)) # ignore for complex
@@ -708,6 +716,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
                 superself._trigger_has_been_used()
                 self._all_data_dicts = []
                 self._made_foreign_links = False
+                lens = {t: l for t, v in init_tables.items() for l in [utils.safe_apply(len)(v)] if l is not None}
                 for t in init_tables :
                     verify(t in superself.all_tables, "Unexpected table name %s"%t)
                     if t in superself.generic_tables:
@@ -722,14 +731,20 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
                         v = DataFrame(v)
                         v.rename(columns = {v.columns[0] : superself.data_fields[t][0]}, inplace=True)
                     if DataFrame and isinstance(v, DataFrame):
-                      row_dict = lambda r : {df:r[df] for df in superself.data_fields.get(t, ())}
+                      apply = utils.faster_df_apply
                       setattr(self, t, ticdattablefactory(self._all_data_dicts, t)())
-                      if superself.primary_key_fields.get(t) :
-                          def add_row(r):
-                              getattr(self, t)[r.name] = row_dict(r)
-                          v.apply(add_row, axis=1)
+                      _rd_ = lambda row_dict: {k: row_dict[k] for k in superself.data_fields.get(t, [])}
+                      if superself.primary_key_fields.get(t):
+                          if not set(superself.primary_key_fields[t]).issubset(v.columns):
+                              v = v.reset_index(drop=False)
+                          key_maker = (lambda rd: rd[superself.primary_key_fields[t][0]]) \
+                                      if len(superself.primary_key_fields[t]) == 1 else  \
+                                      (lambda rd: tuple(rd[_] for _ in superself.primary_key_fields[t]))
+                          def add_row(row_dict):
+                              getattr(self, t)[key_maker(row_dict)] = _rd_(row_dict)
+                          apply(v, add_row)
                       else :
-                          v.apply(lambda r : getattr(self, t).append(row_dict(r)), axis=1)
+                          apply(v, lambda row_dict: getattr(self, t).append(_rd_(row_dict)))
                     elif superself.primary_key_fields.get(t) and not utils.dictish(v):
                          pklen = len(superself.primary_key_fields[t])
                          def handle_row_dict(r):
@@ -767,6 +782,8 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
                         setattr(self, t, ticdattablefactory(self._all_data_dicts, t)())
                 if init_tables :
                     self._try_make_foreign_links()
+                if any(v > (l or 0) for k, v in lens.items() for l in [utils.safe_apply(len)(getattr(self, k))]):
+                    print("--> Warning: Some rows have been lost due to duplicate rows passed to TicDat.__init__")
             def _try_make_foreign_links(self):
                 if not superself._foreign_key_links_enabled:
                     return
@@ -928,7 +945,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
         """
         if t == "parameters" and self._parameters: # SPEED IS IMPORTANT
             # I will assume a parameters table without parameters specification is just a naive developer
-            return None if x is None or (utils.pd and utils.pd.isnull(x)) else str(x)
+            return None if x is None or (utils.pd and utils.pd.isnull(x)) else x
         if self.infinity_io_flag is None and (self._none_as_infinity_bias(t, f) or float("nan"))*float("inf") == x:
             return None
         if utils.numericish(self.infinity_io_flag) and utils.numericish(x):
@@ -1080,11 +1097,12 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
                 bad_message_handler("%s has the string 'name' as part of a multi-field "%table_name +
                                     "primary key and thus cannot be populated with a DataFrame")
                 return False
-            if pks and (pks != utils.safe_apply(lambda : tuple(data_table.index.names))()) :
-                bad_message_handler("Could not find a pandas index matching the primary key for %s"%table_name)
-                return False
-            if not set(data_table.columns).issuperset(self.data_fields.get(table_name, ())) :
+            if not set(data_table.columns).issuperset(self.data_fields.get(table_name, ())):
                 bad_message_handler("Could not find pandas columns for all the data fields for %s"%table_name)
+                return False
+            if pks and (pks != utils.safe_apply(lambda : tuple(data_table.index.names))()) and \
+                not set(data_table.columns).issuperset(pks):
+                bad_message_handler("Unable to find pandas column nor index matching the primary key for %s"%table_name)
                 return False
             return True
         if self.primary_key_fields.get(table_name):
@@ -1219,14 +1237,22 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
     def clone(self, table_restrictions=None, clone_factory=None):
         """
         clones the TicDatFactory
+
         :param table_restrictions : if None, then argument is ignored. Otherwise, a container listing the
                                     tables to keep in the clone. Tables outside table_restrictions are removed from
                                     the clone.
+
         :param clone_factory : optional. Defaults to TicDatFactory. Can also be PanDatFactory. Can also be a function,
                                in which case it should behave similarly to create_from_full_schema.
+                               If clone_factory=PanDatFactory, the row predicates that use predicate_kwargs_maker
+                               won't be copied over.
+
         :return: a clone of the TicDatFactory. Returned object will based on clone_factory, if provided.
+
         """
         clone_factory = clone_factory or TicDatFactory
+        from ticdat import PanDatFactory
+        no_copy_predicate_kwargs_maker = clone_factory == PanDatFactory
         if hasattr(clone_factory, "create_from_full_schema"):
             clone_factory = clone_factory.create_from_full_schema
         full_schema = utils.clone_a_anchillary_info_schema(self.schema(include_ancillary_info=True), table_restrictions)
@@ -1236,9 +1262,10 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
         for tbl, row_predicates in self._data_row_predicates.items():
             if table_restrictions is None or tbl in table_restrictions:
                 for pn, rpi in row_predicates.items():
-                    rtn.add_data_row_predicate(tbl, predicate=rpi.predicate, predicate_name=pn,
-                                               predicate_kwargs_maker=rpi.predicate_kwargs_maker,
-                                               predicate_failure_response=rpi.predicate_failure_response)
+                    if not (rpi.predicate_kwargs_maker and no_copy_predicate_kwargs_maker):
+                        rtn.add_data_row_predicate(tbl, predicate=rpi.predicate, predicate_name=pn,
+                                                   predicate_kwargs_maker=rpi.predicate_kwargs_maker,
+                                                   predicate_failure_response=rpi.predicate_failure_response)
         rtn.enable_foreign_key_links() if self._foreign_key_links_enabled else None
         return rtn
     def copy_tic_dat(self, tic_dat, freeze_it = False):
@@ -1755,7 +1782,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
               "Unhandled": Exceptions resulting from calling a row predicate (or a predicate_kwargs_maker) will not be
                            handled by data_row_failures.
               "__debug__": Since "Handled as Failure" makes more sense for production runs and "Unhandled" makes more
-                           sense for debugging, this value will use the latter if __debug__ is True and the former
+                           sense for debugging, this option will use the latter if __debug__ is True and the former
                            otherwise. See -o and __debug__ in Python documentation for more details.
 
         :param max_failures: number. An upper limit on the number of failures to find. Will short circuit and return
@@ -1893,9 +1920,9 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
         """
         msg  = []
         verify(self.good_tic_dat_object(tic_dat, msg.append),
-               "tic_dat not a good object for this factory : %s"%"\n".join(msg))
+               "tic_dat not a good object for this factory : %s" %"\n".join(msg))
         verify(not self._complex_fks(), ("complex foreign key between %s and %s prevents " +
-                                         "obfusimplify")%((self._complex_fks() or [(None,)*3])[0][:2]))
+                                         "obfusimplify") % ((self._complex_fks() or [(None,) * 3])[0][:2]))
         verify({fk.cardinality for fk in self.foreign_keys}.issubset({"many-to-one", "one-to-one"}),
                "many-to-many and one-to-many foreign keys are not currently supported for obfusimplify")
         verify(not self.find_foreign_key_failures(tic_dat),
@@ -1903,11 +1930,11 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
         verify(not self.generator_tables, "Cannot obfusimplify a tic_dat that uses generators")
         verify(not set(table_prepends).intersection(skip_tables),
                "Can't specify a table prepend for an entity that you're skipping")
-        verify(self._has_been_used,
-               "The cascading foreign keys won't necessarily be present until the factory is used")
+        better_self = self.clone()
+        better_self.add_implied_foreign_keys()
 
-        entity_tables = {t for t,v in self.primary_key_fields.items() if len(v) == 1}
-        foreign_keys_by_native = self._foreign_keys_by_native()
+        entity_tables = {t for t,v in better_self.primary_key_fields.items() if len(v) == 1}
+        foreign_keys_by_native = better_self._foreign_keys_by_native()
         # if a native table is one-to-one with a foreign table, it isn't an entity table
         for nt in entity_tables.intersection(foreign_keys_by_native):
             if any(ft.cardinality == "one-to-one" for ft in foreign_keys_by_native[nt]):
@@ -1917,8 +1944,8 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
         entity_tables = entity_tables.difference(skip_tables)
 
         for k,v in table_prepends.items():
-            verify(k in self.all_tables, "%s is not a table name")
-            verify(len(self.primary_key_fields.get(k, ())) ==1, "%s does not have a single primary key field"%k)
+            verify(k in better_self.all_tables, "%s is not a table name")
+            verify(len(better_self.primary_key_fields.get(k, ())) == 1, f"{k} does not have a single primary key field")
             verify(k in entity_tables, "%s is not an entity table due to child foreign key relationship"%k)
             verify(utils.stringish(v) and set(v).issubset(uppercase) and not v.endswith("I"),
                    "Your table_prepend string %s is not an all uppercase string ending in a letter other than I")
@@ -1949,7 +1976,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
             for i,k in enumerate(sorted(getattr(tic_dat, t))) :
                 reverse_renamings[t, k] = "%s%s"%(table_prepends[t],i+1)
         foreign_keys = {}
-        for fk in self.foreign_keys:
+        for fk in better_self.foreign_keys:
             nt = fk.native_table
             if fk.foreign_table in table_prepends:
                 foreign_keys = utils.dict_overlay(foreign_keys,
@@ -1957,25 +1984,25 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
                                   fk.nativetoforeignmapping().items()})
         # remember -- we've used this factory so any cascading foreign keys are present
         rtn_dict  = clt.defaultdict(dict)
-        for t in self.all_tables:
+        for t in better_self.all_tables:
             read_table = getattr(tic_dat, t)
             def fix_all_row(all_row):
                 return {k: reverse_renamings[foreign_keys[t, k], v] if (t,k) in foreign_keys else v
                            for k,v in all_row.items()}
             if dictish(read_table):
                 for pk, data_row in read_table.items():
-                    if len(self.primary_key_fields.get(t, ())) == 1:
-                        pkf = self.primary_key_fields[t][0]
+                    if len(better_self.primary_key_fields.get(t, ())) == 1:
+                        pkf = better_self.primary_key_fields[t][0]
                         if (t,pkf) in foreign_keys:
                             new_pk = reverse_renamings[foreign_keys[t,pkf], pk]
                         else:
                             new_pk = reverse_renamings.get((t, pk), pk)
                         rtn_dict[t][new_pk] = fix_all_row(data_row)
                     else :
-                        assert containerish(pk) and len(pk) == len(self.primary_key_fields[t])
+                        assert containerish(pk) and len(pk) == len(better_self.primary_key_fields[t])
                         new_row = fix_all_row(dict(data_row, **{pkf: pkv for pkf, pkv in
-                                                    zip(self.primary_key_fields[t], pk)}))
-                        new_pk = tuple(new_row[_] for _ in self.primary_key_fields[t])
+                                                                zip(better_self.primary_key_fields[t], pk)}))
+                        new_pk = tuple(new_row[_] for _ in better_self.primary_key_fields[t])
                         rtn_dict[t][new_pk] = {k:new_row[k] for k in data_row}
             else :
                 rtn_dict[t] = []
@@ -1984,9 +2011,9 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
 
         RtnType = namedtuple("ObfusimplifyResults", "copy renamings")
 
-        rtn = RtnType(self.freeze_me(self.TicDat(**rtn_dict)) if freeze_it else self.TicDat(**rtn_dict),
+        rtn = RtnType(better_self.freeze_me(better_self.TicDat(**rtn_dict)) if freeze_it else better_self.TicDat(**rtn_dict),
                       {v:k for k,v in reverse_renamings.items()})
-        assert not self.find_foreign_key_failures(rtn.copy)
+        assert not better_self.find_foreign_key_failures(rtn.copy)
         assert len(rtn.renamings) == len(reverse_renamings)
         return rtn
 

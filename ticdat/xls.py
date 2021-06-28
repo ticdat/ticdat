@@ -453,7 +453,7 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
         def clean_for_write(t, f, x):
             if self.tic_dat_factory.infinity_io_flag != "N/A" or \
                (t == "parameters" and self.tic_dat_factory.parameters):
-                return self.tic_dat_factory._infinity_flag_write_cell(t, f, x)
+                x = self.tic_dat_factory._infinity_flag_write_cell(t, f, x)
             if x in [float("inf"), -float("inf")] or isinstance(x, datetime.datetime):
                 return str(x)
             return x
@@ -468,7 +468,8 @@ class XlsTicFactory(freezable_factory(object, "_isFrozen")) :
                 for row_ind, (p_key, data) in enumerate(_t.items()) :
                     for field_ind, cell in enumerate( (p_key if containerish(p_key) else (p_key,)) +
                                         tuple(data[_f] for _f in tdf.data_fields.get(t, ()))):
-                        sheet.write(row_ind+1, field_ind, clean_for_write(t, all_flds[field_ind], cell))
+                        write_cell =  clean_for_write(t, all_flds[field_ind], cell)
+                        sheet.write(row_ind+1, field_ind, write_cell)
             else :
                 for row_ind, data in enumerate(_t if containerish(_t) else _t()) :
                     for field_ind, cell in enumerate(tuple(data[_f] for _f in tdf.data_fields[t])) :

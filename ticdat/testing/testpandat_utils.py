@@ -5,7 +5,7 @@ import ticdat.utils as utils
 from ticdat.testing.ticdattestutils import fail_to_debugger, flagged_as_run_alone, netflowPandasData
 from ticdat.testing.ticdattestutils import netflowSchema, copy_to_pandas_with_reset, dietSchema, netflowData
 from ticdat.testing.ticdattestutils import addNetflowForeignKeys, sillyMeSchema, dietData, pan_dat_maker
-from ticdat.testing.ticdattestutils import addDietForeignKeys
+from ticdat.testing.ticdattestutils import addDietForeignKeys, dietData
 from ticdat.ticdatfactory import TicDatFactory
 import itertools
 from math import isnan
@@ -21,6 +21,91 @@ def _deep_anonymize(x)  :
 #@fail_to_debugger
 class TestUtils(unittest.TestCase):
     canRun = False
+
+    def test_advanced_kwargs_cloning(self):
+        if not self.canRun:
+            return
+        tdf = TicDatFactory(foo=[["Primary Key Field"], ["Data Field"]])
+        tdf.set_data_type("foo", "Primary Key Field", number_allowed=True, min=0, max=float("inf"), inclusive_min=True,
+                          inclusive_max=False)
+        tdf.add_data_row_predicate("foo", lambda row: True, predicate_name="normal")
+        tdf.add_data_row_predicate("foo", lambda row, dummy: dummy, predicate_name="advanced one",
+                                   predicate_kwargs_maker=lambda dat: {"dummy": True})
+        tdf.add_data_row_predicate("foo", lambda row, min_pk: row["Primary Key Field"] != min_pk+1,
+                                   predicate_name="advanced two",
+                                   predicate_kwargs_maker=lambda dat: {"min_pk": min(dat.foo)})
+        tdf.clone()
+        dat_one = tdf.TicDat(foo=[[1, "junk"], [12, "junk"]])
+        tdf.freeze_me(dat_one)
+        dat_two = tdf.TicDat(foo=[[1, "junk"], [2, "junk"]])
+        tdf.freeze_me(dat_two)
+        self.assertFalse(tdf.find_data_row_failures(dat_one, exception_handling="Handled as Failure"))
+        self.assertTrue(tdf.find_data_row_failures(dat_two, exception_handling="Handled as Failure"))
+        pdat_one = tdf.copy_to_pandas(dat_one, reset_index=True)
+        pdat_two = tdf.copy_to_pandas(dat_two, reset_index=True)
+        # the advanced row predicates don't copy over when cloning to an explicitly different type
+        pdf = tdf.clone(clone_factory=PanDatFactory)
+        self.assertFalse(pdf.find_data_row_failures(pdat_one, exception_handling="Handled as Failure"))
+        self.assertFalse(pdf.find_data_row_failures(pdat_two, exception_handling="Handled as Failure"))
+        pdf.add_data_row_predicate("foo", lambda row, dummy: dummy, predicate_name="advanced one",
+                                   predicate_kwargs_maker=lambda dat: {"dummy": True})
+        pdf.add_data_row_predicate("foo", lambda row, min_pk: row["Primary Key Field"] != min_pk+1,
+                                   predicate_name="advanced two",
+                                   predicate_kwargs_maker=lambda dat: {"min_pk": min(dat.foo["Primary Key Field"])})
+        pdf = pdf.clone()
+        self.assertFalse(pdf.find_data_row_failures(pdat_one, exception_handling="Handled as Failure"))
+        self.assertTrue(pdf.find_data_row_failures(pdat_two, exception_handling="Handled as Failure"))
+
+        pdf_w_bum_preds = tdf.clone(clone_factory=PanDatFactory.create_from_full_schema)
+        self.assertFalse(any(pdf_w_bum_preds.find_data_type_failures(_) for _ in [pdat_one, pdat_two]))
+        self.assertTrue(all(pdf_w_bum_preds.find_data_row_failures(_, exception_handling="Handled as Failure")
+                            for _ in [pdat_one, pdat_two]))
+        tdf2 = pdf.clone(clone_factory=TicDatFactory)
+        # the advanced row predicates don't copy over when cloning to an explicitly different type
+        self.assertFalse(tdf2.find_data_row_failures(dat_one, exception_handling="Handled as Failure"))
+        self.assertFalse(tdf2.find_data_row_failures(dat_two, exception_handling="Handled as Failure"))
+        tdf_w_bum_preds = pdf.clone(clone_factory=TicDatFactory.create_from_full_schema)
+        self.assertFalse(any(tdf_w_bum_preds.find_data_type_failures(_) for _ in [dat_one, dat_two]))
+        self.assertTrue(all(tdf_w_bum_preds.find_data_row_failures(_, exception_handling="Handled as Failure")
+                            for _ in [dat_one, dat_two]))
+
+
+    def testDefaultAdd(self):
+        if not self.canRun:
+            return
+        tdf = TicDatFactory(**dietSchema())
+        ticDat = tdf.freeze_me(tdf.TicDat(**{t:getattr(dietData(),t) for t in tdf.primary_key_fields}))
+        panDat = pan_dat_maker(dietSchema(), ticDat)
+        tdf2 = TicDatFactory(**{k:[p,d] if k!="foods" else [p, list(d)+["extra"]] for k,(p,d) in dietSchema().items()})
+        pdf2 = tdf2.clone(clone_factory=PanDatFactory)
+        panDat2 = pdf2.PanDat(**{t: getattr(panDat, t) for t in tdf.all_tables})
+        ticDat2 = tdf2.TicDat(**{t: getattr(ticDat, t) for t in tdf.all_tables})
+        self.assertTrue(tdf2._same_data(ticDat2, pdf2.copy_to_tic_dat(panDat2), epsilon=1e-5))
+        self.assertTrue(set(panDat2.foods["extra"]) == {0})
+        pdf3 = pdf2.clone()
+        pdf3.set_default_value("foods", "extra", 100)
+        panDat3 = pdf3.PanDat(**{t: getattr(panDat, t) for t in tdf.all_tables})
+        self.assertFalse(tdf2._same_data(ticDat2, pdf3.copy_to_tic_dat(panDat3), epsilon=1e-5))
+        self.assertTrue(set(panDat3.foods["extra"]) == {100})
+
+    def testCopying(self):
+        tdf = TicDatFactory(**dietSchema())
+        pdf = PanDatFactory(**dietSchema())
+        dat = tdf.copy_tic_dat(dietData())
+        def make_pan_dat(reset_index):
+            rtn = tdf.copy_to_pandas(dat, reset_index=reset_index)
+            return pdf.PanDat(**{k: getattr(rtn, k) for k in tdf.all_tables})
+        dat2 = pdf.copy_to_tic_dat(make_pan_dat(False))
+        dat3 = pdf.copy_to_tic_dat(tdf.copy_to_pandas(dat, reset_index=True))
+        self.assertTrue(tdf._same_data(dat, dat2))
+        self.assertTrue(tdf._same_data(dat, dat3))
+        def make_tic_dat_dat(reset_index):
+            rtn = tdf.copy_to_pandas(dat, reset_index=reset_index)
+            return tdf.TicDat(**{k: getattr(rtn, k) for k in tdf.all_tables})
+        dat2 = make_tic_dat_dat(False)
+        dat3 = make_tic_dat_dat(True)
+        self.assertTrue(tdf._same_data(dat, dat2))
+        self.assertTrue(tdf._same_data(dat, dat3))
 
     def testSimple(self):
         if not self.canRun:

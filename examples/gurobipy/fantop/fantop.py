@@ -13,16 +13,16 @@
 # A user can thus re-optimize for each of his draft picks.
 #
 # Uses the ticdat package to simplify file IO and provide command line functionality.
-# Can read from .csv, Access, Excel or SQLite files. Self validates the input data
+# Can read from .csv, Access, Excel, JSON or SQLite files. Self validates the input data
 # before solving to prevent strange errors or garbage-in, garbage-out problems.
 
 from ticdat import TicDatFactory, standard_main
 
 
 try: # if you don't have gurobipy installed, the code will still load and then fail on solve
-    import gurobipy as gu
+    import gurobipy as gp
 except:
-    gu = None
+    gp = None
 
 # ------------------------ define the input schema --------------------------------
 input_schema = TicDatFactory (
@@ -106,10 +106,10 @@ def solve(dat):
     can_be_drafted_by_me = {player_name for player_name,row in dat.players.items() if
                             row["Draft Status"] != "Drafted By Someone Else"}
 
-    m = gu.Model('fantop')
-    my_starters = {player_name:m.addVar(vtype=gu.GRB.BINARY, name="starter_%s"%player_name)
+    m = gp.Model('fantop')
+    my_starters = {player_name:m.addVar(vtype=gp.GRB.BINARY, name="starter_%s" % player_name)
                   for player_name in can_be_drafted_by_me}
-    my_reserves = {player_name:m.addVar(vtype=gu.GRB.BINARY, name="reserve_%s"%player_name)
+    my_reserves = {player_name:m.addVar(vtype=gp.GRB.BINARY, name="reserve_%s" % player_name)
                   for player_name in can_be_drafted_by_me}
 
 
@@ -122,12 +122,12 @@ def solve(dat):
                         name="cant_draft_twice_%s"%player_name)
 
     for i,draft_position in enumerate(sorted(dat.my_draft_positions)):
-        m.addConstr(gu.quicksum(my_starters[player_name] + my_reserves[player_name]
+        m.addConstr(gp.quicksum(my_starters[player_name] + my_reserves[player_name]
                                 for player_name in can_be_drafted_by_me
                                 if expected_draft_position[player_name] < draft_position) <= i,
                     name = "at_most_%s_can_be_ahead_of_%s"%(i,draft_position))
 
-    my_draft_size = gu.quicksum(my_starters[player_name] + my_reserves[player_name]
+    my_draft_size = gp.quicksum(my_starters[player_name] + my_reserves[player_name]
                                 for player_name in can_be_drafted_by_me)
     m.addConstr(my_draft_size >= len(already_drafted_by_me) + 1,
                 name = "need_to_extend_by_at_least_one")
@@ -136,8 +136,8 @@ def solve(dat):
     for position, row in dat.roster_requirements.items():
         players = {player_name for player_name in can_be_drafted_by_me
                    if dat.players[player_name]["Position"] == position}
-        starters = gu.quicksum(my_starters[player_name] for player_name in players)
-        reserves = gu.quicksum(my_reserves[player_name] for player_name in players)
+        starters = gp.quicksum(my_starters[player_name] for player_name in players)
+        reserves = gp.quicksum(my_reserves[player_name] for player_name in players)
         m.addConstr(starters >= row["Min Num Starters"], name = "min_starters_%s"%position)
         m.addConstr(starters <= row["Max Num Starters"], name = "max_starters_%s"%position)
         m.addConstr(reserves >= row["Min Num Reserve"], name = "min_reserve_%s"%position)
@@ -146,20 +146,20 @@ def solve(dat):
     parameters = input_schema.create_full_parameters_dict(dat)
     flex_players = {player_name for player_name in can_be_drafted_by_me if
                     dat.roster_requirements[dat.players[player_name]["Position"]]["Flex Status"] == "Flex Eligible"}
-    m.addConstr(gu.quicksum(my_starters[player_name] for player_name in flex_players)
+    m.addConstr(gp.quicksum(my_starters[player_name] for player_name in flex_players)
                 <= parameters["Maximum Number of Flex Starters"],
                 name = "max_flex")
 
     starter_weight = parameters["Starter Weight"]
     reserve_weight = parameters["Reserve Weight"]
-    m.setObjective(gu.quicksum(dat.players[player_name]["Expected Points"] *
+    m.setObjective(gp.quicksum(dat.players[player_name]["Expected Points"] *
                                (my_starters[player_name] * starter_weight + my_reserves[player_name] * reserve_weight)
                                for player_name in can_be_drafted_by_me),
-                   sense=gu.GRB.MAXIMIZE)
+                   sense=gp.GRB.MAXIMIZE)
 
     m.optimize()
 
-    if m.status != gu.GRB.OPTIMAL:
+    if m.status != gp.GRB.OPTIMAL:
         print("No draft at all is possible!")
         return
 

@@ -4,12 +4,13 @@ try:
 except:
     sql = None
 import json
-
+import uuid
 import os
 from ticdat.utils import freezable_factory, verify, case_space_to_pretty, pd, TicDatError, FrozenDict, all_fields
-from ticdat.utils import all_underscore_replacements, stringish, dictish, debug_break
+from ticdat.utils import all_underscore_replacements, stringish, dictish, containerish, debug_break, faster_df_apply
 from itertools import product, chain
 from collections import defaultdict
+import datetime
 import inspect
 try:
     import numpy
@@ -31,8 +32,7 @@ class _DummyContextManager(object):
     def __exit__(self, *excinfo) :
         pass
 
-def _clean_pandat_creator(pdf, df_dict, push_parameters_to_be_valid=True, json_read=False,
-                          print_missing_tables=False):
+def _clean_pandat_creator(pdf, df_dict, push_parameters_to_be_valid=True, json_read=False):
     # note that pandas built in IO routines tend to be a bit overy pushy with the typing, hence
     # the push_parameters_to_be_valid argument
     pandat = pdf.PanDat(**df_dict)
@@ -40,8 +40,6 @@ def _clean_pandat_creator(pdf, df_dict, push_parameters_to_be_valid=True, json_r
         flds = [f for f in chain(pdf.primary_key_fields[t], pdf.data_fields[t])]
         setattr(pandat, t, getattr(pandat, t)[flds])
     missing_tables = '\n'.join(sorted({t for t in pdf.all_tables if not len(getattr(pandat, t))}))
-    if missing_tables and print_missing_tables:
-        print(f"The following table names could not be found (or were empty).\n{missing_tables}\n")
     msg = []
     assert pdf.good_pan_dat_object(pandat, msg.append), str(msg)
     return pdf._general_post_read_adjustment(pandat, json_read=json_read,
@@ -75,7 +73,7 @@ class JsonPanFactory(freezable_factory(object, "_isFrozen")):
 
         :param fill_missing_fields: boolean. If truthy, missing fields will be filled in
                                     with their default value. Otherwise, missing fields
-                                    throw an Exception.
+                                    throw an Exception. Doesn't work with list-of-lists format.
 
         :param orient: Indication of expected JSON string format. See pandas.read_json for more details.
 
@@ -103,24 +101,32 @@ class JsonPanFactory(freezable_factory(object, "_isFrozen")):
             verify(stringish(path_or_buf), "%s isn't a string" % path_or_buf)
             loaded_dict = json.loads(path_or_buf)
         verify(dictish(loaded_dict), "the json.load result doesn't resolve to a dictionary")
-        verify(all(map(dictish, loaded_dict.values())),
-               "the json.load result doesn't resolve to a dictionary whose values are themselves dictionaries")
-
         tbl_names = self._get_table_names(loaded_dict)
-        verify("orient" not in kwargs, "orient should be passed as a non-kwargs argument")
-        rtn = {}
-        for t, f in tbl_names.items():
-            kwargs_ = dict(kwargs)
-            if "dtype" not in kwargs_:
-                kwargs_["dtype"] = self.pan_dat_factory._dtypes_for_pandas_read(t)
-            rtn[t] = pd.read_json(json.dumps(loaded_dict[f]), orient=orient, **kwargs_)
-        missing_fields = {(t, f) for t in rtn for f in all_fields(self.pan_dat_factory, t)
-                          if f not in rtn[t].columns}
-        if fill_missing_fields:
-            for t,f in missing_fields:
-                rtn[t][f] = self.pan_dat_factory.default_values[t][f]
-        verify(fill_missing_fields or not missing_fields,
-               "The following (table, field) pairs are missing fields.\n%s" % [(t, f) for t,f in missing_fields])
+        if all(map(containerish, loaded_dict.values())) and not any(map(dictish, loaded_dict.values())):
+            if fill_missing_fields:
+                # there is no obvious assumption for which columns are being supplied and which are missing
+                print("fill_missing_fields isn't appropriate for list-of-lists format.")
+            rtn ={k: loaded_dict[v] for k,v in tbl_names.items()}
+        else:
+            verify(all(map(dictish, loaded_dict.values())),
+                   "the json.load result doesn't resolve to a dictionary whose values are themselves dictionaries")
+
+            verify("orient" not in kwargs, "orient should be passed as a non-kwargs argument")
+            rtn = {}
+            for t, f in tbl_names.items():
+                kwargs_ = dict(kwargs)
+                if "dtype" not in kwargs_:
+                    kwargs_["dtype"] = self.pan_dat_factory._dtypes_for_pandas_read(t)
+                rtn[t] = pd.read_json(json.dumps(loaded_dict[f]), orient=orient, **kwargs_)
+            missing_fields = {(t, f) for t in rtn for f in all_fields(self.pan_dat_factory, t)
+                              if f not in rtn[t].columns}
+            if fill_missing_fields:
+                for t, f in list(missing_fields):
+                    if f in self.pan_dat_factory.default_values.get(t, {}):
+                        rtn[t][f] = self.pan_dat_factory.default_values[t][f]
+                        missing_fields.remove((t, f))
+            verify(not missing_fields,
+                   "The following (table, field) pairs are missing fields.\n%s" % [(t, f) for t,f in missing_fields])
         missing_tables = sorted(set(self.pan_dat_factory.all_tables).difference(rtn))
         if missing_tables:
             print("The following table names could not be found in the json file/string.\n%s\n" %
@@ -137,10 +143,47 @@ class JsonPanFactory(freezable_factory(object, "_isFrozen")):
             else:
                 rtn.pop(table)
         return rtn
-    def write_file(self, pan_dat, json_file_path, case_space_table_names=False, orient='split',
+    def write_file(self, pan_dat, json_file_path):
+        """
+        Write the PanDat data to a json file (or json string). Writes each table as a list-of-lists.
+        See write_file_pd for other formats.
+
+        :param pan_dat: the PanDat object to write
+
+        :param json_file_path: the json file into which the data is to be written. If falsey, will return a
+                               JSON string
+
+        :return: A JSON string if json_file_path is falsey, otherwise None
+        """
+        msg = []
+        verify(self.pan_dat_factory.good_pan_dat_object(pan_dat, msg.append),
+               "pan_dat not a good object for this factory : %s"%"\n".join(msg))
+        pan_dat = self.pan_dat_factory._pre_write_adjustment(pan_dat)
+        jdict = {}
+        def fix_cell(x):
+            if isinstance(x, (pd.Timestamp, numpy.datetime64, datetime.datetime)):
+                return str(x)
+            if pd.isnull(x):
+                return None
+            return x
+
+        for t, (pks, dfs) in self.pan_dat_factory.schema().items():
+            jdict[t] = []
+            def append_row_list(row):
+                jdict[t].append([fix_cell(row[f]) for f in pks + dfs])
+            faster_df_apply(getattr(pan_dat, t), append_row_list)
+        if not json_file_path:
+            return json.dumps(jdict, sort_keys=True, indent=2)
+        with open(json_file_path, "w") as fp:
+            json.dump(jdict, fp, sort_keys=True, indent=2)
+
+    def write_file_pd(self, pan_dat, json_file_path, case_space_table_names=False, orient='split',
                    index=False, indent=2, sort_keys=False, **kwargs):
         """
-        write the PanDat data to a json file (or json string)
+        write the PanDat data to a json file (or json string).
+        Use this routine to write json text that is consistent with what pandas.to_json.
+        The list-of-lists format is created with write_file. In older ticdat releases, write_file
+        implemented the functionaltiy now provided with write_file_pd.
 
         :param pan_dat: the PanDat object to write
 
@@ -150,7 +193,8 @@ class JsonPanFactory(freezable_factory(object, "_isFrozen")):
         :param case_space_table_names: boolean - make best guesses how to add spaces and upper case
                                        characters to table names
 
-        :param orient: Indication of expected JSON string format. See pandas.to_json for more details.
+        :param orient: Passed through to pandas.to_json. Default of "split", combined with index=False, writes
+                       a smaller json file.
 
         :param index: boolean - whether or not to write the index.
 
@@ -161,7 +205,11 @@ class JsonPanFactory(freezable_factory(object, "_isFrozen")):
         :param kwargs: additional named arguments to pass to pandas.to_json
 
         :return:
+
+        NB - pandas seems stubbornly unable to inject Infinity into json, but it can read Infinity from
+        json. We work around this with a GUID created flagging string when encountering float("inf"), float(-"inf").
         """
+        infinity_flagging_str = str(uuid.uuid4())[-9:]
         msg = []
         verify(self.pan_dat_factory.good_pan_dat_object(pan_dat, msg.append),
                "pan_dat not a good object for this factory : %s"%"\n".join(msg))
@@ -176,9 +224,9 @@ class JsonPanFactory(freezable_factory(object, "_isFrozen")):
                                  len(set(self.pan_dat_factory.all_tables)) == \
                                  len(set(map(case_space_to_pretty, self.pan_dat_factory.all_tables)))
         rtn = {}
-        from ticdat.pandatfactory import _faster_df_apply
         for t in self.pan_dat_factory.all_tables:
-            df = getattr(pan_dat, t).copy(deep=True).replace(float("inf"), "inf").replace(-float("inf"), "-inf")
+            df = getattr(pan_dat, t).copy(deep=True).replace(float("inf"), infinity_flagging_str).\
+                 replace(-float("inf"), f"-{infinity_flagging_str}")
             for f in df.columns:
                 dt = self.pan_dat_factory.data_types.get(t, {}).get(f, None)
                 if dt and dt.datetime:
@@ -189,9 +237,11 @@ class JsonPanFactory(freezable_factory(object, "_isFrozen")):
                         if pd.isnull(row[f]):
                             return None
                         return row[f]
-                    df[f] = _faster_df_apply(df, fixed)
+                    df[f] = faster_df_apply(df, fixed)
             k = case_space_to_pretty(t) if case_space_table_names else t
-            rtn[k] = json.loads(df.to_json(path_or_buf=None, orient=orient, **kwargs))
+            rtn[k] = json.loads(df.to_json(path_or_buf=None, orient=orient, **kwargs).
+                                replace(f'"{infinity_flagging_str}"', "Infinity").replace(
+                                f'"-{infinity_flagging_str}"', "-Infinity"))
             if orient == 'split' and not index:
                 rtn[k].pop("index", None)
         if json_file_path:
@@ -264,12 +314,14 @@ class CsvPanFactory(freezable_factory(object, "_isFrozen")):
         missing_fields = {(t, f) for t in rtn for f in all_fields(self.pan_dat_factory, t)
                           if f not in rtn[t].columns}
         if fill_missing_fields:
-            for t,f in missing_fields:
-                rtn[t][f] = self.pan_dat_factory.default_values[t][f]
-        verify(fill_missing_fields or not missing_fields,
+            for t, f in list(missing_fields):
+                if f in self.pan_dat_factory.default_values.get(t, {}):
+                    rtn[t][f] = self.pan_dat_factory.default_values[t][f]
+                    missing_fields.remove((t, f))
+        verify(not missing_fields,
                "The following (table, file_name, field) triplets are missing fields.\n%s" %
                [(t, os.path.basename(tbl_names[t]), f) for t,f in missing_fields])
-        return _clean_pandat_creator(self.pan_dat_factory, rtn, print_missing_tables=True)
+        return _clean_pandat_creator(self.pan_dat_factory, rtn)
 
     def _get_table_names(self, dir_path):
         rtn = {}
@@ -372,9 +424,11 @@ class SqlPanFactory(freezable_factory(object, "_isFrozen")):
         missing_fields = {(t, f) for t in rtn for f in all_fields(self.pan_dat_factory, t)
                           if f not in rtn[t].columns}
         if fill_missing_fields:
-            for t,f in missing_fields:
-                rtn[t][f] = self.pan_dat_factory.default_values[t][f]
-        verify(fill_missing_fields or not missing_fields,
+            for t, f in list(missing_fields):
+                if f in self.pan_dat_factory.default_values.get(t, {}):
+                    rtn[t][f] = self.pan_dat_factory.default_values[t][f]
+                    missing_fields.remove((t, f))
+        verify(not missing_fields,
                "The following are (table, field) pairs missing from the %s file.\n%s" % (db_file_path, missing_fields))
         missing_tables = sorted(set(self.pan_dat_factory.all_tables).difference(rtn))
         if missing_tables:
@@ -507,12 +561,14 @@ class XlsPanFactory(freezable_factory(object, "_isFrozen")):
         missing_fields = {(t, f) for t in rtn for f in all_fields(self.pan_dat_factory, t)
                           if f not in rtn[t].columns}
         if fill_missing_fields:
-            for t,f in missing_fields:
-                rtn[t][f] = self.pan_dat_factory.default_values[t][f]
-        verify(fill_missing_fields or not missing_fields,
+            for t, f in list(missing_fields):
+                if f in self.pan_dat_factory.default_values.get(t, {}):
+                    rtn[t][f] = self.pan_dat_factory.default_values[t][f]
+                    missing_fields.remove((t, f))
+        verify(not missing_fields,
                "The following are (table, field) pairs missing from the %s file.\n%s" % (xls_file_path, missing_fields))
         xl.close()
-        rtn = _clean_pandat_creator(self.pan_dat_factory, rtn, print_missing_tables=True)
+        rtn = _clean_pandat_creator(self.pan_dat_factory, rtn)
         if self.pan_dat_factory.xlsx_trailing_empty_rows == "prune":
             from ticdat.pandatfactory import remove_trailing_all_nan
             for t in self.pan_dat_factory.all_tables:

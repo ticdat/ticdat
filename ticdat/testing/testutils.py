@@ -432,6 +432,7 @@ class TestUtils(unittest.TestCase):
         self.assertFalse(tdf.foreign_keys)
 
     def testFiveB(self):
+        # this tests obfusimplify and add_implied_foreign_keys both
         tdf = TicDatFactory(parent = [["Boo"],["Field"]], other_parent = [["Bar"],["Field"]],
                             child = [["Boo", "Bar"], ["Field"]], more_child = [["Bar", "Boo"], ["Field"]])
         tdf.add_foreign_key("child", "parent", ["Boo"]*2)

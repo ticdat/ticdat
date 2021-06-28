@@ -29,6 +29,46 @@ except:
     drm = None
 import inspect
 
+def faster_df_apply(df, func, trip_wire_check=None):
+    """
+    pandas.DataFrame.apply is rarely used because it is slow. It is slow because it creates a Series for each row
+    of the DataFrame, and passes this Series to the function. faster_df_apply creates a dict for each row of the
+    DataFrame instead, and as a result is **much** faster.
+
+    See https://bit.ly/3xnLFld.
+
+    It's certainly possible newer versions of pandas will implement a more performant DataFrame.apply. The broader
+    point is, row-wise apply should not be discarded wholesale for performance reasons, as DataFrame.itertuples
+    is reasonably fast
+
+    :param df: a DataFrame
+
+    :param func: a function to apply to each row of the DataFrame. The function should accept a fieldname->data
+                 dictionary as argument. func will be applied to each row of the DataFrame
+
+    :param trip_wire_check: optional. If provided, a function that will be passed each result returned by func.
+                                      trip_wire_check can either return falsey, or a replacement to func to be applied
+                                      to the remainder of the DataFrame
+
+    :return: a pandas Series with the same index as df and the values of calling func on each row dict.
+    """
+    verify(DataFrame and isinstance(df, DataFrame), "df argument needs to be a DataFrame")
+    verify(callable(func), "func needs to be a function")
+    verify(not trip_wire_check or callable(trip_wire_check), "trip_wire_check needs to None, or a function")
+    cols = list(df.columns)
+    data, index = [], []
+    for row in df.itertuples(index=True):
+        row_dict = {f:v for f,v in zip(cols, row[1:])}
+        data.append(func(row_dict))
+        index.append(row[0])
+        if trip_wire_check:
+            new_func = trip_wire_check(data[-1])
+            if new_func:
+                func = new_func
+                trip_wire_check = None
+    # will default to float for empty Series, like original pandas
+    return pd.Series(data, index=index, **({"dtype": numpy.float64} if not data else {}))
+
 def dat_restricted(table_list):
     '''
     Decorator factory used to decorate action functions (or solve function) to restrict the access to the
@@ -1072,8 +1112,8 @@ class Progress(object):
 EPSILON = 1e-05
 
 def per_error(x1, x2) :
-    x1 = float(x1)
-    x2 = float(x2)
+    x1 = float(x1) if numericish(x1) else x1
+    x2 = float(x2) if numericish(x2) else x2
     if (x1 < 0) and (x2 < 0) :
         return per_error(-x1, -x2)
     if x1 == float("inf") :

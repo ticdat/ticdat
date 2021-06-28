@@ -1,10 +1,13 @@
 import os
 import shutil
 from ticdat.ticdatfactory import TicDatFactory
+from ticdat.pandatfactory import PanDatFactory
 from ticdat.testing.ticdattestutils import dietData, dietSchema, netflowData, dietSchemaWeirdCase
 from ticdat.testing.ticdattestutils import  netflowSchema, firesException, copyDataDietWeirdCase
 from ticdat.testing.ticdattestutils import sillyMeData, sillyMeSchema, sillyMeDataTwoTables, fail_to_debugger
 from ticdat.testing.ticdattestutils import makeCleanDir, dietSchemaWeirdCase2, copyDataDietWeirdCase2, makeCleanPath
+from ticdat.testing.ticdattestutils import flagged_as_run_alone
+
 import unittest
 from ticdat.jsontd import _can_unit_test, json
 import datetime
@@ -36,32 +39,34 @@ class TestJson(unittest.TestCase):
     def testDiet(self):
         if not self.can_run:
             return
-        for verbose in [True, False]:
+        for kwargs in [{"verbose": True}, {"verbose": False}, {"to_pandas": True}]:
             tdf = TicDatFactory(**dietSchema())
-            ticDat = tdf.freeze_me(tdf.TicDat(**{t:getattr(dietData(),t) for t in tdf.primary_key_fields}))
+            ticDat = tdf.TicDat(**{t:getattr(dietData(),t) for t in tdf.primary_key_fields})
+            ticDat.categories["fat"]["minNutrition"] = -float("inf") # violates integrity but better testing
+            ticDat = tdf.freeze_me(ticDat)
             writePath = os.path.join(makeCleanDir(os.path.join(_scratchDir, "diet")), "file.json")
-            tdf.json.write_file(ticDat, writePath, verbose=verbose)
+            tdf.json.write_file(ticDat, writePath, **kwargs)
             self.assertFalse(tdf.json.find_duplicates(writePath))
             jsonTicDat = tdf.json.create_tic_dat(writePath)
-            self.assertTrue(tdf._same_data(ticDat, jsonTicDat))
+            self.assertTrue(tdf._same_data(ticDat, jsonTicDat, epsilon=1e-5))
 
             def change() :
                 jsonTicDat.categories["calories"]["minNutrition"]=12
             self.assertFalse(firesException(change))
-            self.assertFalse(tdf._same_data(ticDat, jsonTicDat))
+            self.assertFalse(tdf._same_data(ticDat, jsonTicDat, epsilon=1e-5))
             jsonTicDat = tdf.json.create_tic_dat(writePath, freeze_it=True)
             self.assertTrue(firesException(change))
-            self.assertTrue(tdf._same_data(ticDat, jsonTicDat))
+            self.assertTrue(tdf._same_data(ticDat, jsonTicDat, epsilon=1e-5))
 
         tdf2 = TicDatFactory(**dietSchemaWeirdCase())
         dat2 = copyDataDietWeirdCase(ticDat)
-        tdf2.json.write_file(dat2, writePath, allow_overwrite=True, verbose=verbose)
+        tdf2.json.write_file(dat2, writePath, allow_overwrite=True)
         jsonTicDat2 = tdf.json.create_tic_dat(writePath, freeze_it=True)
         self.assertTrue(tdf._same_data(ticDat, jsonTicDat2))
 
         tdf3 = TicDatFactory(**dietSchemaWeirdCase2())
         dat3 = copyDataDietWeirdCase2(ticDat)
-        tdf3.json.write_file(dat3, writePath, allow_overwrite=True, verbose=verbose)
+        tdf3.json.write_file(dat3, writePath, allow_overwrite=True)
         with open(writePath, "r") as f:
             jdict = json.load(f)
         jdict["nutrition quantities"] = jdict["nutrition_quantities"]
@@ -79,12 +84,12 @@ class TestJson(unittest.TestCase):
         if not self.can_run:
             return
 
-        for verbose in [True, False]:
+        for kwargs in [{"verbose": True}, {"verbose": False}, {"to_pandas": True}]:
 
             tdf = TicDatFactory(**sillyMeSchema())
             ticDat = tdf.TicDat(**sillyMeDataTwoTables())
             writePath = os.path.join(makeCleanDir(os.path.join(_scratchDir, "sillyTwoTables")), "file.json")
-            tdf.json.write_file(ticDat, writePath, verbose=verbose)
+            tdf.json.write_file(ticDat, writePath, **kwargs)
             self.assertFalse(tdf.json.find_duplicates(writePath))
             jsonTicDat = tdf.json.create_tic_dat(writePath)
             self.assertTrue(tdf._same_data(ticDat, jsonTicDat))
@@ -152,7 +157,7 @@ class TestJson(unittest.TestCase):
                                 for t in tdf.all_tables})
             writePath = os.path.join(makeCleanDir(os.path.join(_scratchDir, "dups")), "file.json")
             tdf2.json.write_file(td, writePath, **kwargs)
-            dups = tdf.json.find_duplicates(writePath, from_pandas=kwargs.get("to_pandas", False))
+            dups = tdf.json.find_duplicates(writePath)
             self.assertTrue(dups == {'three': {(1, 2, 2): 2}, 'two': {(1, 2): 3}, 'one': {1: 3, 2: 2}})
 
     def testSilly(self):
@@ -228,6 +233,7 @@ class TestJson(unittest.TestCase):
         dat_1 = tdf.json.create_tic_dat(file_one)
         self.assertFalse(tdf._same_data(dat, dat_1))
 
+
     def test_parameters(self):
         path = os.path.join(_scratchDir, "parameters.json")
         tdf = TicDatFactory(parameters=[["Key"], ["Value"]])
@@ -237,6 +243,15 @@ class TestJson(unittest.TestCase):
         tdf.json.write_file(dat, path)
         dat_ = tdf.json.create_tic_dat(path)
         self.assertTrue(tdf._same_data(dat, dat_))
+        tdf2 = TicDatFactory(parameters=[["Key"], ["Value"]])
+        pdf = PanDatFactory(parameters=[["Key"], ["Value"]])
+        dat = tdf.TicDat(parameters = [["Something", 2]])
+        dat_ = tdf2.json.create_tic_dat(tdf.json.write_file(dat, ""))
+        self.assertTrue(tdf._same_data(dat, dat_))
+        dat_2 = pdf.copy_to_tic_dat(pdf.json.create_pan_dat(tdf.json.write_file(dat, "", to_pandas=True)))
+        self.assertTrue(tdf._same_data(dat, dat_2))
+
+
 
     def testDateTime(self):
         tdf = TicDatFactory(table_with_stuffs = [["field one"], ["field two"]],
