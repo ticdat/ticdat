@@ -879,6 +879,26 @@ def deep_freeze(x) :
         return tuple(map(deep_freeze, x))
     return frozenset(map(deep_freeze,x))
 
+def deep_copy(x):
+    '''
+    useful utility function for copying the the sort of nested dictionary and list objects that I end up using with
+    schema manipulations. Can also function as an unfreeze.
+    :param x: the object to deep copy. should be nested dicts, tuples, lists or TicDatFactory/PanDatFactory
+    :return: a deep (and unfrozen, other than tuples) copy of x
+    '''
+    if isinstance(x, (tuple, str)) or numericish(x):
+        return x # tuples are frozen anyway
+    if isinstance(x, list):
+        return [deep_copy(y) for y in x]
+    if isinstance(x, dict) or dictish(x):
+        return {deep_copy(k): deep_copy(v) for k, v in x.items()}
+    if isinstance(x, (ticdat.TicDatFactory, ticdat.PanDatFactory)):
+        return x.clone()
+    if pd and isinstance(x, pd.DataFrame):
+       x.copy(deep=True)
+    if callable(x):
+        return x
+    verify(False, f"Unexpected object {x}")
 
 def td_row_factory(table, key_field_names, data_field_names, default_values={}):
     assert dictish(default_values) and set(default_values).issubset(data_field_names)
