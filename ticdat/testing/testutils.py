@@ -1619,6 +1619,23 @@ class TestUtils(unittest.TestCase):
             df = getattr(copy_2, t)
             self.assertTrue(list(df.index) == list(range(len(df))))
 
+    def test_deep_copy(self):
+        tdf_1 = TicDatFactory(t_one=utils.deep_copy([["Field One"], ["Field Two"]]))
+        tdf_1.set_data_type("t_one", "Field Two", strings_allowed='*', number_allowed=False)
+        sch1 = utils.deep_copy(tdf_1.schema(include_ancillary_info=True))
+        self.assertTrue(sch1 == utils.deep_copy(tdf_1.schema)(include_ancillary_info=True))
+        self.assertTrue(tdf_1.data_types == utils.deep_copy(utils.deep_copy(tdf_1).data_types))
+        self.assertTrue([1, 2, 3] ==
+                        [_[0] for _ in utils.deep_copy(pd.DataFrame({"a": [1, 2, 3]})).itertuples(index=False)])
+        class Dummy(object):
+            pass
+        ex = []
+        try:
+            utils.deep_copy(Dummy())
+        except Exception as e:
+            ex.append(str(e))
+        self.assertTrue("Unexpected" in ex[0])
+
 
 _scratchDir = TestUtils.__name__ + "_scratch"
 

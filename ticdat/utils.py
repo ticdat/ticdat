@@ -890,12 +890,12 @@ def deep_copy(x):
         return x # tuples are frozen anyway
     if isinstance(x, list):
         return [deep_copy(y) for y in x]
+    if pd and isinstance(x, pd.DataFrame):
+       return x.copy(deep=True)
     if isinstance(x, dict) or dictish(x):
         return {deep_copy(k): deep_copy(v) for k, v in x.items()}
     if isinstance(x, (ticdat.TicDatFactory, ticdat.PanDatFactory)):
         return x.clone()
-    if pd and isinstance(x, pd.DataFrame):
-       x.copy(deep=True)
     if callable(x):
         return x
     verify(False, f"Unexpected object {x}")
