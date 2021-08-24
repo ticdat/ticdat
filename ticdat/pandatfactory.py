@@ -105,7 +105,8 @@ class PanDatFactory(object):
                 "data_types" : self.data_types,
                 "parameters": self.parameters,
                 "infinity_io_flag": self.infinity_io_flag,
-                "xlsx_trailing_empty_rows": self.xlsx_trailing_empty_rows}
+                "xlsx_trailing_empty_rows": self.xlsx_trailing_empty_rows,
+                "duplicates_ticdat_init": self.duplicates_ticdat_init}
     @staticmethod
     def create_from_full_schema(full_schema):
         """
@@ -120,7 +121,8 @@ class PanDatFactory(object):
         """
         old_schema = {"tables_fields", "foreign_keys", "default_values", "data_types"}
         verify(dictish(full_schema) and set(full_schema).issuperset(old_schema) and set(full_schema) in
-               utils.all_subsets(old_schema.union({"parameters", "infinity_io_flag", "xlsx_trailing_empty_rows"})),
+               utils.all_subsets(old_schema.union(
+                   {"parameters", "infinity_io_flag", "xlsx_trailing_empty_rows", "duplicates_ticdat_init"})),
                "full_schema should be the result of calling schema(True) for some PanDatFactory")
         fks = full_schema["foreign_keys"]
         verify( (not fks) or (lupish(fks) and all(lupish(_) and len(_) >= 3 for _ in fks)),
@@ -157,6 +159,8 @@ class PanDatFactory(object):
             rtn.set_infinity_io_flag(full_schema["infinity_io_flag"])
         if "xlsx_trailing_empty_rows" in full_schema:
             rtn.set_xlsx_trailing_empty_rows(full_schema["xlsx_trailing_empty_rows"])
+        if "duplicates_ticdat_init" in full_schema:
+            rtn.set_duplicates_ticdat_init(full_schema["duplicates_ticdat_init"])
         return rtn
     def clone(self, table_restrictions=None, clone_factory=None):
         """
@@ -199,6 +203,24 @@ class PanDatFactory(object):
     @property
     def parameters(self):
         return FrozenDict(self._parameters)
+    @property
+    def duplicates_ticdat_init(self):
+        """
+        see __doc__ for set_duplicates_ticdat_init
+        """
+        return self._duplicates_ticdat_init[0]
+    def set_duplicates_ticdat_init(self, value):
+        """
+        Set the duplicates_ticdat_init for the PanDatFactory. Choices are:
+        --> 'assert' : an assert is raised if duplicate rows are passed to TicDat.__init__
+        --> 'warn'   : emit a warning if duplicate rows are passed to TicDat.__init__
+        --> 'ignore' : don't do anything if duplicate rows are passed to TicDat.__init__
+        This is only relevant when using copy_to_tic_dat
+        :param value: either 'assert', 'warn' or 'ignore'
+        :return:
+        """
+        verify(value in ["assert", "warn", "ignore"], f"bad value {value}")
+        self._duplicates_ticdat_init[0] = value
     @property
     def xlsx_trailing_empty_rows(self):
         """
@@ -760,6 +782,7 @@ class PanDatFactory(object):
         self._parameters = {}
         self._infinity_io_flag = ["N/A"]
         self._xlsx_trailing_empty_rows = ["prune"]
+        self._duplicates_ticdat_init = ["assert"]
         self._none_as_infinity_bias_cache = {}
 
 
@@ -891,6 +914,7 @@ class PanDatFactory(object):
                 sch[t] = [[], list(getattr(pan_dat, t).columns)]
         from ticdat import TicDatFactory
         tdf = TicDatFactory(**sch)
+        tdf.set_duplicates_ticdat_init(self.duplicates_ticdat_init)
         def df(t):
             rtn = getattr(pan_dat, t)
             if t in self.generic_tables and not keep_generics_as_df:

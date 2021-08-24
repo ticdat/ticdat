@@ -160,7 +160,8 @@ def clone_a_anchillary_info_schema(schema, table_restrictions):
         elif k == "parameters":
             rtn[k] = v if k in table_restrictions else {}
         else:
-            assert k in {"infinity_io_flag", "xlsx_trailing_empty_rows"}, f"{k} is unexpected part of schema"
+            assert k in {"infinity_io_flag", "xlsx_trailing_empty_rows", "duplicates_ticdat_init"}, \
+                f"{k} is unexpected part of schema"
             rtn[k] = v
     return rtn
 

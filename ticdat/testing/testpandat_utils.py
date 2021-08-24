@@ -225,6 +225,7 @@ class TestUtils(unittest.TestCase):
         pdf2.set_default_value("foods", "name", "a")
         pdf2.set_default_value("nutritionQuantities", "food", "a")
         pdf2.replace_data_type_failures(dat_copied)
+        pdf.set_duplicates_ticdat_init("ignore")
         self.assertFalse(pdf._same_data(dat, dat_copied, epsilon=0.00001))
         self.assertFalse(pdf.find_data_type_failures(dat_copied))
         dups = pdf.find_duplicates(dat_copied)

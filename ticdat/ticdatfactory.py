@@ -88,7 +88,8 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
                 "data_types" : self.data_types,
                 "parameters": self.parameters,
                 "infinity_io_flag": self.infinity_io_flag,
-                "xlsx_trailing_empty_rows": self.xlsx_trailing_empty_rows}
+                "xlsx_trailing_empty_rows": self.xlsx_trailing_empty_rows,
+                "duplicates_ticdat_init": self.duplicates_ticdat_init}
     @staticmethod
     def create_from_full_schema(full_schema):
         """
@@ -103,7 +104,8 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
         """
         old_schema = {"tables_fields", "foreign_keys", "default_values", "data_types"}
         verify(dictish(full_schema) and set(full_schema).issuperset(old_schema) and  set(full_schema) in
-               utils.all_subsets(old_schema.union({"parameters", "infinity_io_flag", "xlsx_trailing_empty_rows"})),
+               utils.all_subsets(old_schema.union(
+                   {"parameters", "infinity_io_flag", "xlsx_trailing_empty_rows", "duplicates_ticdat_init"})),
                "full_schema should be the result of calling schema(True) for some TicDatFactory")
         fks = full_schema["foreign_keys"]
         verify( (not fks) or (lupish(fks) and all(lupish(_) and len(_) >= 3 for _ in fks)),
@@ -139,6 +141,8 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
             rtn.set_infinity_io_flag(full_schema["infinity_io_flag"])
         if "xlsx_trailing_empty_rows" in full_schema:
             rtn.set_xlsx_trailing_empty_rows(full_schema["xlsx_trailing_empty_rows"])
+        if "duplicates_ticdat_init" in full_schema:
+            rtn.set_duplicates_ticdat_init(full_schema["duplicates_ticdat_init"])
         return rtn
     @property
     def generator_tables(self):
@@ -782,8 +786,14 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
                         setattr(self, t, ticdattablefactory(self._all_data_dicts, t)())
                 if init_tables :
                     self._try_make_foreign_links()
-                if any(v > (l or 0) for k, v in lens.items() for l in [utils.safe_apply(len)(getattr(self, k))]):
-                    print("--> Warning: Some rows have been lost due to duplicate rows passed to TicDat.__init__")
+                if superself.duplicates_ticdat_init != "ignore":
+                    dups = {k for k, v in lens.items() for l in [utils.safe_apply(len)(getattr(self, k))]
+                            if v > (l or 0)}
+                    assert superself.duplicates_ticdat_init == "warn" or not dups, \
+                        f"Duplicate rows found in initialization of following tables: {dups}"
+                    if dups and superself.duplicates_ticdat_init == "warn":
+                        print("--> Warning: Some rows have been lost due to duplicate rows passed to TicDat.__init__")
+                        print(f"--> {dups}")
             def _try_make_foreign_links(self):
                 if not superself._foreign_key_links_enabled:
                     return
@@ -850,8 +860,27 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
         self._parameters = {}
         self._infinity_io_flag = ["N/A"]
         self._xlsx_trailing_empty_rows = ["prune"]
+        self._duplicates_ticdat_init = ["assert"]
         self._none_as_infinity_bias_cache = {}
         self._isFrozen=True
+
+    @property
+    def duplicates_ticdat_init(self):
+        """
+        see __doc__ for set_duplicates_ticdat_init
+        """
+        return self._duplicates_ticdat_init[0]
+    def set_duplicates_ticdat_init(self, value):
+        """
+        Set the duplicates_ticdat_init for the TicDatFactory. Choices are:
+        --> 'assert' : an assert is raised if duplicate rows are passed to TicDat.__init__
+        --> 'warn'   : emit a warning if duplicate rows are passed to TicDat.__init__
+        --> 'ignore' : don't do anything if duplicate rows are passed to TicDat.__init__
+        :param value: either 'assert', 'warn' or 'ignore'
+        :return:
+        """
+        verify(value in ["assert", "warn", "ignore"], f"bad value {value}")
+        self._duplicates_ticdat_init[0] = value
 
     @property
     def xlsx_trailing_empty_rows(self):
