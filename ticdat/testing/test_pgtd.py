@@ -521,6 +521,7 @@ class TestPostres(unittest.TestCase):
 
     def test_extra_fields_pd(self):
         pdf = PanDatFactory(boger = [["a"], ["b", "c"]])
+        pdf.set_default_value("boger", "c", "hoya")
         dat = pdf.PanDat(boger = pd.DataFrame({"a": [1, 2, 3], "b":[4, 5,6], "c":['a', 'b', 'c']}))
         schema = "test_pd_extra_fields"
         pdf.pgsql.write_schema(self.engine, schema, forced_field_types={("boger", "c"): "text",
@@ -533,7 +534,32 @@ class TestPostres(unittest.TestCase):
         pdf2.pgsql.write_data(dat2_2, self.engine, schema)
         dat = pdf.pgsql.create_pan_dat(self.engine, schema)
         self.assertTrue(list(dat.boger["a"]) == [10, 300] and list(dat.boger["b"]) == [40, 60])
-        self.assertTrue(len(set(dat.boger["c"])) == 1)
+        self.assertTrue(set(dat.boger["c"]) == {'hoya'})
+
+        pdf2 = PanDatFactory(boger=[["b"], ["a"]])
+        dat2_2 = pdf2.PanDat(boger = pd.DataFrame({"b":[41, 61], "a": [21, 31]}))
+        pdf2.pgsql.write_data(dat2_2, self.engine, schema)
+        dat = pdf.pgsql.create_pan_dat(self.engine, schema)
+        self.assertTrue(list(dat.boger["a"]) == [21, 31] and list(dat.boger["b"]) == [41, 61])
+        self.assertTrue(set(dat.boger["c"]) == {'hoya'})
+
+        pdf2 = PanDatFactory(boger=[["b"], ["z", "a"]])
+        dat2_2 = pdf2.PanDat(boger = pd.DataFrame({"z": ["this", "that", "other"], "b":[42, 61, 1], "a": [22, 31, 2]}))
+        self.assertTrue(list(dat2_2.boger.columns) == ['b', 'z', 'a'])
+        # extra columns won't work when they are part of the PanDatFactory!
+        ex = []
+        try:
+            pdf2.pgsql.write_data(dat2_2, self.engine, schema)
+        except Exception as e:
+            ex.append(str(e))
+        self.assertTrue("Unable to recognize" in ex[0])
+
+        pdf2 = PanDatFactory(boger=[["b"], ["a"]])
+        pdf2.pgsql.write_data(dat2_2, self.engine, schema)
+        dat = pdf.pgsql.create_pan_dat(self.engine, schema)
+        self.assertTrue(list(dat.boger["a"]) == [22, 31, 2] and list(dat.boger["b"]) == [42, 61, 1])
+        self.assertTrue(set(dat.boger["c"]) == {'hoya'})
+
 
     def test_time_stamp(self):
         tdf = TicDatFactory(table=[["Blah"],["Timed Info"]])
