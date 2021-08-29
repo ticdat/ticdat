@@ -318,13 +318,23 @@ class PanDatFactory(object):
         apply = utils.faster_df_apply
         for t in set(self.all_tables).difference(["parameters"]): # parameters table is handled differently
             df = getattr(dat, t)
-            for f in self.primary_key_fields.get(t, ()) + self.data_fields.get(t, ()):
-                if utils.numericish(self.infinity_io_flag):
+            all_fields = tuple(self.primary_key_fields.get(t, ()) + self.data_fields.get(t, ()))
+            if utils.numericish(self.infinity_io_flag):
+                fields_w_issues = set()
+                def find_fields_w_issues(row):
+                    for f in all_fields:
+                        if utils.numericish(row[f]) and abs(row[f]) >= self.infinity_io_flag:
+                            fields_w_issues.add(f)
+                apply(df, find_fields_w_issues)
+                for f in fields_w_issues:
                     fixme = apply(df, lambda row: utils.numericish(row[f]) and row[f] >= self.infinity_io_flag)
-                    df.loc[fixme, f] = float("inf")
+                    if fixme.any():
+                        df.loc[fixme, f] = float("inf")
                     fixme = apply(df, lambda row: utils.numericish(row[f]) and row[f] <= -self.infinity_io_flag)
-                    df.loc[fixme, f] = -float("inf")
-                elif utils.numericish(self._none_as_infinity_bias(t, f)):
+                    if fixme.any():
+                        df.loc[fixme, f] = -float("inf")
+            for f in all_fields:
+                if not utils.numericish(self.infinity_io_flag) and utils.numericish(self._none_as_infinity_bias(t, f)):
                     assert self.infinity_io_flag is None
                     df[f].fillna(value=self._none_as_infinity_bias(t, f) * float("inf"), inplace=True)
                 dt = self.data_types.get(t, {}).get(f, None)
@@ -394,15 +404,29 @@ class PanDatFactory(object):
         apply = utils.faster_df_apply
         for t in set(self.all_tables).difference(["parameters"]): # parameters table is handled differently
             df = getattr(rtn, t)
-            for f in self.primary_key_fields.get(t, ()) + self.data_fields.get(t, ()):
-                if utils.numericish(self.infinity_io_flag):
+            all_fields = tuple(self.primary_key_fields.get(t, ()) + self.data_fields.get(t, ()))
+            fields_w_issues = set()
+            if utils.numericish(self.infinity_io_flag):
+                def find_fields_w_issues(row):
+                    for f in all_fields:
+                        if utils.numericish(row[f]) and abs(row[f]) >= self.infinity_io_flag:
+                            fields_w_issues.add(f)
+                apply(df, find_fields_w_issues)
+                for f in fields_w_issues:
                     fixme = apply(df, lambda row: utils.numericish(row[f]) and row[f] >= self.infinity_io_flag)
                     if fixme.any():
                         df.loc[fixme, f] = self.infinity_io_flag
                     fixme = apply(df, lambda row: utils.numericish(row[f]) and row[f] <= -self.infinity_io_flag)
                     if fixme.any():
                         df.loc[fixme, f] = -self.infinity_io_flag
-                elif utils.numericish(self._none_as_infinity_bias(t, f)):
+            else:
+                all_fields = tuple(f for f in all_fields if utils.numericish(self._none_as_infinity_bias(t, f)))
+                def find_fields_w_issues(row):
+                    for f in all_fields:
+                        if row[f] == float("inf") * self._none_as_infinity_bias(t, f):
+                            fields_w_issues.add(f)
+                apply(df, find_fields_w_issues)
+                for f in fields_w_issues:
                     assert self.infinity_io_flag is None
                     fixme = apply(df, lambda row: row[f] == float("inf") * self._none_as_infinity_bias(t, f))
                     if fixme.any():
