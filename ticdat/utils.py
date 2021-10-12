@@ -889,6 +889,8 @@ def deep_copy(x):
     '''
     if isinstance(x, (tuple, str)) or numericish(x):
         return x # tuples are frozen anyway
+    if isinstance(x, frozenset):
+        return frozenset({deep_copy(y) for y in x})
     if isinstance(x, set):
         return {deep_copy(y) for y in x}
     if isinstance(x, list):
