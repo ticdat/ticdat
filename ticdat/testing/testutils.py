@@ -467,7 +467,14 @@ class TestUtils(unittest.TestCase):
 
     def testSix(self):
         for cloning in [True, False, "*"]:
-            clone_me_maybe = lambda x : x.clone(tdf.all_tables if cloning == "*" else None) if cloning else x
+            def clone_me_maybe(x):
+                if not cloning:
+                    return x
+                sch_0 = x.schema(include_ancillary_info=True)
+                rtn = x.clone(tdf.all_tables if cloning == "*" else None)
+                sch_1 = x.schema(include_ancillary_info=True)
+                self.assertTrue(sch_0 == sch_1)
+                return rtn
 
             tdf = TicDatFactory(plants = [["name"], ["stuff", "otherstuff"]],
                                 lines = [["name"], ["plant", "weird stuff"]],
