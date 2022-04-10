@@ -1263,7 +1263,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
                     if not any (samerow(r1, r2) for r2 in _iter(t2)) :
                         return False
         return True
-    def clone(self, table_restrictions=None, clone_factory=None):
+    def clone(self, table_restrictions=None, clone_factory=None, fields_to_remove=None):
         """
         clones the TicDatFactory
 
@@ -1276,15 +1276,23 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
                                If clone_factory=PanDatFactory, the row predicates that use predicate_kwargs_maker
                                won't be copied over.
 
+        :param fields_to_remove: if None, then argument is ignored. Otherwise a container listing (table, fields) pairs
+                                 specifying which fields need to be removed
+
         :return: a clone of the TicDatFactory. Returned object will based on clone_factory, if provided.
 
+        Note - to add tables, fields you use the clone_factory argument to manipulate the tables_fields entry to insert
+        whatever new fields you want in the correct positions (or whatever new tables you want, with their fields).
+        The passed table_fields dict will already have the removals specified by table_restrictions, fields_to_remove
+        and thus only additions are needed.
         """
         clone_factory = clone_factory or TicDatFactory
         from ticdat import PanDatFactory
         no_copy_predicate_kwargs_maker = clone_factory == PanDatFactory
         if hasattr(clone_factory, "create_from_full_schema"):
             clone_factory = clone_factory.create_from_full_schema
-        full_schema = utils.clone_a_anchillary_info_schema(self.schema(include_ancillary_info=True), table_restrictions)
+        full_schema = utils.clone_a_anchillary_info_schema(self.schema(include_ancillary_info=True),
+                                                           table_restrictions, fields_to_remove)
         rtn = clone_factory(full_schema)
         if hasattr(rtn, "set_generator_tables"):
             rtn.set_generator_tables(self.generator_tables)

@@ -137,26 +137,64 @@ def sln_restricted(table_list):
         return func
     return sln_restricted_decorator
 
-def clone_a_anchillary_info_schema(schema, table_restrictions):
+def clone_a_anchillary_info_schema(schema, table_restrictions, fields_to_remove=None):
     '''
     :param schema: the result of calling _.schema(include_ancillary_info=True) when _ is a
     TicDatFactory or PanDatFactory
-    :param table_restrictions: None (indicating a simple clone) or a sublist of the tables in schema.
-    :return: a clone of schema, except with the tables outside of table_restrictions removed (unlesss
-    table_restrictions is None, in which case schema is returned).
+    :param table_restrictions: None or a partial list of the tables in schema. If the latter, then this is a white-list
+                               of tables to keep, and all the other tables to be removed.
+    :param fields_to_remove: None or a list of (table, fields) pairs specifying which fields need to be removed
+    :return: a clone of schema, except with the tables outside of table_restrictions removed, and the (table, field)
+             pairs inside of field restrictions removed
+             (if all those arguments are None, then schema is returned).
+    Note - to add fields you use the clone_factory argument in TicDatFactory.clone, PanDatFactory.clone to manipulate
+           the tables_fields entries to include whatever new fields you want in their correct positions. This
+           table_fields dict will already have the removals specified by fields_to_remove and thus only additions are
+           needed.
     '''
-    if table_restrictions is None:
+    if all(_ is None for _ in [table_restrictions, fields_to_remove]):
         return schema
+    verify(dictish(schema) and schema.get("tables_fields") and isinstance(schema["tables_fields"], dict),
+           "schema has missing or invalid tables_fields entry")
+    table_restrictions = table_restrictions or set(schema["tables_fields"])
     verify(containerish(table_restrictions) and table_restrictions and
            all(isinstance(_, str) for _ in table_restrictions), "table_restrictions needs to be a container of strings")
-    verify(dictish(schema) and set(table_restrictions).issubset(schema.get("tables_fields", [])),
+    def clean_up_set_of_str_pairs(x, name):
+        x = x or []
+        verify(containerish(x) and all(containerish(_) and len(_) == 2 and
+                                       all(isinstance(__, str) for __ in _) for _ in x),
+               f"{name} needs to be a container whose entries are string pairs")
+        return {tuple(_) for _ in x}
+    fields_to_remove = clean_up_set_of_str_pairs(fields_to_remove, "fields_to_remove")
+    verify(set(table_restrictions).issubset(schema["tables_fields"]),
            "table_restrictions needs to be a subset of schema['tables_fields']")
+    all_fields = {(t, f) for t, (pks, dfs) in schema["tables_fields"].items() for f in pks + dfs}
+    verify(fields_to_remove.issubset(all_fields),
+           "fields_to_remove needs to be a subset of the aggregate field set in schema['tables_fields']")
     rtn = {}
     for k, v in schema.items():
-        if k in ["tables_fields", "default_values", "data_types"]:
-            rtn[k] = {_k:_v for _k, _v in v.items() if _k in table_restrictions}
+        if k == "tables_fields":
+            rtn[k] = {}
+            for t, (pks, dfs) in schema[k].items():
+                if t in table_restrictions:
+                    pks = [f for f in pks if (t, f) not in fields_to_remove]
+                    dfs = [f for f in dfs if (t, f) not in fields_to_remove]
+                    rtn[k][t] = [pks, dfs]
+        elif k in ["default_values", "data_types"]:
+            rtn[k] = {_k:dict(_v) for _k, _v in v.items() if _k in table_restrictions}
+            for t, f in fields_to_remove:
+                if f in rtn[k].get(t, {}):
+                    rtn[k][t].pop(f)
         elif k == "foreign_keys":
-            rtn[k] = tuple(fk for fk in v if set(fk[:2]).issubset(table_restrictions))
+            def good_fk(fk):
+                if set(fk[:2]).issubset(table_restrictions):
+                    def good_mapping(mp):
+                        return (fk.native_table, mp.native_field) not in fields_to_remove and \
+                               (fk.foreign_table, mp.foreign_field) not in fields_to_remove
+                    if hasattr(fk.mapping, "native_field") and hasattr(fk.mapping, "foreign_field"):
+                        return good_mapping(fk.mapping)
+                    return all(good_mapping(_) for _ in fk.mapping)
+            rtn[k] = tuple(fk for fk in v if good_fk(fk))
         elif k == "parameters":
             rtn[k] = v if k in table_restrictions else {}
         else:
