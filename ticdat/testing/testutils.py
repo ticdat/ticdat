@@ -1701,6 +1701,9 @@ class TestUtils(unittest.TestCase):
             tdf_three.add_foreign_key("line_descriptor", "the_wank", ["wanker", "Name"])
             tdf_four = tdf.clone(fields_to_remove=kwargs["fields_to_remove"])
             self.assertTrue(len(tdf_four.foreign_keys)== len(tdf.foreign_keys)-1)
+            tdf_five = tdf.clone(fields_to_remove=[["production", "line"]])
+            self.assertTrue(list(tdf_five.primary_key_fields["production"]) == ["product"])
+            self.assertTrue(0 < len(tdf_five.foreign_keys) < len(tdf.foreign_keys))
 
 _scratchDir = TestUtils.__name__ + "_scratch"
 
