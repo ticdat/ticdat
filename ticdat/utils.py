@@ -166,7 +166,7 @@ def clone_a_anchillary_info_schema(schema, table_restrictions, fields_to_remove=
                f"{name} needs to be a container whose entries are string pairs")
         return {tuple(_) for _ in x}
     fields_to_remove = clean_up_set_of_str_pairs(fields_to_remove, "fields_to_remove")
-    verify(dictish(schema) and set(table_restrictions).issubset(schema["tables_fields"]),
+    verify(set(table_restrictions).issubset(schema["tables_fields"]),
            "table_restrictions needs to be a subset of schema['tables_fields']")
     all_fields = {(t, f) for t, (pks, dfs) in schema["tables_fields"].items() for f in pks + dfs}
     verify(fields_to_remove.issubset(all_fields),
