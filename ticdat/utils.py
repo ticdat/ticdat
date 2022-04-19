@@ -137,6 +137,30 @@ def sln_restricted(table_list):
         return func
     return sln_restricted_decorator
 
+def clone_add_a_column(tdf_pdf, table, field, field_type, field_position):
+    verify(table in tdf_pdf.all_tables, "Unrecognized table name %s" % table)
+    verify(isinstance(field, str), "field needs to be a string")
+    verify(field_type in ['primary key', 'data'], "field_type needs to be 'primary key' or 'data'")
+    current_fields = getattr(tdf_pdf, {"primary key": "primary_key_fields", "data": "data_fields"}[field_type])
+    verify(field not in current_fields, f"{field} already present in {current_fields}")
+    verify(0 <= field_position <= len(current_fields),
+           f"field_positon needs to be between 0 and {len(current_fields)}, inclusive")
+    def clone_factory(full_schema):
+        full_schema = clone_a_anchillary_info_schema(full_schema, table_restrictions=set(tdf_pdf.all_tables))
+        full_schema["tables_fields"][table][{"primary key": 0, "data": 1}[field_type]].insert(field_position, field)
+        return tdf_pdf.create_from_full_schema(full_schema)
+    return tdf_pdf.clone(clone_factory=clone_factory)
+
+def clone_remove_a_column(tdf_pdf, table, field):
+    verify(table in tdf_pdf.all_tables, "Unrecognized table name %s" % table)
+    verify(field in tdf_pdf.primary_key_fields[table] + tdf_pdf.data_fields[table],
+           f"field needs to be one of {tdf_pdf.primary_key_fields[table] + tdf_pdf.data_fields[table]}")
+    def clone_factory(full_schema):
+        full_schema = clone_a_anchillary_info_schema(full_schema, table_restrictions=set(tdf_pdf.all_tables),
+                                                     fields_to_remove=[[table, field]])
+        return tdf_pdf.create_from_full_schema(full_schema)
+    return tdf_pdf.clone(clone_factory=clone_factory)
+
 def clone_a_anchillary_info_schema(schema, table_restrictions, fields_to_remove=None):
     '''
     :param schema: the result of calling _.schema(include_ancillary_info=True) when _ is a

@@ -1313,39 +1313,33 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
                                                    predicate_failure_response=rpi.predicate_failure_response)
         rtn.enable_foreign_key_links() if self._foreign_key_links_enabled else None
         return rtn
-    def clone_change_columns(self, table, pk_fields, df_fields):
+    def clone_add_a_column(self, table, field, field_type, field_position):
         '''
-        add or remove columns from a TicDatFactory
+        add a column to the TicDatFactory
 
         :param table: table in the schema
 
-        :param pk_fields: collection of field names to make the primary key for table
+        :param field: name of the new field to be added
 
-        :param df_fields: collection of field names to make the data fields for the table
+        :param field_type: either "primary key" or "data"
 
-        :return: a clone of the TicDatFactory, with the table adjusted to have only the fields referred to
-                 by pk_fields, df_fields. If pk_fields is the same as the current primary key for table,
-                 and df_fields the same as the current data fields for table, then the returned object will be the same
-                 as calling clone(). Otherwise, new fields will be added and missing fields will be removed.
-                 To the extent that the new fields are consistent with the original fields for table,
-                 the returned TicDatFactory will retain as many data types and foreign keys as possible.
+        :param field_position: integer between 0 and the length of self.primary_key_fields[table] (if "primary key")
+                               or self.data_fields[table] (if "data"), inclsuive.
+
+        :return: a clone of the TicDatFactory, with field inserted into location field_position for field_type
         '''
-        verify(table in self.all_tables, "Unrecognized table name %s" % table)
-        verify(containerish(pk_fields) and all(isinstance(_, str) for _ in pk_fields),
-               "pk_fields needs to be a container of strings")
-        verify(containerish(df_fields) and all(isinstance(_, str) for _ in df_fields),
-               "df_fields needs to be a container of strings")
-        verify(pk_fields or df_fields, "Need to specify at least one field.")
-        fields_to_remove = {(table, f) for f in self.primary_key_fields[table] + self.data_fields[table] if f not in
-                            set(pk_fields).union(df_fields)}
-        def clone_factory(full_schema):
-            full_schema = utils.clone_a_anchillary_info_schema(full_schema, table_restrictions=set(self.all_tables),
-                                                               fields_to_remove=fields_to_remove)
-            full_schema["tables_fields"][table] = [list(pk_fields), list(df_fields)]
-            return TicDatFactory.create_from_full_schema(full_schema)
-        return self.clone(clone_factory=clone_factory)
+        return utils.clone_add_a_column(self, table, field, field_type, field_position)
+    def clone_remove_a_column(self, table, field):
+        '''
+        remove a column from the TicDatFactory
 
+        :param table: table in the schema
 
+        :param field: name of the field to be removed
+
+        :return: a clone of the TicDatFactory, with field removed
+        '''
+        return utils.clone_remove_a_column(self, table, field)
     def copy_tic_dat(self, tic_dat, freeze_it = False):
         """
         copies the tic_dat object into a new tic_dat object
