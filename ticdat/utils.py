@@ -161,6 +161,19 @@ def clone_remove_a_column(tdf_pdf, table, field):
         return tdf_pdf.create_from_full_schema(full_schema)
     return tdf_pdf.clone(clone_factory=clone_factory)
 
+def clone_add_a_table(tdf_pdf, table, pk_fields, df_fields):
+    verify(table not in tdf_pdf.all_tables, f"{table} isn't a new table")
+    verify(containerish(pk_fields) and all(isinstance(_, str) for _ in pk_fields),
+           "pk_fields needs to be a container of strings")
+    verify(containerish(df_fields) and all(isinstance(_, str) for _ in df_fields),
+           "df_fields needs to be a container of strings")
+    verify(pk_fields or df_fields, "Need to specify at least one field.")
+    def clone_factory(full_schema):
+        full_schema = clone_a_anchillary_info_schema(full_schema, table_restrictions=set(tdf_pdf.all_tables))
+        full_schema["tables_fields"][table] = [list(pk_fields), list(df_fields)]
+        return tdf_pdf.create_from_full_schema(full_schema)
+    return tdf_pdf.clone(clone_factory=clone_factory)
+
 def clone_a_anchillary_info_schema(schema, table_restrictions, fields_to_remove=None):
     '''
     :param schema: the result of calling _.schema(include_ancillary_info=True) when _ is a

@@ -199,9 +199,22 @@ class PanDatFactory(object):
                                                    predicate_kwargs_maker=rpi.predicate_kwargs_maker,
                                                    predicate_failure_response=rpi.predicate_failure_response)
         return rtn
+    def clone_add_a_table(self, table, pk_fields, df_fields):
+        '''
+        add a column to the PanDatFactory
+
+        :param table: table not in the schema
+
+        :param pk_fields: container of the primary key fields
+
+        :param df_fields: container of the data fields
+
+        :return: a clone of the PanDatFactory, with the new table added
+        '''
+        return utils.clone_add_a_table(self, table, pk_fields, df_fields)
     def clone_add_a_column(self, table, field, field_type, field_position):
         '''
-        add a column to the TicDatFactory
+        add a column to the PanDatFactory
 
         :param table: table in the schema
 
@@ -212,18 +225,18 @@ class PanDatFactory(object):
         :param field_position: integer between 0 and the length of self.primary_key_fields[table] (if "primary key")
                                or self.data_fields[table] (if "data"), inclsuive.
 
-        :return: a clone of the TicDatFactory, with field inserted into location field_position for field_type
+        :return: a clone of the PanDatFactory, with field inserted into location field_position for field_type
         '''
         return utils.clone_add_a_column(self, table, field, field_type, field_position)
     def clone_remove_a_column(self, table, field):
         '''
-        remove a column from the TicDatFactory
+        remove a column from the PanDatFactory
 
         :param table: table in the schema
 
         :param field: name of the field to be removed
 
-        :return: a clone of the TicDatFactory, with field removed
+        :return: a clone of the PanDatFactory, with field removed
         '''
         return utils.clone_remove_a_column(self, table, field)
     @property
@@ -281,7 +294,7 @@ class PanDatFactory(object):
         return  self._infinity_io_flag[0]
     def set_infinity_io_flag(self, value):
         """
-        Set the infinity_io_flag for the TicDatFactory.
+        Set the infinity_io_flag for the PanDatFactory.
         'N/A' (the default) is recognized as a flag to disable infinity I/O buffering.
 
         If numeric, when writing data to the file system (or a database), float("inf") will be replaced by the
@@ -647,7 +660,7 @@ class PanDatFactory(object):
         verify(self.data_fields["parameters"][0] not in self._data_types.get("parameters", {}),
                 "Don't set the data type for the parameters data field if you are going to use add_parameters.")
         verify(not self._has_been_used,
-               "The parameters can't be changed after a TicDatFactory has been used.")
+               "The parameters can't be changed after a PanDatFactory has been used.")
         td = None
         if enforce_type_rules:
             td = TypeDictionary.safe_creator(number_allowed, inclusive_min, inclusive_max,

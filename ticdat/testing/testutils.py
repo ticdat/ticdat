@@ -40,7 +40,7 @@ def _deep_anonymize(x)  :
     return list(map(_deep_anonymize,x))
 
 #uncomment decorator to drop into debugger for assertTrue, assertFalse failures
-#@fail_to_debugger
+@fail_to_debugger
 class TestUtils(unittest.TestCase):
     def _testTdfReproduction(self, tdf):
         def _tdfs_same(tdf, tdf2):
@@ -1645,6 +1645,7 @@ class TestUtils(unittest.TestCase):
             ex.append(str(e))
         self.assertTrue("Unexpected" in ex[0])
 
+    @flagged_as_run_alone
     def test_adding_removing_fields_and_tables(self):
         for one_or_other in [TicDatFactory, PanDatFactory]:
             tdf = TicDatFactory(plants=[["name"], ["stuff", "otherstuff"]],
@@ -1677,8 +1678,8 @@ class TestUtils(unittest.TestCase):
                 return tdf_
             tdf_two = remove_some_fields_clone(tdf.clone(**kwargs))
             self.assertTrue(tdf.schema(include_ancillary_info=True) == tdf_one.schema(include_ancillary_info=True))
-            def adding_some_tables(full_schema):
-                self.assertTrue(full_schema["tables_fields"] ==
+            def adding_some_tables(tdf_):
+                self.assertTrue(tdf_.schema() ==
                                 {'pureTestingTable': [[], ['plant', 'product']],
                                  'line_descriptor': [['name'], ['booger']],
                                  'extraProduction': [['line', 'product'], ['extramin', 'extramax']],
@@ -1686,12 +1687,12 @@ class TestUtils(unittest.TestCase):
                                  'plants': [['name'], ['stuff', 'otherstuff']],
                                  'products': [['name'], []],
                                  'lines': [['name'], ['plant', 'weird stuff']]})
-                full_schema["tables_fields"]["products"][1] = ["governor"]
-                full_schema["tables_fields"]["line_descriptor"][0].append("governor")
-                full_schema["tables_fields"]["line_descriptor"][0].append("wanker")
-                full_schema["tables_fields"]["the_wank"] = [["Name"], []]
-                return one_or_other.create_from_full_schema(full_schema)
-            tdf_three = remove_some_fields_clone(tdf).clone(clone_factory=adding_some_tables, **kwargs)
+                tdf_ = tdf_.clone_add_a_column("products", "governor", "data", 0)
+                tdf_ = tdf_.clone_add_a_column("line_descriptor", "governor", "primary key", 1)
+                tdf_ = tdf_.clone_add_a_column("line_descriptor", "wanker", "primary key", 2)
+                tdf_ = tdf_.clone_add_a_table("the_wank", ["Name"], [])
+                return tdf_
+            tdf_three = adding_some_tables(remove_some_fields_clone(tdf))
             for tdf_0, tdf_1 in itertools.combinations([tdf_one, tdf_two, tdf_three], 2):
                 self.assertFalse(tdf_0.schema(include_ancillary_info=True) == tdf_1.schema(include_ancillary_info=True))
                 self.assertTrue(all(_.default_values["line_descriptor"]["boger"] == 12) for _ in [tdf_0, tdf_1])
