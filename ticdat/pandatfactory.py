@@ -213,7 +213,8 @@ class PanDatFactory(object):
                  by pk_fields, df_fields. If pk_fields is the same as the current primary key for table,
                  and df_fields the same as the current data fields for table, then the returned object will be the same
                  as calling clone(). Otherwise, new fields will be added and missing fields will be removed.
-
+                 To the extent that the new fields are consistent with the original fields for table,
+                 the returned PanDatFactory will retain as many data types and foreign keys as possible.
         '''
         verify(table in self.all_tables, "Unrecognized table name %s" % table)
         verify(containerish(pk_fields) and all(isinstance(_, str) for _ in pk_fields),
