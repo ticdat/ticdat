@@ -199,7 +199,7 @@ class PanDatFactory(object):
                                                    predicate_kwargs_maker=rpi.predicate_kwargs_maker,
                                                    predicate_failure_response=rpi.predicate_failure_response)
         return rtn
-    def clone_change_column(self, table, pk_fields, df_fields):
+    def clone_change_columns(self, table, pk_fields, df_fields):
         '''
         add or remove columns from a PanDatFactory
 

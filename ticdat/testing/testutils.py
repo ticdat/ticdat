@@ -1672,8 +1672,8 @@ class TestUtils(unittest.TestCase):
             tdf_one = tdf.clone()
             kwargs = {"table_restrictions": [_ for _ in tdf.all_tables if _ != "weirdProduction"]}
             def remove_some_fields_clone(tdf_):
-                return tdf_.clone_change_column("pureTestingTable", pk_fields=[], df_fields=["plant", "product"]) \
-                           .clone_change_column("products", ["name"], [])
+                return tdf_.clone_change_columns("pureTestingTable", pk_fields=[], df_fields=["plant", "product"]) \
+                           .clone_change_columns("products", ["name"], [])
             tdf_two = remove_some_fields_clone(tdf.clone(**kwargs))
             self.assertTrue(tdf.schema(include_ancillary_info=True) == tdf_one.schema(include_ancillary_info=True))
             def adding_some_tables(full_schema):
@@ -1702,7 +1702,7 @@ class TestUtils(unittest.TestCase):
             tdf_three.add_foreign_key("line_descriptor", "the_wank", ["wanker", "Name"])
             tdf_four = remove_some_fields_clone(tdf)
             self.assertTrue(len(tdf_four.foreign_keys)== len(tdf.foreign_keys)-1)
-            tdf_five = tdf.clone_change_column("production", ["product"], ["min", "max"])
+            tdf_five = tdf.clone_change_columns("production", ["product"], ["min", "max"])
             self.assertTrue(list(tdf_five.primary_key_fields["production"]) == ["product"])
             self.assertTrue(0 < len(tdf_five.foreign_keys) < len(tdf.foreign_keys))
 

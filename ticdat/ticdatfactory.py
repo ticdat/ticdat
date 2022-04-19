@@ -1313,7 +1313,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
                                                    predicate_failure_response=rpi.predicate_failure_response)
         rtn.enable_foreign_key_links() if self._foreign_key_links_enabled else None
         return rtn
-    def clone_change_column(self, table, pk_fields, df_fields):
+    def clone_change_columns(self, table, pk_fields, df_fields):
         '''
         add or remove columns from a TicDatFactory
 
