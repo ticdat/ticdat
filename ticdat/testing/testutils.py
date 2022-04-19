@@ -1670,10 +1670,11 @@ class TestUtils(unittest.TestCase):
             tdf.set_default_value("line_descriptor", "booger", 12)
 
             tdf_one = tdf.clone()
-            kwargs = {"table_restrictions": [_ for _ in tdf.all_tables if _ != "weirdProduction"],
-                      "fields_to_remove": [["pureTestingTable", "line"], ["pureTestingTable", "something"],
-                                           ["products", "gover"]]}
-            tdf_two = tdf.clone(**kwargs)
+            kwargs = {"table_restrictions": [_ for _ in tdf.all_tables if _ != "weirdProduction"]}
+            def remove_some_fields_clone(tdf_):
+                return tdf_.clone_change_column("pureTestingTable", pk_fields=[], df_fields=["plant", "product"]) \
+                           .clone_change_column("products", ["name"], [])
+            tdf_two = remove_some_fields_clone(tdf.clone(**kwargs))
             self.assertTrue(tdf.schema(include_ancillary_info=True) == tdf_one.schema(include_ancillary_info=True))
             def adding_some_tables(full_schema):
                 self.assertTrue(full_schema["tables_fields"] ==
@@ -1689,7 +1690,7 @@ class TestUtils(unittest.TestCase):
                 full_schema["tables_fields"]["line_descriptor"][0].append("wanker")
                 full_schema["tables_fields"]["the_wank"] = [["Name"], []]
                 return one_or_other.create_from_full_schema(full_schema)
-            tdf_three = tdf.clone(clone_factory=adding_some_tables, **kwargs)
+            tdf_three = remove_some_fields_clone(tdf).clone(clone_factory=adding_some_tables, **kwargs)
             for tdf_0, tdf_1 in itertools.combinations([tdf_one, tdf_two, tdf_three], 2):
                 self.assertFalse(tdf_0.schema(include_ancillary_info=True) == tdf_1.schema(include_ancillary_info=True))
                 self.assertTrue(all(_.default_values["line_descriptor"]["boger"] == 12) for _ in [tdf_0, tdf_1])
@@ -1699,9 +1700,9 @@ class TestUtils(unittest.TestCase):
             self.assertTrue(all(len(_.foreign_keys) == len(tdf.foreign_keys) - 3 for _ in [tdf_two, tdf_three]))
             tdf_three.add_foreign_key("products", "line_descriptor", ["governor", "governor"])
             tdf_three.add_foreign_key("line_descriptor", "the_wank", ["wanker", "Name"])
-            tdf_four = tdf.clone(fields_to_remove=kwargs["fields_to_remove"])
+            tdf_four = remove_some_fields_clone(tdf)
             self.assertTrue(len(tdf_four.foreign_keys)== len(tdf.foreign_keys)-1)
-            tdf_five = tdf.clone(fields_to_remove=[["production", "line"]])
+            tdf_five = tdf.clone_change_column("production", ["product"], ["min", "max"])
             self.assertTrue(list(tdf_five.primary_key_fields["production"]) == ["product"])
             self.assertTrue(0 < len(tdf_five.foreign_keys) < len(tdf.foreign_keys))
 

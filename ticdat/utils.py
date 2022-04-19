@@ -147,10 +147,7 @@ def clone_a_anchillary_info_schema(schema, table_restrictions, fields_to_remove=
     :return: a clone of schema, except with the tables outside of table_restrictions removed, and the (table, field)
              pairs inside of field restrictions removed
              (if all those arguments are None, then schema is returned).
-    Note - to add fields you use the clone_factory argument in TicDatFactory.clone, PanDatFactory.clone to manipulate
-           the tables_fields entries to include whatever new fields you want in their correct positions. This
-           table_fields dict will already have the removals specified by fields_to_remove and thus only additions are
-           needed.
+    Note - TicDatFactory and PanDatFactory have explicit subroutines clone_change_columns and clone_add_table
     '''
     if all(_ is None for _ in [table_restrictions, fields_to_remove]):
         return schema
