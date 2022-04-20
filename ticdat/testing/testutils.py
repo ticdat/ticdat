@@ -1700,6 +1700,7 @@ class TestUtils(unittest.TestCase):
                 tdf_ = tdf_.clone_add_a_column("line_descriptor", "governor", "primary key", 1)
                 tdf_ = tdf_.clone_add_a_column("line_descriptor", "wanker", "primary key")
                 tdf_ = tdf_.clone_add_a_table("the_wank", ["Name"], [])
+                self.assertTrue(tdf_.schema()["the_wank"] == [["Name"], []])
                 return tdf_
             tdf_three = adding_some_tables(remove_some_fields_clone(tdf.clone(**kwargs)))
             for tdf_0, tdf_1 in itertools.combinations([tdf_one, tdf_two, tdf_three], 2):
