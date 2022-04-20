@@ -1688,7 +1688,7 @@ class TestUtils(unittest.TestCase):
                                  'lines': [['name'], ['plant', 'weird stuff']]})
                 tdf_ = tdf_.clone_add_a_column("products", "governor", "data", 0)
                 tdf_ = tdf_.clone_add_a_column("line_descriptor", "governor", "primary key", 1)
-                tdf_ = tdf_.clone_add_a_column("line_descriptor", "wanker", "primary key", 2)
+                tdf_ = tdf_.clone_add_a_column("line_descriptor", "wanker", "primary key")
                 tdf_ = tdf_.clone_add_a_table("the_wank", ["Name"], [])
                 return tdf_
             tdf_three = adding_some_tables(remove_some_fields_clone(tdf.clone(**kwargs)))

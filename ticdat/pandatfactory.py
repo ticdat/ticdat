@@ -212,7 +212,7 @@ class PanDatFactory(object):
         :return: a clone of the PanDatFactory, with the new table added
         '''
         return utils.clone_add_a_table(self, table, pk_fields, df_fields)
-    def clone_add_a_column(self, table, field, field_type, field_position):
+    def clone_add_a_column(self, table, field, field_type, field_position="append"):
         '''
         add a column to the PanDatFactory
 
@@ -224,6 +224,8 @@ class PanDatFactory(object):
 
         :param field_position: integer between 0 and the length of self.primary_key_fields[table] (if "primary key")
                                or self.data_fields[table] (if "data"), inclsuive.
+                               Alternately, can be "append", which will just insert the column at the end of the
+                               appropriate list.
 
         :return: a clone of the PanDatFactory, with field inserted into location field_position for field_type
         '''
