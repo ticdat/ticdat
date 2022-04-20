@@ -174,7 +174,7 @@ def clone_add_a_table(tdf_pdf, table, pk_fields, df_fields):
         return tdf_pdf.create_from_full_schema(full_schema)
     return tdf_pdf.clone(clone_factory=clone_factory)
 
-def clone_rename_a_field(tdf_pdf, table, field, new_field):
+def clone_rename_a_column(tdf_pdf, table, field, new_field):
     verify(table in tdf_pdf.all_tables, "Unrecognized table name %s" % table)
     verify(field in tdf_pdf.primary_key_fields[table] + tdf_pdf.data_fields[table],
            f"field needs to be one of {tdf_pdf.primary_key_fields[table] + tdf_pdf.data_fields[table]}")
@@ -187,6 +187,8 @@ def clone_rename_a_field(tdf_pdf, table, field, new_field):
     rtn = clone_add_a_column(clone_remove_a_column(tdf_pdf, table, field), table, new_field, *args)
     if field in tdf_pdf.data_types.get(table, {}):
         rtn.set_data_type(table, new_field, *tdf_pdf.data_types[table][field])
+    if field in tdf_pdf.default_values.get(table, {}):
+        rtn.set_default_value(table, new_field, tdf_pdf.default_values[table][field])
     for fk in tdf_pdf.foreign_keys:
         def needs_renaming(mp):
             if hasattr(mp, "native_field"):

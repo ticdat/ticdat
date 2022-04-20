@@ -239,7 +239,7 @@ class PanDatFactory(object):
         :return: a clone of the PanDatFactory, with field removed
         '''
         return utils.clone_remove_a_column(self, table, field)
-    def clone_rename_a_table(self, table, field, new_field):
+    def clone_rename_a_column(self, table, field, new_field):
         '''
         rename a column in the TicDatFactory
 
@@ -253,7 +253,7 @@ class PanDatFactory(object):
                  be reflect the new field name, but row predicates will be copied over as-is (and thus you will need
                  to re-create them as needed).
         '''
-        return utils.clone_rename_a_field(self, table, field, new_field)
+        return utils.clone_rename_a_column(self, table, field, new_field)
     @property
     def default_values(self):
         return deep_freeze(self._default_values)

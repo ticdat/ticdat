@@ -1714,7 +1714,7 @@ class TestUtils(unittest.TestCase):
             kosher()
             for t, (pks, dfs) in tdf.schema().items():
                 for f in pks + dfs:
-                    tdf_six.clone_rename_a_table(t, f, f + " Woz")
+                    tdf_six.clone_rename_a_column(t, f, f + " Woz")
                     kosher()
 
 _scratchDir = TestUtils.__name__ + "_scratch"

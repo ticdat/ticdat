@@ -1355,7 +1355,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
         :return: a clone of the TicDatFactory, with field inserted into location field_position for field_type
         '''
         return utils.clone_add_a_column(self, table, field, field_type, field_position)
-    def clone_rename_a_table(self, table, field, new_field):
+    def clone_rename_a_column(self, table, field, new_field):
         '''
         rename a column in the TicDatFactory
 
@@ -1369,7 +1369,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
                  be reflect the new field name, but row predicates will be copied over as-is (and thus you will need
                  to re-create them as needed).
         '''
-        return utils.clone_rename_a_field(self, table, field, new_field)
+        return utils.clone_rename_a_column(self, table, field, new_field)
     def clone_remove_a_column(self, table, field):
         '''
         remove a column from the TicDatFactory
