@@ -174,6 +174,34 @@ def clone_add_a_table(tdf_pdf, table, pk_fields, df_fields):
         return tdf_pdf.create_from_full_schema(full_schema)
     return tdf_pdf.clone(clone_factory=clone_factory)
 
+def clone_rename_a_field(tdf_pdf, table, field, new_field):
+    verify(table in tdf_pdf.all_tables, "Unrecognized table name %s" % table)
+    verify(field in tdf_pdf.primary_key_fields[table] + tdf_pdf.data_fields[table],
+           f"field needs to be one of {tdf_pdf.primary_key_fields[table] + tdf_pdf.data_fields[table]}")
+    if field in tdf_pdf.primary_key_fields[table]:
+        args = ("primary key", tdf_pdf.primary_key_fields[table].index(field))
+    else:
+        args = ("data", tdf_pdf.data_fields[table].index(field))
+    verify(new_field not in tdf_pdf.primary_key_fields[table] + tdf_pdf.data_fields[table],
+           f"new_field cannot be one of {tdf_pdf.primary_key_fields[table] + tdf_pdf.data_fields[table]}")
+    rtn = clone_add_a_column(clone_remove_a_column(tdf_pdf, table, field), table, new_field, *args)
+    if field in tdf_pdf.data_types.get(table, {}):
+        rtn.set_data_type(table, new_field, *tdf_pdf.data_types[table][field])
+    for fk in tdf_pdf.foreign_keys:
+        def needs_renaming(mp):
+            if hasattr(mp, "native_field"):
+                return (table, field) in {(fk.native_table, mp.native_field), (fk.foreign_table, mp.foreign_field)}
+            return any(needs_renaming(_) for _ in mp) if containerish(mp) else False
+        def do_renaming(mp):
+            field_renaming = lambda _t, _f: new_field if (_t, _f) == (table, field) else _f
+            if hasattr(mp, "native_field"):
+                return (field_renaming(fk.native_table, mp.native_field),
+                        field_renaming(fk.foreign_table, mp.foreign_field))
+            return tuple(do_renaming(_) for _ in mp)if containerish(mp) else mp
+        if needs_renaming(fk.mapping):
+            rtn.add_foreign_key(fk.native_table, fk.foreign_table, do_renaming(fk.mapping))
+    return rtn
+
 def clone_a_anchillary_info_schema(schema, table_restrictions, fields_to_remove=None):
     '''
     :param schema: the result of calling _.schema(include_ancillary_info=True) when _ is a

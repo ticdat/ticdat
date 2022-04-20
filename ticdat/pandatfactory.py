@@ -239,6 +239,21 @@ class PanDatFactory(object):
         :return: a clone of the PanDatFactory, with field removed
         '''
         return utils.clone_remove_a_column(self, table, field)
+    def clone_rename_a_table(self, table, field, new_field):
+        '''
+        rename a column in the TicDatFactory
+
+        :param table: table in the schema
+
+        :param field: name of the field to be removed
+
+        :param new_field: new name for the field
+
+        :return: a clone of the TicDatFactory, with field renamed to new_field. Data types and foreign keys will
+                 be reflect the new field name, but row predicates will be copied over as-is (and thus you will need
+                 to re-create them as needed).
+        '''
+        return utils.clone_rename_a_field(self, table, field, new_field)
     @property
     def default_values(self):
         return deep_freeze(self._default_values)
@@ -611,6 +626,17 @@ class PanDatFactory(object):
             predicate_name = next(i for i in count() if i not in self._data_row_predicates[table])
         self._data_row_predicates[table][predicate_name] = RowPredicateInfo(predicate, predicate_kwargs_maker,
                                                                             predicate_failure_response)
+    def get_row_predicates(self, table):
+        '''
+        return all the row predicates for a given table
+
+        :param table: a table in the schema
+
+        :return: a dictionary mapping predicate_name to RowPredicateInfo named tuple (the entries of which
+                 are based on the prior call to add_data_row_predicate).
+        '''
+        verify(False, "TEST THIS!!!")
+        return {k: v for k, v in self._data_row_predicates.get(table, {}).items()}
 
     def add_parameter(self, name, default_value, number_allowed = True,
                       inclusive_min = True, inclusive_max = False, min = 0, max = float("inf"),

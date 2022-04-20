@@ -1707,6 +1707,16 @@ class TestUtils(unittest.TestCase):
             self.assertTrue(list(tdf_five.primary_key_fields["production"]) == ["product"])
             self.assertTrue(0 < len(tdf_five.foreign_keys) < len(tdf.foreign_keys))
 
+            tdf_six = tdf.clone()
+            def kosher():
+                self.assertTrue(len(tdf.foreign_keys) == len(tdf_six.foreign_keys))
+                self.assertTrue(sum(map(len, tdf.data_types.values())) == sum(map(len, tdf_six.data_types.values())))
+            kosher()
+            for t, (pks, dfs) in tdf.schema().items():
+                for f in pks + dfs:
+                    tdf_six.clone_rename_a_table(t, f, f + " Woz")
+                    kosher()
+
 _scratchDir = TestUtils.__name__ + "_scratch"
 
 # Run the tests.
