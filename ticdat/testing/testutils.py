@@ -1184,6 +1184,12 @@ class TestUtils(unittest.TestCase):
         self.assertTrue(all_params == all_params_2 and len(all_params) == 2)
         self.assertTrue(all_params["p1"] ==  dateutil.parser.parse("Dec 15 1970") and utils.pd.isnull(all_params["p2"]))
 
+        tdf.remove_parameter("p1")
+        self.assertTrue({_[0] for _ in tdf.find_data_row_failures(dat)} == {"parameters"})
+        self.assertTrue([set(_) for _ in tdf.find_data_row_failures(dat).values()] == [{'p1', 'p2'}])
+        pdf.remove_parameter("p1")
+        self.assertTrue(set(pdf.create_full_parameters_dict(pdf.PanDat())) == {'p2'})
+
     def testTwentyThree(self):
         tdf = TicDatFactory(**dietSchema())
         def makeIt() :
