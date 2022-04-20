@@ -1647,14 +1647,14 @@ class TestUtils(unittest.TestCase):
 
     def test_adding_removing_fields_and_tables(self):
         for one_or_other in [TicDatFactory, PanDatFactory]:
-            tdf = TicDatFactory(plants=[["name"], ["stuff", "otherstuff"]],
-                                lines=[["name"], ["plant", "weird stuff"]],
-                                line_descriptor=[["name"], ["booger"]],
-                                products=[["name"], ["gover"]],
-                                production=[["line", "product"], ["min", "max"]],
-                                pureTestingTable=[[], ["line", "plant", "product", "something"]],
-                                extraProduction=[["line", "product"], ["extramin", "extramax"]],
-                                weirdProduction=[["line1", "line2", "product"], ["weirdmin", "weirdmax"]])
+            tdf = one_or_other(plants=[["name"], ["stuff", "otherstuff"]],
+                               lines=[["name"], ["plant", "weird stuff"]],
+                               line_descriptor=[["name"], ["booger"]],
+                               products=[["name"], ["gover"]],
+                               production=[["line", "product"], ["min", "max"]],
+                               pureTestingTable=[[], ["line", "plant", "product", "something"]],
+                               extraProduction=[["line", "product"], ["extramin", "extramax"]],
+                               weirdProduction=[["line1", "line2", "product"], ["weirdmin", "weirdmax"]])
             tdf.add_foreign_key("production", "lines", ("line", "name"))
             tdf.add_foreign_key("production", "products", ("product", "name"))
             tdf.add_foreign_key("lines", "plants", ("plant", "name"))
@@ -1708,14 +1708,29 @@ class TestUtils(unittest.TestCase):
             self.assertTrue(0 < len(tdf_five.foreign_keys) < len(tdf.foreign_keys))
 
             tdf_six = tdf.clone()
+            tdf_seven = tdf.clone()
             def kosher():
-                self.assertTrue(len(tdf.foreign_keys) == len(tdf_six.foreign_keys))
-                self.assertTrue(sum(map(len, tdf.data_types.values())) == sum(map(len, tdf_six.data_types.values())))
+                for tdf_ in [tdf_six, tdf_seven]:
+                    self.assertTrue(len(tdf.foreign_keys) == len(tdf_.foreign_keys))
             kosher()
             for t, (pks, dfs) in tdf.schema().items():
                 for f in pks + dfs:
-                    tdf_six.clone_rename_a_column(t, f, f + " Woz")
+                    tdf_six = tdf.clone_rename_a_column(t, f, f + " Woz")
+                    tdf_seven = tdf_seven.clone_rename_a_column(t, f, f + " Woz")
                     kosher()
+                    for tdf_ in [tdf_six, tdf_seven]:
+                        self.assertTrue(tdf.default_values.get(t, {}).get(f, 0) ==
+                                        tdf_.default_values.get(t, {}).get(f + " Woz", 0))
+                        self.assertTrue(tdf.data_types.get(t, {}).get(f) ==
+                                        tdf_.data_types.get(t, {}).get(f + " Woz"))
+            for fk in tdf_seven.foreign_keys:
+                if hasattr(fk.mapping, "native_field"):
+                    self.assertTrue(fk.mapping.native_field.endswith(" Woz") and
+                                    fk.mapping.foreign_field.endswith(" Woz"))
+                else:
+                    self.assertTrue(all(_.native_field.endswith(" Woz") and _.foreign_field.endswith(" Woz")
+                                        for _ in fk.mapping))
+
 
 _scratchDir = TestUtils.__name__ + "_scratch"
 
