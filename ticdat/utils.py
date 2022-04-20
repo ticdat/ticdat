@@ -137,6 +137,75 @@ def sln_restricted(table_list):
         return func
     return sln_restricted_decorator
 
+def clone_add_a_column(tdf_pdf, table, field, field_type, field_position="append"):
+    verify(table in tdf_pdf.all_tables, "Unrecognized table name %s" % table)
+    verify(isinstance(field, str), "field needs to be a string")
+    verify(field_type in ['primary key', 'data'], "field_type needs to be 'primary key' or 'data'")
+    current_fields = getattr(tdf_pdf, {"primary key": "primary_key_fields", "data": "data_fields"}[field_type])
+    verify(field not in current_fields, f"{field} already present in {current_fields}")
+    if field_position == "append":
+        field_position = len(current_fields)
+    verify(0 <= field_position <= len(current_fields),
+           f"field_positon needs to be between 0 and {len(current_fields)}, inclusive")
+    def clone_factory(full_schema):
+        full_schema = clone_a_anchillary_info_schema(full_schema, table_restrictions=set(tdf_pdf.all_tables))
+        full_schema["tables_fields"][table][{"primary key": 0, "data": 1}[field_type]].insert(field_position, field)
+        return tdf_pdf.create_from_full_schema(full_schema)
+    return tdf_pdf.clone(clone_factory=clone_factory)
+
+def clone_remove_a_column(tdf_pdf, table, field):
+    verify(table in tdf_pdf.all_tables, "Unrecognized table name %s" % table)
+    verify(field in tdf_pdf.primary_key_fields[table] + tdf_pdf.data_fields[table],
+           f"field needs to be one of {tdf_pdf.primary_key_fields[table] + tdf_pdf.data_fields[table]}")
+    def clone_factory(full_schema):
+        full_schema = clone_a_anchillary_info_schema(full_schema, table_restrictions=set(tdf_pdf.all_tables),
+                                                     fields_to_remove=[[table, field]])
+        return tdf_pdf.create_from_full_schema(full_schema)
+    return tdf_pdf.clone(clone_factory=clone_factory)
+
+def clone_add_a_table(tdf_pdf, table, pk_fields, df_fields):
+    verify(table not in tdf_pdf.all_tables, f"{table} isn't a new table")
+    verify(containerish(pk_fields) and all(isinstance(_, str) for _ in pk_fields),
+           "pk_fields needs to be a container of strings")
+    verify(containerish(df_fields) and all(isinstance(_, str) for _ in df_fields),
+           "df_fields needs to be a container of strings")
+    verify(pk_fields or df_fields, "Need to specify at least one field.")
+    def clone_factory(full_schema):
+        full_schema = clone_a_anchillary_info_schema(full_schema, table_restrictions=set(tdf_pdf.all_tables))
+        full_schema["tables_fields"][table] = [list(pk_fields), list(df_fields)]
+        return tdf_pdf.create_from_full_schema(full_schema)
+    return tdf_pdf.clone(clone_factory=clone_factory)
+
+def clone_rename_a_column(tdf_pdf, table, field, new_field):
+    verify(table in tdf_pdf.all_tables, "Unrecognized table name %s" % table)
+    verify(field in tdf_pdf.primary_key_fields[table] + tdf_pdf.data_fields[table],
+           f"field needs to be one of {tdf_pdf.primary_key_fields[table] + tdf_pdf.data_fields[table]}")
+    if field in tdf_pdf.primary_key_fields[table]:
+        args = ("primary key", tdf_pdf.primary_key_fields[table].index(field))
+    else:
+        args = ("data", tdf_pdf.data_fields[table].index(field))
+    verify(new_field not in tdf_pdf.primary_key_fields[table] + tdf_pdf.data_fields[table],
+           f"new_field cannot be one of {tdf_pdf.primary_key_fields[table] + tdf_pdf.data_fields[table]}")
+    rtn = clone_add_a_column(clone_remove_a_column(tdf_pdf, table, field), table, new_field, *args)
+    if field in tdf_pdf.data_types.get(table, {}):
+        rtn.set_data_type(table, new_field, *tdf_pdf.data_types[table][field])
+    if field in tdf_pdf.default_values.get(table, {}):
+        rtn.set_default_value(table, new_field, tdf_pdf.default_values[table][field])
+    for fk in tdf_pdf.foreign_keys:
+        def needs_renaming(mp):
+            if hasattr(mp, "native_field"):
+                return (table, field) in {(fk.native_table, mp.native_field), (fk.foreign_table, mp.foreign_field)}
+            return any(needs_renaming(_) for _ in mp) if containerish(mp) else False
+        def do_renaming(mp):
+            field_renaming = lambda _t, _f: new_field if (_t, _f) == (table, field) else _f
+            if hasattr(mp, "native_field"):
+                return (field_renaming(fk.native_table, mp.native_field),
+                        field_renaming(fk.foreign_table, mp.foreign_field))
+            return tuple(do_renaming(_) for _ in mp)if containerish(mp) else mp
+        if needs_renaming(fk.mapping):
+            rtn.add_foreign_key(fk.native_table, fk.foreign_table, do_renaming(fk.mapping))
+    return rtn
+
 def clone_a_anchillary_info_schema(schema, table_restrictions, fields_to_remove=None):
     '''
     :param schema: the result of calling _.schema(include_ancillary_info=True) when _ is a
@@ -147,10 +216,7 @@ def clone_a_anchillary_info_schema(schema, table_restrictions, fields_to_remove=
     :return: a clone of schema, except with the tables outside of table_restrictions removed, and the (table, field)
              pairs inside of field restrictions removed
              (if all those arguments are None, then schema is returned).
-    Note - to add fields you use the clone_factory argument in TicDatFactory.clone, PanDatFactory.clone to manipulate
-           the tables_fields entries to include whatever new fields you want in their correct positions. This
-           table_fields dict will already have the removals specified by fields_to_remove and thus only additions are
-           needed.
+    Note - See also clone_add_a_table, clone_add_a_column, clone_remove_a_column and clone_rename_a_column.
     '''
     if all(_ is None for _ in [table_restrictions, fields_to_remove]):
         return schema

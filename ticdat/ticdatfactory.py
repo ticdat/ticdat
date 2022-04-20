@@ -286,6 +286,19 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
         self._data_row_predicates[table][predicate_name] = RowPredicateInfo(predicate, predicate_kwargs_maker,
                                                                             predicate_failure_response)
 
+
+    def get_row_predicates(self, table):
+        '''
+        return all the row predicates for a given table
+
+        :param table: a table in the schema
+
+        :return: a dictionary mapping predicate_name to RowPredicateInfo named tuple (the entries of which
+                 are based on the prior call to add_data_row_predicate).
+        '''
+        verify(table in self.all_tables, "Unrecognized table name %s"%table)
+        return {k: v for k, v in self._data_row_predicates.get(table, {}).items()}
+
     def add_parameter(self, name, default_value, number_allowed = True,
                       inclusive_min = True, inclusive_max = False, min = 0, max = float("inf"),
                       must_be_int = False, strings_allowed= (), nullable = False,
@@ -340,6 +353,17 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
             verify(td.valid_data(default_value), f"{default_value} is not a legal default value for parameter {name}")
         ParameterInfo = namedtuple("ParameterInfo", ["type_dictionary", "default_value"])
         self._parameters[name] = ParameterInfo(td, default_value)
+
+    def remove_parameter(self, name):
+        '''
+        Undo a previous call to add_parameter.
+
+        :param name: name of the parameter to remove
+
+        :return:
+        '''
+        verify(name in self._parameters, f"{name} is not a valid parameter")
+        self._parameters.pop(name)
 
     def set_default_value(self, table, field, default_value):
         """
@@ -1263,7 +1287,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
                     if not any (samerow(r1, r2) for r2 in _iter(t2)) :
                         return False
         return True
-    def clone(self, table_restrictions=None, clone_factory=None, fields_to_remove=None):
+    def clone(self, table_restrictions=None, clone_factory=None):
         """
         clones the TicDatFactory
 
@@ -1276,15 +1300,12 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
                                If clone_factory=PanDatFactory, the row predicates that use predicate_kwargs_maker
                                won't be copied over.
 
-        :param fields_to_remove: if None, then argument is ignored. Otherwise a container listing (table, fields) pairs
-                                 specifying which fields need to be removed
-
         :return: a clone of the TicDatFactory. Returned object will based on clone_factory, if provided.
 
-        Note - to add tables, fields you use the clone_factory argument to manipulate the tables_fields entry to insert
-        whatever new fields you want in the correct positions (or whatever new tables you want, with their fields).
-        The passed table_fields dict will already have the removals specified by table_restrictions, fields_to_remove
-        and thus only additions are needed.
+        Note - If you want to remove tables via a clone, that call like this
+               tdf_new = tdf.clone(table_restrictions=set(tdf.all_tables).difference(tables_to_remove))
+               Other schema editing operations are available with clone_add_a_table, clone_add_a_column,
+               clone_remove_a_column and clone_rename_a_column.
         """
         clone_factory = clone_factory or TicDatFactory
         from ticdat import PanDatFactory
@@ -1292,7 +1313,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
         if hasattr(clone_factory, "create_from_full_schema"):
             clone_factory = clone_factory.create_from_full_schema
         full_schema = utils.clone_a_anchillary_info_schema(self.schema(include_ancillary_info=True),
-                                                           table_restrictions, fields_to_remove)
+                                                           table_restrictions)
         rtn = clone_factory(full_schema)
         if hasattr(rtn, "set_generator_tables"):
             rtn.set_generator_tables(self.generator_tables)
@@ -1305,6 +1326,63 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
                                                    predicate_failure_response=rpi.predicate_failure_response)
         rtn.enable_foreign_key_links() if self._foreign_key_links_enabled else None
         return rtn
+    def clone_add_a_table(self, table, pk_fields, df_fields):
+        '''
+        add a column to the TicDatFactory
+
+        :param table: table not in the schema
+
+        :param pk_fields: container of the primary key fields
+
+        :param df_fields: container of the data fields
+
+        :return: a clone of the TicDatFactory, with the new table added
+        '''
+        return utils.clone_add_a_table(self, table, pk_fields, df_fields)
+    def clone_add_a_column(self, table, field, field_type, field_position="append"):
+        '''
+        add a column to the TicDatFactory
+
+        :param table: table in the schema
+
+        :param field: name of the new field to be added
+
+        :param field_type: either "primary key" or "data"
+
+        :param field_position: integer between 0 and the length of self.primary_key_fields[table] (if "primary key")
+                               or self.data_fields[table] (if "data"), inclsuive.
+                               Alternately, can be "append", which will just insert the column at the end of the
+                               appropriate list.
+
+        :return: a clone of the TicDatFactory, with field inserted into location field_position for field_type
+        '''
+        return utils.clone_add_a_column(self, table, field, field_type, field_position)
+    def clone_rename_a_column(self, table, field, new_field):
+        '''
+        rename a column in the TicDatFactory
+
+        :param table: table in the schema
+
+        :param field: name of the field to be removed
+
+        :param new_field: new name for the field
+
+        :return: a clone of the TicDatFactory, with field renamed to new_field. Data types, default values and
+                 foreign keys will reflect the new field name, but row predicates will be copied over as-is (and thus you will need
+                 to re-create them as needed).
+        '''
+        return utils.clone_rename_a_column(self, table, field, new_field)
+    def clone_remove_a_column(self, table, field):
+        '''
+        remove a column from the TicDatFactory
+
+        :param table: table in the schema
+
+        :param field: name of the field to be removed
+
+        :return: a clone of the TicDatFactory, with field removed
+        '''
+        return utils.clone_remove_a_column(self, table, field)
     def copy_tic_dat(self, tic_dat, freeze_it = False):
         """
         copies the tic_dat object into a new tic_dat object

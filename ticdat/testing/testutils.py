@@ -1011,6 +1011,10 @@ class TestUtils(unittest.TestCase):
             tdf.add_data_row_predicate("c_table",
                                        lambda row : all(map(utils.stringish, row.values())),
                                        predicate_name= "all_strings")
+            for tdf_pdf in [tdf, tdf.clone(clone_factory=PanDatFactory)]:
+                self.assertTrue(set(tdf_pdf.get_row_predicates("c_table")) == {"two_nums", "all_strings"})
+                self.assertFalse(all(tdf_pdf.get_row_predicates(_) for _ in
+                                     set(tdf_pdf.all_tables).difference(['c_table'])))
             tdf = clone_me_maybe(tdf)
             dat = tdf.TicDat(**spacesData())
             failures = tdf.find_data_row_failures(dat)
@@ -1183,6 +1187,12 @@ class TestUtils(unittest.TestCase):
         all_params_2 = pdf.create_full_parameters_dict(pdf.PanDat())
         self.assertTrue(all_params == all_params_2 and len(all_params) == 2)
         self.assertTrue(all_params["p1"] ==  dateutil.parser.parse("Dec 15 1970") and utils.pd.isnull(all_params["p2"]))
+
+        tdf.remove_parameter("p1")
+        self.assertTrue({_[0] for _ in tdf.find_data_row_failures(dat)} == {"parameters"})
+        self.assertTrue([set(_) for _ in tdf.find_data_row_failures(dat).values()] == [{'p1', 'p2'}])
+        pdf.remove_parameter("p1")
+        self.assertTrue(set(pdf.create_full_parameters_dict(pdf.PanDat())) == {'p2'})
 
     def testTwentyThree(self):
         tdf = TicDatFactory(**dietSchema())
@@ -1647,14 +1657,14 @@ class TestUtils(unittest.TestCase):
 
     def test_adding_removing_fields_and_tables(self):
         for one_or_other in [TicDatFactory, PanDatFactory]:
-            tdf = TicDatFactory(plants=[["name"], ["stuff", "otherstuff"]],
-                                lines=[["name"], ["plant", "weird stuff"]],
-                                line_descriptor=[["name"], ["booger"]],
-                                products=[["name"], ["gover"]],
-                                production=[["line", "product"], ["min", "max"]],
-                                pureTestingTable=[[], ["line", "plant", "product", "something"]],
-                                extraProduction=[["line", "product"], ["extramin", "extramax"]],
-                                weirdProduction=[["line1", "line2", "product"], ["weirdmin", "weirdmax"]])
+            tdf = one_or_other(plants=[["name"], ["stuff", "otherstuff"]],
+                               lines=[["name"], ["plant", "weird stuff"]],
+                               line_descriptor=[["name"], ["booger"]],
+                               products=[["name"], ["gover"]],
+                               production=[["line", "product"], ["min", "max"]],
+                               pureTestingTable=[[], ["line", "plant", "product", "something"]],
+                               extraProduction=[["line", "product"], ["extramin", "extramax"]],
+                               weirdProduction=[["line1", "line2", "product"], ["weirdmin", "weirdmax"]])
             tdf.add_foreign_key("production", "lines", ("line", "name"))
             tdf.add_foreign_key("production", "products", ("product", "name"))
             tdf.add_foreign_key("lines", "plants", ("plant", "name"))
@@ -1670,13 +1680,15 @@ class TestUtils(unittest.TestCase):
             tdf.set_default_value("line_descriptor", "booger", 12)
 
             tdf_one = tdf.clone()
-            kwargs = {"table_restrictions": [_ for _ in tdf.all_tables if _ != "weirdProduction"],
-                      "fields_to_remove": [["pureTestingTable", "line"], ["pureTestingTable", "something"],
-                                           ["products", "gover"]]}
-            tdf_two = tdf.clone(**kwargs)
+            kwargs = {"table_restrictions": [_ for _ in tdf.all_tables if _ != "weirdProduction"]}
+            def remove_some_fields_clone(tdf_):
+                for t, f in [["pureTestingTable", "line"], ["pureTestingTable", "something"], ["products", "gover"]]:
+                    tdf_ = tdf_.clone_remove_a_column(t, f)
+                return tdf_
+            tdf_two = remove_some_fields_clone(tdf.clone(**kwargs))
             self.assertTrue(tdf.schema(include_ancillary_info=True) == tdf_one.schema(include_ancillary_info=True))
-            def adding_some_tables(full_schema):
-                self.assertTrue(full_schema["tables_fields"] ==
+            def adding_some_tables(tdf_):
+                self.assertTrue(tdf_.schema() ==
                                 {'pureTestingTable': [[], ['plant', 'product']],
                                  'line_descriptor': [['name'], ['booger']],
                                  'extraProduction': [['line', 'product'], ['extramin', 'extramax']],
@@ -1684,12 +1696,13 @@ class TestUtils(unittest.TestCase):
                                  'plants': [['name'], ['stuff', 'otherstuff']],
                                  'products': [['name'], []],
                                  'lines': [['name'], ['plant', 'weird stuff']]})
-                full_schema["tables_fields"]["products"][1] = ["governor"]
-                full_schema["tables_fields"]["line_descriptor"][0].append("governor")
-                full_schema["tables_fields"]["line_descriptor"][0].append("wanker")
-                full_schema["tables_fields"]["the_wank"] = [["Name"], []]
-                return one_or_other.create_from_full_schema(full_schema)
-            tdf_three = tdf.clone(clone_factory=adding_some_tables, **kwargs)
+                tdf_ = tdf_.clone_add_a_column("products", "governor", "data", 0)
+                tdf_ = tdf_.clone_add_a_column("line_descriptor", "governor", "primary key", 1)
+                tdf_ = tdf_.clone_add_a_column("line_descriptor", "wanker", "primary key")
+                tdf_ = tdf_.clone_add_a_table("the_wank", ["Name"], [])
+                self.assertTrue(tdf_.schema()["the_wank"] == [["Name"], []])
+                return tdf_
+            tdf_three = adding_some_tables(remove_some_fields_clone(tdf.clone(**kwargs)))
             for tdf_0, tdf_1 in itertools.combinations([tdf_one, tdf_two, tdf_three], 2):
                 self.assertFalse(tdf_0.schema(include_ancillary_info=True) == tdf_1.schema(include_ancillary_info=True))
                 self.assertTrue(all(_.default_values["line_descriptor"]["boger"] == 12) for _ in [tdf_0, tdf_1])
@@ -1699,11 +1712,36 @@ class TestUtils(unittest.TestCase):
             self.assertTrue(all(len(_.foreign_keys) == len(tdf.foreign_keys) - 3 for _ in [tdf_two, tdf_three]))
             tdf_three.add_foreign_key("products", "line_descriptor", ["governor", "governor"])
             tdf_three.add_foreign_key("line_descriptor", "the_wank", ["wanker", "Name"])
-            tdf_four = tdf.clone(fields_to_remove=kwargs["fields_to_remove"])
+            tdf_four = remove_some_fields_clone(tdf)
             self.assertTrue(len(tdf_four.foreign_keys)== len(tdf.foreign_keys)-1)
-            tdf_five = tdf.clone(fields_to_remove=[["production", "line"]])
+            tdf_five = tdf.clone_remove_a_column("production", "line")
             self.assertTrue(list(tdf_five.primary_key_fields["production"]) == ["product"])
             self.assertTrue(0 < len(tdf_five.foreign_keys) < len(tdf.foreign_keys))
+
+            tdf_six = tdf.clone()
+            tdf_seven = tdf.clone()
+            def kosher():
+                for tdf_ in [tdf_six, tdf_seven]:
+                    self.assertTrue(len(tdf.foreign_keys) == len(tdf_.foreign_keys))
+            kosher()
+            for t, (pks, dfs) in tdf.schema().items():
+                for f in pks + dfs:
+                    tdf_six = tdf.clone_rename_a_column(t, f, f + " Woz")
+                    tdf_seven = tdf_seven.clone_rename_a_column(t, f, f + " Woz")
+                    kosher()
+                    for tdf_ in [tdf_six, tdf_seven]:
+                        self.assertTrue(tdf.default_values.get(t, {}).get(f, 0) ==
+                                        tdf_.default_values.get(t, {}).get(f + " Woz", 0))
+                        self.assertTrue(tdf.data_types.get(t, {}).get(f) ==
+                                        tdf_.data_types.get(t, {}).get(f + " Woz"))
+            for fk in tdf_seven.foreign_keys:
+                if hasattr(fk.mapping, "native_field"):
+                    self.assertTrue(fk.mapping.native_field.endswith(" Woz") and
+                                    fk.mapping.foreign_field.endswith(" Woz"))
+                else:
+                    self.assertTrue(all(_.native_field.endswith(" Woz") and _.foreign_field.endswith(" Woz")
+                                        for _ in fk.mapping))
+
 
 _scratchDir = TestUtils.__name__ + "_scratch"
 
