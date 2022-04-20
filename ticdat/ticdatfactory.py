@@ -1304,8 +1304,8 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
 
         Note - If you want to remove tables via a clone, that call like this
                tdf_new = tdf.clone(table_restrictions=set(tdf.all_tables).difference(tables_to_remove))
-               If you want to add or remove fields via a clone, use clone_change_columns
-               If you want to add a table via a clone, use clone_add_table
+               Other schema editing operations are available with clone_add_a_table, clone_add_a_column,
+               clone_remove_a_column and clone_rename_a_column.
         """
         clone_factory = clone_factory or TicDatFactory
         from ticdat import PanDatFactory
@@ -1365,8 +1365,8 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
 
         :param new_field: new name for the field
 
-        :return: a clone of the TicDatFactory, with field renamed to new_field. Data types and foreign keys will
-                 be reflect the new field name, but row predicates will be copied over as-is (and thus you will need
+        :return: a clone of the TicDatFactory, with field renamed to new_field. Data types, default values and
+                 foreign keys will reflect the new field name, but row predicates will be copied over as-is (and thus you will need
                  to re-create them as needed).
         '''
         return utils.clone_rename_a_column(self, table, field, new_field)

@@ -180,8 +180,8 @@ class PanDatFactory(object):
 
         Note - If you want to remove tables via a clone, that call like this
                pdf_new = pdf.clone(table_restrictions=set(pdf.all_tables).difference(tables_to_remove))
-               If you want to add or remove fields via a clone, use clone_change_columns
-               If you want to add a table via a clone, use clone_add_table
+               Other schema editing operations are available with clone_add_a_table, clone_add_a_column,
+               clone_remove_a_column and clone_rename_a_column.
         """
         clone_factory = clone_factory or PanDatFactory
         from ticdat import TicDatFactory
@@ -241,7 +241,7 @@ class PanDatFactory(object):
         return utils.clone_remove_a_column(self, table, field)
     def clone_rename_a_column(self, table, field, new_field):
         '''
-        rename a column in the TicDatFactory
+        rename a column in the PanDatFactory
 
         :param table: table in the schema
 
@@ -249,8 +249,8 @@ class PanDatFactory(object):
 
         :param new_field: new name for the field
 
-        :return: a clone of the TicDatFactory, with field renamed to new_field. Data types and foreign keys will
-                 be reflect the new field name, but row predicates will be copied over as-is (and thus you will need
+        :return: a clone of the PanDatFactory, with field renamed to new_field. Data types, default values and
+                 foreign keys will reflect the new field name, but row predicates will be copied over as-is (and thus you will need
                  to re-create them as needed).
         '''
         return utils.clone_rename_a_column(self, table, field, new_field)
