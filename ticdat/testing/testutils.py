@@ -1011,6 +1011,10 @@ class TestUtils(unittest.TestCase):
             tdf.add_data_row_predicate("c_table",
                                        lambda row : all(map(utils.stringish, row.values())),
                                        predicate_name= "all_strings")
+            for tdf_pdf in [tdf, tdf.clone(clone_factory=PanDatFactory)]:
+                self.assertTrue(set(tdf_pdf.get_row_predicates("c_table")) == {"two_nums", "all_strings"})
+                self.assertFalse(all(tdf_pdf.get_row_predicates(_) for _ in
+                                     set(tdf_pdf.all_tables).difference(['c_table'])))
             tdf = clone_me_maybe(tdf)
             dat = tdf.TicDat(**spacesData())
             failures = tdf.find_data_row_failures(dat)

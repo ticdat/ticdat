@@ -296,7 +296,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
         :return: a dictionary mapping predicate_name to RowPredicateInfo named tuple (the entries of which
                  are based on the prior call to add_data_row_predicate).
         '''
-        verify(False, "TEST THIS!!!")
+        verify(table in self.all_tables, "Unrecognized table name %s"%table)
         return {k: v for k, v in self._data_row_predicates.get(table, {}).items()}
 
     def add_parameter(self, name, default_value, number_allowed = True,
