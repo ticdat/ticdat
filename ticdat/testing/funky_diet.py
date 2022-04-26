@@ -1,4 +1,4 @@
-from ticdat import TicDatFactory, dat_restricted, sln_restricted
+from ticdat import TicDatFactory
 input_schema = TicDatFactory (
     categories = [["Name"],["Min Nutrition", "Max Nutrition"]],
     foods  = [["Name"],["Cost"]],
@@ -69,10 +69,8 @@ hard_coded_solution_dict = {
   ]
 }
 
-@dat_restricted(["foods", "nutrition_quantities", "categories"])
-@sln_restricted(['parameters', 'buy_food', 'consume_nutrition'])
 def solve(dat):
-    assert not input_schema.good_tic_dat_object(dat)
+    assert input_schema.good_tic_dat_object(dat)
     smaller_sch = input_schema.clone(table_restrictions=["foods", "nutrition_quantities", "categories"])
     assert smaller_sch.good_tic_dat_object(dat)
     lens = {"foods": 9, "nutrition_quantities": 36, "categories": 4}
@@ -86,14 +84,11 @@ def solve(dat):
             rtn.parameters[f] = sum(map(len, fails.values())) if f == "find_data_row_failures" else len(fails)
     return rtn
 
-@dat_restricted(["foods", "nutrition_quantities", "categories"])
-@sln_restricted(['parameters', 'buy_food', 'consume_nutrition'])
 def a_solvish_act(dat):
     rtn = solve(dat)
     if rtn:
         return {"sln":rtn}
 
-@dat_restricted(["foods", "nutrition_quantities"])
 def remove_the_pizza(dat):
     assert not input_schema.good_tic_dat_object(dat)
     smaller_sch = input_schema.clone(table_restrictions=["foods", "nutrition_quantities"])
@@ -101,7 +96,6 @@ def remove_the_pizza(dat):
     smaller_sch.remove_foreign_key_failures(dat)
     return dat
 
-@sln_restricted(["parameters"])
 def checks_the_unit_test_result(sln):
     assert not any(hasattr(sln, _) for _ in set(solution_schema.all_tables).difference(["parameters"]))
     assert len(sln.parameters) == 3

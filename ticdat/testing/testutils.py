@@ -1245,7 +1245,7 @@ class TestUtils(unittest.TestCase):
         makeCleanDir(data_path)
         module_path = get_testing_file_path("funky.py")
         import ticdat.testing.funky as funky
-        weirdo_hacks_needed = ["solve", "an_action", "another_action"]
+        weirdo_hacks_needed = ["solve"]
         for w in weirdo_hacks_needed:
             _w = getattr(funky, w)
             _w.__module__ = "weirdo_temp_junky_thing_for_hacking"
@@ -1258,73 +1258,6 @@ class TestUtils(unittest.TestCase):
             utils.standard_main(funky.input_schema, funky.solution_schema, funky.solve)
         sln = funky.solution_schema.json.create_tic_dat(os.path.join(data_path, "output.json"))
         self.assertTrue(set(sln.table) == set(dat.table))
-        test_args_two = [module_path, "-i", os.path.join(data_path, "input.json"), "-o", "junk", "-a", "an_action"]
-        with patch.object(sys, 'argv', test_args_two):
-            utils.standard_main(funky.input_schema, funky.solution_schema, funky.solve)
-        dat = funky.input_schema.json.create_tic_dat(os.path.join(data_path, "input.json"))
-        self.assertTrue(set(sln.table).union({'a'}) == set(dat.table))
-        with patch.object(sys, 'argv', test_args_one + ["-a", "another_action"]):
-            utils.standard_main(funky.input_schema, funky.solution_schema, funky.solve)
-        dat = funky.input_schema.json.create_tic_dat(os.path.join(data_path, "input.json"))
-        sln = funky.solution_schema.json.create_tic_dat(os.path.join(data_path, "output.json"))
-        self.assertTrue(set(dat.table) == {'a', 'c', 'd', 'e'})
-        self.assertTrue(set(sln.table) == {'c', 'd', 'e'})
-        sys.modules.pop(funky.solve.__module__)
-
-    def testTwentySeven(self):
-        # this test will fail without the EnframeOfflineHandler being present. Note that EnframeOfflineHandler
-        # has its own unit tests, this mainly exercises the command line
-        postgresql = testing_postgresql.Postgresql()
-        engine = sa.create_engine(postgresql.url())
-        data_path = os.path.join(_scratchDir, "custom_module_two")
-        makeCleanDir(data_path)
-        module_path = get_testing_file_path("funky.py")
-        import ticdat.testing.funky as funky
-        for w in ["solve", "an_action", "another_action"]:
-            _w = getattr(funky, w)
-            _w.__module__ = "weirdo_temp_thing_for_hacking"
-        sys.modules[funky.solve.__module__] = funky
-        dat = funky.input_schema.TicDat(table=[['c'], ['d']])
-
-        def make_the_json(solve_type, scenario_name="", master_schema=""):
-            d = {"postgres_url": postgresql.url(), "solve_type": solve_type, "scenario_name": scenario_name,
-                 "master_schema": master_schema}
-            rtn = os.path.join(data_path, "ticdat_enframe.json")
-            with open(rtn, "w") as f:
-                json.dump(d, f, indent=2)
-            return rtn
-        funky.input_schema.json.write_file(dat, os.path.join(data_path, "input.json"))
-        e_json = make_the_json("Copy Input to Postgres and Solve")
-        test_args_one = [module_path, "-i", os.path.join(data_path, "input.json"), "-o", "crappola", "-e", e_json]
-        with patch.object(sys, 'argv', test_args_one):
-            utils.standard_main(funky.input_schema, funky.solution_schema, funky.solve)
-        solution_schema = TicDatFactory(s_table=[['field'], []])
-        sln = solution_schema.pgsql.create_tic_dat(engine, "scenario_1")
-        self.assertTrue(set(sln.s_table) == set(dat.table) == {'c', 'd'})
-        test_args_two = [module_path, "-i", os.path.join(data_path, "input.json"), "-o", "junk", "-a", "an_action",
-                         "-e", e_json]
-        with patch.object(sys, 'argv', test_args_two):
-             utils.standard_main(funky.input_schema, funky.solution_schema, funky.solve)
-        dat = funky.solution_schema.pgsql.create_tic_dat(engine, "scenario_1")
-        self.assertTrue(set(sln.s_table).union({'a'}) == set(dat.table))
-        funky.input_schema.json.write_file(dat, os.path.join(data_path, "input.json"), allow_overwrite=True)
-        make_the_json("Copy Input To Postgres") # side effects the path
-        with patch.object(sys, 'argv', test_args_one):
-            utils.standard_main(funky.input_schema, funky.solution_schema, funky.solve)
-        make_the_json("Proxy Enframe Solve") # side effects the path
-        with patch.object(sys, 'argv', test_args_one):
-            utils.standard_main(funky.input_schema, funky.solution_schema, funky.solve)
-        sln = solution_schema.pgsql.create_tic_dat(engine, "scenario_1")
-        self.assertTrue(set(sln.s_table) == {'a', 'c', 'd'})
-        test_args_three = [module_path, "-i", os.path.join(data_path, "input.json"), "-o", "junk",
-                           "-a", "another_action", "-e", e_json]
-        with patch.object(sys, 'argv', test_args_three):
-            utils.standard_main(funky.input_schema, funky.solution_schema, funky.solve)
-        sln = solution_schema.pgsql.create_tic_dat(engine, "scenario_1")
-        dat = funky.solution_schema.pgsql.create_tic_dat(engine, "scenario_1")
-        self.assertTrue(set(sln.s_table) == set(dat.table) == {'a', 'c', 'd', 'e'})
-        engine.dispose()
-        postgresql.stop()
         sys.modules.pop(funky.solve.__module__)
 
     def testTwentyEight(self):
@@ -1405,19 +1338,6 @@ class TestUtils(unittest.TestCase):
         self.assertTrue(sln.parameters["find_foreign_key_failures"]["Value"] == 1)
         self.assertTrue(sln.parameters["find_data_row_failures"]["Value"] == 2)
 
-        dat = funky_diet.input_schema.TicDat(**d)
-        funky_diet.input_schema.json.write_file(dat, os.path.join(data_path, "pizza.json"))
-        with patch.object(sys, 'argv', [module_path, "-i", os.path.join(data_path, "pizza.json"), "-o", "trash",
-                                        "-a", "remove_the_pizza"]):
-            utils.standard_main(funky_diet.input_schema, funky_diet.solution_schema, funky_diet.solve)
-        with open(os.path.join(data_path, "pizza.json"), "r") as _f:
-            d = json.load(_f)
-        self.assertTrue({k: len(v) for k, v in d.items()} == {"foods": 8, "nutrition_quantities": 32})
-
-        with patch.object(sys, 'argv', [module_path, "-i", "junk", "-o", os.path.join(data_path, "output.json"),
-                                        "-a", "checks_the_unit_test_result"]):
-            utils.standard_main(funky_diet.input_schema, funky_diet.solution_schema, funky_diet.solve)
-
         with patch.object(sys, 'argv', [module_path, "-i", os.path.join(data_path, "input.json"),
                                         "-o", os.path.join(data_path, "output_csvs")]):
             utils.standard_main(funky_diet.input_schema, funky_diet.solution_schema, funky_diet.solve)
@@ -1427,110 +1347,6 @@ class TestUtils(unittest.TestCase):
             utils.standard_main(funky_diet.input_schema, funky_diet.solution_schema, funky_diet.solve,
                                 case_space_table_names=True)
         self.assertTrue(os.path.exists(os.path.join(data_path, "output_csvs_2", "Consume Nutrition.csv")))
-        sys.modules.pop(funky_diet.solve.__module__)
-
-    def testThirty(self):
-        # this test will fail without the EnframeOfflineHandler being present. Note that EnframeOfflineHandler
-        # has its own unit tests, this mainly exercises the command line
-        postgresql = testing_postgresql.Postgresql()
-        engine = sa.create_engine(postgresql.url())
-        data_path = os.path.join(_scratchDir, "custom_module_four")
-        makeCleanDir(data_path)
-        module_path = get_testing_file_path("funky_diet.py")
-
-        import ticdat.testing.funky_diet as funky_diet
-        for w in ["solve", "remove_the_pizza", "checks_the_unit_test_result", "a_solvish_act"]:
-            _w = getattr(funky_diet, w)
-            _w.__module__ = "weirdo_temp_junky_thing_for_hacking"
-        sys.modules[funky_diet.solve.__module__] = funky_diet
-        tdf = TicDatFactory(**dietSchema())
-        dat = tdf.copy_tic_dat(dietData())
-        d = json.loads(tdf.json.write_file(dat, "", verbose=False))
-        d["nutrition_quantities"] = d.pop("nutritionQuantities")
-        dat = funky_diet.input_schema.TicDat(**d)
-        clean_dat = funky_diet.input_schema.copy_tic_dat(dat)
-        clean_dat.stupid_table['a', 'b'] = 2
-        dat.stupid_table["ju", "nk"] = 10
-        funky_diet.input_schema.json.write_file(dat, os.path.join(data_path, "input.json"))
-        def make_the_json(solve_type, scenario_name="", master_schema=""):
-            d = {"postgres_url": postgresql.url(), "solve_type": solve_type, "scenario_name": scenario_name,
-                 "master_schema": master_schema}
-            rtn = os.path.join(data_path, "ticdat_enframe.json")
-            with open(rtn, "w") as f:
-                json.dump(d, f, indent=2)
-            return rtn
-        e_json = make_the_json("Copy Input to Postgres and Solve")
-        test_args_one = [module_path, "-i", os.path.join(data_path, "input.json"), "-o", "junk", "-e", e_json]
-        with patch.object(sys, 'argv', test_args_one):
-            utils.standard_main(funky_diet.input_schema, funky_diet.solution_schema, funky_diet.solve)
-        full_schema = TicDatFactory(**{"s_"+k: v for k,v in funky_diet.solution_schema.schema().items()})
-        self.assertTrue(set(full_schema.pgsql.check_tables_fields(engine, "scenario_1")) == {'s_weird_table'})
-        sln = full_schema.pgsql.create_tic_dat(engine, "scenario_1")
-        self.assertTrue({t: len(getattr(sln, "s_"+t)) for t in funky_diet.solution_schema.all_tables} ==
-                        {"buy_food": 3, "consume_nutrition": 4, "weird_table": 0, "parameters": 1})
-
-        dat.nutrition_quantities["pizza", "junk"] = {}
-        dat.categories["weirdness"] = dat.categories["wokeness"] = [100, 20]
-        funky_diet.input_schema.json.write_file(dat, os.path.join(data_path, "input.json"), allow_overwrite=True)
-        test_args_two = [module_path, "-i", os.path.join(data_path, "input.json"), "-o", "junk", "-e", e_json,
-                         "-a", "a_solvish_act"]
-        with patch.object(sys, 'argv', test_args_two):
-            utils.standard_main(funky_diet.input_schema, funky_diet.solution_schema, funky_diet.solve)
-        sln = full_schema.pgsql.create_tic_dat(engine, "scenario_1")
-        self.assertTrue({t:len(getattr(sln, "s_"+t)) for t in funky_diet.solution_schema.all_tables} ==
-                        {"buy_food": 3, "consume_nutrition": 4, "weird_table": 0, "parameters": 3})
-        self.assertTrue(sln.s_parameters["find_foreign_key_failures"]["Value"] == 1)
-        self.assertTrue(sln.s_parameters["find_data_row_failures"]["Value"] == 2)
-
-        e_json = make_the_json("Proxy Enframe Solve")
-        test_args_three = [module_path, "-i", "junk", "-o", "also_junk", "-e", e_json,
-                         "-a", "checks_the_unit_test_result"]
-        with patch.object(sys, 'argv', test_args_three):
-            utils.standard_main(funky_diet.input_schema, funky_diet.solution_schema, funky_diet.solve)
-
-        test_args_four = [module_path, "-i", "junk", "-o", "also_junk", "-e", e_json,
-                         "-a", "remove_the_pizza"]
-        with patch.object(sys, 'argv', test_args_four):
-            utils.standard_main(funky_diet.input_schema, funky_diet.solution_schema, funky_diet.solve)
-        dat = funky_diet.input_schema.pgsql.create_tic_dat(engine, "scenario_1")
-        self.assertTrue({t: len(getattr(dat, t)) for t in funky_diet.input_schema.all_tables} ==
-                        {"foods": 8, "nutrition_quantities": 32, "categories":6, "stupid_table": 0})
-
-        engine.dispose()
-        postgresql.stop()
-
-        postgresql = testing_postgresql.Postgresql()
-        engine = sa.create_engine(postgresql.url())
-        funky_diet.input_schema.json.write_file(clean_dat, os.path.join(data_path, "input.json"), allow_overwrite=True)
-        e_json = make_the_json("Copy Input to Postgres", master_schema="the_master", scenario_name="the_scenario")
-        test_args_five = [module_path, "-i", os.path.join(data_path, "input.json"), "-o", "junk", "-e", e_json]
-        with patch.object(sys, 'argv', test_args_five):
-            utils.standard_main(funky_diet.input_schema, funky_diet.solution_schema, funky_diet.solve)
-        e_json = make_the_json("proxy EnFramE solve", master_schema="the_master", scenario_name="the_scenario")
-        test_args_six = [module_path, "-i", "junk", "-o", "alsojunk", "-e", e_json]
-        with patch.object(sys, 'argv', test_args_six):
-            utils.standard_main(funky_diet.input_schema, funky_diet.solution_schema, funky_diet.solve)
-
-        self.assertTrue([('hamburger', 1, 'the_scenario'), ('ice cream', 1, 'the_scenario'),
-                         ('milk', 1, 'the_scenario')] ==
-                        sorted(_[:3] for _ in engine.execute("Select * from the_master.s_buy_food")))
-
-        self.assertTrue(sorted(engine.execute("Select * from the_master.foods")) ==
-                        [('chicken', 1, 'the_scenario', 2.89), ('fries', 1, 'the_scenario', 1.89),
-                         ('hamburger', 1, 'the_scenario', 2.49), ('hot dog', 1, 'the_scenario', 1.5),
-                         ('ice cream', 1, 'the_scenario', 1.59), ('macaroni', 1, 'the_scenario', 2.09),
-                         ('milk', 1, 'the_scenario', 0.89), ('pizza', 1, 'the_scenario', 1.99),
-                         ('salad', 1, 'the_scenario', 2.49)])
-
-        test_args_seven = [module_path, "-i", "junk", "-o", "alsojunk", "-e", e_json, "-a", "remove_the_pizza"]
-        with patch.object(sys, 'argv', test_args_seven):
-            utils.standard_main(funky_diet.input_schema, funky_diet.solution_schema, funky_diet.solve)
-        self.assertTrue(set(_[0] for _ in engine.execute("Select * from the_master.foods")) ==
-                        set(_[0] for _ in engine.execute("Select * from scenario_1.foods")) ==
-                        {'hamburger', 'ice cream', 'salad', 'milk', 'macaroni', 'fries', 'chicken', 'hot dog'})
-
-        engine.dispose()
-        postgresql.stop()
         sys.modules.pop(funky_diet.solve.__module__)
 
     def testThirtyOne(self):
