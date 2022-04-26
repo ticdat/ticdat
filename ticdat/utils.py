@@ -69,74 +69,6 @@ def faster_df_apply(df, func, trip_wire_check=None):
     # will default to float for empty Series, like original pandas
     return pd.Series(data, index=index, **({"dtype": numpy.float64} if not data else {}))
 
-def dat_restricted(table_list):
-    '''
-    Decorator factory used to decorate action functions (or solve function) to restrict the access to the
-    tables in the input_schema
-    :param table_list: A list of tables that are a subset input_schema.all_tables
-    :return: A decorator that can be applied to a function to fine-tune how ticdat controls its access to the
-             input_schema
-    Example usage
-        @dat_restricted(['table_one', 'table_five'])
-        def some_action(dat):
-           # the action
-        ticdat will pass a dat object that only has table_one and table_five as attributes. If a dat object
-        is returned back for writing, any attributes other than table_one, table_five will be ignored.
-    Note that the input_schema is not known by this decorator_factory, and thus table_list can't be sanity checked
-    at the time the function is decorated. ticdat will sanity check the table_list when the decorated function is
-    used by ticdat.standard_main (the Enframe-ticdat code will also perform an equivalent check, as will any ticdat
-    supporting platform).
-    As the function will be decorated with a dat_restricted attribute, a programmer is allowed to avoid the decorator
-    factory and simply do the following instead.
-        def some_action(dat):
-           # the action
-        some_action.dat_restricted = table_list
-    Although  this will work the same, you are encouraged to use the dat_restricted decorator factory for better
-    readability.
-    dat_restricted can be used to decorate the solve function, in which case standard_main and Enframe will do the
-    expected thing and pass a dat object that is restricted to table_list.
-    '''
-    verify(containerish(table_list) and table_list and all(isinstance(_, str) for _ in table_list),
-           "table_list needs to be a non-empty container of strings")
-    def dat_restricted_decorator(func): # no need to use functools.wraps since not actually wrapping.
-        func.dat_restricted = tuple(table_list)
-        return func
-    return dat_restricted_decorator
-
-def sln_restricted(table_list):
-    '''
-    Decorator factory used to decorate action functions (or solve function) to restrict the access to the
-    tables in the solution_schema
-    :param table_list: A list of tables that are a subset solution_schema.all_tables
-    :return: A decorator that can be applied to a function to fine-tune how ticdat controls its access to the
-             solution_schema
-    Example usage
-        @sln_restricted(['table_one', 'table_five'])
-        def some_action(sln):
-           # the action
-        ticdat will pass a sln object that only has table_one and table_five as attributes. If {"sln":sln}
-        is returned back for writing, any sln attributes other than table_one, table_five will be ignored.
-    Note that the solution_schema is not known by this decorator_factory, and thus table_list can't be sanity checked
-    at the time the function is decorated. ticdat will sanity check the table_list when the decorated function is
-    used by ticdat.standard_main (the Enframe-ticdat code will also perform an equivalent check, as will any ticdat
-    supporting platform).
-    As the function will be decorated with a sln_restricted attribute, a programmer is allowed to avoid the decorator
-    factory and simply do the following instead.
-        def some_action(sln):
-           # the action
-        some_action.sln_restricted = table_list
-    Although  this will work the same, you are encouraged to use the sln_restricted decorator factory for better
-    readability.
-    sln_restricted can be used to decorate the solve function, in which case standard_main and Enframe will do the
-    expected thing and handle only the table_list attributes of the returned sln object.
-    '''
-    verify(containerish(table_list) and table_list and all(isinstance(_, str) for _ in table_list),
-           "table_list needs to be a non-empty container of strings")
-    def sln_restricted_decorator(func): # no need to use functools.wraps since not actually wrapping.
-        func.sln_restricted = tuple(table_list)
-        return func
-    return sln_restricted_decorator
-
 def clone_add_a_column(tdf_pdf, table, field, field_type, field_position="append"):
     verify(table in tdf_pdf.all_tables, "Unrecognized table name %s" % table)
     verify(isinstance(field, str), "field needs to be a string")
@@ -364,16 +296,6 @@ ForeignKeyMapping = namedtuple("FKMapping", ("native_field", "foreign_field"))
 # likely replace this with some sort of sys.platform call that makes a good guess
 development_deployed_environment = False
 
-def _clone_to_restricted_as_needed(function, schema, name):
-    if not hasattr(function, name):
-        return schema, set()
-    restricted = getattr(function, name)
-    verify(containerish(restricted) and restricted and
-           all(isinstance(_, str) for _ in restricted), f"{name} needs to be a container of strings")
-    verify(set(restricted).issubset(schema.all_tables), f"{restricted} needs to be a subset of {schema.all_tables}")
-    if set(restricted) == set(schema.all_tables):
-        return schema, set()
-    return schema.clone(table_restrictions=restricted), set(restricted)
 def standard_main(input_schema, solution_schema, solve, case_space_table_names=False):
     """
      provides standardized command line functionality for a ticdat solve engine
@@ -417,7 +339,6 @@ def standard_main(input_schema, solution_schema, solve, case_space_table_names=F
 
     Defaults are input.xlsx, output.xlsx
     """
-    # See EnframeOfflineHandler for  details for how to configure the enframe.json file
     verify(all(isinstance(_, ticdat.TicDatFactory) for _ in (input_schema, solution_schema)) or
            all(isinstance(_, ticdat.PanDatFactory) for _ in (input_schema, solution_schema)),
                "input_schema and solution_schema both need to be TicDatFactory (or PanDatFactory) objects")
@@ -430,15 +351,14 @@ def standard_main(input_schema, solution_schema, solve, case_space_table_names=F
         create_routine = "create_tic_dat"
     file_name = sys.argv[0]
     def usage():
-        print ("python %s --help --input <input file or dir> --output <output file or dir>"%file_name +
-               " --enframe <enframe_config.json> --action <action_function>")
+        print ("python %s --help --input <input file or dir> --output <output file or dir>"%file_name)
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "hi:o:e:a:", ["help", "input=", "output=", "enframe=", "action="])
+        opts, args = getopt.getopt(sys.argv[1:], "hi:o:", ["help", "input=", "output="])
     except getopt.GetoptError as err:
         print (str(err))  # will print something like "option -a not recognized"
         usage()
         sys.exit(2)
-    input_file, output_file, enframe_config, enframe_handler, action_name = "input.xlsx", "output.xlsx", "", None, None
+    input_file, output_file = "input.xlsx", "output.xlsx"
     for o, a in opts:
         if o in ("-h", "--help"):
             usage()
@@ -447,46 +367,8 @@ def standard_main(input_schema, solution_schema, solve, case_space_table_names=F
             input_file = a
         elif o in ("-o", "--output"):
             output_file = a
-        elif o in ("-e", "--enframe"):
-            enframe_config = a
-        elif o in ("-a", "--action"):
-            action_name = a
         else:
             verify(False, "unhandled option")
-    original_input_schema = input_schema
-    if action_name:
-        module = sys.modules[solve.__module__.split('.')[0]]
-        verify(hasattr(module, action_name), f"{action_name} is not an attribute of the module")
-        action_func = getattr(module, action_name)
-        verify(callable(action_func), f"{action_name} is not callable")
-        action_func_args = inspect.getfullargspec(action_func).args
-        verify({"dat", "sln"}.intersection(action_func_args),
-               f"{action_name} needs at least one of 'dat', 'sln' as arguments")
-        input_schema, input_restrictions = _clone_to_restricted_as_needed(action_func, input_schema, "dat_restricted")
-        solution_schema, solution_restrictions = _clone_to_restricted_as_needed(action_func, solution_schema,
-                                                                                "sln_restricted")
-    else:
-        input_schema, input_restrictions = _clone_to_restricted_as_needed(solve, input_schema, "dat_restricted")
-        solution_schema, solution_restrictions = _clone_to_restricted_as_needed(solve, solution_schema,
-                                                                                "sln_restricted")
-
-    if enframe_config:
-        enframe_handler = make_enframe_offline_handler(enframe_config, input_schema, solution_schema,
-                                                       solve if not action_name else action_func)
-        if enframe_handler.solve_type.lower() ==  "Copy Input to Postgres".lower():
-            input_schema, input_restrictions = original_input_schema, set()
-        if "solve" in enframe_handler.solve_type.lower() and solution_restrictions:
-            print("\nNote - only the following subset of tables will be written to the local Enframe DB\n" +
-                  str(solution_restrictions) + "\n")
-        verify(enframe_handler, "-e/--enframe command line functionality requires additional Enframe specific package")
-        if enframe_handler.solve_type == "Proxy Enframe Solve":
-            if action_name:
-                enframe_handler.perform_action_with_function()
-            else:
-                enframe_handler.proxy_enframe_solve()
-            print(f"Enframe proxy solve executed with {enframe_config}" +
-                  (f" and action {action_name}" if action_name else ""))
-            return
 
     recognized_extensions = (".json", ".xls", ".xlsx", ".db")
     if create_routine == "create_tic_dat":
@@ -500,71 +382,22 @@ def standard_main(input_schema, solution_schema, solve, case_space_table_names=F
     dat = _get_dat_object(tdf=input_schema, create_routine=create_routine, file_path=input_file,
                           file_or_directory=file_or_dir(input_file),
                           check_for_dups=create_routine == "create_tic_dat")
-    if enframe_handler:
-        enframe_handler.copy_input_dat(dat)
-        print(f"Input data copied from {input_file} to the postgres DB defined by {enframe_config}")
-        if enframe_handler.solve_type == "Copy Input to Postgres and Solve":
-            if action_name:
-                enframe_handler.perform_action_with_function()
-            else:
-                enframe_handler.proxy_enframe_solve()
-            print(f"Enframe proxy solve executed with {enframe_config}" +
-                  (f" and action {action_name}" if action_name else ""))
-        return
 
     print("output %s %s"%(file_or_dir(output_file), output_file))
     write_func, write_kwargs = _get_write_function_and_kwargs(tdf=solution_schema, file_path=output_file,
                                                               file_or_directory=file_or_dir(output_file),
                                                               case_space_table_names=case_space_table_names)
-    if not action_name:
-        sln = solve(dat)
-        verify(not (sln is not None and safe_apply(bool)(sln) is None),
-               "The solve (or action) function should return either a TicDat/PanDat object (for success), " +
-               "or something falsey (to indicate failure)")
-        if sln:
-            print("%s output %s %s"%("Overwriting" if os.path.exists(output_file) else "Creating",
-                                     file_or_dir(output_file), output_file))
-            write_func(sln, output_file, **write_kwargs)
-        else:
-            print("No solution was created!")
-        return
-    print("solution data from %s %s"%(file_or_dir(output_file), output_file))
 
-    kwargs = {}
-    if "dat" in action_func_args:
-        kwargs["dat"] = dat
-    if "sln" in action_func_args:
-        sln = _get_dat_object(tdf=solution_schema, create_routine=create_routine, file_path=output_file,
-                              file_or_directory=file_or_dir(output_file),
-                              check_for_dups=create_routine == "create_tic_dat")
-        kwargs["sln"] = sln
-    rtn = action_func(**kwargs)
-    def quickie_good_obj(dat, tdf):
-        return all(hasattr(dat, t) for t in tdf.all_tables)
-    def dat_write(dat):
-        w_func, w_kwargs = _get_write_function_and_kwargs(tdf=input_schema, file_path=input_file,
-                                                          file_or_directory=file_or_dir(input_file),
-                                                          case_space_table_names=case_space_table_names)
-        print("%s input %s %s" % ("Overwriting" if os.path.exists(input_file) else "Creating",
-                                   file_or_dir(input_file), input_file))
-        w_func(dat, input_file, **w_kwargs)
-    if rtn:
-        if isinstance(rtn, dict):
-            verify({"dat", "sln"}.intersection(rtn), "The returned dict is missing both 'dat' and 'sln' keys")
-            if "dat" in rtn:
-                verify(quickie_good_obj(rtn["dat"], input_schema), "rtn['dat'] fails sanity check")
-
-                dat_write(rtn["dat"])
-            if "sln" in rtn:
-                verify(quickie_good_obj(rtn["sln"], solution_schema), "rtn['sln'] fails sanity check")
-                print("%s output %s %s" % ("Overwriting" if os.path.exists(output_file) else "Creating",
-                                           file_or_dir(output_file), output_file))
-                write_func(rtn["sln"], output_file, **write_kwargs)
-        else:
-            verify(quickie_good_obj(rtn, input_schema), "rtn fails sanity check")
-            dat_write(rtn)
+    sln = solve(dat)
+    verify(not (sln is not None and safe_apply(bool)(sln) is None),
+           "The solve (or action) function should return either a TicDat/PanDat object (for success), " +
+           "or something falsey (to indicate failure)")
+    if sln:
+        print("%s output %s %s"%("Overwriting" if os.path.exists(output_file) else "Creating",
+                                 file_or_dir(output_file), output_file))
+        write_func(sln, output_file, **write_kwargs)
     else:
-        print(f"{action_func} failed to return anything!")
+        print("No solution was created!")
 
 def _get_dat_object(tdf, create_routine, file_path, file_or_directory, check_for_dups):
     def inner_f():
@@ -617,17 +450,6 @@ def _extra_input_file_check_str(input_file):
         return "\nTo load data from .csv files, pass the directory containing the .csv files as the " +\
                "command line argument."
     return ""
-
-def make_enframe_offline_handler(enframe_config, input_schema, solution_schema, core_func):
-    try:
-        from framework_utils.ticdat_deployer import EnframeOfflineHandler
-    except:
-        try:
-            from enframe_offline_handler import EnframeOfflineHandler
-        except:
-            EnframeOfflineHandler = None
-    if EnframeOfflineHandler:
-        return EnframeOfflineHandler(enframe_config, input_schema, solution_schema, core_func)
 
 def verify(b, msg) :
     """

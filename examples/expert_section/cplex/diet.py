@@ -13,7 +13,7 @@
 from ticdat import TicDatFactory, standard_main
 try:
     import docplex
-    __version__ =  docplex.__version__ # not needed, helps deploy on Enframe
+    __version__ =  docplex.__version__ # not needed, helps deploy on Roundoff
 except:
     docplex = __version__ = None
 
