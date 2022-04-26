@@ -351,10 +351,9 @@ def standard_main(input_schema, solution_schema, solve, case_space_table_names=F
         create_routine = "create_tic_dat"
     file_name = sys.argv[0]
     def usage():
-        print ("python %s --help --input <input file or dir> --output <output file or dir>"%file_name +
-               " --enframe <enframe_config.json> --action <action_function>")
+        print ("python %s --help --input <input file or dir> --output <output file or dir>"%file_name)
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "hi:o:e:a:", ["help", "input=", "output=", "enframe=", "action="])
+        opts, args = getopt.getopt(sys.argv[1:], "hi:o:", ["help", "input=", "output="])
     except getopt.GetoptError as err:
         print (str(err))  # will print something like "option -a not recognized"
         usage()
