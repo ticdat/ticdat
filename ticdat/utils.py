@@ -15,7 +15,11 @@ try:
     import dateutil, dateutil.parser
 except:
     dateutil = None
-
+import json
+try:
+    import roundoffconnect
+except:
+    roundoffconnect = None
 try:
     import pandas as pd
     from pandas import DataFrame
@@ -351,14 +355,15 @@ def standard_main(input_schema, solution_schema, solve, case_space_table_names=F
         create_routine = "create_tic_dat"
     file_name = sys.argv[0]
     def usage():
-        print ("python %s --help --input <input file or dir> --output <output file or dir>"%file_name)
+        print (f"python {file_name} --help --input <input file or dir> --output <output file or dir> " +
+               "--roundoff <roundoff config file>")
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "hi:o:", ["help", "input=", "output="])
+        opts, args = getopt.getopt(sys.argv[1:], "hi:o:r:", ["help", "input=", "output=", "roundoff="])
     except getopt.GetoptError as err:
         print (str(err))  # will print something like "option -a not recognized"
         usage()
         sys.exit(2)
-    input_file, output_file = "input.xlsx", "output.xlsx"
+    input_file, output_file, roundoff_file = "input.xlsx", None, None
     for o, a in opts:
         if o in ("-h", "--help"):
             usage()
@@ -367,6 +372,8 @@ def standard_main(input_schema, solution_schema, solve, case_space_table_names=F
             input_file = a
         elif o in ("-o", "--output"):
             output_file = a
+        elif o in ("-r", "--roundoff"):
+            roundoff_file = a
         else:
             verify(False, "unhandled option")
 
@@ -383,6 +390,20 @@ def standard_main(input_schema, solution_schema, solve, case_space_table_names=F
                           file_or_directory=file_or_dir(input_file),
                           check_for_dups=create_routine == "create_tic_dat")
 
+    if roundoff_file:
+        verify(roundoffconnect, "roundoffconnect not installed")
+        if not os.path.isfile(roundoff_file):
+            print("%s is not a valid roundoff file"%roundoff_file)
+            return
+        with open(roundoff_file, "r") as f:
+            rounoff_dict = json.load(f)
+        verify(isinstance(rounoff_dict, dict) and set(rounoff_dict).issuperset(["app_id", "server", "token"]),
+               f"{roundoff_file} failed to resolve to a proper json dict")
+        con = roundoffconnect.AppConnect(*(rounoff_dict[_] for _ in ["server", "token", "app_id"]))
+        print(f"Will load data into Roundoff app {con.app_name} on server {rounoff_dict['server']}")
+        return
+
+    output_file = "output.xlsx" if output_file is None else output_file
     print("output %s %s"%(file_or_dir(output_file), output_file))
     write_func, write_kwargs = _get_write_function_and_kwargs(tdf=solution_schema, file_path=output_file,
                                                               file_or_directory=file_or_dir(output_file),

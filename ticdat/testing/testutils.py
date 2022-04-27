@@ -1558,6 +1558,32 @@ class TestUtils(unittest.TestCase):
                     self.assertTrue(all(_.native_field.endswith(" Woz") and _.foreign_field.endswith(" Woz")
                                         for _ in fk.mapping))
 
+    def test_roundoff_command_line(self):
+        # this test NOT self contained. it will connect to a testing roundoffserver via a live token. DON'T check
+        # a live token into GitHub for all to read. Just generate as needed for test than delete from Roundoff
+        # TO DO - describe the testing needed
+        confg_path = get_testing_file_path("roundoff_config.json")
+        self.assertTrue(os.path.isfile(confg_path))
+        with open(confg_path, "r") as f:
+            d = json.load(f)
+        self.assertTrue(set(d).issuperset(["app_id", "server", "token"]))
+        data_path = os.path.join(_scratchDir, "custom_module")
+        makeCleanDir(data_path)
+        module_path = get_testing_file_path("funky.py")
+        import ticdat.testing.funky as funky
+        weirdo_hacks_needed = ["solve"]
+        for w in weirdo_hacks_needed:
+            _w = getattr(funky, w)
+            _w.__module__ = "weirdo_temp_junky_thing_for_hacking"
+        sys.modules[funky.solve.__module__] = funky
+        dat = funky.input_schema.TicDat(table=[['c'], ['d']])
+        funky.input_schema.json.write_file(dat, os.path.join(data_path, "input.json"))
+        test_args_one = [module_path, "-i", os.path.join(data_path, "input.json"), "-o",
+                         os.path.join(data_path, "output.json"), "-r", confg_path]
+        with patch.object(sys, 'argv', test_args_one):
+            utils.standard_main(funky.input_schema, funky.solution_schema, funky.solve)
+
+        # don't forget to clean up the roundoff testing app
 
 _scratchDir = TestUtils.__name__ + "_scratch"
 
