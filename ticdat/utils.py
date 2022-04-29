@@ -10,6 +10,7 @@ import getopt
 import sys
 import os
 from collections import namedtuple
+import time
 import datetime as datetime_
 try:
     import dateutil, dateutil.parser
@@ -390,6 +391,24 @@ def standard_main(input_schema, solution_schema, solve, case_space_table_names=F
                           file_or_directory=file_or_dir(input_file),
                           check_for_dups=create_routine == "create_tic_dat")
 
+    output_file = "output.xlsx" if (output_file, roundoff_file) == (None, None) else output_file
+    write_the_sln = lambda sln: verify(False, "Bug in ticdat! Calling dummy function!")
+    if output_file:
+        print("output %s %s"%(file_or_dir(output_file), output_file))
+        write_func, write_kwargs = _get_write_function_and_kwargs(tdf=solution_schema, file_path=output_file,
+                                                                  file_or_directory=file_or_dir(output_file),
+                                                                  case_space_table_names=case_space_table_names)
+        def write_the_sln(sln):
+            verify(not (sln is not None and safe_apply(bool)(sln) is None),
+                   "The solve (or action) function should return either a TicDat/PanDat object (for success), " +
+                   "or something falsey (to indicate failure)")
+            if sln:
+                print("%s output %s %s" % ("Overwriting" if os.path.exists(output_file) else "Creating",
+                                           file_or_dir(output_file), output_file))
+                write_func(sln, output_file, **write_kwargs)
+            else:
+                print("No solution was created!")
+
     if roundoff_file:
         verify(roundoffconnect, "roundoffconnect not installed")
         if not os.path.isfile(roundoff_file):
@@ -401,24 +420,24 @@ def standard_main(input_schema, solution_schema, solve, case_space_table_names=F
                f"{roundoff_file} failed to resolve to a proper json dict")
         con = roundoffconnect.AppConnect(*(rounoff_dict[_] for _ in ["server", "token", "app_id"]))
         print(f"Will load data into Roundoff app {con.app_name} on server {rounoff_dict['server']}")
+        EngineProxy = namedtuple("EngineProxy", ["input_schema", "solution_schema", "solve"])
+        dummy_engine = EngineProxy(input_schema, solution_schema, solve)
+        engine_on_roundoff = roundoffconnect.TicDatConnector(con, dummy_engine)
+        new_scenario_id = engine_on_roundoff.upload_input_dat(dat)
+        print(f"Loaded data into Roundoff scenario {con.current_scenarios()[new_scenario_id]}")
+        if output_file:
+            con.launch_solve(new_scenario_id)
+            while con.is_solving_underway(new_scenario_id):
+                time.sleep(1)
+                print("Solving on Roundoff...")
+            sln = engine_on_roundoff.download_solution(new_scenario_id)
+            write_the_sln(sln)
+        else:
+            print("Because no output argument was passed, returning without creating a solution")
         return
 
-    output_file = "output.xlsx" if output_file is None else output_file
-    print("output %s %s"%(file_or_dir(output_file), output_file))
-    write_func, write_kwargs = _get_write_function_and_kwargs(tdf=solution_schema, file_path=output_file,
-                                                              file_or_directory=file_or_dir(output_file),
-                                                              case_space_table_names=case_space_table_names)
-
     sln = solve(dat)
-    verify(not (sln is not None and safe_apply(bool)(sln) is None),
-           "The solve (or action) function should return either a TicDat/PanDat object (for success), " +
-           "or something falsey (to indicate failure)")
-    if sln:
-        print("%s output %s %s"%("Overwriting" if os.path.exists(output_file) else "Creating",
-                                 file_or_dir(output_file), output_file))
-        write_func(sln, output_file, **write_kwargs)
-    else:
-        print("No solution was created!")
+    write_the_sln(sln)
 
 def _get_dat_object(tdf, create_routine, file_path, file_or_directory, check_for_dups):
     def inner_f():

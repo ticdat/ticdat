@@ -32,6 +32,11 @@ try:
 except:
     pd = None
 
+try:
+    import roundoffconnect
+except:
+    roundoffconnect = None
+
 def _deep_anonymize(x)  :
     if not hasattr(x, "__contains__") or utils.stringish(x):
         return x
@@ -1559,30 +1564,58 @@ class TestUtils(unittest.TestCase):
                                         for _ in fk.mapping))
 
     def test_roundoff_command_line(self):
-        # this test NOT self contained. it will connect to a testing roundoffserver via a live token. DON'T check
+        # this test NOT self contained. It will connect to a testing roundoffserver via a live token. DON'T check
         # a live token into GitHub for all to read. Just generate as needed for test than delete from Roundoff
-        # TO DO - describe the testing needed
+        # See the test_roundoffconnet.py file for how to prep a Roundoff server for this test. We are using the
+        # delayed_diet.py testing file to create the app_id entry that is used for test_roundoffconnet.py
         confg_path = get_testing_file_path("roundoff_config.json")
         self.assertTrue(os.path.isfile(confg_path))
         with open(confg_path, "r") as f:
             d = json.load(f)
         self.assertTrue(set(d).issuperset(["app_id", "server", "token"]))
-        data_path = os.path.join(_scratchDir, "custom_module")
+        con = roundoffconnect.AppConnect(d["server"], d["token"], d["app_id"])
+        scenarios = con.current_scenarios()
+        self.assertTrue(len(scenarios) == 1, "if some previous unit test left detritus behind, kill it")
+
+        data_path = os.path.join(_scratchDir, "roundoff_command_line")
         makeCleanDir(data_path)
-        module_path = get_testing_file_path("funky.py")
-        import ticdat.testing.funky as funky
+
+        module_path = get_testing_file_path("delayed_diet.py")
+        import ticdat.testing.delayed_diet as delayed_diet
         weirdo_hacks_needed = ["solve"]
         for w in weirdo_hacks_needed:
-            _w = getattr(funky, w)
+            _w = getattr(delayed_diet, w)
             _w.__module__ = "weirdo_temp_junky_thing_for_hacking"
-        sys.modules[funky.solve.__module__] = funky
-        dat = funky.input_schema.TicDat(table=[['c'], ['d']])
-        funky.input_schema.json.write_file(dat, os.path.join(data_path, "input.json"))
+        sys.modules[delayed_diet.solve.__module__] = delayed_diet
+
+        tdf = TicDatFactory(**dietSchema())
+        df_objs = tdf.copy_to_pandas(tdf.copy_tic_dat(dietData()), reset_index=True)
+        lols = {{"nutritionQuantities": "nutrition_quantities"}.get(t, t):
+                list(map(list, getattr(df_objs, t).itertuples(index=False))) for t in tdf.all_tables}
+        dat = delayed_diet.input_schema.TicDat(**lols)
+        delayed_diet.input_schema.json.write_file(dat, os.path.join(data_path, "input.json"))
+        test_args_one = [module_path, "-i", os.path.join(data_path, "input.json"),  "-r", confg_path]
+        with patch.object(sys, 'argv', test_args_one):
+            utils.standard_main(delayed_diet.input_schema, delayed_diet.solution_schema, delayed_diet.solve)
+
         test_args_one = [module_path, "-i", os.path.join(data_path, "input.json"), "-o",
                          os.path.join(data_path, "output.json"), "-r", confg_path]
         with patch.object(sys, 'argv', test_args_one):
-            utils.standard_main(funky.input_schema, funky.solution_schema, funky.solve)
+            utils.standard_main(delayed_diet.input_schema, delayed_diet.solution_schema, delayed_diet.solve)
 
+        sln = delayed_diet.solution_schema.json.create_tic_dat(os.path.join(data_path, "output.json"))
+        self.assertTrue(0 < sln.parameters["Lower Bound"]["Value"] < sln.parameters["Upper Bound"]["Value"] <= 100)
+        sln.parameters.pop("Lower Bound")
+        sln.parameters.pop("Upper Bound")
+        sln_2 = delayed_diet.solution_schema.TicDat(**delayed_diet.hard_coded_solution_dict)
+        self.assertTrue(delayed_diet.solution_schema._same_data(sln, sln_2, epsilon=1e-5))
+
+        new_scen_ids = list(set(con.current_scenarios()).difference(scenarios))
+        self.assertTrue(len(new_scen_ids) == 2)
+        for id in new_scen_ids:
+            con.delete_scenario(id)
+
+        sys.modules.pop(delayed_diet.solve.__module__)
         # don't forget to clean up the roundoff testing app
 
 _scratchDir = TestUtils.__name__ + "_scratch"
