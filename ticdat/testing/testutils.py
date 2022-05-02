@@ -1582,6 +1582,7 @@ class TestUtils(unittest.TestCase):
 
         module_path = get_testing_file_path("delayed_diet.py")
         import ticdat.testing.delayed_diet as delayed_diet
+        delayed_diet.input_schema.set_infinity_io_flag(999999999)
         weirdo_hacks_needed = ["solve"]
         for w in weirdo_hacks_needed:
             _w = getattr(delayed_diet, w)
@@ -1594,10 +1595,6 @@ class TestUtils(unittest.TestCase):
                 list(map(list, getattr(df_objs, t).itertuples(index=False))) for t in tdf.all_tables}
         dat = delayed_diet.input_schema.TicDat(**lols)
         delayed_diet.input_schema.json.write_file(dat, os.path.join(data_path, "input.json"))
-        test_args_one = [module_path, "-i", os.path.join(data_path, "input.json"),  "-r", confg_path]
-        with patch.object(sys, 'argv', test_args_one):
-            utils.standard_main(delayed_diet.input_schema, delayed_diet.solution_schema, delayed_diet.solve)
-
         test_args_one = [module_path, "-i", os.path.join(data_path, "input.json"), "-o",
                          os.path.join(data_path, "output.json"), "-r", confg_path]
         with patch.object(sys, 'argv', test_args_one):
@@ -1610,13 +1607,41 @@ class TestUtils(unittest.TestCase):
         sln_2 = delayed_diet.solution_schema.TicDat(**delayed_diet.hard_coded_solution_dict)
         self.assertTrue(delayed_diet.solution_schema._same_data(sln, sln_2, epsilon=1e-5))
 
+        d["mode"] = "upload only"
+        with open(os.path.join(data_path, "config.json"), "w") as f:
+            json.dump(d, f, indent=2)
+        test_args_two = [module_path, "-i", os.path.join(data_path, "input.json"), "-o",
+                         os.path.join(data_path, "output_2.json"), "-r", os.path.join(data_path, "config.json")]
+        with patch.object(sys, 'argv', test_args_two):
+            utils.standard_main(delayed_diet.input_schema, delayed_diet.solution_schema, delayed_diet.solve)
+        self.assertFalse(os.path.exists(os.path.join(data_path, "output_2.json")))
+
         new_scen_ids = list(set(con.current_scenarios()).difference(scenarios))
         self.assertTrue(len(new_scen_ids) == 2)
+        dd_on_roundoff = roundoffconnect.TicDatConnector(con, delayed_diet)
+        self.assertFalse(any(con.is_solving_underway(_) for _ in new_scen_ids))
+        can_get_solution = [_ for _ in new_scen_ids if dd_on_roundoff.download_solution(_)]
+        self.assertTrue(len(can_get_solution) == 1)
+
+        d["mode"] = "download from scenario"
+        d["scenario"] = can_get_solution[0]
+        with open(os.path.join(data_path, "config_2.json"), "w") as f:
+            json.dump(d, f, indent=2)
+        test_args_three = [module_path, "-i", os.path.join(data_path, "junk", "input_GARBAGE_8945339483.json"),
+                           "-o", os.path.join(data_path, "output_2.json"),
+                           "-r", os.path.join(data_path, "config_2.json")]
+        with patch.object(sys, 'argv', test_args_three):
+            utils.standard_main(delayed_diet.input_schema, delayed_diet.solution_schema, delayed_diet.solve)
+
+        sln3 = delayed_diet.solution_schema.json.create_tic_dat(os.path.join(data_path, "output.json"))
+        self.assertTrue(0 < sln3.parameters["Lower Bound"]["Value"] < sln3.parameters["Upper Bound"]["Value"] <= 100)
+        sln3.parameters.pop("Lower Bound")
+        sln3.parameters.pop("Upper Bound")
+        self.assertTrue(delayed_diet.solution_schema._same_data(sln3, sln_2, epsilon=1e-5))
+
         for id in new_scen_ids:
             con.delete_scenario(id)
-
         sys.modules.pop(delayed_diet.solve.__module__)
-        # don't forget to clean up the roundoff testing app
 
 _scratchDir = TestUtils.__name__ + "_scratch"
 

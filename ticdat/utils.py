@@ -394,8 +394,6 @@ def standard_main(input_schema, solution_schema, solve, case_space_table_names=F
             roundoff_dict = json.load(f)
         verify(isinstance(roundoff_dict, dict) and set(roundoff_dict).issuperset(["app_id", "server", "token"]),
                f"{roundoff_file} failed to resolve to a proper json dict")
-        verify(all(isinstance(roundoffconnect[_], str) for _ in ["app_id", "server", "token"]),
-               f'The "app_id", "server", "token" entries of {roundoff_dict} all need to be strings')
         valid_modes = ["upload and solve", "upload only", "download from scenario"]
         roundoff_mode = roundoff_dict.get("mode", valid_modes[0])
         verify(roundoff_mode in valid_modes, f"mode entry from {roundoff_file} needs to be one of {valid_modes}")
