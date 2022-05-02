@@ -10,12 +10,17 @@ import getopt
 import sys
 import os
 from collections import namedtuple
+import time
 import datetime as datetime_
 try:
     import dateutil, dateutil.parser
 except:
     dateutil = None
-
+import json
+try:
+    import roundoffconnect
+except:
+    roundoffconnect = None
 try:
     import pandas as pd
     from pandas import DataFrame
@@ -317,7 +322,7 @@ def standard_main(input_schema, solution_schema, solve, case_space_table_names=F
 
     Implements a command line signature of
 
-    "python engine_file.py --input <input_file_or_dir> --output <output_file_or_dir>"
+    "python engine_file.py --input <input_file_or_dir> --output <output_file_or_dir> --roundoff <roundoff config file>"
 
     For the input/output command line arguments.
 
@@ -338,6 +343,8 @@ def standard_main(input_schema, solution_schema, solve, case_space_table_names=F
         model will be stored in a directory containing a series of .csv files)
 
     Defaults are input.xlsx, output.xlsx
+
+    The roundoff config file is optional. See ticdat wiki for a description of the roundoff config file.
     """
     verify(all(isinstance(_, ticdat.TicDatFactory) for _ in (input_schema, solution_schema)) or
            all(isinstance(_, ticdat.PanDatFactory) for _ in (input_schema, solution_schema)),
@@ -351,14 +358,15 @@ def standard_main(input_schema, solution_schema, solve, case_space_table_names=F
         create_routine = "create_tic_dat"
     file_name = sys.argv[0]
     def usage():
-        print ("python %s --help --input <input file or dir> --output <output file or dir>"%file_name)
+        print (f"python {file_name} --help --input <input file or dir> --output <output file or dir> " +
+               "--roundoff <roundoff config file>")
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "hi:o:", ["help", "input=", "output="])
+        opts, args = getopt.getopt(sys.argv[1:], "hi:o:r:", ["help", "input=", "output=", "roundoff="])
     except getopt.GetoptError as err:
         print (str(err))  # will print something like "option -a not recognized"
         usage()
         sys.exit(2)
-    input_file, output_file = "input.xlsx", "output.xlsx"
+    input_file, output_file, roundoff_file = "input.xlsx", "output.xlsx", None
     for o, a in opts:
         if o in ("-h", "--help"):
             usage()
@@ -367,28 +375,83 @@ def standard_main(input_schema, solution_schema, solve, case_space_table_names=F
             input_file = a
         elif o in ("-o", "--output"):
             output_file = a
+        elif o in ("-r", "--roundoff"):
+            roundoff_file = a
         else:
             verify(False, "unhandled option")
 
     recognized_extensions = (".json", ".xls", ".xlsx", ".db")
     if create_routine == "create_tic_dat":
         recognized_extensions += (".sql", ".mdb", ".accdb")
+
+    roundoff_based_solve = None
+    if roundoff_file:
+        verify(roundoffconnect, "roundoffconnect not installed")
+        if not os.path.isfile(roundoff_file):
+            print("%s is not a valid roundoff file"%roundoff_file)
+            return
+        with open(roundoff_file, "r") as f:
+            roundoff_dict = json.load(f)
+        verify(isinstance(roundoff_dict, dict) and set(roundoff_dict).issuperset(["app_id", "server", "token"]),
+               f"{roundoff_file} failed to resolve to a proper json dict")
+        valid_modes = ["upload and solve", "upload only", "download from scenario"]
+        roundoff_mode = roundoff_dict.get("mode", valid_modes[0])
+        verify(roundoff_mode in valid_modes, f"mode entry from {roundoff_file} needs to be one of {valid_modes}")
+        con = roundoffconnect.AppConnect(*(roundoff_dict[_] for _ in ["server", "token", "app_id"]))
+        print(f"Connection established with Roundoff app {con.app_name} on server {roundoff_dict['server']}")
+        EngineProxy = namedtuple("EngineProxy", ["input_schema", "solution_schema", "solve"])
+        dummy_engine = EngineProxy(input_schema, solution_schema, solve)
+        engine_on_roundoff = roundoffconnect.TicDatConnector(con, dummy_engine)
+        def roundoff_upload(dat):
+            upload_kwargs = {"scenario_name": roundoff_dict["scenario"]} if "scenario" in roundoff_dict else {}
+            new_scenario_id = engine_on_roundoff.upload_input_dat(dat, **upload_kwargs)
+            print(f"Loaded data into Roundoff scenario {con.current_scenarios()[new_scenario_id]}")
+            return new_scenario_id
+        if roundoff_mode == "upload and solve":
+            def roundoff_based_solve(dat):
+                new_scenario_id = roundoff_upload(dat)
+                con.launch_solve(new_scenario_id)
+                while con.is_solving_underway(new_scenario_id):
+                    time.sleep(1)
+                    print("Solving on Roundoff...")
+                print(f"Downloading solution from Roundoff scenario {con.current_scenarios()[new_scenario_id]}")
+                return engine_on_roundoff.download_solution(new_scenario_id)
+        elif roundoff_mode == "upload only":
+            roundoff_based_solve = lambda dat: roundoff_upload(dat) and None
+            output_file = None
+        else:
+            def roundoff_based_solve():
+                verify("scenario" in roundoff_dict, "'download from scenario' mode requires a 'scenario' entry")
+                print(f"Downloading solution from Roundoff scenario {roundoff_dict['scenario']}")
+                return engine_on_roundoff.download_solution(roundoff_dict["scenario"])
+            input_file = None
+
     file_or_dir = lambda f: "file" if any(f.endswith(_) for _ in recognized_extensions) else "directory"
-    if not (os.path.exists(input_file)):
-        print("%s is not a valid input file or directory"%input_file)
+    dat = None
+    if input_file:
+        if not (os.path.exists(input_file)):
+            print("%s is not a valid input file or directory" % input_file)
+            return
+        print("input data from %s %s"%(file_or_dir(input_file), input_file))
+        dat = _get_dat_object(tdf=input_schema, create_routine=create_routine, file_path=input_file,
+                              file_or_directory=file_or_dir(input_file),
+                              check_for_dups=create_routine == "create_tic_dat")
+
+    write_func, write_kwargs = (None, None)
+    if output_file:
+        print("output %s %s"%(file_or_dir(output_file), output_file))
+        write_func, write_kwargs = _get_write_function_and_kwargs(tdf=solution_schema, file_path=output_file,
+                                                                  file_or_directory=file_or_dir(output_file),
+                                                                  case_space_table_names=case_space_table_names)
+    if roundoff_based_solve is None:
+        sln = solve(dat)
+    elif output_file:
+        sln = roundoff_based_solve(*([dat] if input_file else []))
+    else:
+        roundoff_based_solve(dat)
+        print(f"Returning without solving, as requested by the 'upload only' mode from {roundoff_file}")
         return
 
-    print("input data from %s %s"%(file_or_dir(input_file), input_file))
-    dat = _get_dat_object(tdf=input_schema, create_routine=create_routine, file_path=input_file,
-                          file_or_directory=file_or_dir(input_file),
-                          check_for_dups=create_routine == "create_tic_dat")
-
-    print("output %s %s"%(file_or_dir(output_file), output_file))
-    write_func, write_kwargs = _get_write_function_and_kwargs(tdf=solution_schema, file_path=output_file,
-                                                              file_or_directory=file_or_dir(output_file),
-                                                              case_space_table_names=case_space_table_names)
-
-    sln = solve(dat)
     verify(not (sln is not None and safe_apply(bool)(sln) is None),
            "The solve (or action) function should return either a TicDat/PanDat object (for success), " +
            "or something falsey (to indicate failure)")
