@@ -380,7 +380,8 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
         verify(not self._has_been_used,
                "The default values can't be changed after a TicDatFactory has been used.")
         verify(table in self.all_tables, "Unrecognized table name %s"%table)
-        verify(field in self.data_fields[table], "%s does not refer to a data field for %s"%(field, table))
+        verify(field in self.data_fields[table] + self.primary_key_fields[table],
+               "%s does not refer to a field for %s"%(field, table))
         verify(utils.acceptable_default(default_value), "%s can not be used as a default value"%default_value)
         self._default_values[table][field] = default_value
 
