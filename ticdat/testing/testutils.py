@@ -632,7 +632,7 @@ class TestUtils(unittest.TestCase):
         self.assertTrue(td.foods["a"]["cost"]==0 and td.categories["1"].values() == (0,0) and
                         td.nutritionQuantities['junk',1]["qty"] == 0)
         tdf = TicDatFactory(**dietSchema())
-        tdf.set_default_values(foods = {"cost":"dontcare"},nutritionQuantities = {"qty":100} )
+        tdf.set_default_values(foods = {"cost":"dontcare", "name":"alsodontcare"},nutritionQuantities = {"qty":100} )
         self._testTdfReproduction(tdf)
         td = makeIt()
         self.assertTrue(td.foods["a"]["cost"]=='dontcare' and td.categories["1"].values() == (0,0) and

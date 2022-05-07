@@ -403,8 +403,8 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
                "The default values can't be changed after a TicDatFactory has been used.")
         for k,v in tableDefaults.items():
             verify(k in self.all_tables, "Unrecognized table name %s"%k)
-            verify(dictish(v) and set(v).issubset(self.data_fields[k]),
-                "Default values for %s should be a dictionary mapping data field names to values"
+            verify(dictish(v) and set(v).issubset(set(self.data_fields[k]).union(self.primary_key_fields[k])),
+                "Default values for %s should be a dictionary mapping field names to values"
                 %k)
             verify(all(utils.acceptable_default(_v) for _v in v.values()), "some default values are unacceptable")
             self._default_values[k] = dict(self._default_values[k], **v)

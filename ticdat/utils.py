@@ -896,8 +896,9 @@ def deep_copy(x):
         return x
     verify(False, f"Unexpected object {x}")
 
-def td_row_factory(table, key_field_names, data_field_names, default_values={}):
-    assert dictish(default_values) and set(default_values).issubset(data_field_names)
+def td_row_factory(table, key_field_names, data_field_names, default_values=None):
+    default_values = default_values or {}
+    assert dictish(default_values) and set(default_values).issubset(set(key_field_names).union(data_field_names))
     assert not set(key_field_names).intersection(data_field_names)
     if not data_field_names:
          # need a freezeable dict not a frozen dict here so can still link foreign keys
