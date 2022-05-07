@@ -1643,6 +1643,30 @@ class TestUtils(unittest.TestCase):
             con.delete_scenario(id)
         sys.modules.pop(delayed_diet.solve.__module__)
 
+    def test_issue_162(self):
+        tdf = TicDatFactory(table=[["Pk Field"], ["D Field 1", "D Field 2"]])
+        tdf.set_data_type("table", "D Field 1", nullable=False, datetime=True)
+        tdf.set_data_type("table", "D Field 2", nullable=True, datetime=True)
+
+        dat = tdf.TicDat(table=[["easy pass", "2016", "now"],
+                                ["null needed to pass", "now", None],
+                                ["dfield 2 fails", "Jan 1 1976", ""],
+                                ["dfield 1 fails", None, "Jan 1 1976"]])
+        fails = tdf.find_data_type_failures(dat)
+        self.assertTrue({tuple(k): v.pks for k, v in fails.items()} ==
+                        {('table', 'D Field 2'): ('dfield 2 fails',),
+                         ('table', 'D Field 1'): ('dfield 1 fails',),})
+
+        dat = tdf.TicDat(table=[["easy pass", "2016", "now"],
+                                ["null needed to pass", "now", None],
+                                ["dfield 2 fails", "Jan 1 1976", ""],
+                                ["dfield 1 fails", "", "Jan 1 1976"]])
+        fails = tdf.find_data_type_failures(dat)
+        self.assertTrue({tuple(k): v.pks for k, v in fails.items()} ==
+                        {('table', 'D Field 2'): ('dfield 2 fails',),
+                         ('table', 'D Field 1'): ('dfield 1 fails',),})
+
+
 _scratchDir = TestUtils.__name__ + "_scratch"
 
 # Run the tests.

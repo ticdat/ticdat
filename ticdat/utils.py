@@ -214,7 +214,7 @@ def dateutil_adjuster(x):
     def _try_to_timestamp(y):
         if pd and not numericish(y):
             rtn = safe_apply(pd.Timestamp)(y)
-            if rtn is not None:
+            if not pd.isnull(rtn):
                 return rtn
         if dateutil:
             return safe_apply(dateutil.parser.parse)(y)
@@ -239,6 +239,8 @@ class TypeDictionary(namedtuple("TypeDictionary",
         if (pd and pd.isnull(data)) or (data is None):
             return bool(self.nullable)
         if self.datetime:
+            # data is not None and dateutil_adjuster(data) is None will always be invalid, re:less of self.nullable
+            # self.nullable only refers to whether the true None can be passed.
             return isinstance(data, datetime_.datetime) or dateutil_adjuster(data) is not None
         if numericish(data):
             if not self.number_allowed:
