@@ -53,6 +53,7 @@ class TestUtils(unittest.TestCase):
             self.assertTrue(tdf.data_types == tdf2.data_types)
             self.assertTrue(tdf.default_values == tdf2.default_values)
             self.assertTrue(set(tdf.foreign_keys) == set(tdf2.foreign_keys))
+            self.assertTrue(dict(tdf.tooltips) == dict(tdf2.tooltips))
         _tdfs_same(tdf, TicDatFactory.create_from_full_schema(tdf.schema(True)))
         _tdfs_same(tdf, TicDatFactory.create_from_full_schema(_deep_anonymize(tdf.schema(True))))
 
@@ -1325,7 +1326,8 @@ class TestUtils(unittest.TestCase):
             f = os.path.join(data_path, "output.json")
             with open(f, "r") as _f:
                 d = json.load(_f)
-                self.assertTrue(set(d) == {'parameters', 'buy_food', 'consume_nutrition'})
+                self.assertTrue(set(d) == {'parameters', 'buy_food', 'consume_nutrition', 'weird_table'})
+                self.assertTrue({k for k, v in d.items() if v} == {'parameters', 'buy_food', 'consume_nutrition'})
             rtn = funky_diet.solution_schema.json.create_tic_dat(f)
             self.assertFalse(rtn.weird_table)
             return rtn
@@ -1666,6 +1668,33 @@ class TestUtils(unittest.TestCase):
         self.assertTrue({tuple(k): v.pks for k, v in fails.items()} ==
                         {('table', 'D Field 2'): ('dfield 2 fails',),
                          ('table', 'D Field 1'): ('dfield 1 fails',),})
+
+    def test_issue_156(self):
+        tdf = TicDatFactory(table=[["Pk Field"], ["D Field 1", "D Field 2"]],
+                            table_two=[["Blah"], []])
+        pdf = PanDatFactory(**tdf.schema())
+        for tdf_pdf in [tdf, pdf]:
+            tdf_pdf.set_tooltip("table", "Pk Field", "blah")
+            tdf_pdf.set_tooltip("table", "", "something")
+            tdf_pdf.set_tooltip("table_two", "", "another thing")
+            tdf_pdf.set_tooltip("table", "", "")
+            tdf_pdf.set_tooltip("table_two", "Blah", "its blah")
+            tdf_pdf.set_tooltip("table", "D Field 1", "replace me")
+            tdf_pdf.set_tooltip("table", "D Field 1", "d field 1")
+            tdf_pdf.set_tooltip("table", "D Field 2", "d field 2")
+            tdf_pdf.set_tooltip("table", "Pk Field", "")
+            self.assertTrue(dict(tdf_pdf.tooltips) ==
+                            {'table_two': 'another thing', ('table_two', 'Blah'): 'its blah',
+                             ('table', 'D Field 1'): 'd field 1', ('table', 'D Field 2'): 'd field 2'})
+            for clone_factory in [TicDatFactory, PanDatFactory]:
+                tdf_pdf_2 = tdf_pdf.clone(clone_factory=clone_factory)
+                self.assertTrue(dict(tdf_pdf.tooltips) == dict(tdf_pdf_2.tooltips))
+                tdf_pdf_3 = tdf_pdf.clone(clone_factory=clone_factory, table_restrictions=["table"])
+                self.assertTrue(dict(tdf_pdf_3.tooltips) ==
+                                {('table', 'D Field 1'): 'd field 1', ('table', 'D Field 2'): 'd field 2'})
+                tdf_pdf_4 = tdf_pdf.clone(clone_factory=clone_factory, table_restrictions=["table_two"])
+                self.assertTrue(dict(tdf_pdf_4.tooltips) ==
+                                {'table_two': 'another thing', ('table_two', 'Blah'): 'its blah'})
 
 
 _scratchDir = TestUtils.__name__ + "_scratch"

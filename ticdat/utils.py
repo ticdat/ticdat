@@ -212,7 +212,8 @@ def clone_a_anchillary_info_schema(schema, table_restrictions, fields_to_remove=
         elif k == "parameters":
             rtn[k] = v if k in table_restrictions else {}
         elif k == "tooltips":
-            rtn[k] = dict(v)
+            rtn[k] = {_k : _v for _k, _v in v.items() if (isinstance(_k, str) and _k in table_restrictions) or
+                                                         (not isinstance(_k, str) and _k[0] in table_restrictions)}
         else:
             assert k in {"infinity_io_flag", "xlsx_trailing_empty_rows", "duplicates_ticdat_init"}, \
                 f"{k} is unexpected part of schema"
