@@ -74,6 +74,17 @@ def faster_df_apply(df, func, trip_wire_check=None):
     # will default to float for empty Series, like original pandas
     return pd.Series(data, index=index, **({"dtype": numpy.float64} if not data else {}))
 
+def set_tooltip(tdf_pdf, table, field, tooltip, tooltips_dict):
+    verify(table in tdf_pdf.all_tables, f"Unrecognized table name {table}")
+    verify(field == "" or field in tdf_pdf.data_fields[table] + tdf_pdf.primary_key_fields[table],
+           f"{field} is neither the empty string, nor does it refer to a field for {table}")
+    verify(isinstance(tooltip, str), "tooltip argument needs to be a string")
+    dict_key = (table, field) if field else table
+    if not tooltip:
+        tooltips_dict.pop(dict_key, "")
+    else:
+        tooltips_dict[dict_key] = tooltip
+
 def clone_add_a_column(tdf_pdf, table, field, field_type, field_position="append"):
     verify(table in tdf_pdf.all_tables, "Unrecognized table name %s" % table)
     verify(isinstance(field, str), "field needs to be a string")
@@ -200,6 +211,9 @@ def clone_a_anchillary_info_schema(schema, table_restrictions, fields_to_remove=
             rtn[k] = tuple(fk for fk in v if good_fk(fk))
         elif k == "parameters":
             rtn[k] = v if k in table_restrictions else {}
+        elif k == "tooltips":
+            rtn[k] = {_k : _v for _k, _v in v.items() if (isinstance(_k, str) and _k in table_restrictions) or
+                                                         (not isinstance(_k, str) and _k[0] in table_restrictions)}
         else:
             assert k in {"infinity_io_flag", "xlsx_trailing_empty_rows", "duplicates_ticdat_init"}, \
                 f"{k} is unexpected part of schema"
