@@ -89,7 +89,8 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
                 "parameters": self.parameters,
                 "infinity_io_flag": self.infinity_io_flag,
                 "xlsx_trailing_empty_rows": self.xlsx_trailing_empty_rows,
-                "duplicates_ticdat_init": self.duplicates_ticdat_init}
+                "duplicates_ticdat_init": self.duplicates_ticdat_init,
+                "tooltips": self.tooltips}
     @staticmethod
     def create_from_full_schema(full_schema):
         """
@@ -104,8 +105,8 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
         """
         old_schema = {"tables_fields", "foreign_keys", "default_values", "data_types"}
         verify(dictish(full_schema) and set(full_schema).issuperset(old_schema) and  set(full_schema) in
-               utils.all_subsets(old_schema.union(
-                   {"parameters", "infinity_io_flag", "xlsx_trailing_empty_rows", "duplicates_ticdat_init"})),
+               utils.all_subsets(old_schema.union({"parameters", "infinity_io_flag", "xlsx_trailing_empty_rows",
+                                                   "duplicates_ticdat_init", "tooltips"})),
                "full_schema should be the result of calling schema(True) for some TicDatFactory")
         fks = full_schema["foreign_keys"]
         verify( (not fks) or (lupish(fks) and all(lupish(_) and len(_) >= 3 for _ in fks)),
@@ -143,6 +144,10 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
             rtn.set_xlsx_trailing_empty_rows(full_schema["xlsx_trailing_empty_rows"])
         if "duplicates_ticdat_init" in full_schema:
             rtn.set_duplicates_ticdat_init(full_schema["duplicates_ticdat_init"])
+        if "tooltips" in full_schema:
+            for k, v in full_schema["tooltips"].items():
+                args = (k, "") if isinstance(k, str) else tuple(k)
+                rtn.set_tooltip(*args, tooltip=v)
         return rtn
     @property
     def generator_tables(self):
@@ -157,6 +162,28 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
     def data_types(self):
         return utils.FrozenDict({t : utils.FrozenDict({k :v for k,v in vd.items()})
                                 for t,vd in self._data_types.items()})
+    @property
+    def tooltips(self):
+        return utils.FrozenDict(self._tooltips)
+
+    def set_tooltip(self, table, field, tooltip):
+        """
+        Set the tooltip for a table, or for a (table, field) pair.
+
+        :param table: a table in the schema
+
+        :param field: an empty string (if you want to set the tooltip for a table)
+                      or a field for this table
+
+        :param tooltip: an empty string (if you want to delete a previously set tooltip) or the
+                        tooltip you want to set
+
+        :return:
+
+        After calling this function, the tooltips property for this TicDatFactory will be appropriately adjusted.
+        """
+        utils.set_tooltip(self, table, field, tooltip, self._tooltips)
+
     def set_data_type(self, table, field, number_allowed = True,
                       inclusive_min = True, inclusive_max = False, min = 0, max = float("inf"),
                       must_be_int = False, strings_allowed= (), nullable = False, datetime = False):
@@ -167,7 +194,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
 
         :param table: a table in the schema
 
-        :param field: a data field for this table
+        :param field: a field for this table
 
         :param number_allowed: boolean does this field allow numbers?
 
@@ -650,6 +677,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
                 self._default_values[tbl][fld] = 0
         self._data_types = clt.defaultdict(dict)
         self._data_row_predicates = clt.defaultdict(dict)
+        self._tooltips = {}
         self._generator_tables = []
         self._foreign_keys = clt.defaultdict(set)
         self.all_tables = frozenset(init_fields)

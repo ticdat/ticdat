@@ -1168,6 +1168,7 @@ class TestUtils(unittest.TestCase):
             self.assertTrue(new_sch.pop("infinity_io_flag") == "N/A")
             self.assertTrue(new_sch.pop("xlsx_trailing_empty_rows") == "prune")
             self.assertTrue(new_sch.pop("duplicates_ticdat_init") == "assert")
+            self.assertTrue(new_sch.pop("tooltips") == {})
             new_sch = json.loads(json.dumps(new_sch))
             new_sch["foreign_keys"] = sorted(new_sch["foreign_keys"])
             self.assertTrue(new_sch == simple_sch)
@@ -1300,7 +1301,7 @@ class TestUtils(unittest.TestCase):
                                  'nutrition_quantities': {'Quantity': [True, True, False, 0, inf, False, [], False,
                                                                        False]}},
                  'parameters': {}, 'infinity_io_flag': 'N/A', "xlsx_trailing_empty_rows": "prune",
-                 "duplicates_ticdat_init": "assert"})
+                 "duplicates_ticdat_init": "assert", "tooltips": {}})
 
     def testTwentyNine(self):
         data_path = os.path.join(_scratchDir, "custom_module_three")
