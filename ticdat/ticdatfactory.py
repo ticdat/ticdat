@@ -90,7 +90,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
                 "infinity_io_flag": self.infinity_io_flag,
                 "xlsx_trailing_empty_rows": self.xlsx_trailing_empty_rows,
                 "duplicates_ticdat_init": self.duplicates_ticdat_init,
-                "tooltips": self.tooltips}
+                "tooltips": utils.make_tooltips_dict_json_friendly(self.tooltips)}
     @staticmethod
     def create_from_full_schema(full_schema):
         """
@@ -145,9 +145,9 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
         if "duplicates_ticdat_init" in full_schema:
             rtn.set_duplicates_ticdat_init(full_schema["duplicates_ticdat_init"])
         if "tooltips" in full_schema:
-            for k, v in full_schema["tooltips"].items():
-                args = (k, "") if isinstance(k, str) else tuple(k)
-                rtn.set_tooltip(*args, tooltip=v)
+            for t, tip_dict in full_schema["tooltips"].items():
+                for f, tip in tip_dict.items():
+                    rtn.set_tooltip(t, f, tip)
         return rtn
     @property
     def generator_tables(self):

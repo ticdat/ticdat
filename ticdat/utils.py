@@ -85,6 +85,15 @@ def set_tooltip(tdf_pdf, table, field, tooltip, tooltips_dict):
     else:
         tooltips_dict[dict_key] = tooltip
 
+def make_tooltips_dict_json_friendly(tooltips_dict):
+    rtn = defaultdict(dict)
+    for k, v in tooltips_dict.items():
+        if isinstance(k, str):
+            rtn[k][""] = v
+        else:
+            rtn[k[0]][k[1]] = v
+    return dict(rtn)
+
 def clone_add_a_column(tdf_pdf, table, field, field_type, field_position="append"):
     verify(table in tdf_pdf.all_tables, "Unrecognized table name %s" % table)
     verify(isinstance(field, str), "field needs to be a string")
@@ -194,7 +203,7 @@ def clone_a_anchillary_info_schema(schema, table_restrictions, fields_to_remove=
                     pks = [f for f in pks if (t, f) not in fields_to_remove]
                     dfs = [f for f in dfs if (t, f) not in fields_to_remove]
                     rtn[k][t] = [pks, dfs]
-        elif k in ["default_values", "data_types"]:
+        elif k in ["default_values", "data_types", "tooltips"]:
             rtn[k] = {_k:dict(_v) for _k, _v in v.items() if _k in table_restrictions}
             for t, f in fields_to_remove:
                 if f in rtn[k].get(t, {}):
@@ -211,9 +220,6 @@ def clone_a_anchillary_info_schema(schema, table_restrictions, fields_to_remove=
             rtn[k] = tuple(fk for fk in v if good_fk(fk))
         elif k == "parameters":
             rtn[k] = v if k in table_restrictions else {}
-        elif k == "tooltips":
-            rtn[k] = {_k : _v for _k, _v in v.items() if (isinstance(_k, str) and _k in table_restrictions) or
-                                                         (not isinstance(_k, str) and _k[0] in table_restrictions)}
         else:
             assert k in {"infinity_io_flag", "xlsx_trailing_empty_rows", "duplicates_ticdat_init"}, \
                 f"{k} is unexpected part of schema"
