@@ -323,6 +323,86 @@ ForeignKeyMapping = namedtuple("FKMapping", ("native_field", "foreign_field"))
 # likely replace this with some sort of sys.platform call that makes a good guess
 development_deployed_environment = False
 
+def _integrity_solve(input_schema, dat):
+    verify(pd, "pandas must be installed for this functionality to work")
+    pdf = input_schema.clone(clone_factory=ticdat.PanDatFactory)
+    # need to make sure the advanced row predicates copy over to pdf as well
+    if isinstance(input_schema, ticdat.TicDatFactory):
+        for t in input_schema.all_tables:
+            for predicate_name, predicate_tuple in input_schema.get_row_predicates(t).items():
+                if predicate_tuple.predicate_kwargs_maker:
+                    def dummy_for_closure(_predicate_kwargs_maker): # closures and lambdas are tricky, this is needed
+                        return lambda *args, **kwargs: _predicate_kwargs_maker(dat)
+                    pdf.add_data_row_predicate(t, predicate_tuple.predicate, predicate_name,
+                                               dummy_for_closure(predicate_tuple.predicate_kwargs_maker),
+                                               predicate_tuple.predicate_failure_response)
+
+    _id_flds = {t: (pks or dfs) for t, (pks, dfs) in input_schema.schema().items()}
+    longest_id_flds =  max(len(id_fld) for id_fld in _id_flds.values())
+    _fld_names = [f"Field {_ + 1}" for _ in range(longest_id_flds)]
+    solution_schema = ticdat.PanDatFactory(
+        duplicate_rows=[["Table Name"] + _fld_names, []],
+        data_type_failures=[["Table Name", "Field Name"] + _fld_names, []],
+        data_row_failures=[["Table Name", "Predicate Name", "Error Message"] + _fld_names, []],
+        foreign_key_failures =[["Native Table", "Foreign Table", "Mapping"] + _fld_names, []])
+    if isinstance(input_schema, ticdat.PanDatFactory):
+        pan_dat = dat
+    else:
+        pan_dat = input_schema.copy_to_pandas(dat, reset_index=True)
+
+    def add_error_row(default_dict_object, table_, row_):
+        for f, c in zip(_fld_names, row_[:len(_id_flds[table_])]):
+            default_dict_object[f].append(c)
+        for i in range(len(_id_flds[table_]), longest_id_flds):
+            default_dict_object[_fld_names[i]].append(None)
+
+    dups = pdf.find_duplicates(pan_dat)
+    duplicate_rows = defaultdict(list)
+    for table, dup_df in dups.items():
+        for row in dup_df.itertuples(index=False):
+            duplicate_rows["Table Name"].append(table)
+            add_error_row(duplicate_rows, table, row)
+
+    dt_fails = pdf.find_data_type_failures(pan_dat)
+    data_type_failures = defaultdict(list)
+    for (table, field), dt_fail_df in dt_fails.items():
+        for row in dt_fail_df.itertuples(index=False):
+            data_type_failures["Table Name"].append(table)
+            data_type_failures["Field Name"].append(field)
+            add_error_row(data_type_failures, table, row)
+
+    fk_fails = pdf.find_foreign_key_failures(pan_dat, verbosity="Low")
+    foreign_key_failures = defaultdict(list)
+    for (native_table, foreign_table, mapping), fk_fail_df in fk_fails.items():
+        for row in fk_fail_df.itertuples(index=False):
+            foreign_key_failures["Native Table"].append(native_table)
+            foreign_key_failures["Foreign Table"].append(foreign_table)
+            foreign_key_failures["Mapping"].append(str(mapping))
+            add_error_row(foreign_key_failures, native_table, row)
+
+    dr_fails = pdf.find_data_row_failures(pan_dat)
+    data_row_failures = defaultdict(list)
+    for (table, predicate), bad_rows in dr_fails.items():
+        data_row_failures["Table Name"].append(table)
+        data_row_failures["Predicate Name"].append(predicate)
+        if hasattr(bad_rows, "primary_key") and hasattr(bad_rows, "error_message"):
+            data_row_failures["Error Message"].append(bad_rows.error_message)
+            for f in _fld_names:
+                data_row_failures[f].append(None)
+        else:
+            for row in bad_rows.itertuples(index=False):
+                error_message = None
+                if len(row) > len(input_schema.primary_key_fields[table] + input_schema.data_fields[table]):
+                    error_message = row[-1]
+                data_row_failures["Error Message"].append(error_message)
+                add_error_row(data_row_failures, table, row)
+
+    if duplicate_rows or data_type_failures or foreign_key_failures or data_row_failures:
+        return solution_schema.PanDat(duplicate_rows=duplicate_rows, data_type_failures=data_type_failures,
+                                      foreign_key_failures=foreign_key_failures, data_row_failures=data_row_failures)
+
+     # None is returned when no integrity errors were found
+
 def standard_main(input_schema, solution_schema, solve, case_space_table_names=False):
     """
      provides standardized command line functionality for a ticdat solve engine
