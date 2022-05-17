@@ -386,14 +386,16 @@ def _integrity_solve(input_schema, dat):
     dr_fails = pdf.find_data_row_failures(pan_dat)
     data_row_failures = defaultdict(list)
     for (table, predicate), bad_rows in dr_fails.items():
-        data_row_failures["Table Name"].append(table)
-        data_row_failures["Predicate Name"].append(predicate)
         if hasattr(bad_rows, "primary_key") and hasattr(bad_rows, "error_message"):
+            data_row_failures["Table Name"].append(table)
+            data_row_failures["Predicate Name"].append(predicate)
             data_row_failures["Error Message"].append(bad_rows.error_message)
             for f in _fld_names:
                 data_row_failures[f].append(None)
         else:
             for row in bad_rows.itertuples(index=False):
+                data_row_failures["Table Name"].append(table)
+                data_row_failures["Predicate Name"].append(predicate)
                 error_message = None
                 if len(row) > len(input_schema.primary_key_fields[table] + input_schema.data_fields[table]):
                     error_message = row[-1]

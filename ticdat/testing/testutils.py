@@ -1757,8 +1757,22 @@ class TestUtils(unittest.TestCase):
                          table_two = [[min(_, 5), max(_ * 3, 18)] for _ in range(1, 10)])
         self.assertFalse(utils._integrity_solve(tdf, dat))
         self.assertTrue(cnt[0] == 1)
-
-
+        for i, r in enumerate(dat.table_two):
+            if i % 3 == 0:
+                r["Big Stuff"] = 10
+            if i % 4 == 0:
+                r["Little Stuff"] = 10.1
+        i_fails = utils._integrity_solve(tdf, dat)
+        self.assertTrue(sorted(map(tuple, i_fails.data_row_failures.itertuples(index=False))) ==
+            [('table_two', 'big stuff test', None, 4.0, 10),
+             ('table_two', 'big stuff test', None, 5.0, 10),
+             ('table_two', 'big stuff test', None, 10.1, 10),
+             ('table_two', 'little stuff test a', '10.1 > 5', 10.1, 10),
+             ('table_two', 'little stuff test a', '10.1 > 5', 10.1, 18),
+             ('table_two', 'little stuff test a', '10.1 > 5', 10.1, 27),
+             ('table_two', 'little stuff test b', None, 10.1, 10),
+             ('table_two', 'little stuff test b', None, 10.1, 18),
+             ('table_two', 'little stuff test b', None, 10.1, 27)])
 
 _scratchDir = TestUtils.__name__ + "_scratch"
 
