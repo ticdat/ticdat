@@ -1733,8 +1733,9 @@ class TestUtils(unittest.TestCase):
                             table_two=[[], ["Little Stuff", "Big Stuff"]])
         cnt = [0]
         def make_stuffs(dat):
-            cnt[0] += 1
-            return {"stuffs": sorted(dat.table_one)}
+            if cnt:
+                cnt[0] += 1
+                return {"stuffs": sorted(dat.table_one)}
         def little_stuff_test(row, stuffs):
             middle_stuff = stuffs[int(len(stuffs) / 2)]
             if row["Little Stuff"] <= middle_stuff:
@@ -1773,6 +1774,12 @@ class TestUtils(unittest.TestCase):
              ('table_two', 'little stuff test b', None, 10.1, 10),
              ('table_two', 'little stuff test b', None, 10.1, 18),
              ('table_two', 'little stuff test b', None, 10.1, 27)])
+
+        cnt = None
+        i_fails = utils._integrity_solve(tdf, tdf.TicDat(table_one=[[1]], table_two=[[0, 100] for _ in range(10)]))
+        self.assertTrue(i_fails._len_dict() == {'data_row_failures': 2})
+        self.assertTrue(set(i_fails.data_row_failures["Predicate Name"]) ==
+                        {'little stuff test a', 'little stuff test b'})
 
 _scratchDir = TestUtils.__name__ + "_scratch"
 
