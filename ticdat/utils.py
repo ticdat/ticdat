@@ -323,6 +323,94 @@ ForeignKeyMapping = namedtuple("FKMapping", ("native_field", "foreign_field"))
 # likely replace this with some sort of sys.platform call that makes a good guess
 development_deployed_environment = False
 
+def _integrity_solve(input_schema, dat, *, return_solution_schema_only=False):
+    verify(pd, "pandas must be installed for this functionality to work")
+    pdf = input_schema.clone(clone_factory=ticdat.PanDatFactory)
+    # need to make sure the advanced row predicates copy over to pdf as well
+    memo_dat_version_of_func = {}
+    def dat_version_of_func(func_):  # closures and lambdas are tricky, this is needed
+        if func_ not in memo_dat_version_of_func:
+            memo_dat_version_of_func[func_] = lambda *args, **kwargs: func_(dat)
+        return memo_dat_version_of_func[func_]
+    if isinstance(input_schema, ticdat.TicDatFactory):
+        for t in input_schema.all_tables:
+            for predicate_name, predicate_tuple in input_schema.get_row_predicates(t).items():
+                if predicate_tuple.predicate_kwargs_maker:
+                    pdf.add_data_row_predicate(t, predicate_tuple.predicate, predicate_name,
+                                               dat_version_of_func(predicate_tuple.predicate_kwargs_maker),
+                                               predicate_tuple.predicate_failure_response)
+
+    _id_flds = {t: (pks or dfs) for t, (pks, dfs) in input_schema.schema().items()}
+    longest_id_flds =  max(len(id_fld) for id_fld in _id_flds.values())
+    _fld_names = [f"Field {_ + 1}" for _ in range(longest_id_flds)]
+    solution_schema = ticdat.PanDatFactory(
+        duplicate_rows=[["Table Name"] + _fld_names, []],
+        data_type_failures=[["Table Name", "Field Name"] + _fld_names, []],
+        data_row_failures=[["Table Name", "Predicate Name", "Error Message"] + _fld_names, []],
+        foreign_key_failures =[["Native Table", "Foreign Table", "Mapping"] + _fld_names, []])
+    if return_solution_schema_only:
+        return solution_schema
+
+    if isinstance(input_schema, ticdat.PanDatFactory):
+        pan_dat = dat
+    else:
+        pan_dat = input_schema.copy_to_pandas(dat, reset_index=True)
+
+    def add_error_row(default_dict_object, table_, row_):
+        for f, c in zip(_fld_names, row_[:len(_id_flds[table_])]):
+            default_dict_object[f].append(c)
+        for i in range(len(_id_flds[table_]), longest_id_flds):
+            default_dict_object[_fld_names[i]].append(None)
+
+    dups = pdf.find_duplicates(pan_dat)
+    duplicate_rows = defaultdict(list)
+    for table, dup_df in dups.items():
+        for row in dup_df.itertuples(index=False):
+            duplicate_rows["Table Name"].append(table)
+            add_error_row(duplicate_rows, table, row)
+
+    dt_fails = pdf.find_data_type_failures(pan_dat)
+    data_type_failures = defaultdict(list)
+    for (table, field), dt_fail_df in dt_fails.items():
+        for row in dt_fail_df.itertuples(index=False):
+            data_type_failures["Table Name"].append(table)
+            data_type_failures["Field Name"].append(field)
+            add_error_row(data_type_failures, table, row)
+
+    fk_fails = pdf.find_foreign_key_failures(pan_dat, verbosity="Low")
+    foreign_key_failures = defaultdict(list)
+    for (native_table, foreign_table, mapping), fk_fail_df in fk_fails.items():
+        for row in fk_fail_df.itertuples(index=False):
+            foreign_key_failures["Native Table"].append(native_table)
+            foreign_key_failures["Foreign Table"].append(foreign_table)
+            foreign_key_failures["Mapping"].append(str(mapping))
+            add_error_row(foreign_key_failures, native_table, row)
+
+    dr_fails = pdf.find_data_row_failures(pan_dat)
+    data_row_failures = defaultdict(list)
+    for (table, predicate), bad_rows in dr_fails.items():
+        if hasattr(bad_rows, "primary_key") and hasattr(bad_rows, "error_message"):
+            data_row_failures["Table Name"].append(table)
+            data_row_failures["Predicate Name"].append(predicate)
+            data_row_failures["Error Message"].append(bad_rows.error_message)
+            for f in _fld_names:
+                data_row_failures[f].append(None)
+        else:
+            for row in bad_rows.itertuples(index=False):
+                data_row_failures["Table Name"].append(table)
+                data_row_failures["Predicate Name"].append(predicate)
+                error_message = None
+                if len(row) > len(input_schema.primary_key_fields[table] + input_schema.data_fields[table]):
+                    error_message = row[-1]
+                data_row_failures["Error Message"].append(error_message)
+                add_error_row(data_row_failures, table, row)
+
+    if duplicate_rows or data_type_failures or foreign_key_failures or data_row_failures:
+        return solution_schema.PanDat(duplicate_rows=duplicate_rows, data_type_failures=data_type_failures,
+                                      foreign_key_failures=foreign_key_failures, data_row_failures=data_row_failures)
+
+     # None is returned when no integrity errors were found
+
 def standard_main(input_schema, solution_schema, solve, case_space_table_names=False):
     """
      provides standardized command line functionality for a ticdat solve engine
@@ -383,12 +471,12 @@ def standard_main(input_schema, solution_schema, solve, case_space_table_names=F
         print (f"python {file_name} --help --input <input file or dir> --output <output file or dir> " +
                "--roundoff <roundoff config file>")
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "hi:o:r:", ["help", "input=", "output=", "roundoff="])
+        opts, args = getopt.getopt(sys.argv[1:], "hi:o:r:e:", ["help", "input=", "output=", "roundoff=", "errors="])
     except getopt.GetoptError as err:
         print (str(err))  # will print something like "option -a not recognized"
         usage()
         sys.exit(2)
-    input_file, output_file, roundoff_file = "input.xlsx", "output.xlsx", None
+    input_file, output_file, roundoff_file, error_file = "input.xlsx", "output.xlsx", None, None
     for o, a in opts:
         if o in ("-h", "--help"):
             usage()
@@ -399,8 +487,13 @@ def standard_main(input_schema, solution_schema, solve, case_space_table_names=F
             output_file = a
         elif o in ("-r", "--roundoff"):
             roundoff_file = a
+        elif o in ("-e", "--errors"):
+            error_file = a
         else:
             verify(False, "unhandled option")
+
+    if roundoff_file and error_file:
+        print("The -r and -e command line arguments are incompatible. Use one, or the other, or neither, but not both.")
 
     recognized_extensions = (".json", ".xls", ".xlsx", ".db")
     if create_routine == "create_tic_dat":
@@ -459,12 +552,29 @@ def standard_main(input_schema, solution_schema, solve, case_space_table_names=F
                               file_or_directory=file_or_dir(input_file),
                               check_for_dups=create_routine == "create_tic_dat")
 
-    write_func, write_kwargs = (None, None)
+    write_sln_func, write_sln_kwargs = (None, None)
     if output_file:
         print("output %s %s"%(file_or_dir(output_file), output_file))
-        write_func, write_kwargs = _get_write_function_and_kwargs(tdf=solution_schema, file_path=output_file,
+        write_sln_func, write_sln_kwargs = _get_write_function_and_kwargs(tdf=solution_schema, file_path=output_file,
                                                                   file_or_directory=file_or_dir(output_file),
                                                                   case_space_table_names=case_space_table_names)
+
+    if error_file:
+        write_err_func, write_err_kwargs = _get_write_function_and_kwargs(
+            tdf=_integrity_solve(input_schema, None, return_solution_schema_only=True),
+            file_path=error_file, file_or_directory=file_or_dir(error_file),
+            case_space_table_names=case_space_table_names)
+        print("checking for data integrity errors")
+        err_sln = _integrity_solve(input_schema, dat)
+        if err_sln:
+            print("%s integrity errors %s %s" % ("Overwriting" if os.path.exists(error_file) else "Creating",
+                                       file_or_dir(error_file), error_file))
+            write_err_func(err_sln, error_file, **write_err_kwargs)
+            return
+        else:
+            print("no data integrity errors found - will run solve next")
+
+
     if roundoff_based_solve is None:
         sln = solve(dat)
     elif output_file:
@@ -480,7 +590,7 @@ def standard_main(input_schema, solution_schema, solve, case_space_table_names=F
     if sln:
         print("%s output %s %s"%("Overwriting" if os.path.exists(output_file) else "Creating",
                                  file_or_dir(output_file), output_file))
-        write_func(sln, output_file, **write_kwargs)
+        write_sln_func(sln, output_file, **write_sln_kwargs)
     else:
         print("No solution was created!")
 
