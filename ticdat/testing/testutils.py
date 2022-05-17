@@ -1731,7 +1731,9 @@ class TestUtils(unittest.TestCase):
     def test_issue_164_dot_two(self):
         tdf = TicDatFactory(table_one=[["Stuff"], []],
                             table_two=[[], ["Little Stuff", "Big Stuff"]])
+        cnt = [0]
         def make_stuffs(dat):
+            cnt[0] += 1
             return {"stuffs": sorted(dat.table_one)}
         def little_stuff_test(row, stuffs):
             middle_stuff = stuffs[int(len(stuffs) / 2)]
@@ -1739,10 +1741,24 @@ class TestUtils(unittest.TestCase):
                 return True
             return f"{row['Little Stuff']} > {middle_stuff}"
 
-        tdf.add_data_row_predicate("table_two", predicate_name="little_stuff_test", predicate=little_stuff_test,
+        tdf.add_data_row_predicate("table_two", predicate_name="little stuff test a", predicate=little_stuff_test,
                                    predicate_kwargs_maker=make_stuffs, predicate_failure_response="Error Message")
+        tdf.add_data_row_predicate("table_two", predicate_name="little stuff test b",
+                                   predicate= lambda row, stuffs: row["Little Stuff"] <= stuffs[int(len(stuffs) / 2)],
+                                   predicate_kwargs_maker=make_stuffs)
 
-        # working here - add an advanced row predicate with the normal response
+        def make_all_rows_cnt(dat):
+            return {"all_rows_cnt": sum(dat._len_dict().values())}
+        tdf.add_data_row_predicate("table_two", predicate_name="big stuff test",
+                                   predicate=lambda row, all_rows_cnt: row["Big Stuff"] >= all_rows_cnt,
+                                   predicate_kwargs_maker=make_all_rows_cnt)
+
+        dat = tdf.TicDat(table_one = [[_] for _ in range(1, 10)],
+                         table_two = [[min(_, 5), max(_ * 3, 18)] for _ in range(1, 10)])
+        self.assertFalse(utils._integrity_solve(tdf, dat))
+        self.assertTrue(cnt[0] == 1)
+
+
 
 _scratchDir = TestUtils.__name__ + "_scratch"
 

@@ -327,14 +327,17 @@ def _integrity_solve(input_schema, dat):
     verify(pd, "pandas must be installed for this functionality to work")
     pdf = input_schema.clone(clone_factory=ticdat.PanDatFactory)
     # need to make sure the advanced row predicates copy over to pdf as well
+    memo_dat_version_of_func = {}
+    def dat_version_of_func(func_):  # closures and lambdas are tricky, this is needed
+        if func_ not in memo_dat_version_of_func:
+            memo_dat_version_of_func[func_] = lambda *args, **kwargs: func_(dat)
+        return memo_dat_version_of_func[func_]
     if isinstance(input_schema, ticdat.TicDatFactory):
         for t in input_schema.all_tables:
             for predicate_name, predicate_tuple in input_schema.get_row_predicates(t).items():
                 if predicate_tuple.predicate_kwargs_maker:
-                    def dummy_for_closure(_predicate_kwargs_maker): # closures and lambdas are tricky, this is needed
-                        return lambda *args, **kwargs: _predicate_kwargs_maker(dat)
                     pdf.add_data_row_predicate(t, predicate_tuple.predicate, predicate_name,
-                                               dummy_for_closure(predicate_tuple.predicate_kwargs_maker),
+                                               dat_version_of_func(predicate_tuple.predicate_kwargs_maker),
                                                predicate_tuple.predicate_failure_response)
 
     _id_flds = {t: (pks or dfs) for t, (pks, dfs) in input_schema.schema().items()}
