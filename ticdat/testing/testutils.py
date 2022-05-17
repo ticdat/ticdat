@@ -1261,10 +1261,12 @@ class TestUtils(unittest.TestCase):
         sys.modules[funky.solve.__module__] = funky
         dat = funky.input_schema.TicDat(table=[['c'], ['d']])
         funky.input_schema.json.write_file(dat, os.path.join(data_path, "input.json"))
-        test_args_one = [module_path, "-i", os.path.join(data_path, "input.json"), "-o",
-                         os.path.join(data_path, "output.json")]
+        test_args_one = [module_path, "-i", os.path.join(data_path, "input.json"),
+                         "-o", os.path.join(data_path, "output.json"),
+                         "--errors", os.path.join(data_path, "dummy.json")]
         with patch.object(sys, 'argv', test_args_one):
             utils.standard_main(funky.input_schema, funky.solution_schema, funky.solve)
+        self.assertFalse(os.path.exists(os.path.join(data_path, "dummy.json")))
         sln = funky.solution_schema.json.create_tic_dat(os.path.join(data_path, "output.json"))
         self.assertTrue(set(sln.table) == set(dat.table))
         sys.modules.pop(funky.solve.__module__)
@@ -1347,6 +1349,18 @@ class TestUtils(unittest.TestCase):
                         {"buy_food": 3, "consume_nutrition": 4, "weird_table": 0, "parameters": 3})
         self.assertTrue(sln.parameters["find_foreign_key_failures"]["Value"] == 1)
         self.assertTrue(sln.parameters["find_data_row_failures"]["Value"] == 2)
+
+        with patch.object(sys, 'argv', [module_path, "-i", os.path.join(data_path, "input.json"),
+                                        "-o", os.path.join(data_path, "output_csvs"),
+                                        "-e", os.path.join(data_path, "error.json")]):
+            utils.standard_main(funky_diet.input_schema, funky_diet.solution_schema, funky_diet.solve)
+        self.assertFalse(os.path.exists(os.path.join(data_path, "output_csvs")))
+        err_schema = utils._integrity_solve(funky_diet.input_schema, None, return_solution_schema_only=True)
+        err_dat = err_schema.json.create_pan_dat(os.path.join(data_path, "error.json"))
+        # we have 2 FK fails here but only one 1 FK fail above bc the stupid_table is ignored (by design) above
+        self.assertTrue(err_dat._len_dict() == {'data_row_failures': 2, 'foreign_key_failures': 2})
+        self.assertTrue(set(err_dat.foreign_key_failures["Native Table"]) == {'nutrition_quantities', 'stupid_table'})
+
 
         with patch.object(sys, 'argv', [module_path, "-i", os.path.join(data_path, "input.json"),
                                         "-o", os.path.join(data_path, "output_csvs")]):

@@ -323,7 +323,7 @@ ForeignKeyMapping = namedtuple("FKMapping", ("native_field", "foreign_field"))
 # likely replace this with some sort of sys.platform call that makes a good guess
 development_deployed_environment = False
 
-def _integrity_solve(input_schema, dat):
+def _integrity_solve(input_schema, dat, *, return_solution_schema_only=False):
     verify(pd, "pandas must be installed for this functionality to work")
     pdf = input_schema.clone(clone_factory=ticdat.PanDatFactory)
     # need to make sure the advanced row predicates copy over to pdf as well
@@ -348,6 +348,9 @@ def _integrity_solve(input_schema, dat):
         data_type_failures=[["Table Name", "Field Name"] + _fld_names, []],
         data_row_failures=[["Table Name", "Predicate Name", "Error Message"] + _fld_names, []],
         foreign_key_failures =[["Native Table", "Foreign Table", "Mapping"] + _fld_names, []])
+    if return_solution_schema_only:
+        return solution_schema
+
     if isinstance(input_schema, ticdat.PanDatFactory):
         pan_dat = dat
     else:
@@ -468,12 +471,12 @@ def standard_main(input_schema, solution_schema, solve, case_space_table_names=F
         print (f"python {file_name} --help --input <input file or dir> --output <output file or dir> " +
                "--roundoff <roundoff config file>")
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "hi:o:r:", ["help", "input=", "output=", "roundoff="])
+        opts, args = getopt.getopt(sys.argv[1:], "hi:o:r:e:", ["help", "input=", "output=", "roundoff=", "errors="])
     except getopt.GetoptError as err:
         print (str(err))  # will print something like "option -a not recognized"
         usage()
         sys.exit(2)
-    input_file, output_file, roundoff_file = "input.xlsx", "output.xlsx", None
+    input_file, output_file, roundoff_file, error_file = "input.xlsx", "output.xlsx", None, None
     for o, a in opts:
         if o in ("-h", "--help"):
             usage()
@@ -484,8 +487,13 @@ def standard_main(input_schema, solution_schema, solve, case_space_table_names=F
             output_file = a
         elif o in ("-r", "--roundoff"):
             roundoff_file = a
+        elif o in ("-e", "--errors"):
+            error_file = a
         else:
             verify(False, "unhandled option")
+
+    if roundoff_file and error_file:
+        print("The -r and -e command line arguments are incompatible. Use one, or the other, or neither, but not both.")
 
     recognized_extensions = (".json", ".xls", ".xlsx", ".db")
     if create_routine == "create_tic_dat":
@@ -544,12 +552,29 @@ def standard_main(input_schema, solution_schema, solve, case_space_table_names=F
                               file_or_directory=file_or_dir(input_file),
                               check_for_dups=create_routine == "create_tic_dat")
 
-    write_func, write_kwargs = (None, None)
+    write_sln_func, write_sln_kwargs = (None, None)
     if output_file:
         print("output %s %s"%(file_or_dir(output_file), output_file))
-        write_func, write_kwargs = _get_write_function_and_kwargs(tdf=solution_schema, file_path=output_file,
+        write_sln_func, write_sln_kwargs = _get_write_function_and_kwargs(tdf=solution_schema, file_path=output_file,
                                                                   file_or_directory=file_or_dir(output_file),
                                                                   case_space_table_names=case_space_table_names)
+
+    if error_file:
+        write_err_func, write_err_kwargs = _get_write_function_and_kwargs(
+            tdf=_integrity_solve(input_schema, None, return_solution_schema_only=True),
+            file_path=error_file, file_or_directory=file_or_dir(error_file),
+            case_space_table_names=case_space_table_names)
+        print("checking for data integrity errors")
+        err_sln = _integrity_solve(input_schema, dat)
+        if err_sln:
+            print("%s integrity errors %s %s" % ("Overwriting" if os.path.exists(error_file) else "Creating",
+                                       file_or_dir(error_file), error_file))
+            write_err_func(err_sln, error_file, **write_err_kwargs)
+            return
+        else:
+            print("no data integrity errors found - will run solve next")
+
+
     if roundoff_based_solve is None:
         sln = solve(dat)
     elif output_file:
@@ -565,7 +590,7 @@ def standard_main(input_schema, solution_schema, solve, case_space_table_names=F
     if sln:
         print("%s output %s %s"%("Overwriting" if os.path.exists(output_file) else "Creating",
                                  file_or_dir(output_file), output_file))
-        write_func(sln, output_file, **write_kwargs)
+        write_sln_func(sln, output_file, **write_sln_kwargs)
     else:
         print("No solution was created!")
 
