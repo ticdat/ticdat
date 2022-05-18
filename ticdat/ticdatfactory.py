@@ -1331,7 +1331,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
 
         :return: a clone of the TicDatFactory. Returned object will based on clone_factory, if provided.
 
-        Note - If you want to remove tables via a clone, that call like this
+        Note - If you want to remove tables via a clone, then call like this
                tdf_new = tdf.clone(table_restrictions=set(tdf.all_tables).difference(tables_to_remove))
                Other schema editing operations are available with clone_add_a_table, clone_add_a_column,
                clone_remove_a_column and clone_rename_a_column.
@@ -1357,7 +1357,8 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
         return rtn
     def clone_add_a_table(self, table, pk_fields, df_fields):
         '''
-        add a column to the TicDatFactory
+
+        add a table to the TicDatFactory
 
         :param table: table not in the schema
 
@@ -1370,6 +1371,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
         return utils.clone_add_a_table(self, table, pk_fields, df_fields)
     def clone_add_a_column(self, table, field, field_type, field_position="append"):
         '''
+
         add a column to the TicDatFactory
 
         :param table: table in the schema
