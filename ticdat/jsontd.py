@@ -28,7 +28,7 @@ def make_json_dict(tdf, tic_dat, verbose=False, use_infinity_io_flag_if_provided
         if isinstance(x, datetime.datetime):
             return str(x)
         return x if not use_infinity_io_flag_if_provided else tdf._infinity_flag_write_cell(t, f, x)
-    jdict = defaultdict(list)
+    jdict = {t: [] for t in tdf.all_tables}
     for t in tdf.all_tables:
         all_fields = tdf.primary_key_fields.get(t,()) + tdf.data_fields.get(t,())
         def make_row(row):

@@ -200,6 +200,13 @@ class TestPandas(unittest.TestCase):
         pdf = PanDatFactory(table = [["a", "b"],["c"]])
         pan_dat = pdf.PanDat(table=utils.DataFrame({"a":[1, 2, 1, 1],"b": [10, 10, 10, 11], "c": [101, 102, 103, 104]}))
         self.assertTrue(len(pdf.find_duplicates(pan_dat, keep=False)["table"]) == 2)
+        ex = []
+        try:
+            pdf.copy_to_tic_dat(pan_dat)
+        except AssertionError as e:
+            ex.append(str(e))
+        self.assertTrue("Duplicate" in ex[0] and "{'table'}" in ex[0])
+        pdf.set_duplicates_ticdat_init("ignore")
         tic_dat = pdf.copy_to_tic_dat(pan_dat)
         self.assertTrue(len(tic_dat.table) == len(pan_dat.table) - 1)
 
@@ -215,6 +222,7 @@ class TestPandas(unittest.TestCase):
 
         pdf = PanDatFactory(table = [["a"], ["b", "c"]])
         tdf = TicDatFactory(**pdf.schema())
+        tdf.set_duplicates_ticdat_init("warn")
         tic_dat = tdf.TicDat(table=[[1, 2, 3], [2, None, 3], [2, 1, None]])
         tic_dat_two = pdf.copy_to_tic_dat(tdf.copy_to_pandas(tic_dat, drop_pk_columns=False))
         self.assertFalse(tdf._same_data(tic_dat, tic_dat_two))

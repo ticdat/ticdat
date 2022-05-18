@@ -89,12 +89,12 @@ class TestSlowBernardo(unittest.TestCase):
 
     def test_pdf(self):
         pdf = PanDatFactory.create_from_full_schema(kehaar.input_schema.schema(include_ancillary_info=True))
-        dat = _timeit(pdf.csv.create_pan_dat, 90)(os.path.join(_codeDir(), "bernardo_slowby"))
+        dat = _timeit(pdf.csv.create_pan_dat, 35)(os.path.join(_codeDir(), "bernardo_slowby"))
         pdf.pgsql.write_schema(self.engine, test_schemas[1], include_ancillary_info=False,
                                forced_field_types=_forced_field_types())
         # it takes a bit longer because thare might be infinities to manage into PG
-        _timeit(pdf.pgsql.write_data, 180)(dat, self.engine, test_schemas[1])
-        _timeit(pdf.pgsql.create_pan_dat, 50)(self.engine, test_schemas[1])
+        _timeit(pdf.pgsql.write_data, 170)(dat, self.engine, test_schemas[1])
+        _timeit(pdf.pgsql.create_pan_dat, 35)(self.engine, test_schemas[1])
 
 
     def test_pdf_2(self):
@@ -103,6 +103,7 @@ class TestSlowBernardo(unittest.TestCase):
         dat = _timeit(pdf.csv.create_pan_dat, 5)(os.path.join(_codeDir(), "bernardo_slowby"))
         pdf.pgsql.write_schema(self.engine, test_schemas[2], include_ancillary_info=False,
                                forced_field_types=_forced_field_types())
+        # this one a bit slower than 90 - not sure why.
         _timeit(pdf.pgsql.write_data, 90)(dat, self.engine, test_schemas[2])
         _timeit(pdf.pgsql.create_pan_dat, 5)(self.engine, test_schemas[2])
 

@@ -7,6 +7,7 @@ from ticdat.testing.ticdattestutils import dietData, dietSchema, netflowData, ne
 from ticdat.testing.ticdattestutils import sillyMeData, sillyMeSchema, makeCleanDir, fail_to_debugger, flagged_as_run_alone
 from ticdat.testing.ticdattestutils import assertTicDatTablesSame, DEBUG, addNetflowForeignKeys, addDietForeignKeys
 from ticdat.testing.ticdattestutils import spacesSchema, spacesData, clean_denormalization_errors, get_testing_file_path
+import ticdat.testing.ticdattestutils as ticdat_testutils
 import os
 import itertools
 import shutil
@@ -32,6 +33,11 @@ try:
 except:
     pd = None
 
+try:
+    import roundoffconnect
+except:
+    roundoffconnect = None
+
 def _deep_anonymize(x)  :
     if not hasattr(x, "__contains__") or utils.stringish(x):
         return x
@@ -48,6 +54,7 @@ class TestUtils(unittest.TestCase):
             self.assertTrue(tdf.data_types == tdf2.data_types)
             self.assertTrue(tdf.default_values == tdf2.default_values)
             self.assertTrue(set(tdf.foreign_keys) == set(tdf2.foreign_keys))
+            self.assertTrue(dict(tdf.tooltips) == dict(tdf2.tooltips))
         _tdfs_same(tdf, TicDatFactory.create_from_full_schema(tdf.schema(True)))
         _tdfs_same(tdf, TicDatFactory.create_from_full_schema(_deep_anonymize(tdf.schema(True))))
 
@@ -467,7 +474,14 @@ class TestUtils(unittest.TestCase):
 
     def testSix(self):
         for cloning in [True, False, "*"]:
-            clone_me_maybe = lambda x : x.clone(tdf.all_tables if cloning == "*" else None) if cloning else x
+            def clone_me_maybe(x):
+                if not cloning:
+                    return x
+                sch_0 = x.schema(include_ancillary_info=True)
+                rtn = x.clone(tdf.all_tables if cloning == "*" else None)
+                sch_1 = x.schema(include_ancillary_info=True)
+                self.assertTrue(sch_0 == sch_1)
+                return rtn
 
             tdf = TicDatFactory(plants = [["name"], ["stuff", "otherstuff"]],
                                 lines = [["name"], ["plant", "weird stuff"]],
@@ -620,7 +634,7 @@ class TestUtils(unittest.TestCase):
         self.assertTrue(td.foods["a"]["cost"]==0 and td.categories["1"].values() == (0,0) and
                         td.nutritionQuantities['junk',1]["qty"] == 0)
         tdf = TicDatFactory(**dietSchema())
-        tdf.set_default_values(foods = {"cost":"dontcare"},nutritionQuantities = {"qty":100} )
+        tdf.set_default_values(foods = {"cost":"dontcare", "name":"alsodontcare"},nutritionQuantities = {"qty":100} )
         self._testTdfReproduction(tdf)
         td = makeIt()
         self.assertTrue(td.foods["a"]["cost"]=='dontcare' and td.categories["1"].values() == (0,0) and
@@ -647,6 +661,7 @@ class TestUtils(unittest.TestCase):
                 for f, p in itertools.product(rtn.foods, rtn.categories):
                     rtn.nutritionQuantities[f,p] = 5
                 rtn.nutritionQuantities['a', 2] = 12
+                self.assertTrue(len(rtn.nutritionQuantities) == 5, "2 vs '2'")
                 return tdf.freeze_me(rtn)
             dat = makeIt()
             self.assertFalse(tdf.find_data_type_failures(dat))
@@ -1004,6 +1019,10 @@ class TestUtils(unittest.TestCase):
             tdf.add_data_row_predicate("c_table",
                                        lambda row : all(map(utils.stringish, row.values())),
                                        predicate_name= "all_strings")
+            for tdf_pdf in [tdf, tdf.clone(clone_factory=PanDatFactory)]:
+                self.assertTrue(set(tdf_pdf.get_row_predicates("c_table")) == {"two_nums", "all_strings"})
+                self.assertFalse(all(tdf_pdf.get_row_predicates(_) for _ in
+                                     set(tdf_pdf.all_tables).difference(['c_table'])))
             tdf = clone_me_maybe(tdf)
             dat = tdf.TicDat(**spacesData())
             failures = tdf.find_data_row_failures(dat)
@@ -1151,6 +1170,8 @@ class TestUtils(unittest.TestCase):
             self.assertFalse(new_sch.pop("parameters"))
             self.assertTrue(new_sch.pop("infinity_io_flag") == "N/A")
             self.assertTrue(new_sch.pop("xlsx_trailing_empty_rows") == "prune")
+            self.assertTrue(new_sch.pop("duplicates_ticdat_init") == "assert")
+            self.assertTrue(new_sch.pop("tooltips") == {})
             new_sch = json.loads(json.dumps(new_sch))
             new_sch["foreign_keys"] = sorted(new_sch["foreign_keys"])
             self.assertTrue(new_sch == simple_sch)
@@ -1175,6 +1196,12 @@ class TestUtils(unittest.TestCase):
         all_params_2 = pdf.create_full_parameters_dict(pdf.PanDat())
         self.assertTrue(all_params == all_params_2 and len(all_params) == 2)
         self.assertTrue(all_params["p1"] ==  dateutil.parser.parse("Dec 15 1970") and utils.pd.isnull(all_params["p2"]))
+
+        tdf.remove_parameter("p1")
+        self.assertTrue({_[0] for _ in tdf.find_data_row_failures(dat)} == {"parameters"})
+        self.assertTrue([set(_) for _ in tdf.find_data_row_failures(dat).values()] == [{'p1', 'p2'}])
+        pdf.remove_parameter("p1")
+        self.assertTrue(set(pdf.create_full_parameters_dict(pdf.PanDat())) == {'p2'})
 
     def testTwentyThree(self):
         tdf = TicDatFactory(**dietSchema())
@@ -1227,86 +1254,21 @@ class TestUtils(unittest.TestCase):
         makeCleanDir(data_path)
         module_path = get_testing_file_path("funky.py")
         import ticdat.testing.funky as funky
-        weirdo_hacks_needed = ["solve", "an_action", "another_action"]
+        weirdo_hacks_needed = ["solve"]
         for w in weirdo_hacks_needed:
             _w = getattr(funky, w)
             _w.__module__ = "weirdo_temp_junky_thing_for_hacking"
         sys.modules[funky.solve.__module__] = funky
         dat = funky.input_schema.TicDat(table=[['c'], ['d']])
         funky.input_schema.json.write_file(dat, os.path.join(data_path, "input.json"))
-        test_args_one = [module_path, "-i", os.path.join(data_path, "input.json"), "-o",
-                         os.path.join(data_path, "output.json")]
+        test_args_one = [module_path, "-i", os.path.join(data_path, "input.json"),
+                         "-o", os.path.join(data_path, "output.json"),
+                         "--errors", os.path.join(data_path, "dummy.json")]
         with patch.object(sys, 'argv', test_args_one):
             utils.standard_main(funky.input_schema, funky.solution_schema, funky.solve)
+        self.assertFalse(os.path.exists(os.path.join(data_path, "dummy.json")))
         sln = funky.solution_schema.json.create_tic_dat(os.path.join(data_path, "output.json"))
         self.assertTrue(set(sln.table) == set(dat.table))
-        test_args_two = [module_path, "-i", os.path.join(data_path, "input.json"), "-o", "junk", "-a", "an_action"]
-        with patch.object(sys, 'argv', test_args_two):
-            utils.standard_main(funky.input_schema, funky.solution_schema, funky.solve)
-        dat = funky.input_schema.json.create_tic_dat(os.path.join(data_path, "input.json"))
-        self.assertTrue(set(sln.table).union({'a'}) == set(dat.table))
-        with patch.object(sys, 'argv', test_args_one + ["-a", "another_action"]):
-            utils.standard_main(funky.input_schema, funky.solution_schema, funky.solve)
-        dat = funky.input_schema.json.create_tic_dat(os.path.join(data_path, "input.json"))
-        sln = funky.solution_schema.json.create_tic_dat(os.path.join(data_path, "output.json"))
-        self.assertTrue(set(dat.table) == {'a', 'c', 'd', 'e'})
-        self.assertTrue(set(sln.table) == {'c', 'd', 'e'})
-        sys.modules.pop(funky.solve.__module__)
-
-    def testTwentySeven(self):
-        # this test will fail without the EnframeOfflineHandler being present. Note that EnframeOfflineHandler
-        # has its own unit tests, this mainly exercises the command line
-        postgresql = testing_postgresql.Postgresql()
-        engine = sa.create_engine(postgresql.url())
-        data_path = os.path.join(_scratchDir, "custom_module_two")
-        makeCleanDir(data_path)
-        module_path = get_testing_file_path("funky.py")
-        import ticdat.testing.funky as funky
-        for w in ["solve", "an_action", "another_action"]:
-            _w = getattr(funky, w)
-            _w.__module__ = "weirdo_temp_thing_for_hacking"
-        sys.modules[funky.solve.__module__] = funky
-        dat = funky.input_schema.TicDat(table=[['c'], ['d']])
-
-        def make_the_json(solve_type, scenario_name="", master_schema=""):
-            d = {"postgres_url": postgresql.url(), "solve_type": solve_type, "scenario_name": scenario_name,
-                 "master_schema": master_schema}
-            rtn = os.path.join(data_path, "ticdat_enframe.json")
-            with open(rtn, "w") as f:
-                json.dump(d, f, indent=2)
-            return rtn
-        funky.input_schema.json.write_file(dat, os.path.join(data_path, "input.json"))
-        e_json = make_the_json("Copy Input to Postgres and Solve")
-        test_args_one = [module_path, "-i", os.path.join(data_path, "input.json"), "-o", "crappola", "-e", e_json]
-        with patch.object(sys, 'argv', test_args_one):
-            utils.standard_main(funky.input_schema, funky.solution_schema, funky.solve)
-        solution_schema = TicDatFactory(s_table=[['field'], []])
-        sln = solution_schema.pgsql.create_tic_dat(engine, "scenario_1")
-        self.assertTrue(set(sln.s_table) == set(dat.table) == {'c', 'd'})
-        test_args_two = [module_path, "-i", os.path.join(data_path, "input.json"), "-o", "junk", "-a", "an_action",
-                         "-e", e_json]
-        with patch.object(sys, 'argv', test_args_two):
-             utils.standard_main(funky.input_schema, funky.solution_schema, funky.solve)
-        dat = funky.solution_schema.pgsql.create_tic_dat(engine, "scenario_1")
-        self.assertTrue(set(sln.s_table).union({'a'}) == set(dat.table))
-        funky.input_schema.json.write_file(dat, os.path.join(data_path, "input.json"), allow_overwrite=True)
-        make_the_json("Copy Input To Postgres") # side effects the path
-        with patch.object(sys, 'argv', test_args_one):
-            utils.standard_main(funky.input_schema, funky.solution_schema, funky.solve)
-        make_the_json("Proxy Enframe Solve") # side effects the path
-        with patch.object(sys, 'argv', test_args_one):
-            utils.standard_main(funky.input_schema, funky.solution_schema, funky.solve)
-        sln = solution_schema.pgsql.create_tic_dat(engine, "scenario_1")
-        self.assertTrue(set(sln.s_table) == {'a', 'c', 'd'})
-        test_args_three = [module_path, "-i", os.path.join(data_path, "input.json"), "-o", "junk",
-                           "-a", "another_action", "-e", e_json]
-        with patch.object(sys, 'argv', test_args_three):
-            utils.standard_main(funky.input_schema, funky.solution_schema, funky.solve)
-        sln = solution_schema.pgsql.create_tic_dat(engine, "scenario_1")
-        dat = funky.solution_schema.pgsql.create_tic_dat(engine, "scenario_1")
-        self.assertTrue(set(sln.s_table) == set(dat.table) == {'a', 'c', 'd', 'e'})
-        engine.dispose()
-        postgresql.stop()
         sys.modules.pop(funky.solve.__module__)
 
     def testTwentyEight(self):
@@ -1343,7 +1305,8 @@ class TestUtils(unittest.TestCase):
                                                 'Max Nutrition': [True, True, True, 0, inf, False, [], False, False]},
                                  'nutrition_quantities': {'Quantity': [True, True, False, 0, inf, False, [], False,
                                                                        False]}},
-                 'parameters': {}, 'infinity_io_flag': 'N/A', "xlsx_trailing_empty_rows": "prune"})
+                 'parameters': {}, 'infinity_io_flag': 'N/A', "xlsx_trailing_empty_rows": "prune",
+                 "duplicates_ticdat_init": "assert", "tooltips": {}})
 
     def testTwentyNine(self):
         data_path = os.path.join(_scratchDir, "custom_module_three")
@@ -1367,7 +1330,8 @@ class TestUtils(unittest.TestCase):
             f = os.path.join(data_path, "output.json")
             with open(f, "r") as _f:
                 d = json.load(_f)
-                self.assertTrue(set(d) == {'parameters', 'buy_food', 'consume_nutrition'})
+                self.assertTrue(set(d) == {'parameters', 'buy_food', 'consume_nutrition', 'weird_table'})
+                self.assertTrue({k for k, v in d.items() if v} == {'parameters', 'buy_food', 'consume_nutrition'})
             rtn = funky_diet.solution_schema.json.create_tic_dat(f)
             self.assertFalse(rtn.weird_table)
             return rtn
@@ -1386,18 +1350,17 @@ class TestUtils(unittest.TestCase):
         self.assertTrue(sln.parameters["find_foreign_key_failures"]["Value"] == 1)
         self.assertTrue(sln.parameters["find_data_row_failures"]["Value"] == 2)
 
-        dat = funky_diet.input_schema.TicDat(**d)
-        funky_diet.input_schema.json.write_file(dat, os.path.join(data_path, "pizza.json"))
-        with patch.object(sys, 'argv', [module_path, "-i", os.path.join(data_path, "pizza.json"), "-o", "trash",
-                                        "-a", "remove_the_pizza"]):
+        with patch.object(sys, 'argv', [module_path, "-i", os.path.join(data_path, "input.json"),
+                                        "-o", os.path.join(data_path, "output_csvs"),
+                                        "-e", os.path.join(data_path, "error.json")]):
             utils.standard_main(funky_diet.input_schema, funky_diet.solution_schema, funky_diet.solve)
-        with open(os.path.join(data_path, "pizza.json"), "r") as _f:
-            d = json.load(_f)
-        self.assertTrue({k: len(v) for k, v in d.items()} == {"foods": 8, "nutrition_quantities": 32})
+        self.assertFalse(os.path.exists(os.path.join(data_path, "output_csvs")))
+        err_schema = utils._integrity_solve(funky_diet.input_schema, None, return_solution_schema_only=True)
+        err_dat = err_schema.json.create_pan_dat(os.path.join(data_path, "error.json"))
+        # we have 2 FK fails here but only one 1 FK fail above bc the stupid_table is ignored (by design) above
+        self.assertTrue(err_dat._len_dict() == {'data_row_failures': 2, 'foreign_key_failures': 2})
+        self.assertTrue(set(err_dat.foreign_key_failures["Native Table"]) == {'nutrition_quantities', 'stupid_table'})
 
-        with patch.object(sys, 'argv', [module_path, "-i", "junk", "-o", os.path.join(data_path, "output.json"),
-                                        "-a", "checks_the_unit_test_result"]):
-            utils.standard_main(funky_diet.input_schema, funky_diet.solution_schema, funky_diet.solve)
 
         with patch.object(sys, 'argv', [module_path, "-i", os.path.join(data_path, "input.json"),
                                         "-o", os.path.join(data_path, "output_csvs")]):
@@ -1408,110 +1371,6 @@ class TestUtils(unittest.TestCase):
             utils.standard_main(funky_diet.input_schema, funky_diet.solution_schema, funky_diet.solve,
                                 case_space_table_names=True)
         self.assertTrue(os.path.exists(os.path.join(data_path, "output_csvs_2", "Consume Nutrition.csv")))
-        sys.modules.pop(funky_diet.solve.__module__)
-
-    def testThirty(self):
-        # this test will fail without the EnframeOfflineHandler being present. Note that EnframeOfflineHandler
-        # has its own unit tests, this mainly exercises the command line
-        postgresql = testing_postgresql.Postgresql()
-        engine = sa.create_engine(postgresql.url())
-        data_path = os.path.join(_scratchDir, "custom_module_four")
-        makeCleanDir(data_path)
-        module_path = get_testing_file_path("funky_diet.py")
-
-        import ticdat.testing.funky_diet as funky_diet
-        for w in ["solve", "remove_the_pizza", "checks_the_unit_test_result", "a_solvish_act"]:
-            _w = getattr(funky_diet, w)
-            _w.__module__ = "weirdo_temp_junky_thing_for_hacking"
-        sys.modules[funky_diet.solve.__module__] = funky_diet
-        tdf = TicDatFactory(**dietSchema())
-        dat = tdf.copy_tic_dat(dietData())
-        d = json.loads(tdf.json.write_file(dat, "", verbose=False))
-        d["nutrition_quantities"] = d.pop("nutritionQuantities")
-        dat = funky_diet.input_schema.TicDat(**d)
-        clean_dat = funky_diet.input_schema.copy_tic_dat(dat)
-        clean_dat.stupid_table['a', 'b'] = 2
-        dat.stupid_table["ju", "nk"] = 10
-        funky_diet.input_schema.json.write_file(dat, os.path.join(data_path, "input.json"))
-        def make_the_json(solve_type, scenario_name="", master_schema=""):
-            d = {"postgres_url": postgresql.url(), "solve_type": solve_type, "scenario_name": scenario_name,
-                 "master_schema": master_schema}
-            rtn = os.path.join(data_path, "ticdat_enframe.json")
-            with open(rtn, "w") as f:
-                json.dump(d, f, indent=2)
-            return rtn
-        e_json = make_the_json("Copy Input to Postgres and Solve")
-        test_args_one = [module_path, "-i", os.path.join(data_path, "input.json"), "-o", "junk", "-e", e_json]
-        with patch.object(sys, 'argv', test_args_one):
-            utils.standard_main(funky_diet.input_schema, funky_diet.solution_schema, funky_diet.solve)
-        full_schema = TicDatFactory(**{"s_"+k: v for k,v in funky_diet.solution_schema.schema().items()})
-        self.assertTrue(set(full_schema.pgsql.check_tables_fields(engine, "scenario_1")) == {'s_weird_table'})
-        sln = full_schema.pgsql.create_tic_dat(engine, "scenario_1")
-        self.assertTrue({t: len(getattr(sln, "s_"+t)) for t in funky_diet.solution_schema.all_tables} ==
-                        {"buy_food": 3, "consume_nutrition": 4, "weird_table": 0, "parameters": 1})
-
-        dat.nutrition_quantities["pizza", "junk"] = {}
-        dat.categories["weirdness"] = dat.categories["wokeness"] = [100, 20]
-        funky_diet.input_schema.json.write_file(dat, os.path.join(data_path, "input.json"), allow_overwrite=True)
-        test_args_two = [module_path, "-i", os.path.join(data_path, "input.json"), "-o", "junk", "-e", e_json,
-                         "-a", "a_solvish_act"]
-        with patch.object(sys, 'argv', test_args_two):
-            utils.standard_main(funky_diet.input_schema, funky_diet.solution_schema, funky_diet.solve)
-        sln = full_schema.pgsql.create_tic_dat(engine, "scenario_1")
-        self.assertTrue({t:len(getattr(sln, "s_"+t)) for t in funky_diet.solution_schema.all_tables} ==
-                        {"buy_food": 3, "consume_nutrition": 4, "weird_table": 0, "parameters": 3})
-        self.assertTrue(sln.s_parameters["find_foreign_key_failures"]["Value"] == 1)
-        self.assertTrue(sln.s_parameters["find_data_row_failures"]["Value"] == 2)
-
-        e_json = make_the_json("Proxy Enframe Solve")
-        test_args_three = [module_path, "-i", "junk", "-o", "also_junk", "-e", e_json,
-                         "-a", "checks_the_unit_test_result"]
-        with patch.object(sys, 'argv', test_args_three):
-            utils.standard_main(funky_diet.input_schema, funky_diet.solution_schema, funky_diet.solve)
-
-        test_args_four = [module_path, "-i", "junk", "-o", "also_junk", "-e", e_json,
-                         "-a", "remove_the_pizza"]
-        with patch.object(sys, 'argv', test_args_four):
-            utils.standard_main(funky_diet.input_schema, funky_diet.solution_schema, funky_diet.solve)
-        dat = funky_diet.input_schema.pgsql.create_tic_dat(engine, "scenario_1")
-        self.assertTrue({t: len(getattr(dat, t)) for t in funky_diet.input_schema.all_tables} ==
-                        {"foods": 8, "nutrition_quantities": 32, "categories":6, "stupid_table": 0})
-
-        engine.dispose()
-        postgresql.stop()
-
-        postgresql = testing_postgresql.Postgresql()
-        engine = sa.create_engine(postgresql.url())
-        funky_diet.input_schema.json.write_file(clean_dat, os.path.join(data_path, "input.json"), allow_overwrite=True)
-        e_json = make_the_json("Copy Input to Postgres", master_schema="the_master", scenario_name="the_scenario")
-        test_args_five = [module_path, "-i", os.path.join(data_path, "input.json"), "-o", "junk", "-e", e_json]
-        with patch.object(sys, 'argv', test_args_five):
-            utils.standard_main(funky_diet.input_schema, funky_diet.solution_schema, funky_diet.solve)
-        e_json = make_the_json("proxy EnFramE solve", master_schema="the_master", scenario_name="the_scenario")
-        test_args_six = [module_path, "-i", "junk", "-o", "alsojunk", "-e", e_json]
-        with patch.object(sys, 'argv', test_args_six):
-            utils.standard_main(funky_diet.input_schema, funky_diet.solution_schema, funky_diet.solve)
-
-        self.assertTrue([('hamburger', 1, 'the_scenario'), ('ice cream', 1, 'the_scenario'),
-                         ('milk', 1, 'the_scenario')] ==
-                        sorted(_[:3] for _ in engine.execute("Select * from the_master.s_buy_food")))
-
-        self.assertTrue(sorted(engine.execute("Select * from the_master.foods")) ==
-                        [('chicken', 1, 'the_scenario', 2.89), ('fries', 1, 'the_scenario', 1.89),
-                         ('hamburger', 1, 'the_scenario', 2.49), ('hot dog', 1, 'the_scenario', 1.5),
-                         ('ice cream', 1, 'the_scenario', 1.59), ('macaroni', 1, 'the_scenario', 2.09),
-                         ('milk', 1, 'the_scenario', 0.89), ('pizza', 1, 'the_scenario', 1.99),
-                         ('salad', 1, 'the_scenario', 2.49)])
-
-        test_args_seven = [module_path, "-i", "junk", "-o", "alsojunk", "-e", e_json, "-a", "remove_the_pizza"]
-        with patch.object(sys, 'argv', test_args_seven):
-            utils.standard_main(funky_diet.input_schema, funky_diet.solution_schema, funky_diet.solve)
-        self.assertTrue(set(_[0] for _ in engine.execute("Select * from the_master.foods")) ==
-                        set(_[0] for _ in engine.execute("Select * from scenario_1.foods")) ==
-                        {'hamburger', 'ice cream', 'salad', 'milk', 'macaroni', 'fries', 'chicken', 'hot dog'})
-
-        engine.dispose()
-        postgresql.stop()
         sys.modules.pop(funky_diet.solve.__module__)
 
     def testThirtyOne(self):
@@ -1619,6 +1478,322 @@ class TestUtils(unittest.TestCase):
             df = getattr(copy_2, t)
             self.assertTrue(list(df.index) == list(range(len(df))))
 
+    def test_deep_copy(self):
+        tdf_1 = TicDatFactory(t_one=utils.deep_copy([["Field One"], ["Field Two"]]))
+        tdf_1.set_data_type("t_one", "Field Two", strings_allowed='*', number_allowed=False)
+        sch1 = utils.deep_copy(tdf_1.schema(include_ancillary_info=True))
+        self.assertTrue(sch1 == utils.deep_copy(tdf_1.schema)(include_ancillary_info=True))
+        self.assertTrue(tdf_1.data_types == utils.deep_copy(utils.deep_copy(tdf_1).data_types))
+        self.assertTrue([1, 2, 3] ==
+                        [_[0] for _ in utils.deep_copy(pd.DataFrame({"a": [1, 2, 3]})).itertuples(index=False)])
+        class Dummy(object):
+            pass
+        ex = []
+        try:
+            utils.deep_copy(Dummy())
+        except Exception as e:
+            ex.append(str(e))
+        self.assertTrue("Unexpected" in ex[0])
+
+    def test_adding_removing_fields_and_tables(self):
+        for one_or_other in [TicDatFactory, PanDatFactory]:
+            tdf = one_or_other(plants=[["name"], ["stuff", "otherstuff"]],
+                               lines=[["name"], ["plant", "weird stuff"]],
+                               line_descriptor=[["name"], ["booger"]],
+                               products=[["name"], ["gover"]],
+                               production=[["line", "product"], ["min", "max"]],
+                               pureTestingTable=[[], ["line", "plant", "product", "something"]],
+                               extraProduction=[["line", "product"], ["extramin", "extramax"]],
+                               weirdProduction=[["line1", "line2", "product"], ["weirdmin", "weirdmax"]])
+            tdf.add_foreign_key("production", "lines", ("line", "name"))
+            tdf.add_foreign_key("production", "products", ("product", "name"))
+            tdf.add_foreign_key("lines", "plants", ("plant", "name"))
+            tdf.add_foreign_key("line_descriptor", "lines", ("name", "name"))
+            for f in set(tdf.data_fields["pureTestingTable"]).difference({"something"}):
+                tdf.add_foreign_key("pureTestingTable", "%ss" % f, (f, "name"))
+            tdf.add_foreign_key("extraProduction", "production", (("line", "line"), ("product", "product")))
+            tdf.add_foreign_key("weirdProduction", "production", (("line1", "line"), ("product", "product")))
+            tdf.add_foreign_key("weirdProduction", "extraProduction", (("line2", "line"), ("product", "product")))
+            tdf.set_data_type("plants", "otherstuff")
+            tdf.set_data_type("lines", "weird stuff", number_allowed=False, strings_allowed=["a", "b"])
+            tdf.set_data_type("extraProduction", "extramin", min=10)
+            tdf.set_default_value("line_descriptor", "booger", 12)
+
+            tdf_one = tdf.clone()
+            kwargs = {"table_restrictions": [_ for _ in tdf.all_tables if _ != "weirdProduction"]}
+            def remove_some_fields_clone(tdf_):
+                for t, f in [["pureTestingTable", "line"], ["pureTestingTable", "something"], ["products", "gover"]]:
+                    tdf_ = tdf_.clone_remove_a_column(t, f)
+                return tdf_
+            tdf_two = remove_some_fields_clone(tdf.clone(**kwargs))
+            self.assertTrue(tdf.schema(include_ancillary_info=True) == tdf_one.schema(include_ancillary_info=True))
+            def adding_some_tables(tdf_):
+                self.assertTrue(tdf_.schema() ==
+                                {'pureTestingTable': [[], ['plant', 'product']],
+                                 'line_descriptor': [['name'], ['booger']],
+                                 'extraProduction': [['line', 'product'], ['extramin', 'extramax']],
+                                 'production': [['line', 'product'], ['min', 'max']],
+                                 'plants': [['name'], ['stuff', 'otherstuff']],
+                                 'products': [['name'], []],
+                                 'lines': [['name'], ['plant', 'weird stuff']]})
+                tdf_ = tdf_.clone_add_a_column("products", "governor", "data", 0)
+                tdf_ = tdf_.clone_add_a_column("line_descriptor", "governor", "primary key", 1)
+                tdf_ = tdf_.clone_add_a_column("line_descriptor", "wanker", "primary key")
+                tdf_ = tdf_.clone_add_a_table("the_wank", ["Name"], [])
+                self.assertTrue(tdf_.schema()["the_wank"] == [["Name"], []])
+                return tdf_
+            tdf_three = adding_some_tables(remove_some_fields_clone(tdf.clone(**kwargs)))
+            for tdf_0, tdf_1 in itertools.combinations([tdf_one, tdf_two, tdf_three], 2):
+                self.assertFalse(tdf_0.schema(include_ancillary_info=True) == tdf_1.schema(include_ancillary_info=True))
+                self.assertTrue(all(_.default_values["line_descriptor"]["boger"] == 12) for _ in [tdf_0, tdf_1])
+                self.assertTrue(all(_.data_types["lines"]["weird stuff"] == tdf.data_types["lines"]["weird stuff"]
+                                for _ in [tdf_0, tdf_1]))
+            self.assertTrue(all(_.foreign_keys for _ in [tdf_one, tdf_two, tdf_three]))
+            self.assertTrue(all(len(_.foreign_keys) == len(tdf.foreign_keys) - 3 for _ in [tdf_two, tdf_three]))
+            tdf_three.add_foreign_key("products", "line_descriptor", ["governor", "governor"])
+            tdf_three.add_foreign_key("line_descriptor", "the_wank", ["wanker", "Name"])
+            tdf_four = remove_some_fields_clone(tdf)
+            self.assertTrue(len(tdf_four.foreign_keys)== len(tdf.foreign_keys)-1)
+            tdf_five = tdf.clone_remove_a_column("production", "line")
+            self.assertTrue(list(tdf_five.primary_key_fields["production"]) == ["product"])
+            self.assertTrue(0 < len(tdf_five.foreign_keys) < len(tdf.foreign_keys))
+
+            tdf_six = tdf.clone()
+            tdf_seven = tdf.clone()
+            def kosher():
+                for tdf_ in [tdf_six, tdf_seven]:
+                    self.assertTrue(len(tdf.foreign_keys) == len(tdf_.foreign_keys))
+            kosher()
+            for t, (pks, dfs) in tdf.schema().items():
+                for f in pks + dfs:
+                    tdf_six = tdf.clone_rename_a_column(t, f, f + " Woz")
+                    tdf_seven = tdf_seven.clone_rename_a_column(t, f, f + " Woz")
+                    kosher()
+                    for tdf_ in [tdf_six, tdf_seven]:
+                        self.assertTrue(tdf.default_values.get(t, {}).get(f, 0) ==
+                                        tdf_.default_values.get(t, {}).get(f + " Woz", 0))
+                        self.assertTrue(tdf.data_types.get(t, {}).get(f) ==
+                                        tdf_.data_types.get(t, {}).get(f + " Woz"))
+            for fk in tdf_seven.foreign_keys:
+                if hasattr(fk.mapping, "native_field"):
+                    self.assertTrue(fk.mapping.native_field.endswith(" Woz") and
+                                    fk.mapping.foreign_field.endswith(" Woz"))
+                else:
+                    self.assertTrue(all(_.native_field.endswith(" Woz") and _.foreign_field.endswith(" Woz")
+                                        for _ in fk.mapping))
+
+    def test_roundoff_command_line(self):
+        # this test NOT self contained. It will connect to a testing roundoffserver via a live token. DON'T check
+        # a live token into GitHub for all to read. Just generate as needed for test than delete from Roundoff
+        # See the test_roundoffconnet.py file for how to prep a Roundoff server for this test. We are using the
+        # delayed_diet.py testing file to create the app_id entry that is used for test_roundoffconnet.py
+        confg_path = get_testing_file_path("roundoff_config.json")
+        self.assertTrue(os.path.isfile(confg_path))
+        with open(confg_path, "r") as f:
+            d = json.load(f)
+        self.assertTrue(set(d).issuperset(["app_id", "server", "token"]))
+        con = roundoffconnect.AppConnect(d["server"], d["token"], d["app_id"])
+        scenarios = con.current_scenarios()
+        self.assertTrue(len(scenarios) == 1, "if some previous unit test left detritus behind, kill it")
+
+        data_path = os.path.join(_scratchDir, "roundoff_command_line")
+        makeCleanDir(data_path)
+
+        module_path = get_testing_file_path("delayed_diet.py")
+        import ticdat.testing.delayed_diet as delayed_diet
+        delayed_diet.input_schema.set_infinity_io_flag(999999999)
+        weirdo_hacks_needed = ["solve"]
+        for w in weirdo_hacks_needed:
+            _w = getattr(delayed_diet, w)
+            _w.__module__ = "weirdo_temp_junky_thing_for_hacking"
+        sys.modules[delayed_diet.solve.__module__] = delayed_diet
+
+        tdf = TicDatFactory(**dietSchema())
+        df_objs = tdf.copy_to_pandas(tdf.copy_tic_dat(dietData()), reset_index=True)
+        lols = {{"nutritionQuantities": "nutrition_quantities"}.get(t, t):
+                list(map(list, getattr(df_objs, t).itertuples(index=False))) for t in tdf.all_tables}
+        dat = delayed_diet.input_schema.TicDat(**lols)
+        delayed_diet.input_schema.json.write_file(dat, os.path.join(data_path, "input.json"))
+        test_args_one = [module_path, "-i", os.path.join(data_path, "input.json"), "-o",
+                         os.path.join(data_path, "output.json"), "-r", confg_path]
+        with patch.object(sys, 'argv', test_args_one):
+            utils.standard_main(delayed_diet.input_schema, delayed_diet.solution_schema, delayed_diet.solve)
+
+        sln = delayed_diet.solution_schema.json.create_tic_dat(os.path.join(data_path, "output.json"))
+        self.assertTrue(0 < sln.parameters["Lower Bound"]["Value"] < sln.parameters["Upper Bound"]["Value"] <= 100)
+        sln.parameters.pop("Lower Bound")
+        sln.parameters.pop("Upper Bound")
+        sln_2 = delayed_diet.solution_schema.TicDat(**delayed_diet.hard_coded_solution_dict)
+        self.assertTrue(delayed_diet.solution_schema._same_data(sln, sln_2, epsilon=1e-5))
+
+        d["mode"] = "upload only"
+        with open(os.path.join(data_path, "config.json"), "w") as f:
+            json.dump(d, f, indent=2)
+        test_args_two = [module_path, "-i", os.path.join(data_path, "input.json"), "-o",
+                         os.path.join(data_path, "output_2.json"), "-r", os.path.join(data_path, "config.json")]
+        with patch.object(sys, 'argv', test_args_two):
+            utils.standard_main(delayed_diet.input_schema, delayed_diet.solution_schema, delayed_diet.solve)
+        self.assertFalse(os.path.exists(os.path.join(data_path, "output_2.json")))
+
+        new_scen_ids = list(set(con.current_scenarios()).difference(scenarios))
+        self.assertTrue(len(new_scen_ids) == 2)
+        dd_on_roundoff = roundoffconnect.TicDatConnector(con, delayed_diet)
+        self.assertFalse(any(con.is_solving_underway(_) for _ in new_scen_ids))
+        can_get_solution = [_ for _ in new_scen_ids if dd_on_roundoff.download_solution(_)]
+        self.assertTrue(len(can_get_solution) == 1)
+
+        d["mode"] = "download from scenario"
+        d["scenario"] = can_get_solution[0]
+        with open(os.path.join(data_path, "config_2.json"), "w") as f:
+            json.dump(d, f, indent=2)
+        test_args_three = [module_path, "-i", os.path.join(data_path, "junk", "input_GARBAGE_8945339483.json"),
+                           "-o", os.path.join(data_path, "output_2.json"),
+                           "-r", os.path.join(data_path, "config_2.json")]
+        with patch.object(sys, 'argv', test_args_three):
+            utils.standard_main(delayed_diet.input_schema, delayed_diet.solution_schema, delayed_diet.solve)
+
+        sln3 = delayed_diet.solution_schema.json.create_tic_dat(os.path.join(data_path, "output.json"))
+        self.assertTrue(0 < sln3.parameters["Lower Bound"]["Value"] < sln3.parameters["Upper Bound"]["Value"] <= 100)
+        sln3.parameters.pop("Lower Bound")
+        sln3.parameters.pop("Upper Bound")
+        self.assertTrue(delayed_diet.solution_schema._same_data(sln3, sln_2, epsilon=1e-5))
+
+        for id in new_scen_ids:
+            con.delete_scenario(id)
+        sys.modules.pop(delayed_diet.solve.__module__)
+
+    def test_issue_162(self):
+        tdf = TicDatFactory(table=[["Pk Field"], ["D Field 1", "D Field 2"]])
+        tdf.set_data_type("table", "D Field 1", nullable=False, datetime=True)
+        tdf.set_data_type("table", "D Field 2", nullable=True, datetime=True)
+
+        dat = tdf.TicDat(table=[["easy pass", "2016", "now"],
+                                ["null needed to pass", "now", None],
+                                ["dfield 2 fails", "Jan 1 1976", ""],
+                                ["dfield 1 fails", None, "Jan 1 1976"]])
+        fails = tdf.find_data_type_failures(dat)
+        self.assertTrue({tuple(k): v.pks for k, v in fails.items()} ==
+                        {('table', 'D Field 2'): ('dfield 2 fails',),
+                         ('table', 'D Field 1'): ('dfield 1 fails',),})
+
+        dat = tdf.TicDat(table=[["easy pass", "2016", "now"],
+                                ["null needed to pass", "now", None],
+                                ["dfield 2 fails", "Jan 1 1976", ""],
+                                ["dfield 1 fails", "", "Jan 1 1976"]])
+        fails = tdf.find_data_type_failures(dat)
+        self.assertTrue({tuple(k): v.pks for k, v in fails.items()} ==
+                        {('table', 'D Field 2'): ('dfield 2 fails',),
+                         ('table', 'D Field 1'): ('dfield 1 fails',),})
+
+    def test_issue_156(self):
+        tdf = TicDatFactory(table=[["Pk Field"], ["D Field 1", "D Field 2"]],
+                            table_two=[["Blah"], []])
+        pdf = PanDatFactory(**tdf.schema())
+        for tdf_pdf in [tdf, pdf]:
+            tdf_pdf.set_tooltip("table", "Pk Field", "blah")
+            tdf_pdf.set_tooltip("table", "", "something")
+            tdf_pdf.set_tooltip("table_two", "", "another thing")
+            tdf_pdf.set_tooltip("table", "", "")
+            tdf_pdf.set_tooltip("table_two", "Blah", "its blah")
+            tdf_pdf.set_tooltip("table", "D Field 1", "replace me")
+            tdf_pdf.set_tooltip("table", "D Field 1", "d field 1")
+            tdf_pdf.set_tooltip("table", "D Field 2", "d field 2")
+            tdf_pdf.set_tooltip("table", "Pk Field", "")
+            self.assertTrue(dict(tdf_pdf.tooltips) ==
+                            {'table_two': 'another thing', ('table_two', 'Blah'): 'its blah',
+                             ('table', 'D Field 1'): 'd field 1', ('table', 'D Field 2'): 'd field 2'})
+            for clone_factory in [TicDatFactory, PanDatFactory]:
+                tdf_pdf_2 = tdf_pdf.clone(clone_factory=clone_factory)
+                self.assertTrue(dict(tdf_pdf.tooltips) == dict(tdf_pdf_2.tooltips))
+                tdf_pdf_3 = tdf_pdf.clone(clone_factory=clone_factory, table_restrictions=["table"])
+                self.assertTrue(dict(tdf_pdf_3.tooltips) ==
+                                {('table', 'D Field 1'): 'd field 1', ('table', 'D Field 2'): 'd field 2'})
+                tdf_pdf_4 = tdf_pdf.clone(clone_factory=clone_factory, table_restrictions=["table_two"])
+                self.assertTrue(dict(tdf_pdf_4.tooltips) ==
+                                {'table_two': 'another thing', ('table_two', 'Blah'): 'its blah'})
+
+    def test_issue_164_dot_one(self):
+        tdf = TicDatFactory(**dietSchema())
+        addDietForeignKeys(tdf)
+        ticdat_testutils.addDietDataTypes(tdf)
+        good_dat = tdf.copy_tic_dat(dietData())
+        self.assertFalse(utils._integrity_solve(tdf, good_dat))
+        bad_dat = tdf.copy_tic_dat(good_dat)
+        bad_dat.foods.pop("pizza")
+        for f in ["fat", "sodium"]:
+            bad_dat.categories[f]["minNutrition"] = bad_dat.categories[f]["maxNutrition"] + 1
+        bad_dat.foods["hamburger"]["cost"] = None
+        bad_dat.foods["fries"]["cost"] = float("inf")
+        bad_dat.nutritionQuantities['chicken',   'fat'] = -1
+        def do_integrity_check(integrity_fails):
+            self.assertTrue(integrity_fails._len_dict() == {'data_type_failures': 3, 'foreign_key_failures': 4})
+            self.assertTrue(sorted(map(tuple, integrity_fails.data_type_failures.itertuples(index=False))) ==
+                            [('foods', 'cost', 'fries', None),
+                             ('foods', 'cost', 'hamburger', None),
+                             ('nutritionQuantities', 'qty', 'chicken', 'fat')])
+            self.assertTrue(set(integrity_fails.foreign_key_failures["Field 1"]) == {'pizza'})
+            self.assertTrue(set(integrity_fails.foreign_key_failures["Field 2"]) == set(good_dat.categories))
+        do_integrity_check(utils._integrity_solve(tdf, bad_dat))
+        pdf = tdf.clone(clone_factory=PanDatFactory)
+        self.assertFalse(utils._integrity_solve(pdf, tdf.copy_to_pandas(good_dat, reset_index=True)))
+        do_integrity_check(utils._integrity_solve(pdf, tdf.copy_to_pandas(bad_dat, reset_index=True)))
+        dup_dat = tdf.copy_to_pandas(good_dat, reset_index=True)
+        dup_dat.foods = dup_dat.foods.append(dup_dat.foods[dup_dat.foods["cost"] < 1.6], sort=False)
+        i_fails = utils._integrity_solve(pdf, dup_dat)
+        self.assertTrue(i_fails._len_dict() == {"duplicate_rows": 3})
+
+    def test_issue_164_dot_two(self):
+        tdf = TicDatFactory(table_one=[["Stuff"], []],
+                            table_two=[[], ["Little Stuff", "Big Stuff"]])
+        cnt = [0]
+        def make_stuffs(dat):
+            if cnt:
+                cnt[0] += 1
+                return {"stuffs": sorted(dat.table_one)}
+        def little_stuff_test(row, stuffs):
+            middle_stuff = stuffs[int(len(stuffs) / 2)]
+            if row["Little Stuff"] <= middle_stuff:
+                return True
+            return f"{row['Little Stuff']} > {middle_stuff}"
+
+        tdf.add_data_row_predicate("table_two", predicate_name="little stuff test a", predicate=little_stuff_test,
+                                   predicate_kwargs_maker=make_stuffs, predicate_failure_response="Error Message")
+        tdf.add_data_row_predicate("table_two", predicate_name="little stuff test b",
+                                   predicate= lambda row, stuffs: row["Little Stuff"] <= stuffs[int(len(stuffs) / 2)],
+                                   predicate_kwargs_maker=make_stuffs)
+
+        def make_all_rows_cnt(dat):
+            return {"all_rows_cnt": sum(dat._len_dict().values())}
+        tdf.add_data_row_predicate("table_two", predicate_name="big stuff test",
+                                   predicate=lambda row, all_rows_cnt: row["Big Stuff"] >= all_rows_cnt,
+                                   predicate_kwargs_maker=make_all_rows_cnt)
+
+        dat = tdf.TicDat(table_one = [[_] for _ in range(1, 10)],
+                         table_two = [[min(_, 5), max(_ * 3, 18)] for _ in range(1, 10)])
+        self.assertFalse(utils._integrity_solve(tdf, dat))
+        self.assertTrue(cnt[0] == 1)
+        for i, r in enumerate(dat.table_two):
+            if i % 3 == 0:
+                r["Big Stuff"] = 10
+            if i % 4 == 0:
+                r["Little Stuff"] = 10.1
+        i_fails = utils._integrity_solve(tdf, dat)
+        self.assertTrue(sorted(map(tuple, i_fails.data_row_failures.itertuples(index=False))) ==
+            [('table_two', 'big stuff test', None, 4.0, 10),
+             ('table_two', 'big stuff test', None, 5.0, 10),
+             ('table_two', 'big stuff test', None, 10.1, 10),
+             ('table_two', 'little stuff test a', '10.1 > 5', 10.1, 10),
+             ('table_two', 'little stuff test a', '10.1 > 5', 10.1, 18),
+             ('table_two', 'little stuff test a', '10.1 > 5', 10.1, 27),
+             ('table_two', 'little stuff test b', None, 10.1, 10),
+             ('table_two', 'little stuff test b', None, 10.1, 18),
+             ('table_two', 'little stuff test b', None, 10.1, 27)])
+
+        cnt = None
+        i_fails = utils._integrity_solve(tdf, tdf.TicDat(table_one=[[1]], table_two=[[0, 100] for _ in range(10)]))
+        self.assertTrue(i_fails._len_dict() == {'data_row_failures': 2})
+        self.assertTrue(set(i_fails.data_row_failures["Predicate Name"]) ==
+                        {'little stuff test a', 'little stuff test b'})
 
 _scratchDir = TestUtils.__name__ + "_scratch"
 

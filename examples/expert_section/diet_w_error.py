@@ -1,28 +1,18 @@
-# Implement core functionality needed to achieve modularity.
-# 1. Define the input data schema
-# 2. Define the output data schema
-# 3. Create a solve function that accepts a data set consistent with the input
-#    schema and (if possible) returns a data set consistent with the output schema.
-#
-# Provides command line interface via ticdat.standard_main
-# For example, typing
-#   python diet.py -i input_data.xlsx -o solution_data.xlsx
-# will read from a model stored in the file input_data.xlsx and write the solution
-# to solution_data.xlsx.
+# Same as diet.py except it has an error.
+
+try: # if you don't have gurobipy installed, the code will still load and then fail on solve
+    import gurobipy as gp
+except:
+    gp = None
 
 from ticdat import TicDatFactory, standard_main
-try:
-    import docplex
-    __version__ =  docplex.__version__ # not needed, helps deploy on Roundoff
-except:
-    docplex = __version__ = None
 
 # ------------------------ define the input schema --------------------------------
 # There are three input tables, with 4 primary key fields and 4 data fields.
 input_schema = TicDatFactory (
-    categories = [["Name"],["Min Nutrition", "Max Nutrition"]],
-    foods  = [["Name"],["Cost"]],
-    nutrition_quantities = [["Food", "Category"], ["Quantity"]])
+    categories=[["Name"], ["Min Nutrition", "Max Nutrition"]],
+    foods=[["Name"], ["Cost"]],
+    nutrition_quantities=[["Food", "Category"], ["Quantity"]])
 
 # Define the foreign key relationships
 input_schema.add_foreign_key("nutrition_quantities", "foods", ["Food", "Name"])
@@ -52,9 +42,9 @@ input_schema.set_default_value("categories", "Max Nutrition", float("inf"))
 # ------------------------ define the output schema -------------------------------
 # There are three solution tables, with 3 primary key fields and 3 data fields.
 solution_schema = TicDatFactory(
-    parameters = [["Parameter"],["Value"]],
-    buy_food = [["Food"],["Quantity"]],
-    consume_nutrition = [["Category"],["Quantity"]])
+    parameters=[["Parameter"], ["Value"]],
+    buy_food=[["Food"], ["Quantity"]],
+    consume_nutrition=[["Category"], ["Quantity"]])
 # ---------------------------------------------------------------------------------
 
 
@@ -69,34 +59,9 @@ def solve(dat):
     assert not input_schema.find_foreign_key_failures(dat)
     assert not input_schema.find_data_type_failures(dat)
     assert not input_schema.find_data_row_failures(dat)
+    oops("This will be the error right here!!!!!")
+    # Since nothing else will execute no need for any other lines of code.
 
-    mdl = docplex.mp.model.Model('diet')
-
-    nutrition = {c:mdl.continuous_var(lb=n["Min Nutrition"], ub=n["Max Nutrition"], name=c)
-                for c,n in dat.categories.items()}
-
-    # Create decision variables for the foods to buy
-    buy = {f:mdl.continuous_var(name=f) for f in dat.foods}
-
-     # Nutrition constraints
-    for c in dat.categories:
-        mdl.add_constraint(mdl.sum(dat.nutrition_quantities[f,c]["Quantity"] * buy[f]
-                             for f in dat.foods)
-                           == nutrition[c],
-                           ctname = c)
-
-    mdl.minimize(mdl.sum(buy[f] * c["Cost"] for f,c in dat.foods.items()))
-
-    if mdl.solve():
-        sln = solution_schema.TicDat()
-        for f,x in buy.items():
-            if mdl.solution.get_value(x) > 0:
-                sln.buy_food[f] = mdl.solution.get_value(x)
-        for c,x in nutrition.items():
-            sln.consume_nutrition[c] = mdl.solution.get_value(x)
-        sln.parameters['Total Cost'] = sum(dat.foods[f]["Cost"] * r["Quantity"]
-                                           for f,r in sln.buy_food.items())
-        return sln
 # ---------------------------------------------------------------------------------
 
 # ------------------------ provide stand-alone functionality ----------------------
@@ -104,3 +69,4 @@ def solve(dat):
 if __name__ == "__main__":
     standard_main(input_schema, solution_schema, solve)
 # ---------------------------------------------------------------------------------
+

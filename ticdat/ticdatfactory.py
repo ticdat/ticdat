@@ -88,7 +88,9 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
                 "data_types" : self.data_types,
                 "parameters": self.parameters,
                 "infinity_io_flag": self.infinity_io_flag,
-                "xlsx_trailing_empty_rows": self.xlsx_trailing_empty_rows}
+                "xlsx_trailing_empty_rows": self.xlsx_trailing_empty_rows,
+                "duplicates_ticdat_init": self.duplicates_ticdat_init,
+                "tooltips": utils.make_tooltips_dict_json_friendly(self.tooltips)}
     @staticmethod
     def create_from_full_schema(full_schema):
         """
@@ -103,7 +105,8 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
         """
         old_schema = {"tables_fields", "foreign_keys", "default_values", "data_types"}
         verify(dictish(full_schema) and set(full_schema).issuperset(old_schema) and  set(full_schema) in
-               utils.all_subsets(old_schema.union({"parameters", "infinity_io_flag", "xlsx_trailing_empty_rows"})),
+               utils.all_subsets(old_schema.union({"parameters", "infinity_io_flag", "xlsx_trailing_empty_rows",
+                                                   "duplicates_ticdat_init", "tooltips"})),
                "full_schema should be the result of calling schema(True) for some TicDatFactory")
         fks = full_schema["foreign_keys"]
         verify( (not fks) or (lupish(fks) and all(lupish(_) and len(_) >= 3 for _ in fks)),
@@ -139,6 +142,12 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
             rtn.set_infinity_io_flag(full_schema["infinity_io_flag"])
         if "xlsx_trailing_empty_rows" in full_schema:
             rtn.set_xlsx_trailing_empty_rows(full_schema["xlsx_trailing_empty_rows"])
+        if "duplicates_ticdat_init" in full_schema:
+            rtn.set_duplicates_ticdat_init(full_schema["duplicates_ticdat_init"])
+        if "tooltips" in full_schema:
+            for t, tip_dict in full_schema["tooltips"].items():
+                for f, tip in tip_dict.items():
+                    rtn.set_tooltip(t, f, tip)
         return rtn
     @property
     def generator_tables(self):
@@ -153,6 +162,28 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
     def data_types(self):
         return utils.FrozenDict({t : utils.FrozenDict({k :v for k,v in vd.items()})
                                 for t,vd in self._data_types.items()})
+    @property
+    def tooltips(self):
+        return utils.FrozenDict(self._tooltips)
+
+    def set_tooltip(self, table, field, tooltip):
+        """
+        Set the tooltip for a table, or for a (table, field) pair.
+
+        :param table: a table in the schema
+
+        :param field: an empty string (if you want to set the tooltip for a table)
+                      or a field for this table
+
+        :param tooltip: an empty string (if you want to delete a previously set tooltip) or the
+                        tooltip you want to set
+
+        :return:
+
+        After calling this function, the tooltips property for this TicDatFactory will be appropriately adjusted.
+        """
+        utils.set_tooltip(self, table, field, tooltip, self._tooltips)
+
     def set_data_type(self, table, field, number_allowed = True,
                       inclusive_min = True, inclusive_max = False, min = 0, max = float("inf"),
                       must_be_int = False, strings_allowed= (), nullable = False, datetime = False):
@@ -163,7 +194,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
 
         :param table: a table in the schema
 
-        :param field: a data field for this table
+        :param field: a field for this table
 
         :param number_allowed: boolean does this field allow numbers?
 
@@ -282,6 +313,19 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
         self._data_row_predicates[table][predicate_name] = RowPredicateInfo(predicate, predicate_kwargs_maker,
                                                                             predicate_failure_response)
 
+
+    def get_row_predicates(self, table):
+        '''
+        return all the row predicates for a given table
+
+        :param table: a table in the schema
+
+        :return: a dictionary mapping predicate_name to RowPredicateInfo named tuple (the entries of which
+                 are based on the prior call to add_data_row_predicate).
+        '''
+        verify(table in self.all_tables, "Unrecognized table name %s"%table)
+        return {k: v for k, v in self._data_row_predicates.get(table, {}).items()}
+
     def add_parameter(self, name, default_value, number_allowed = True,
                       inclusive_min = True, inclusive_max = False, min = 0, max = float("inf"),
                       must_be_int = False, strings_allowed= (), nullable = False,
@@ -337,6 +381,17 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
         ParameterInfo = namedtuple("ParameterInfo", ["type_dictionary", "default_value"])
         self._parameters[name] = ParameterInfo(td, default_value)
 
+    def remove_parameter(self, name):
+        '''
+        Undo a previous call to add_parameter.
+
+        :param name: name of the parameter to remove
+
+        :return:
+        '''
+        verify(name in self._parameters, f"{name} is not a valid parameter")
+        self._parameters.pop(name)
+
     def set_default_value(self, table, field, default_value):
         """
         sets the default value for a specific field
@@ -352,7 +407,8 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
         verify(not self._has_been_used,
                "The default values can't be changed after a TicDatFactory has been used.")
         verify(table in self.all_tables, "Unrecognized table name %s"%table)
-        verify(field in self.data_fields[table], "%s does not refer to a data field for %s"%(field, table))
+        verify(field in self.data_fields[table] + self.primary_key_fields[table],
+               "%s does not refer to a field for %s"%(field, table))
         verify(utils.acceptable_default(default_value), "%s can not be used as a default value"%default_value)
         self._default_values[table][field] = default_value
 
@@ -374,8 +430,8 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
                "The default values can't be changed after a TicDatFactory has been used.")
         for k,v in tableDefaults.items():
             verify(k in self.all_tables, "Unrecognized table name %s"%k)
-            verify(dictish(v) and set(v).issubset(self.data_fields[k]),
-                "Default values for %s should be a dictionary mapping data field names to values"
+            verify(dictish(v) and set(v).issubset(set(self.data_fields[k]).union(self.primary_key_fields[k])),
+                "Default values for %s should be a dictionary mapping field names to values"
                 %k)
             verify(all(utils.acceptable_default(_v) for _v in v.values()), "some default values are unacceptable")
             self._default_values[k] = dict(self._default_values[k], **v)
@@ -621,6 +677,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
                 self._default_values[tbl][fld] = 0
         self._data_types = clt.defaultdict(dict)
         self._data_row_predicates = clt.defaultdict(dict)
+        self._tooltips = {}
         self._generator_tables = []
         self._foreign_keys = clt.defaultdict(set)
         self.all_tables = frozenset(init_fields)
@@ -782,8 +839,14 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
                         setattr(self, t, ticdattablefactory(self._all_data_dicts, t)())
                 if init_tables :
                     self._try_make_foreign_links()
-                if any(v > (l or 0) for k, v in lens.items() for l in [utils.safe_apply(len)(getattr(self, k))]):
-                    print("--> Warning: Some rows have been lost due to duplicate rows passed to TicDat.__init__")
+                if superself.duplicates_ticdat_init != "ignore":
+                    dups = {k for k, v in lens.items() for l in [utils.safe_apply(len)(getattr(self, k))]
+                            if v > (l or 0)}
+                    assert superself.duplicates_ticdat_init == "warn" or not dups, \
+                        f"Duplicate rows found in initialization of following tables: {dups}"
+                    if dups and superself.duplicates_ticdat_init == "warn":
+                        print("--> Warning: Some rows have been lost due to duplicate rows passed to TicDat.__init__")
+                        print(f"--> {dups}")
             def _try_make_foreign_links(self):
                 if not superself._foreign_key_links_enabled:
                     return
@@ -850,8 +913,27 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
         self._parameters = {}
         self._infinity_io_flag = ["N/A"]
         self._xlsx_trailing_empty_rows = ["prune"]
+        self._duplicates_ticdat_init = ["assert"]
         self._none_as_infinity_bias_cache = {}
         self._isFrozen=True
+
+    @property
+    def duplicates_ticdat_init(self):
+        """
+        see __doc__ for set_duplicates_ticdat_init
+        """
+        return self._duplicates_ticdat_init[0]
+    def set_duplicates_ticdat_init(self, value):
+        """
+        Set the duplicates_ticdat_init for the TicDatFactory. Choices are:
+        --> 'assert' : an assert is raised if duplicate rows are passed to TicDat.__init__
+        --> 'warn'   : emit a warning if duplicate rows are passed to TicDat.__init__
+        --> 'ignore' : don't do anything if duplicate rows are passed to TicDat.__init__
+        :param value: either 'assert', 'warn' or 'ignore'
+        :return:
+        """
+        verify(value in ["assert", "warn", "ignore"], f"bad value {value}")
+        self._duplicates_ticdat_init[0] = value
 
     @property
     def xlsx_trailing_empty_rows(self):
@@ -1249,13 +1331,18 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
 
         :return: a clone of the TicDatFactory. Returned object will based on clone_factory, if provided.
 
+        Note - If you want to remove tables via a clone, then call like this
+               tdf_new = tdf.clone(table_restrictions=set(tdf.all_tables).difference(tables_to_remove))
+               Other schema editing operations are available with clone_add_a_table, clone_add_a_column,
+               clone_remove_a_column and clone_rename_a_column.
         """
         clone_factory = clone_factory or TicDatFactory
         from ticdat import PanDatFactory
         no_copy_predicate_kwargs_maker = clone_factory == PanDatFactory
         if hasattr(clone_factory, "create_from_full_schema"):
             clone_factory = clone_factory.create_from_full_schema
-        full_schema = utils.clone_a_anchillary_info_schema(self.schema(include_ancillary_info=True), table_restrictions)
+        full_schema = utils.clone_a_anchillary_info_schema(self.schema(include_ancillary_info=True),
+                                                           table_restrictions)
         rtn = clone_factory(full_schema)
         if hasattr(rtn, "set_generator_tables"):
             rtn.set_generator_tables(self.generator_tables)
@@ -1268,6 +1355,65 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
                                                    predicate_failure_response=rpi.predicate_failure_response)
         rtn.enable_foreign_key_links() if self._foreign_key_links_enabled else None
         return rtn
+    def clone_add_a_table(self, table, pk_fields, df_fields):
+        '''
+
+        add a table to the TicDatFactory
+
+        :param table: table not in the schema
+
+        :param pk_fields: container of the primary key fields
+
+        :param df_fields: container of the data fields
+
+        :return: a clone of the TicDatFactory, with the new table added
+        '''
+        return utils.clone_add_a_table(self, table, pk_fields, df_fields)
+    def clone_add_a_column(self, table, field, field_type, field_position="append"):
+        '''
+
+        add a column to the TicDatFactory
+
+        :param table: table in the schema
+
+        :param field: name of the new field to be added
+
+        :param field_type: either "primary key" or "data"
+
+        :param field_position: integer between 0 and the length of self.primary_key_fields[table] (if "primary key")
+                               or self.data_fields[table] (if "data"), inclsuive.
+                               Alternately, can be "append", which will just insert the column at the end of the
+                               appropriate list.
+
+        :return: a clone of the TicDatFactory, with field inserted into location field_position for field_type
+        '''
+        return utils.clone_add_a_column(self, table, field, field_type, field_position)
+    def clone_rename_a_column(self, table, field, new_field):
+        '''
+        rename a column in the TicDatFactory
+
+        :param table: table in the schema
+
+        :param field: name of the field to be removed
+
+        :param new_field: new name for the field
+
+        :return: a clone of the TicDatFactory, with field renamed to new_field. Data types, default values and
+                 foreign keys will reflect the new field name, but row predicates will be copied over as-is (and thus you will need
+                 to re-create them as needed).
+        '''
+        return utils.clone_rename_a_column(self, table, field, new_field)
+    def clone_remove_a_column(self, table, field):
+        '''
+        remove a column from the TicDatFactory
+
+        :param table: table in the schema
+
+        :param field: name of the field to be removed
+
+        :return: a clone of the TicDatFactory, with field removed
+        '''
+        return utils.clone_remove_a_column(self, table, field)
     def copy_tic_dat(self, tic_dat, freeze_it = False):
         """
         copies the tic_dat object into a new tic_dat object

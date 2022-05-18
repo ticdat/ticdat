@@ -10,12 +10,17 @@ import getopt
 import sys
 import os
 from collections import namedtuple
+import time
 import datetime as datetime_
 try:
     import dateutil, dateutil.parser
 except:
     dateutil = None
-
+import json
+try:
+    import roundoffconnect
+except:
+    roundoffconnect = None
 try:
     import pandas as pd
     from pandas import DataFrame
@@ -69,98 +74,155 @@ def faster_df_apply(df, func, trip_wire_check=None):
     # will default to float for empty Series, like original pandas
     return pd.Series(data, index=index, **({"dtype": numpy.float64} if not data else {}))
 
-def dat_restricted(table_list):
-    '''
-    Decorator factory used to decorate action functions (or solve function) to restrict the access to the
-    tables in the input_schema
-    :param table_list: A list of tables that are a subset input_schema.all_tables
-    :return: A decorator that can be applied to a function to fine-tune how ticdat controls its access to the
-             input_schema
-    Example usage
-        @dat_restricted(['table_one', 'table_five'])
-        def some_action(dat):
-           # the action
-        ticdat will pass a dat object that only has table_one and table_five as attributes. If a dat object
-        is returned back for writing, any attributes other than table_one, table_five will be ignored.
-    Note that the input_schema is not known by this decorator_factory, and thus table_list can't be sanity checked
-    at the time the function is decorated. ticdat will sanity check the table_list when the decorated function is
-    used by ticdat.standard_main (the Enframe-ticdat code will also perform an equivalent check, as will any ticdat
-    supporting platform).
-    As the function will be decorated with a dat_restricted attribute, a programmer is allowed to avoid the decorator
-    factory and simply do the following instead.
-        def some_action(dat):
-           # the action
-        some_action.dat_restricted = table_list
-    Although  this will work the same, you are encouraged to use the dat_restricted decorator factory for better
-    readability.
-    dat_restricted can be used to decorate the solve function, in which case standard_main and Enframe will do the
-    expected thing and pass a dat object that is restricted to table_list.
-    '''
-    verify(containerish(table_list) and table_list and all(isinstance(_, str) for _ in table_list),
-           "table_list needs to be a non-empty container of strings")
-    def dat_restricted_decorator(func): # no need to use functools.wraps since not actually wrapping.
-        func.dat_restricted = tuple(table_list)
-        return func
-    return dat_restricted_decorator
+def set_tooltip(tdf_pdf, table, field, tooltip, tooltips_dict):
+    verify(table in tdf_pdf.all_tables, f"Unrecognized table name {table}")
+    verify(field == "" or field in tdf_pdf.data_fields[table] + tdf_pdf.primary_key_fields[table],
+           f"{field} is neither the empty string, nor does it refer to a field for {table}")
+    verify(isinstance(tooltip, str), "tooltip argument needs to be a string")
+    dict_key = (table, field) if field else table
+    if not tooltip:
+        tooltips_dict.pop(dict_key, "")
+    else:
+        tooltips_dict[dict_key] = tooltip
 
-def sln_restricted(table_list):
-    '''
-    Decorator factory used to decorate action functions (or solve function) to restrict the access to the
-    tables in the solution_schema
-    :param table_list: A list of tables that are a subset solution_schema.all_tables
-    :return: A decorator that can be applied to a function to fine-tune how ticdat controls its access to the
-             solution_schema
-    Example usage
-        @sln_restricted(['table_one', 'table_five'])
-        def some_action(sln):
-           # the action
-        ticdat will pass a sln object that only has table_one and table_five as attributes. If {"sln":sln}
-        is returned back for writing, any sln attributes other than table_one, table_five will be ignored.
-    Note that the solution_schema is not known by this decorator_factory, and thus table_list can't be sanity checked
-    at the time the function is decorated. ticdat will sanity check the table_list when the decorated function is
-    used by ticdat.standard_main (the Enframe-ticdat code will also perform an equivalent check, as will any ticdat
-    supporting platform).
-    As the function will be decorated with a sln_restricted attribute, a programmer is allowed to avoid the decorator
-    factory and simply do the following instead.
-        def some_action(sln):
-           # the action
-        some_action.sln_restricted = table_list
-    Although  this will work the same, you are encouraged to use the sln_restricted decorator factory for better
-    readability.
-    sln_restricted can be used to decorate the solve function, in which case standard_main and Enframe will do the
-    expected thing and handle only the table_list attributes of the returned sln object.
-    '''
-    verify(containerish(table_list) and table_list and all(isinstance(_, str) for _ in table_list),
-           "table_list needs to be a non-empty container of strings")
-    def sln_restricted_decorator(func): # no need to use functools.wraps since not actually wrapping.
-        func.sln_restricted = tuple(table_list)
-        return func
-    return sln_restricted_decorator
+def make_tooltips_dict_json_friendly(tooltips_dict):
+    rtn = defaultdict(dict)
+    for k, v in tooltips_dict.items():
+        if isinstance(k, str):
+            rtn[k][""] = v
+        else:
+            rtn[k[0]][k[1]] = v
+    return dict(rtn)
 
-def clone_a_anchillary_info_schema(schema, table_restrictions):
+def clone_add_a_column(tdf_pdf, table, field, field_type, field_position="append"):
+    verify(table in tdf_pdf.all_tables, "Unrecognized table name %s" % table)
+    verify(isinstance(field, str), "field needs to be a string")
+    verify(field_type in ['primary key', 'data'], "field_type needs to be 'primary key' or 'data'")
+    current_fields = getattr(tdf_pdf, {"primary key": "primary_key_fields", "data": "data_fields"}[field_type])
+    verify(field not in current_fields, f"{field} already present in {current_fields}")
+    if field_position == "append":
+        field_position = len(current_fields)
+    verify(0 <= field_position <= len(current_fields),
+           f"field_positon needs to be between 0 and {len(current_fields)}, inclusive")
+    def clone_factory(full_schema):
+        full_schema = clone_a_anchillary_info_schema(full_schema, table_restrictions=set(tdf_pdf.all_tables))
+        full_schema["tables_fields"][table][{"primary key": 0, "data": 1}[field_type]].insert(field_position, field)
+        return tdf_pdf.create_from_full_schema(full_schema)
+    return tdf_pdf.clone(clone_factory=clone_factory)
+
+def clone_remove_a_column(tdf_pdf, table, field):
+    verify(table in tdf_pdf.all_tables, "Unrecognized table name %s" % table)
+    verify(field in tdf_pdf.primary_key_fields[table] + tdf_pdf.data_fields[table],
+           f"field needs to be one of {tdf_pdf.primary_key_fields[table] + tdf_pdf.data_fields[table]}")
+    def clone_factory(full_schema):
+        full_schema = clone_a_anchillary_info_schema(full_schema, table_restrictions=set(tdf_pdf.all_tables),
+                                                     fields_to_remove=[[table, field]])
+        return tdf_pdf.create_from_full_schema(full_schema)
+    return tdf_pdf.clone(clone_factory=clone_factory)
+
+def clone_add_a_table(tdf_pdf, table, pk_fields, df_fields):
+    verify(table not in tdf_pdf.all_tables, f"{table} isn't a new table")
+    verify(containerish(pk_fields) and all(isinstance(_, str) for _ in pk_fields),
+           "pk_fields needs to be a container of strings")
+    verify(containerish(df_fields) and all(isinstance(_, str) for _ in df_fields),
+           "df_fields needs to be a container of strings")
+    verify(pk_fields or df_fields, "Need to specify at least one field.")
+    def clone_factory(full_schema):
+        full_schema = clone_a_anchillary_info_schema(full_schema, table_restrictions=set(tdf_pdf.all_tables))
+        full_schema["tables_fields"][table] = [list(pk_fields), list(df_fields)]
+        return tdf_pdf.create_from_full_schema(full_schema)
+    return tdf_pdf.clone(clone_factory=clone_factory)
+
+def clone_rename_a_column(tdf_pdf, table, field, new_field):
+    verify(table in tdf_pdf.all_tables, "Unrecognized table name %s" % table)
+    verify(field in tdf_pdf.primary_key_fields[table] + tdf_pdf.data_fields[table],
+           f"field needs to be one of {tdf_pdf.primary_key_fields[table] + tdf_pdf.data_fields[table]}")
+    if field in tdf_pdf.primary_key_fields[table]:
+        args = ("primary key", tdf_pdf.primary_key_fields[table].index(field))
+    else:
+        args = ("data", tdf_pdf.data_fields[table].index(field))
+    verify(new_field not in tdf_pdf.primary_key_fields[table] + tdf_pdf.data_fields[table],
+           f"new_field cannot be one of {tdf_pdf.primary_key_fields[table] + tdf_pdf.data_fields[table]}")
+    rtn = clone_add_a_column(clone_remove_a_column(tdf_pdf, table, field), table, new_field, *args)
+    if field in tdf_pdf.data_types.get(table, {}):
+        rtn.set_data_type(table, new_field, *tdf_pdf.data_types[table][field])
+    if field in tdf_pdf.default_values.get(table, {}):
+        rtn.set_default_value(table, new_field, tdf_pdf.default_values[table][field])
+    for fk in tdf_pdf.foreign_keys:
+        def needs_renaming(mp):
+            if hasattr(mp, "native_field"):
+                return (table, field) in {(fk.native_table, mp.native_field), (fk.foreign_table, mp.foreign_field)}
+            return any(needs_renaming(_) for _ in mp) if containerish(mp) else False
+        def do_renaming(mp):
+            field_renaming = lambda _t, _f: new_field if (_t, _f) == (table, field) else _f
+            if hasattr(mp, "native_field"):
+                return (field_renaming(fk.native_table, mp.native_field),
+                        field_renaming(fk.foreign_table, mp.foreign_field))
+            return tuple(do_renaming(_) for _ in mp)if containerish(mp) else mp
+        if needs_renaming(fk.mapping):
+            rtn.add_foreign_key(fk.native_table, fk.foreign_table, do_renaming(fk.mapping))
+    return rtn
+
+def clone_a_anchillary_info_schema(schema, table_restrictions, fields_to_remove=None):
     '''
     :param schema: the result of calling _.schema(include_ancillary_info=True) when _ is a
     TicDatFactory or PanDatFactory
-    :param table_restrictions: None (indicating a simple clone) or a sublist of the tables in schema.
-    :return: a clone of schema, except with the tables outside of table_restrictions removed (unlesss
-    table_restrictions is None, in which case schema is returned).
+    :param table_restrictions: None or a partial list of the tables in schema. If the latter, then this is a white-list
+                               of tables to keep, and all the other tables to be removed.
+    :param fields_to_remove: None or a list of (table, fields) pairs specifying which fields need to be removed
+    :return: a clone of schema, except with the tables outside of table_restrictions removed, and the (table, field)
+             pairs inside of field restrictions removed
+             (if all those arguments are None, then schema is returned).
+    Note - See also clone_add_a_table, clone_add_a_column, clone_remove_a_column and clone_rename_a_column.
     '''
-    if table_restrictions is None:
+    if all(_ is None for _ in [table_restrictions, fields_to_remove]):
         return schema
+    verify(dictish(schema) and schema.get("tables_fields") and isinstance(schema["tables_fields"], dict),
+           "schema has missing or invalid tables_fields entry")
+    table_restrictions = table_restrictions or set(schema["tables_fields"])
     verify(containerish(table_restrictions) and table_restrictions and
            all(isinstance(_, str) for _ in table_restrictions), "table_restrictions needs to be a container of strings")
-    verify(dictish(schema) and set(table_restrictions).issubset(schema.get("tables_fields", [])),
+    def clean_up_set_of_str_pairs(x, name):
+        x = x or []
+        verify(containerish(x) and all(containerish(_) and len(_) == 2 and
+                                       all(isinstance(__, str) for __ in _) for _ in x),
+               f"{name} needs to be a container whose entries are string pairs")
+        return {tuple(_) for _ in x}
+    fields_to_remove = clean_up_set_of_str_pairs(fields_to_remove, "fields_to_remove")
+    verify(set(table_restrictions).issubset(schema["tables_fields"]),
            "table_restrictions needs to be a subset of schema['tables_fields']")
+    all_fields = {(t, f) for t, (pks, dfs) in schema["tables_fields"].items() for f in pks + dfs}
+    verify(fields_to_remove.issubset(all_fields),
+           "fields_to_remove needs to be a subset of the aggregate field set in schema['tables_fields']")
     rtn = {}
     for k, v in schema.items():
-        if k in ["tables_fields", "default_values", "data_types"]:
-            rtn[k] = {_k:_v for _k, _v in v.items() if _k in table_restrictions}
+        if k == "tables_fields":
+            rtn[k] = {}
+            for t, (pks, dfs) in schema[k].items():
+                if t in table_restrictions:
+                    pks = [f for f in pks if (t, f) not in fields_to_remove]
+                    dfs = [f for f in dfs if (t, f) not in fields_to_remove]
+                    rtn[k][t] = [pks, dfs]
+        elif k in ["default_values", "data_types", "tooltips"]:
+            rtn[k] = {_k:dict(_v) for _k, _v in v.items() if _k in table_restrictions}
+            for t, f in fields_to_remove:
+                if f in rtn[k].get(t, {}):
+                    rtn[k][t].pop(f)
         elif k == "foreign_keys":
-            rtn[k] = tuple(fk for fk in v if set(fk[:2]).issubset(table_restrictions))
+            def good_fk(fk):
+                if set(fk[:2]).issubset(table_restrictions):
+                    def good_mapping(mp):
+                        return (fk.native_table, mp.native_field) not in fields_to_remove and \
+                               (fk.foreign_table, mp.foreign_field) not in fields_to_remove
+                    if hasattr(fk.mapping, "native_field") and hasattr(fk.mapping, "foreign_field"):
+                        return good_mapping(fk.mapping)
+                    return all(good_mapping(_) for _ in fk.mapping)
+            rtn[k] = tuple(fk for fk in v if good_fk(fk))
         elif k == "parameters":
             rtn[k] = v if k in table_restrictions else {}
         else:
-            assert k in {"infinity_io_flag", "xlsx_trailing_empty_rows"}, f"{k} is unexpected part of schema"
+            assert k in {"infinity_io_flag", "xlsx_trailing_empty_rows", "duplicates_ticdat_init"}, \
+                f"{k} is unexpected part of schema"
             rtn[k] = v
     return rtn
 
@@ -172,7 +234,7 @@ def dateutil_adjuster(x):
     def _try_to_timestamp(y):
         if pd and not numericish(y):
             rtn = safe_apply(pd.Timestamp)(y)
-            if rtn is not None:
+            if not pd.isnull(rtn):
                 return rtn
         if dateutil:
             return safe_apply(dateutil.parser.parse)(y)
@@ -197,6 +259,8 @@ class TypeDictionary(namedtuple("TypeDictionary",
         if (pd and pd.isnull(data)) or (data is None):
             return bool(self.nullable)
         if self.datetime:
+            # data is not None and dateutil_adjuster(data) is None will always be invalid, re:less of self.nullable
+            # self.nullable only refers to whether the true None can be passed.
             return isinstance(data, datetime_.datetime) or dateutil_adjuster(data) is not None
         if numericish(data):
             if not self.number_allowed:
@@ -259,16 +323,94 @@ ForeignKeyMapping = namedtuple("FKMapping", ("native_field", "foreign_field"))
 # likely replace this with some sort of sys.platform call that makes a good guess
 development_deployed_environment = False
 
-def _clone_to_restricted_as_needed(function, schema, name):
-    if not hasattr(function, name):
-        return schema, set()
-    restricted = getattr(function, name)
-    verify(containerish(restricted) and restricted and
-           all(isinstance(_, str) for _ in restricted), f"{name} needs to be a container of strings")
-    verify(set(restricted).issubset(schema.all_tables), f"{restricted} needs to be a subset of {schema.all_tables}")
-    if set(restricted) == set(schema.all_tables):
-        return schema, set()
-    return schema.clone(table_restrictions=restricted), set(restricted)
+def _integrity_solve(input_schema, dat, *, return_solution_schema_only=False):
+    verify(pd, "pandas must be installed for this functionality to work")
+    pdf = input_schema.clone(clone_factory=ticdat.PanDatFactory)
+    # need to make sure the advanced row predicates copy over to pdf as well
+    memo_dat_version_of_func = {}
+    def dat_version_of_func(func_):  # closures and lambdas are tricky, this is needed
+        if func_ not in memo_dat_version_of_func:
+            memo_dat_version_of_func[func_] = lambda *args, **kwargs: func_(dat)
+        return memo_dat_version_of_func[func_]
+    if isinstance(input_schema, ticdat.TicDatFactory):
+        for t in input_schema.all_tables:
+            for predicate_name, predicate_tuple in input_schema.get_row_predicates(t).items():
+                if predicate_tuple.predicate_kwargs_maker:
+                    pdf.add_data_row_predicate(t, predicate_tuple.predicate, predicate_name,
+                                               dat_version_of_func(predicate_tuple.predicate_kwargs_maker),
+                                               predicate_tuple.predicate_failure_response)
+
+    _id_flds = {t: (pks or dfs) for t, (pks, dfs) in input_schema.schema().items()}
+    longest_id_flds =  max(len(id_fld) for id_fld in _id_flds.values())
+    _fld_names = [f"Field {_ + 1}" for _ in range(longest_id_flds)]
+    solution_schema = ticdat.PanDatFactory(
+        duplicate_rows=[["Table Name"] + _fld_names, []],
+        data_type_failures=[["Table Name", "Field Name"] + _fld_names, []],
+        data_row_failures=[["Table Name", "Predicate Name", "Error Message"] + _fld_names, []],
+        foreign_key_failures =[["Native Table", "Foreign Table", "Mapping"] + _fld_names, []])
+    if return_solution_schema_only:
+        return solution_schema
+
+    if isinstance(input_schema, ticdat.PanDatFactory):
+        pan_dat = dat
+    else:
+        pan_dat = input_schema.copy_to_pandas(dat, reset_index=True)
+
+    def add_error_row(default_dict_object, table_, row_):
+        for f, c in zip(_fld_names, row_[:len(_id_flds[table_])]):
+            default_dict_object[f].append(c)
+        for i in range(len(_id_flds[table_]), longest_id_flds):
+            default_dict_object[_fld_names[i]].append(None)
+
+    dups = pdf.find_duplicates(pan_dat)
+    duplicate_rows = defaultdict(list)
+    for table, dup_df in dups.items():
+        for row in dup_df.itertuples(index=False):
+            duplicate_rows["Table Name"].append(table)
+            add_error_row(duplicate_rows, table, row)
+
+    dt_fails = pdf.find_data_type_failures(pan_dat)
+    data_type_failures = defaultdict(list)
+    for (table, field), dt_fail_df in dt_fails.items():
+        for row in dt_fail_df.itertuples(index=False):
+            data_type_failures["Table Name"].append(table)
+            data_type_failures["Field Name"].append(field)
+            add_error_row(data_type_failures, table, row)
+
+    fk_fails = pdf.find_foreign_key_failures(pan_dat, verbosity="Low")
+    foreign_key_failures = defaultdict(list)
+    for (native_table, foreign_table, mapping), fk_fail_df in fk_fails.items():
+        for row in fk_fail_df.itertuples(index=False):
+            foreign_key_failures["Native Table"].append(native_table)
+            foreign_key_failures["Foreign Table"].append(foreign_table)
+            foreign_key_failures["Mapping"].append(str(mapping))
+            add_error_row(foreign_key_failures, native_table, row)
+
+    dr_fails = pdf.find_data_row_failures(pan_dat)
+    data_row_failures = defaultdict(list)
+    for (table, predicate), bad_rows in dr_fails.items():
+        if hasattr(bad_rows, "primary_key") and hasattr(bad_rows, "error_message"):
+            data_row_failures["Table Name"].append(table)
+            data_row_failures["Predicate Name"].append(predicate)
+            data_row_failures["Error Message"].append(bad_rows.error_message)
+            for f in _fld_names:
+                data_row_failures[f].append(None)
+        else:
+            for row in bad_rows.itertuples(index=False):
+                data_row_failures["Table Name"].append(table)
+                data_row_failures["Predicate Name"].append(predicate)
+                error_message = None
+                if len(row) > len(input_schema.primary_key_fields[table] + input_schema.data_fields[table]):
+                    error_message = row[-1]
+                data_row_failures["Error Message"].append(error_message)
+                add_error_row(data_row_failures, table, row)
+
+    if duplicate_rows or data_type_failures or foreign_key_failures or data_row_failures:
+        return solution_schema.PanDat(duplicate_rows=duplicate_rows, data_type_failures=data_type_failures,
+                                      foreign_key_failures=foreign_key_failures, data_row_failures=data_row_failures)
+
+     # None is returned when no integrity errors were found
+
 def standard_main(input_schema, solution_schema, solve, case_space_table_names=False):
     """
      provides standardized command line functionality for a ticdat solve engine
@@ -290,7 +432,7 @@ def standard_main(input_schema, solution_schema, solve, case_space_table_names=F
 
     Implements a command line signature of
 
-    "python engine_file.py --input <input_file_or_dir> --output <output_file_or_dir>"
+    "python engine_file.py --input <input_file_or_dir> --output <output_file_or_dir> --roundoff <roundoff config file>"
 
     For the input/output command line arguments.
 
@@ -311,8 +453,9 @@ def standard_main(input_schema, solution_schema, solve, case_space_table_names=F
         model will be stored in a directory containing a series of .csv files)
 
     Defaults are input.xlsx, output.xlsx
+
+    The roundoff config file is optional. See ticdat wiki for a description of the roundoff config file.
     """
-    # See EnframeOfflineHandler for  details for how to configure the enframe.json file
     verify(all(isinstance(_, ticdat.TicDatFactory) for _ in (input_schema, solution_schema)) or
            all(isinstance(_, ticdat.PanDatFactory) for _ in (input_schema, solution_schema)),
                "input_schema and solution_schema both need to be TicDatFactory (or PanDatFactory) objects")
@@ -325,15 +468,15 @@ def standard_main(input_schema, solution_schema, solve, case_space_table_names=F
         create_routine = "create_tic_dat"
     file_name = sys.argv[0]
     def usage():
-        print ("python %s --help --input <input file or dir> --output <output file or dir>"%file_name +
-               " --enframe <enframe_config.json> --action <action_function>")
+        print (f"python {file_name} --help --input <input file or dir> --output <output file or dir> " +
+               "--roundoff <roundoff config file>")
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "hi:o:e:a:", ["help", "input=", "output=", "enframe=", "action="])
+        opts, args = getopt.getopt(sys.argv[1:], "hi:o:r:e:", ["help", "input=", "output=", "roundoff=", "errors="])
     except getopt.GetoptError as err:
         print (str(err))  # will print something like "option -a not recognized"
         usage()
         sys.exit(2)
-    input_file, output_file, enframe_config, enframe_handler, action_name = "input.xlsx", "output.xlsx", "", None, None
+    input_file, output_file, roundoff_file, error_file = "input.xlsx", "output.xlsx", None, None
     for o, a in opts:
         if o in ("-h", "--help"):
             usage()
@@ -342,124 +485,114 @@ def standard_main(input_schema, solution_schema, solve, case_space_table_names=F
             input_file = a
         elif o in ("-o", "--output"):
             output_file = a
-        elif o in ("-e", "--enframe"):
-            enframe_config = a
-        elif o in ("-a", "--action"):
-            action_name = a
+        elif o in ("-r", "--roundoff"):
+            roundoff_file = a
+        elif o in ("-e", "--errors"):
+            error_file = a
         else:
             verify(False, "unhandled option")
-    original_input_schema = input_schema
-    if action_name:
-        module = sys.modules[solve.__module__.split('.')[0]]
-        verify(hasattr(module, action_name), f"{action_name} is not an attribute of the module")
-        action_func = getattr(module, action_name)
-        verify(callable(action_func), f"{action_name} is not callable")
-        action_func_args = inspect.getfullargspec(action_func).args
-        verify({"dat", "sln"}.intersection(action_func_args),
-               f"{action_name} needs at least one of 'dat', 'sln' as arguments")
-        input_schema, input_restrictions = _clone_to_restricted_as_needed(action_func, input_schema, "dat_restricted")
-        solution_schema, solution_restrictions = _clone_to_restricted_as_needed(action_func, solution_schema,
-                                                                                "sln_restricted")
-    else:
-        input_schema, input_restrictions = _clone_to_restricted_as_needed(solve, input_schema, "dat_restricted")
-        solution_schema, solution_restrictions = _clone_to_restricted_as_needed(solve, solution_schema,
-                                                                                "sln_restricted")
 
-    if enframe_config:
-        enframe_handler = make_enframe_offline_handler(enframe_config, input_schema, solution_schema,
-                                                       solve if not action_name else action_func)
-        if enframe_handler.solve_type.lower() ==  "Copy Input to Postgres".lower():
-            input_schema, input_restrictions = original_input_schema, set()
-        if "solve" in enframe_handler.solve_type.lower() and solution_restrictions:
-            print("\nNote - only the following subset of tables will be written to the local Enframe DB\n" +
-                  str(solution_restrictions) + "\n")
-        verify(enframe_handler, "-e/--enframe command line functionality requires additional Enframe specific package")
-        if enframe_handler.solve_type == "Proxy Enframe Solve":
-            if action_name:
-                enframe_handler.perform_action_with_function()
-            else:
-                enframe_handler.proxy_enframe_solve()
-            print(f"Enframe proxy solve executed with {enframe_config}" +
-                  (f" and action {action_name}" if action_name else ""))
-            return
+    if roundoff_file and error_file:
+        print("The -r and -e command line arguments are incompatible. Use one, or the other, or neither, but not both.")
 
     recognized_extensions = (".json", ".xls", ".xlsx", ".db")
     if create_routine == "create_tic_dat":
         recognized_extensions += (".sql", ".mdb", ".accdb")
+
+    roundoff_based_solve = None
+    if roundoff_file:
+        verify(roundoffconnect, "roundoffconnect not installed")
+        if not os.path.isfile(roundoff_file):
+            print("%s is not a valid roundoff file"%roundoff_file)
+            return
+        with open(roundoff_file, "r") as f:
+            roundoff_dict = json.load(f)
+        verify(isinstance(roundoff_dict, dict) and set(roundoff_dict).issuperset(["app_id", "server", "token"]),
+               f"{roundoff_file} failed to resolve to a proper json dict")
+        valid_modes = ["upload and solve", "upload only", "download from scenario"]
+        roundoff_mode = roundoff_dict.get("mode", valid_modes[0])
+        verify(roundoff_mode in valid_modes, f"mode entry from {roundoff_file} needs to be one of {valid_modes}")
+        con = roundoffconnect.AppConnect(*(roundoff_dict[_] for _ in ["server", "token", "app_id"]))
+        print(f"Connection established with Roundoff app {con.app_name} on server {roundoff_dict['server']}")
+        EngineProxy = namedtuple("EngineProxy", ["input_schema", "solution_schema", "solve"])
+        dummy_engine = EngineProxy(input_schema, solution_schema, solve)
+        engine_on_roundoff = roundoffconnect.TicDatConnector(con, dummy_engine)
+        def roundoff_upload(dat):
+            upload_kwargs = {"scenario_name": roundoff_dict["scenario"]} if "scenario" in roundoff_dict else {}
+            new_scenario_id = engine_on_roundoff.upload_input_dat(dat, **upload_kwargs)
+            print(f"Loaded data into Roundoff scenario {con.current_scenarios()[new_scenario_id]}")
+            return new_scenario_id
+        if roundoff_mode == "upload and solve":
+            def roundoff_based_solve(dat):
+                new_scenario_id = roundoff_upload(dat)
+                con.launch_solve(new_scenario_id)
+                while con.is_solving_underway(new_scenario_id):
+                    time.sleep(1)
+                    print("Solving on Roundoff...")
+                print(f"Downloading solution from Roundoff scenario {con.current_scenarios()[new_scenario_id]}")
+                return engine_on_roundoff.download_solution(new_scenario_id)
+        elif roundoff_mode == "upload only":
+            roundoff_based_solve = lambda dat: roundoff_upload(dat) and None
+            output_file = None
+        else:
+            def roundoff_based_solve():
+                verify("scenario" in roundoff_dict, "'download from scenario' mode requires a 'scenario' entry")
+                print(f"Downloading solution from Roundoff scenario {roundoff_dict['scenario']}")
+                return engine_on_roundoff.download_solution(roundoff_dict["scenario"])
+            input_file = None
+
     file_or_dir = lambda f: "file" if any(f.endswith(_) for _ in recognized_extensions) else "directory"
-    if not (os.path.exists(input_file)):
-        print("%s is not a valid input file or directory"%input_file)
-        return
-
-    print("input data from %s %s"%(file_or_dir(input_file), input_file))
-    dat = _get_dat_object(tdf=input_schema, create_routine=create_routine, file_path=input_file,
-                          file_or_directory=file_or_dir(input_file),
-                          check_for_dups=create_routine == "create_tic_dat")
-    if enframe_handler:
-        enframe_handler.copy_input_dat(dat)
-        print(f"Input data copied from {input_file} to the postgres DB defined by {enframe_config}")
-        if enframe_handler.solve_type == "Copy Input to Postgres and Solve":
-            if action_name:
-                enframe_handler.perform_action_with_function()
-            else:
-                enframe_handler.proxy_enframe_solve()
-            print(f"Enframe proxy solve executed with {enframe_config}" +
-                  (f" and action {action_name}" if action_name else ""))
-        return
-
-    print("output %s %s"%(file_or_dir(output_file), output_file))
-    write_func, write_kwargs = _get_write_function_and_kwargs(tdf=solution_schema, file_path=output_file,
-                                                              file_or_directory=file_or_dir(output_file),
-                                                              case_space_table_names=case_space_table_names)
-    if not action_name:
-        sln = solve(dat)
-        verify(not (sln is not None and safe_apply(bool)(sln) is None),
-               "The solve (or action) function should return either a TicDat/PanDat object (for success), " +
-               "or something falsey (to indicate failure)")
-        if sln:
-            print("%s output %s %s"%("Overwriting" if os.path.exists(output_file) else "Creating",
-                                     file_or_dir(output_file), output_file))
-            write_func(sln, output_file, **write_kwargs)
-        else:
-            print("No solution was created!")
-        return
-    print("solution data from %s %s"%(file_or_dir(output_file), output_file))
-
-    kwargs = {}
-    if "dat" in action_func_args:
-        kwargs["dat"] = dat
-    if "sln" in action_func_args:
-        sln = _get_dat_object(tdf=solution_schema, create_routine=create_routine, file_path=output_file,
-                              file_or_directory=file_or_dir(output_file),
+    dat = None
+    if input_file:
+        if not (os.path.exists(input_file)):
+            print("%s is not a valid input file or directory" % input_file)
+            return
+        print("input data from %s %s"%(file_or_dir(input_file), input_file))
+        dat = _get_dat_object(tdf=input_schema, create_routine=create_routine, file_path=input_file,
+                              file_or_directory=file_or_dir(input_file),
                               check_for_dups=create_routine == "create_tic_dat")
-        kwargs["sln"] = sln
-    rtn = action_func(**kwargs)
-    def quickie_good_obj(dat, tdf):
-        return all(hasattr(dat, t) for t in tdf.all_tables)
-    def dat_write(dat):
-        w_func, w_kwargs = _get_write_function_and_kwargs(tdf=input_schema, file_path=input_file,
-                                                          file_or_directory=file_or_dir(input_file),
-                                                          case_space_table_names=case_space_table_names)
-        print("%s input %s %s" % ("Overwriting" if os.path.exists(input_file) else "Creating",
-                                   file_or_dir(input_file), input_file))
-        w_func(dat, input_file, **w_kwargs)
-    if rtn:
-        if isinstance(rtn, dict):
-            verify({"dat", "sln"}.intersection(rtn), "The returned dict is missing both 'dat' and 'sln' keys")
-            if "dat" in rtn:
-                verify(quickie_good_obj(rtn["dat"], input_schema), "rtn['dat'] fails sanity check")
 
-                dat_write(rtn["dat"])
-            if "sln" in rtn:
-                verify(quickie_good_obj(rtn["sln"], solution_schema), "rtn['sln'] fails sanity check")
-                print("%s output %s %s" % ("Overwriting" if os.path.exists(output_file) else "Creating",
-                                           file_or_dir(output_file), output_file))
-                write_func(rtn["sln"], output_file, **write_kwargs)
+    write_sln_func, write_sln_kwargs = (None, None)
+    if output_file:
+        print("output %s %s"%(file_or_dir(output_file), output_file))
+        write_sln_func, write_sln_kwargs = _get_write_function_and_kwargs(tdf=solution_schema, file_path=output_file,
+                                                                  file_or_directory=file_or_dir(output_file),
+                                                                  case_space_table_names=case_space_table_names)
+
+    if error_file:
+        write_err_func, write_err_kwargs = _get_write_function_and_kwargs(
+            tdf=_integrity_solve(input_schema, None, return_solution_schema_only=True),
+            file_path=error_file, file_or_directory=file_or_dir(error_file),
+            case_space_table_names=case_space_table_names)
+        print("checking for data integrity errors")
+        err_sln = _integrity_solve(input_schema, dat)
+        if err_sln:
+            print("%s integrity errors %s %s" % ("Overwriting" if os.path.exists(error_file) else "Creating",
+                                       file_or_dir(error_file), error_file))
+            write_err_func(err_sln, error_file, **write_err_kwargs)
+            return
         else:
-            verify(quickie_good_obj(rtn, input_schema), "rtn fails sanity check")
-            dat_write(rtn)
+            print("no data integrity errors found - will run solve next")
+
+
+    if roundoff_based_solve is None:
+        sln = solve(dat)
+    elif output_file:
+        sln = roundoff_based_solve(*([dat] if input_file else []))
     else:
-        print(f"{action_func} failed to return anything!")
+        roundoff_based_solve(dat)
+        print(f"Returning without solving, as requested by the 'upload only' mode from {roundoff_file}")
+        return
+
+    verify(not (sln is not None and safe_apply(bool)(sln) is None),
+           "The solve (or action) function should return either a TicDat/PanDat object (for success), " +
+           "or something falsey (to indicate failure)")
+    if sln:
+        print("%s output %s %s"%("Overwriting" if os.path.exists(output_file) else "Creating",
+                                 file_or_dir(output_file), output_file))
+        write_sln_func(sln, output_file, **write_sln_kwargs)
+    else:
+        print("No solution was created!")
 
 def _get_dat_object(tdf, create_routine, file_path, file_or_directory, check_for_dups):
     def inner_f():
@@ -512,17 +645,6 @@ def _extra_input_file_check_str(input_file):
         return "\nTo load data from .csv files, pass the directory containing the .csv files as the " +\
                "command line argument."
     return ""
-
-def make_enframe_offline_handler(enframe_config, input_schema, solution_schema, core_func):
-    try:
-        from framework_utils.ticdat_deployer import EnframeOfflineHandler
-    except:
-        try:
-            from enframe_offline_handler import EnframeOfflineHandler
-        except:
-            EnframeOfflineHandler = None
-    if EnframeOfflineHandler:
-        return EnframeOfflineHandler(enframe_config, input_schema, solution_schema, core_func)
 
 def verify(b, msg) :
     """
@@ -879,9 +1001,34 @@ def deep_freeze(x) :
         return tuple(map(deep_freeze, x))
     return frozenset(map(deep_freeze,x))
 
+def deep_copy(x):
+    '''
+    useful utility function for copying the the sort of nested dictionary and list objects that I end up using with
+    schema manipulations. Can also function as an unfreeze.
+    :param x: the object to deep copy. should be nested dicts, tuples, lists or TicDatFactory/PanDatFactory
+    :return: a deep (and unfrozen, other than tuples) copy of x
+    '''
+    if isinstance(x, (tuple, str, bool)) or numericish(x) or x is None:
+        return x # tuples are frozen anyway
+    if isinstance(x, frozenset):
+        return frozenset({deep_copy(y) for y in x})
+    if isinstance(x, set):
+        return {deep_copy(y) for y in x}
+    if isinstance(x, list):
+        return [deep_copy(y) for y in x]
+    if pd and isinstance(x, pd.DataFrame):
+       return x.copy(deep=True)
+    if isinstance(x, dict) or dictish(x):
+        return {deep_copy(k): deep_copy(v) for k, v in x.items()}
+    if isinstance(x, (ticdat.TicDatFactory, ticdat.PanDatFactory)):
+        return x.clone()
+    if callable(x):
+        return x
+    verify(False, f"Unexpected object {x}")
 
-def td_row_factory(table, key_field_names, data_field_names, default_values={}):
-    assert dictish(default_values) and set(default_values).issubset(data_field_names)
+def td_row_factory(table, key_field_names, data_field_names, default_values=None):
+    default_values = default_values or {}
+    assert dictish(default_values) and set(default_values).issubset(set(key_field_names).union(data_field_names))
     assert not set(key_field_names).intersection(data_field_names)
     if not data_field_names:
          # need a freezeable dict not a frozen dict here so can still link foreign keys

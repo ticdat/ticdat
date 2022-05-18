@@ -105,7 +105,9 @@ class PanDatFactory(object):
                 "data_types" : self.data_types,
                 "parameters": self.parameters,
                 "infinity_io_flag": self.infinity_io_flag,
-                "xlsx_trailing_empty_rows": self.xlsx_trailing_empty_rows}
+                "xlsx_trailing_empty_rows": self.xlsx_trailing_empty_rows,
+                "duplicates_ticdat_init": self.duplicates_ticdat_init,
+                "tooltips": utils.make_tooltips_dict_json_friendly(self.tooltips)}
     @staticmethod
     def create_from_full_schema(full_schema):
         """
@@ -120,7 +122,8 @@ class PanDatFactory(object):
         """
         old_schema = {"tables_fields", "foreign_keys", "default_values", "data_types"}
         verify(dictish(full_schema) and set(full_schema).issuperset(old_schema) and set(full_schema) in
-               utils.all_subsets(old_schema.union({"parameters", "infinity_io_flag", "xlsx_trailing_empty_rows"})),
+               utils.all_subsets(old_schema.union({"parameters", "infinity_io_flag", "xlsx_trailing_empty_rows",
+                                                   "duplicates_ticdat_init", "tooltips"})),
                "full_schema should be the result of calling schema(True) for some PanDatFactory")
         fks = full_schema["foreign_keys"]
         verify( (not fks) or (lupish(fks) and all(lupish(_) and len(_) >= 3 for _ in fks)),
@@ -157,6 +160,12 @@ class PanDatFactory(object):
             rtn.set_infinity_io_flag(full_schema["infinity_io_flag"])
         if "xlsx_trailing_empty_rows" in full_schema:
             rtn.set_xlsx_trailing_empty_rows(full_schema["xlsx_trailing_empty_rows"])
+        if "duplicates_ticdat_init" in full_schema:
+            rtn.set_duplicates_ticdat_init(full_schema["duplicates_ticdat_init"])
+        if "tooltips" in full_schema:
+            for t, tip_dict in full_schema["tooltips"].items():
+                for f, tip in tip_dict.items():
+                    rtn.set_tooltip(t, f, tip)
         return rtn
     def clone(self, table_restrictions=None, clone_factory=None):
         """
@@ -173,13 +182,19 @@ class PanDatFactory(object):
                                won't be copied over.
 
         :return: a clone of the PanDatFactory. Returned object will be based on clone_factory, if provided.
+
+        Note - If you want to remove tables via a clone, then call like this
+               pdf_new = pdf.clone(table_restrictions=set(pdf.all_tables).difference(tables_to_remove))
+               Other schema editing operations are available with clone_add_a_table, clone_add_a_column,
+               clone_remove_a_column and clone_rename_a_column.
         """
         clone_factory = clone_factory or PanDatFactory
         from ticdat import TicDatFactory
         no_copy_predicate_kwargs_maker = clone_factory == TicDatFactory
         if hasattr(clone_factory, "create_from_full_schema"):
             clone_factory = clone_factory.create_from_full_schema
-        full_schema = utils.clone_a_anchillary_info_schema(self.schema(include_ancillary_info=True), table_restrictions)
+        full_schema = utils.clone_a_anchillary_info_schema(self.schema(include_ancillary_info=True),
+                                                           table_restrictions)
         rtn = clone_factory(full_schema)
         for tbl, row_predicates in self._data_row_predicates.items():
             if table_restrictions is None or tbl in table_restrictions:
@@ -189,6 +204,65 @@ class PanDatFactory(object):
                                                    predicate_kwargs_maker=rpi.predicate_kwargs_maker,
                                                    predicate_failure_response=rpi.predicate_failure_response)
         return rtn
+    def clone_add_a_table(self, table, pk_fields, df_fields):
+        '''
+
+        add a table to the PanDatFactory
+
+        :param table: table not in the schema
+
+        :param pk_fields: container of the primary key fields
+
+        :param df_fields: container of the data fields
+
+        :return: a clone of the PanDatFactory, with the new table added
+        '''
+        return utils.clone_add_a_table(self, table, pk_fields, df_fields)
+    def clone_add_a_column(self, table, field, field_type, field_position="append"):
+        '''
+
+        add a column to the PanDatFactory
+
+        :param table: table in the schema
+
+        :param field: name of the new field to be added
+
+        :param field_type: either "primary key" or "data"
+
+        :param field_position: integer between 0 and the length of self.primary_key_fields[table] (if "primary key")
+                               or self.data_fields[table] (if "data"), inclsuive.
+                               Alternately, can be "append", which will just insert the column at the end of the
+                               appropriate list.
+
+        :return: a clone of the PanDatFactory, with field inserted into location field_position for field_type
+        '''
+        return utils.clone_add_a_column(self, table, field, field_type, field_position)
+    def clone_remove_a_column(self, table, field):
+        '''
+        remove a column from the PanDatFactory
+
+        :param table: table in the schema
+
+        :param field: name of the field to be removed
+
+        :return: a clone of the PanDatFactory, with field removed
+        '''
+        return utils.clone_remove_a_column(self, table, field)
+    def clone_rename_a_column(self, table, field, new_field):
+        '''
+        rename a column in the PanDatFactory
+
+        :param table: table in the schema
+
+        :param field: name of the field to be removed
+
+        :param new_field: new name for the field
+
+        :return: a clone of the PanDatFactory, with field renamed to new_field. Data types, default values and
+                 foreign keys will reflect the new field name, but row predicates will be copied over as-is (and thus you will need
+                 to re-create them as needed).
+        '''
+        return utils.clone_rename_a_column(self, table, field, new_field)
     @property
     def default_values(self):
         return deep_freeze(self._default_values)
@@ -197,8 +271,48 @@ class PanDatFactory(object):
         return utils.FrozenDict({t : utils.FrozenDict({k :v for k,v in vd.items()})
                                 for t,vd in self._data_types.items()})
     @property
+    def tooltips(self):
+        return utils.FrozenDict(self._tooltips)
+
+    def set_tooltip(self, table, field, tooltip):
+        """
+        Set the tooltip for a table, or for a (table, field) pair.
+
+        :param table: a table in the schema
+
+        :param field: an empty string (if you want to set the tooltip for a table)
+                      or a field for this table
+
+        :param tooltip: an empty string (if you want to delete a previously set tooltip) or the
+                        tooltip you want to set
+
+        :return:
+
+        After calling this function, the tooltips property for this PanDatFactory will be appropriately adjusted.
+        """
+        utils.set_tooltip(self, table, field, tooltip, self._tooltips)
+
+    @property
     def parameters(self):
         return FrozenDict(self._parameters)
+    @property
+    def duplicates_ticdat_init(self):
+        """
+        see __doc__ for set_duplicates_ticdat_init
+        """
+        return self._duplicates_ticdat_init[0]
+    def set_duplicates_ticdat_init(self, value):
+        """
+        Set the duplicates_ticdat_init for the PanDatFactory. Choices are:
+        --> 'assert' : an assert is raised if duplicate rows are passed to TicDat.__init__
+        --> 'warn'   : emit a warning if duplicate rows are passed to TicDat.__init__
+        --> 'ignore' : don't do anything if duplicate rows are passed to TicDat.__init__
+        This is only relevant when using copy_to_tic_dat
+        :param value: either 'assert', 'warn' or 'ignore'
+        :return:
+        """
+        verify(value in ["assert", "warn", "ignore"], f"bad value {value}")
+        self._duplicates_ticdat_init[0] = value
     @property
     def xlsx_trailing_empty_rows(self):
         """
@@ -226,7 +340,7 @@ class PanDatFactory(object):
         return  self._infinity_io_flag[0]
     def set_infinity_io_flag(self, value):
         """
-        Set the infinity_io_flag for the TicDatFactory.
+        Set the infinity_io_flag for the PanDatFactory.
         'N/A' (the default) is recognized as a flag to disable infinity I/O buffering.
 
         If numeric, when writing data to the file system (or a database), float("inf") will be replaced by the
@@ -296,13 +410,23 @@ class PanDatFactory(object):
         apply = utils.faster_df_apply
         for t in set(self.all_tables).difference(["parameters"]): # parameters table is handled differently
             df = getattr(dat, t)
-            for f in self.primary_key_fields.get(t, ()) + self.data_fields.get(t, ()):
-                if utils.numericish(self.infinity_io_flag):
+            all_fields = tuple(self.primary_key_fields.get(t, ()) + self.data_fields.get(t, ()))
+            if utils.numericish(self.infinity_io_flag):
+                fields_w_issues = set()
+                def find_fields_w_issues(row):
+                    for f in all_fields:
+                        if utils.numericish(row[f]) and abs(row[f]) >= self.infinity_io_flag:
+                            fields_w_issues.add(f)
+                apply(df, find_fields_w_issues)
+                for f in fields_w_issues:
                     fixme = apply(df, lambda row: utils.numericish(row[f]) and row[f] >= self.infinity_io_flag)
-                    df.loc[fixme, f] = float("inf")
+                    if fixme.any():
+                        df.loc[fixme, f] = float("inf")
                     fixme = apply(df, lambda row: utils.numericish(row[f]) and row[f] <= -self.infinity_io_flag)
-                    df.loc[fixme, f] = -float("inf")
-                elif utils.numericish(self._none_as_infinity_bias(t, f)):
+                    if fixme.any():
+                        df.loc[fixme, f] = -float("inf")
+            for f in all_fields:
+                if not utils.numericish(self.infinity_io_flag) and utils.numericish(self._none_as_infinity_bias(t, f)):
                     assert self.infinity_io_flag is None
                     df[f].fillna(value=self._none_as_infinity_bias(t, f) * float("inf"), inplace=True)
                 dt = self.data_types.get(t, {}).get(f, None)
@@ -372,15 +496,29 @@ class PanDatFactory(object):
         apply = utils.faster_df_apply
         for t in set(self.all_tables).difference(["parameters"]): # parameters table is handled differently
             df = getattr(rtn, t)
-            for f in self.primary_key_fields.get(t, ()) + self.data_fields.get(t, ()):
-                if utils.numericish(self.infinity_io_flag):
+            all_fields = tuple(self.primary_key_fields.get(t, ()) + self.data_fields.get(t, ()))
+            fields_w_issues = set()
+            if utils.numericish(self.infinity_io_flag):
+                def find_fields_w_issues(row):
+                    for f in all_fields:
+                        if utils.numericish(row[f]) and abs(row[f]) >= self.infinity_io_flag:
+                            fields_w_issues.add(f)
+                apply(df, find_fields_w_issues)
+                for f in fields_w_issues:
                     fixme = apply(df, lambda row: utils.numericish(row[f]) and row[f] >= self.infinity_io_flag)
                     if fixme.any():
                         df.loc[fixme, f] = self.infinity_io_flag
                     fixme = apply(df, lambda row: utils.numericish(row[f]) and row[f] <= -self.infinity_io_flag)
                     if fixme.any():
                         df.loc[fixme, f] = -self.infinity_io_flag
-                elif utils.numericish(self._none_as_infinity_bias(t, f)):
+            else:
+                all_fields = tuple(f for f in all_fields if utils.numericish(self._none_as_infinity_bias(t, f)))
+                def find_fields_w_issues(row):
+                    for f in all_fields:
+                        if row[f] == float("inf") * self._none_as_infinity_bias(t, f):
+                            fields_w_issues.add(f)
+                apply(df, find_fields_w_issues)
+                for f in fields_w_issues:
                     assert self.infinity_io_flag is None
                     fixme = apply(df, lambda row: row[f] == float("inf") * self._none_as_infinity_bias(t, f))
                     if fixme.any():
@@ -519,6 +657,17 @@ class PanDatFactory(object):
             predicate_name = next(i for i in count() if i not in self._data_row_predicates[table])
         self._data_row_predicates[table][predicate_name] = RowPredicateInfo(predicate, predicate_kwargs_maker,
                                                                             predicate_failure_response)
+    def get_row_predicates(self, table):
+        '''
+        return all the row predicates for a given table
+
+        :param table: a table in the schema
+
+        :return: a dictionary mapping predicate_name to RowPredicateInfo named tuple (the entries of which
+                 are based on the prior call to add_data_row_predicate).
+        '''
+        verify(table in self.all_tables, "Unrecognized table name %s"%table)
+        return {k: v for k, v in self._data_row_predicates.get(table, {}).items()}
 
     def add_parameter(self, name, default_value, number_allowed = True,
                       inclusive_min = True, inclusive_max = False, min = 0, max = float("inf"),
@@ -568,7 +717,7 @@ class PanDatFactory(object):
         verify(self.data_fields["parameters"][0] not in self._data_types.get("parameters", {}),
                 "Don't set the data type for the parameters data field if you are going to use add_parameters.")
         verify(not self._has_been_used,
-               "The parameters can't be changed after a TicDatFactory has been used.")
+               "The parameters can't be changed after a PanDatFactory has been used.")
         td = None
         if enforce_type_rules:
             td = TypeDictionary.safe_creator(number_allowed, inclusive_min, inclusive_max,
@@ -576,6 +725,17 @@ class PanDatFactory(object):
             verify(td.valid_data(default_value), f"{default_value} is not a legal default value for parameter {name}")
         ParameterInfo = clt.namedtuple("ParameterInfo", ["type_dictionary", "default_value"])
         self._parameters[name] = ParameterInfo(td, default_value)
+
+    def remove_parameter(self, name):
+        '''
+        Undo a previous call to add_parameter.
+
+        :param name: name of the parameter to remove
+
+        :return:
+        '''
+        verify(name in self._parameters, f"{name} is not a valid parameter")
+        self._parameters.pop(name)
 
     def set_default_value(self, table, field, default_value):
         """
@@ -756,10 +916,12 @@ class PanDatFactory(object):
                 self._default_values[tbl][fld] = 0
         self._data_types = clt.defaultdict(dict)
         self._data_row_predicates = clt.defaultdict(dict)
+        self._tooltips = {}
         self._foreign_keys = clt.defaultdict(set)
         self._parameters = {}
         self._infinity_io_flag = ["N/A"]
         self._xlsx_trailing_empty_rows = ["prune"]
+        self._duplicates_ticdat_init = ["assert"]
         self._none_as_infinity_bias_cache = {}
 
 
@@ -891,6 +1053,7 @@ class PanDatFactory(object):
                 sch[t] = [[], list(getattr(pan_dat, t).columns)]
         from ticdat import TicDatFactory
         tdf = TicDatFactory(**sch)
+        tdf.set_duplicates_ticdat_init(self.duplicates_ticdat_init)
         def df(t):
             rtn = getattr(pan_dat, t)
             if t in self.generic_tables and not keep_generics_as_df:
