@@ -45,6 +45,11 @@ def _deep_anonymize(x)  :
         return {_deep_anonymize(k):_deep_anonymize(v) for k,v in x.items()}
     return list(map(_deep_anonymize,x))
 
+def _integrity_solve(*args, **kwargs):
+    pdf, dat = utils._integrity_solve(*args, **kwargs)
+    if any(len(getattr(dat, t)) > 0 for t in pdf.all_tables):
+        return dat
+
 #uncomment decorator to drop into debugger for assertTrue, assertFalse failures
 #@fail_to_debugger
 class TestUtils(unittest.TestCase):
@@ -1266,7 +1271,9 @@ class TestUtils(unittest.TestCase):
                          "--errors", os.path.join(data_path, "dummy.json")]
         with patch.object(sys, 'argv', test_args_one):
             utils.standard_main(funky.input_schema, funky.solution_schema, funky.solve)
-        self.assertFalse(os.path.exists(os.path.join(data_path, "dummy.json")))
+        err_pdf, _ = utils._integrity_solve(funky.input_schema, funky.input_schema.TicDat())
+        err_dat = err_pdf.json.create_pan_dat(os.path.join(data_path, "dummy.json"))
+        self.assertFalse(any(len(getattr(err_dat, t)) > 0 for t in err_pdf.all_tables))
         sln = funky.solution_schema.json.create_tic_dat(os.path.join(data_path, "output.json"))
         self.assertTrue(set(sln.table) == set(dat.table))
         sys.modules.pop(funky.solve.__module__)
@@ -1355,7 +1362,7 @@ class TestUtils(unittest.TestCase):
                                         "-e", os.path.join(data_path, "error.json")]):
             utils.standard_main(funky_diet.input_schema, funky_diet.solution_schema, funky_diet.solve)
         self.assertFalse(os.path.exists(os.path.join(data_path, "output_csvs")))
-        err_schema = utils._integrity_solve(funky_diet.input_schema, None, return_solution_schema_only=True)
+        err_schema, _ = utils._integrity_solve(funky_diet.input_schema, funky_diet.input_schema.TicDat())
         err_dat = err_schema.json.create_pan_dat(os.path.join(data_path, "error.json"))
         # we have 2 FK fails here but only one 1 FK fail above bc the stupid_table is ignored (by design) above
         self.assertTrue(err_dat._len_dict() == {'data_row_failures': 2, 'foreign_key_failures': 2})
@@ -1717,7 +1724,7 @@ class TestUtils(unittest.TestCase):
         addDietForeignKeys(tdf)
         ticdat_testutils.addDietDataTypes(tdf)
         good_dat = tdf.copy_tic_dat(dietData())
-        self.assertFalse(utils._integrity_solve(tdf, good_dat))
+        self.assertFalse(_integrity_solve(tdf, good_dat))
         bad_dat = tdf.copy_tic_dat(good_dat)
         bad_dat.foods.pop("pizza")
         for f in ["fat", "sodium"]:
@@ -1733,13 +1740,13 @@ class TestUtils(unittest.TestCase):
                              ('nutritionQuantities', 'qty', 'chicken', 'fat')])
             self.assertTrue(set(integrity_fails.foreign_key_failures["Field 1"]) == {'pizza'})
             self.assertTrue(set(integrity_fails.foreign_key_failures["Field 2"]) == set(good_dat.categories))
-        do_integrity_check(utils._integrity_solve(tdf, bad_dat))
+        do_integrity_check(_integrity_solve(tdf, bad_dat))
         pdf = tdf.clone(clone_factory=PanDatFactory)
-        self.assertFalse(utils._integrity_solve(pdf, tdf.copy_to_pandas(good_dat, reset_index=True)))
-        do_integrity_check(utils._integrity_solve(pdf, tdf.copy_to_pandas(bad_dat, reset_index=True)))
+        self.assertFalse(_integrity_solve(pdf, tdf.copy_to_pandas(good_dat, reset_index=True)))
+        do_integrity_check(_integrity_solve(pdf, tdf.copy_to_pandas(bad_dat, reset_index=True)))
         dup_dat = tdf.copy_to_pandas(good_dat, reset_index=True)
         dup_dat.foods = dup_dat.foods.append(dup_dat.foods[dup_dat.foods["cost"] < 1.6], sort=False)
-        i_fails = utils._integrity_solve(pdf, dup_dat)
+        i_fails = _integrity_solve(pdf, dup_dat)
         self.assertTrue(i_fails._len_dict() == {"duplicate_rows": 3})
 
     def test_issue_164_dot_two(self):
@@ -1770,14 +1777,14 @@ class TestUtils(unittest.TestCase):
 
         dat = tdf.TicDat(table_one = [[_] for _ in range(1, 10)],
                          table_two = [[min(_, 5), max(_ * 3, 18)] for _ in range(1, 10)])
-        self.assertFalse(utils._integrity_solve(tdf, dat))
+        self.assertFalse(_integrity_solve(tdf, dat))
         self.assertTrue(cnt[0] == 1)
         for i, r in enumerate(dat.table_two):
             if i % 3 == 0:
                 r["Big Stuff"] = 10
             if i % 4 == 0:
                 r["Little Stuff"] = 10.1
-        i_fails = utils._integrity_solve(tdf, dat)
+        i_fails = _integrity_solve(tdf, dat)
         self.assertTrue(sorted(map(tuple, i_fails.data_row_failures.itertuples(index=False))) ==
             [('table_two', 'big stuff test', None, 4.0, 10),
              ('table_two', 'big stuff test', None, 5.0, 10),
@@ -1790,7 +1797,7 @@ class TestUtils(unittest.TestCase):
              ('table_two', 'little stuff test b', None, 10.1, 27)])
 
         cnt = None
-        i_fails = utils._integrity_solve(tdf, tdf.TicDat(table_one=[[1]], table_two=[[0, 100] for _ in range(10)]))
+        i_fails = _integrity_solve(tdf, tdf.TicDat(table_one=[[1]], table_two=[[0, 100] for _ in range(10)]))
         self.assertTrue(i_fails._len_dict() == {'data_row_failures': 2})
         self.assertTrue(set(i_fails.data_row_failures["Predicate Name"]) ==
                         {'little stuff test a', 'little stuff test b'})
