@@ -1802,6 +1802,24 @@ class TestUtils(unittest.TestCase):
         self.assertTrue(set(i_fails.data_row_failures["Predicate Name"]) ==
                         {'little stuff test a', 'little stuff test b'})
 
+    def test_149(self):
+        self.assertTrue(pd, "pandas needs to be installed for this unit test")
+        tdf = TicDatFactory(**dietSchema())
+        tic_dat = tdf.freeze_me(tdf.TicDat(**{t: getattr(dietData(), t) for t in tdf.primary_key_fields}))
+        pan_dat = tdf.copy_to_pandas(tic_dat, reset_index=True)
+        tdf2 = TicDatFactory(
+            **{k: [p, d] if k != "foods" else [p, list(d) + ["extra"]] for k, (p, d) in dietSchema().items()})
+        tic_dat2 = tdf2.TicDat(**{t: getattr(pan_dat, t) for t in tdf.all_tables})
+        pan_dat2 = tdf2.copy_to_pandas(tic_dat2, reset_index=True)
+        self.assertTrue(tdf._same_data(tic_dat, tdf.TicDat(**{t: getattr(pan_dat2, t) for t in tdf.all_tables}),
+                        epsilon=1e-5))
+        self.assertTrue({r["extra"] for r in tic_dat2.foods.values()} == {0})
+        tdf3 = tdf2.clone()
+        tdf3.set_default_value("foods", "extra", 100)
+        tic_dat3 = tdf3.TicDat(**{t: getattr(pan_dat, t) for t in tdf.all_tables})
+        self.assertFalse(tdf2._same_data(tic_dat2, tic_dat3, epsilon=1e-5))
+        self.assertTrue({r["extra"] for r in tic_dat3.foods.values()} == {100})
+
 _scratchDir = TestUtils.__name__ + "_scratch"
 
 # Run the tests.
