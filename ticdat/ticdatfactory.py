@@ -781,6 +781,12 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
                 for t,v in init_tables.items():
                   if t not in superself.generic_tables:
                     badticdattable = []
+                    if DataFrame and isinstance(v, DataFrame) and \
+                       set(superself.default_values.get(t, {})).difference(v.columns):
+                        v = v.copy(deep=True)
+                        for f, d in superself.default_values.get(t, {}).items():
+                            if f not in v.columns:
+                                v[f] = d
                     if not (goodticdattable(v, t, lambda x : badticdattable.append(x))) :
                         raise utils.TicDatError(t + " cannot be treated as a ticDat table : " +
                                                 badticdattable[-1])

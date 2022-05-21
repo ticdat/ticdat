@@ -323,7 +323,7 @@ ForeignKeyMapping = namedtuple("FKMapping", ("native_field", "foreign_field"))
 # likely replace this with some sort of sys.platform call that makes a good guess
 development_deployed_environment = False
 
-def _integrity_solve(input_schema, dat, *, return_solution_schema_only=False):
+def _integrity_solve(input_schema, dat):
     verify(pd, "pandas must be installed for this functionality to work")
     pdf = input_schema.clone(clone_factory=ticdat.PanDatFactory)
     # need to make sure the advanced row predicates copy over to pdf as well
@@ -348,8 +348,6 @@ def _integrity_solve(input_schema, dat, *, return_solution_schema_only=False):
         data_type_failures=[["Table Name", "Field Name"] + _fld_names, []],
         data_row_failures=[["Table Name", "Predicate Name", "Error Message"] + _fld_names, []],
         foreign_key_failures =[["Native Table", "Foreign Table", "Mapping"] + _fld_names, []])
-    if return_solution_schema_only:
-        return solution_schema
 
     if isinstance(input_schema, ticdat.PanDatFactory):
         pan_dat = dat
@@ -405,11 +403,9 @@ def _integrity_solve(input_schema, dat, *, return_solution_schema_only=False):
                 data_row_failures["Error Message"].append(error_message)
                 add_error_row(data_row_failures, table, row)
 
-    if duplicate_rows or data_type_failures or foreign_key_failures or data_row_failures:
-        return solution_schema.PanDat(duplicate_rows=duplicate_rows, data_type_failures=data_type_failures,
-                                      foreign_key_failures=foreign_key_failures, data_row_failures=data_row_failures)
-
-     # None is returned when no integrity errors were found
+    return (solution_schema,
+            solution_schema.PanDat(duplicate_rows=duplicate_rows, data_type_failures=data_type_failures,
+                                      foreign_key_failures=foreign_key_failures, data_row_failures=data_row_failures))
 
 def standard_main(input_schema, solution_schema, solve, case_space_table_names=False):
     """
@@ -560,19 +556,20 @@ def standard_main(input_schema, solution_schema, solve, case_space_table_names=F
                                                                   case_space_table_names=case_space_table_names)
 
     if error_file:
-        write_err_func, write_err_kwargs = _get_write_function_and_kwargs(
-            tdf=_integrity_solve(input_schema, None, return_solution_schema_only=True),
+        print("checking for data integrity errors")
+        err_pdf, err_sln = _integrity_solve(input_schema, dat)
+        write_err_func, write_err_kwargs = _get_write_function_and_kwargs(tdf=err_pdf,
             file_path=error_file, file_or_directory=file_or_dir(error_file),
             case_space_table_names=case_space_table_names)
-        print("checking for data integrity errors")
-        err_sln = _integrity_solve(input_schema, dat)
-        if err_sln:
-            print("%s integrity errors %s %s" % ("Overwriting" if os.path.exists(error_file) else "Creating",
-                                       file_or_dir(error_file), error_file))
-            write_err_func(err_sln, error_file, **write_err_kwargs)
-            return
+        err_cnt = sum(len(getattr(err_sln, t)) for t in err_pdf.all_tables)
+        print(f"{err_cnt} data integrity error{'s' if err_cnt != 1 else ''} found")
+        print("%s integrity errors %s %s" % ("Overwriting" if os.path.exists(error_file) else "Creating",
+                                   file_or_dir(error_file), error_file))
+        write_err_func(err_sln, error_file, **write_err_kwargs)
+        if err_cnt == 0:
+            print("will run solve next")
         else:
-            print("no data integrity errors found - will run solve next")
+            return
 
 
     if roundoff_based_solve is None:
