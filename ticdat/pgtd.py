@@ -159,7 +159,7 @@ class _PostgresFactory(freezable_factory(object, "_isFrozen"),):
 
         def default_sql_str(t, f):
             fld_type = self.tdf.data_types.get(t, {}).get(f)
-            if fld_type and fld_type.datetime:
+            if (fld_type and fld_type.datetime) or get_fld_type(t, f, '') == "bytea":
                 return ""
             return f" DEFAULT {db_default(t, f)}"
 
@@ -198,7 +198,7 @@ class _PostgresFactory(freezable_factory(object, "_isFrozen"),):
         all_fields = lambda t: self.tdf.primary_key_fields.get(t, ()) + self.tdf.data_fields.get(t, ())
         good_forced_field_type_entry = lambda k, v: isinstance(k, tuple) and len(k) == 2 \
                         and k[1] in all_fields(k[0]) and v in \
-                        ["text", "integer", "float", "bool", "boolean", "timestamp", "date"]
+                        ["text", "integer", "float", "bool", "boolean", "timestamp", "date", "bytea"]
         verify(dictish(forced_field_types) and
                all(good_forced_field_type_entry(k, v) for k,v in forced_field_types.items()),
                "bad forced_field_types argument")
