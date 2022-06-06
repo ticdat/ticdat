@@ -2,10 +2,11 @@ import ticdat.utils as utils
 from ticdat import TicDatFactory, PanDatFactory
 from ticdat.testing.ticdattestutils import pan_dat_maker
 from ticdat.pgtd import _can_unit_test, PostgresTicFactory, PostgresPanFactory, _pg_name
-from ticdat.testing.ticdattestutils import flagged_as_run_alone, fail_to_debugger
+from ticdat.testing.ticdattestutils import flagged_as_run_alone, fail_to_debugger, memo
 import time
 import datetime
 import math
+import pickle
 
 import unittest
 try:
@@ -909,6 +910,37 @@ class TestPostres(unittest.TestCase):
         self.assertTrue(tdf_1._same_data(dat, dat_3))
         self.assertTrue((dat_3.t_one["a"]['Field Two'] == None) and None in dat_3.t_one)
 
+    def test_pickle_w_text_columns(self):
+        # this text in response to a request for blob field type support. I'd rather not support blobs
+        # if I don't have to, but supporting pickle.dumps is legit
+        if not self.can_run:
+            return
+        schema = test_schema+"_pickle"
+        tdf = TicDatFactory(t_one=[["Field One"], ["Field Two"]])
+        dat = tdf.TicDat(t_one = [["a", pickle.dumps([1, 2])], ["b", pickle.dumps({"a": [1, 2], "b": [1, 2, 3]})]])
+        pdf = tdf.clone(clone_factory=PanDatFactory)
+        pan_dat = pdf.PanDat(**{t: getattr(tdf.copy_to_pandas(dat, reset_index=True), t) for t in tdf.all_tables})
+        self.assertTrue(len(dat.t_one) == len(pan_dat.t_one) == 2)
+        tdf.pgsql.write_schema(self.engine, schema, include_ancillary_info=False,
+                               forced_field_types={("t_one", "Field Two"): "bytea"})
+        tdf.pgsql.write_data(dat, self.engine, schema)
+        dat_2 = tdf.pgsql.create_tic_dat(self.engine, schema)
+        self.assertFalse(tdf._same_data(dat, dat_2)) # its  weird this way, but no matter, we only care about pickle
+        self.assertTrue(set(dat.t_one) == set(dat_2.t_one))
+        for k, r in dat.t_one.items():
+            self.assertTrue(pickle.loads(r["Field Two"]) == pickle.loads(dat_2.t_one[k]["Field Two"]))
+
+        schema = test_schema+"_pickle_pdf"
+        pdf.pgsql.write_schema(self.engine, schema, include_ancillary_info=False,
+                               forced_field_types={("t_one", "Field Two"): "bytea"})
+        pdf.pgsql.write_data(pan_dat, self.engine, schema)
+        pan_dat_2 = pdf.pgsql.create_pan_dat(self.engine, schema)
+        dat_3 = pdf.copy_to_tic_dat(pan_dat)
+        dat_4 = pdf.copy_to_tic_dat(pan_dat_2)
+        self.assertFalse(tdf._same_data(dat_3, dat_4))
+        self.assertTrue(set(dat_3.t_one) == set(dat_4.t_one))
+        for k, r in dat_3.t_one.items():
+            self.assertTrue(pickle.loads(r["Field Two"]) == pickle.loads(dat_4.t_one[k]["Field Two"]))
 
 test_schema = 'test'
 
