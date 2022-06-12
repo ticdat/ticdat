@@ -309,7 +309,7 @@ PanDatFactory.</p>
 <p>:param path_or_buf:  a valid JSON string or file-like</p>
 <p>:param fill_missing_fields: boolean. If truthy, missing fields will be filled in
                             with their default value. Otherwise, missing fields
-                            throw an Exception.</p>
+                            throw an Exception. Doesn't work with list-of-lists format.</p>
 <p>:param orient: Indication of expected JSON string format. See pandas.read_json for more details.</p>
 <p>:param kwargs: additional named arguments to pass to pandas.read_json</p>
 <p>:return: a PanDat object populated by the matching tables.</p>
@@ -325,21 +325,38 @@ To address this, you need to either use set_data_type for your
 PanDatFactory, or specify "dtype" in kwargs. (The former is obviously better).</p>
 <h2 id="ticdat.pandatio.JsonPanFactory.write_file">write_file</h2>
 
-<pre><code class="python">JsonPanFactory.write_file(self, pan_dat, json_file_path, case_space_table_names=False, orient='split', index=False, indent=2, sort_keys=False, **kwargs)
+<pre><code class="python">JsonPanFactory.write_file(self, pan_dat, json_file_path)
 </code></pre>
 
-<p>write the PanDat data to a json file (or json string)</p>
+<p>Write the PanDat data to a json file (or json string). Writes each table as a list-of-lists.
+See write_file_pd for other formats.</p>
+<p>:param pan_dat: the PanDat object to write</p>
+<p>:param json_file_path: the json file into which the data is to be written. If falsey, will return a
+                       JSON string</p>
+<p>:return: A JSON string if json_file_path is falsey, otherwise None</p>
+<h2 id="ticdat.pandatio.JsonPanFactory.write_file_pd">write_file_pd</h2>
+
+<pre><code class="python">JsonPanFactory.write_file_pd(self, pan_dat, json_file_path, case_space_table_names=False, orient='split', index=False, indent=2, sort_keys=False, **kwargs)
+</code></pre>
+
+<p>write the PanDat data to a json file (or json string).
+Use this routine to write json text that is consistent with what pandas.to_json.
+The list-of-lists format is created with write_file. In older ticdat releases, write_file
+implemented the functionaltiy now provided with write_file_pd.</p>
 <p>:param pan_dat: the PanDat object to write</p>
 <p>:param json_file_path: the json file into which the data is to be written. If falsey, will return a
                        JSON  string</p>
 <p>:param case_space_table_names: boolean - make best guesses how to add spaces and upper case
                                characters to table names</p>
-<p>:param orient: Indication of expected JSON string format. See pandas.to_json for more details.</p>
+<p>:param orient: Passed through to pandas.to_json. Default of "split", combined with index=False, writes
+               a smaller json file.</p>
 <p>:param index: boolean - whether or not to write the index.</p>
 <p>:param indent: 2. See json.dumps</p>
 <p>:param sort_keys: See json.dumps</p>
 <p>:param kwargs: additional named arguments to pass to pandas.to_json</p>
 <p>:return:</p>
+<p>NB - pandas seems stubbornly unable to inject Infinity into json, but it can read Infinity from
+json. We work around this with a GUID created flagging string when encountering float("inf"), float(-"inf").</p>
 <h1 id="ticdat.pandatio.SqlPanFactory">SqlPanFactory</h1>
 
 <pre><code class="python">SqlPanFactory(self, pan_dat_factory)

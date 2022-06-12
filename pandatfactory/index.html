@@ -368,13 +368,19 @@ If no data type is specified (the default) then no errant data will be recognize
 <pre><code class="python">PanDatFactory.clone(self, table_restrictions=None, clone_factory=None)
 </code></pre>
 
-<p>clones the PanDatFactory
-:param table_restrictions : if None, then argument is ignored. Otherwise, a container listing the
+<p>clones the PanDatFactory</p>
+<p>:param table_restrictions : if None, then argument is ignored. Otherwise, a container listing the
                             tables to keep in the clone. Tables outside table_restrictions are removed from
-                            the clone.
-:param clone_factory : optional. Defaults to PanDatFactory. Can also be TicDatFactory.  Can also be a function,
+                            the clone.</p>
+<p>:param clone_factory : optional. Defaults to PanDatFactory. Can also be TicDatFactory.  Can also be a function,
                        in which case it should behave similarly to create_from_full_schema.
-:return: a clone of the PanDatFactory. Returned object will be based on clone_factory, if provided.</p>
+                       If clone_factory=TicDatFactory, the row predicates that use predicate_kwargs_maker
+                       won't be copied over.</p>
+<p>:return: a clone of the PanDatFactory. Returned object will be based on clone_factory, if provided.</p>
+<p>Note - If you want to remove tables via a clone, then call like this
+       pdf_new = pdf.clone(table_restrictions=set(pdf.all_tables).difference(tables_to_remove))
+       Other schema editing operations are available with clone_add_a_table, clone_add_a_column,
+       clone_remove_a_column and clone_rename_a_column.</p>
 <h1 id="ticdat.pandatfactory.PanDatFactory.copy_from_ampl_variables">copy_from_ampl_variables</h1>
 
 <pre><code class="python">PanDatFactory.copy_from_ampl_variables(self, ampl_variables)
@@ -460,7 +466,7 @@ performs a deep copy</p>
       "Unhandled": Exceptions resulting from calling a row predicate (or a predicate_kwargs_maker) will not be
                    handled by data_row_failures.
       "<strong>debug</strong>": Since "Handled as Failure" makes more sense for production runs and "Unhandled" makes more
-                   sense for debugging, this value will use the latter if <strong>debug</strong> is True and the former
+                   sense for debugging, this option will use the latter if <strong>debug</strong> is True and the former
                    otherwise. See -o and <strong>debug</strong> in Python documentation for more details.</p>
 <p>:param max_failures: number. An upper limit on the number of failures to find. Will short circuit and return
                              ASAP with a partial failure enumeration when this number is reached.</p>
@@ -538,7 +544,7 @@ and the latter will be a string describing the failure.</p>
  and omits the foreign key cardinality.</p>
 <h1 id="ticdat.pandatfactory.PanDatFactory.good_pan_dat_object">good_pan_dat_object</h1>
 
-<pre><code class="python">PanDatFactory.good_pan_dat_object(self, data_obj, bad_message_handler=&lt;function PanDatFactory.&lt;lambda&gt; at 0x117983f28&gt;)
+<pre><code class="python">PanDatFactory.good_pan_dat_object(self, data_obj, bad_message_handler=&lt;function PanDatFactory.&lt;lambda&gt; at 0x119535f28&gt;)
 </code></pre>
 
 <p>determines if an object is a valid PanDat object for this schema</p>
@@ -636,7 +642,7 @@ This is deliberate, since a bulk replacement in a primary key field is likely to
 <pre><code class="python">PanDatFactory.set_infinity_io_flag(self, value)
 </code></pre>
 
-<p>Set the infinity_io_flag for the TicDatFactory.
+<p>Set the infinity_io_flag for the PanDatFactory.
 'N/A' (the default) is recognized as a flag to disable infinity I/O buffering.</p>
 <p>If numeric, when writing data to the file system (or a database), float("inf") will be replaced by the
 infinity_io_flag and float("-inf") will be replaced by -infinity_io_flag, prior to writing.

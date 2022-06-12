@@ -260,7 +260,7 @@
                                table names when writing to the file system.</p>
 <p>:return: None</p>
 <p>Implements a command line signature of</p>
-<p>"python engine_file.py --input <input_file_or_dir> --output <output_file_or_dir>"</p>
+<p>"python engine_file.py --input <input_file_or_dir> --output <output_file_or_dir> --roundoff <roundoff config file>"</p>
 <p>For the input/output command line arguments.</p>
 <p>--&gt; endings in ".xls" or ".xlsx" imply reading/writing Excel files</p>
 <p>--&gt; endings in ".mdb" or ".accdb" imply reading/writing Access files (TicDatFactory only)</p>
@@ -273,6 +273,7 @@
    (Recall that .csv format is implemented as one-csv-file-per-table, so an entire
    model will be stored in a directory containing a series of .csv files)</p>
 <p>Defaults are input.xlsx, output.xlsx</p>
+<p>The roundoff config file is optional. See ticdat wiki for a description of the roundoff config file.</p>
 <h1 id="ticdat.utils.verify">verify</h1>
 
 <pre><code class="python">verify(b, msg)
@@ -354,7 +355,7 @@ https://github.com/pydata/pandas/issues/10695</p>
 Also enables writing on-the-fly tables into log files.</p>
 <h2 id="ticdat.utils.LogFile.log_table">log_table</h2>
 
-<pre><code class="python">LogFile.log_table(self, table_name, seq, formatter=&lt;function LogFile.&lt;lambda&gt; at 0x117414268&gt;, max_write=10)
+<pre><code class="python">LogFile.log_table(self, table_name, seq, formatter=&lt;function LogFile.&lt;lambda&gt; at 0x118f9b1e0&gt;, max_write=10)
 </code></pre>
 
 <p>Writes a table to the log file. Extremely useful functionality for

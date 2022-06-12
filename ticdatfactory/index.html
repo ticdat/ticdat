@@ -361,13 +361,19 @@ If no data type is specified (the default) then no errant data will be recognize
 <pre><code class="python">TicDatFactory.clone(self, table_restrictions=None, clone_factory=None)
 </code></pre>
 
-<p>clones the TicDatFactory
-:param table_restrictions : if None, then argument is ignored. Otherwise, a container listing the
+<p>clones the TicDatFactory</p>
+<p>:param table_restrictions : if None, then argument is ignored. Otherwise, a container listing the
                             tables to keep in the clone. Tables outside table_restrictions are removed from
-                            the clone.
-:param clone_factory : optional. Defaults to TicDatFactory. Can also be PanDatFactory. Can also be a function,
+                            the clone.</p>
+<p>:param clone_factory : optional. Defaults to TicDatFactory. Can also be PanDatFactory. Can also be a function,
                        in which case it should behave similarly to create_from_full_schema.
-:return: a clone of the TicDatFactory. Returned object will based on clone_factory, if provided.</p>
+                       If clone_factory=PanDatFactory, the row predicates that use predicate_kwargs_maker
+                       won't be copied over.</p>
+<p>:return: a clone of the TicDatFactory. Returned object will based on clone_factory, if provided.</p>
+<p>Note - If you want to remove tables via a clone, then call like this
+       tdf_new = tdf.clone(table_restrictions=set(tdf.all_tables).difference(tables_to_remove))
+       Other schema editing operations are available with clone_add_a_table, clone_add_a_column,
+       clone_remove_a_column and clone_rename_a_column.</p>
 <h1 id="ticdat.ticdatfactory.TicDatFactory.copy_from_ampl_variables">copy_from_ampl_variables</h1>
 
 <pre><code class="python">TicDatFactory.copy_from_ampl_variables(self, ampl_variables)
@@ -485,7 +491,7 @@ can slow down TicDat creation.</p>
       "Unhandled": Exceptions resulting from calling a row predicate (or a predicate_kwargs_maker) will not be
                    handled by data_row_failures.
       "<strong>debug</strong>": Since "Handled as Failure" makes more sense for production runs and "Unhandled" makes more
-                   sense for debugging, this value will use the latter if <strong>debug</strong> is True and the former
+                   sense for debugging, this option will use the latter if <strong>debug</strong> is True and the former
                    otherwise. See -o and <strong>debug</strong> in Python documentation for more details.</p>
 <p>:param max_failures: number. An upper limit on the number of failures to find. Will short circuit and return
                              ASAP with a partial failure enumeration when this number is reached.</p>
@@ -560,7 +566,7 @@ can slow down TicDat creation.</p>
 <p>:return: tic_dat, after it has been frozen</p>
 <h1 id="ticdat.ticdatfactory.TicDatFactory.good_tic_dat_object">good_tic_dat_object</h1>
 
-<pre><code class="python">TicDatFactory.good_tic_dat_object(self, data_obj, bad_message_handler=&lt;function TicDatFactory.&lt;lambda&gt; at 0x11a2a88c8&gt;, row_checking='strict')
+<pre><code class="python">TicDatFactory.good_tic_dat_object(self, data_obj, bad_message_handler=&lt;function TicDatFactory.&lt;lambda&gt; at 0x11be52268&gt;, row_checking='strict')
 </code></pre>
 
 <p>determines if an object can be can be converted to a TicDat data object.</p>
@@ -572,7 +578,7 @@ can slow down TicDat creation.</p>
 <p>:return: True if the dataObj can be converted to a TicDat data object. False otherwise.</p>
 <h1 id="ticdat.ticdatfactory.TicDatFactory.good_tic_dat_table">good_tic_dat_table</h1>
 
-<pre><code class="python">TicDatFactory.good_tic_dat_table(self, data_table, table_name, bad_message_handler=&lt;function TicDatFactory.&lt;lambda&gt; at 0x11a2a8ae8&gt;, row_checking='generous')
+<pre><code class="python">TicDatFactory.good_tic_dat_table(self, data_table, table_name, bad_message_handler=&lt;function TicDatFactory.&lt;lambda&gt; at 0x11be52488&gt;, row_checking='generous')
 </code></pre>
 
 <p>determines if an object can be can be converted to a TicDat data table.</p>
@@ -658,7 +664,7 @@ replacement_value.</p>
 data of the wrong type from being entered. Data types are useful for recognizing errant data entries
 with find_data_type_failures(). Errant data entries can be replaced with replace_data_type_failures().</p>
 <p>:param table: a table in the schema</p>
-<p>:param field: a data field for this table</p>
+<p>:param field: a field for this table</p>
 <p>:param number_allowed: boolean does this field allow numbers?</p>
 <p>:param inclusive_min: boolean : if number allowed, is the min inclusive?</p>
 <p>:param inclusive_max: boolean : if number allowed, is the max inclusive?</p>

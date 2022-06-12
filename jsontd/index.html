@@ -265,7 +265,9 @@ You need the json package to be installed to use it.</p>
                        with table names as keys. Could also be an actual JSON string</p>
 <p>:param freeze_it: boolean. should the returned object be frozen?</p>
 <p>:param from_pandas: boolean.  If truthy, then use pandas json readers. See
-                    PanDatFactory json readers for more details.</p>
+                    PanDatFactory json readers for more details. This argument is historical, as a
+                    json format that matches the PanDatFactory.json format will be detected automatically,
+                    and thus client code is generally safe ignoring this argument completely.</p>
 <p>:return: a TicDat object populated by the matching tables.</p>
 <p>caveats: Table names matches are case insensitive and also
          underscore-space insensitive.
