@@ -381,6 +381,51 @@ If no data type is specified (the default) then no errant data will be recognize
        pdf_new = pdf.clone(table_restrictions=set(pdf.all_tables).difference(tables_to_remove))
        Other schema editing operations are available with clone_add_a_table, clone_add_a_column,
        clone_remove_a_column and clone_rename_a_column.</p>
+<h1 id="ticdat.pandatfactory.PanDatFactory.clone_add_a_column">clone_add_a_column</h1>
+
+<pre><code class="python">PanDatFactory.clone_add_a_column(self, table, field, field_type, field_position='append')
+</code></pre>
+
+<p>add a column to the PanDatFactory</p>
+<p>:param table: table in the schema</p>
+<p>:param field: name of the new field to be added</p>
+<p>:param field_type: either "primary key" or "data"</p>
+<p>:param field_position: integer between 0 and the length of self.primary_key_fields[table] (if "primary key")
+                       or self.data_fields[table] (if "data"), inclsuive.
+                       Alternately, can be "append", which will just insert the column at the end of the
+                       appropriate list.</p>
+<p>:return: a clone of the PanDatFactory, with field inserted into location field_position for field_type</p>
+<h1 id="ticdat.pandatfactory.PanDatFactory.clone_add_a_table">clone_add_a_table</h1>
+
+<pre><code class="python">PanDatFactory.clone_add_a_table(self, table, pk_fields, df_fields)
+</code></pre>
+
+<p>add a table to the PanDatFactory</p>
+<p>:param table: table not in the schema</p>
+<p>:param pk_fields: container of the primary key fields</p>
+<p>:param df_fields: container of the data fields</p>
+<p>:return: a clone of the PanDatFactory, with the new table added</p>
+<h1 id="ticdat.pandatfactory.PanDatFactory.clone_remove_a_column">clone_remove_a_column</h1>
+
+<pre><code class="python">PanDatFactory.clone_remove_a_column(self, table, field)
+</code></pre>
+
+<p>remove a column from the PanDatFactory</p>
+<p>:param table: table in the schema</p>
+<p>:param field: name of the field to be removed</p>
+<p>:return: a clone of the PanDatFactory, with field removed</p>
+<h1 id="ticdat.pandatfactory.PanDatFactory.clone_rename_a_column">clone_rename_a_column</h1>
+
+<pre><code class="python">PanDatFactory.clone_rename_a_column(self, table, field, new_field)
+</code></pre>
+
+<p>rename a column in the PanDatFactory</p>
+<p>:param table: table in the schema</p>
+<p>:param field: name of the field to be removed</p>
+<p>:param new_field: new name for the field</p>
+<p>:return: a clone of the PanDatFactory, with field renamed to new_field. Data types, default values and
+         foreign keys will reflect the new field name, but row predicates will be copied over as-is (and thus you will need
+         to re-create them as needed).</p>
 <h1 id="ticdat.pandatfactory.PanDatFactory.copy_from_ampl_variables">copy_from_ampl_variables</h1>
 
 <pre><code class="python">PanDatFactory.copy_from_ampl_variables(self, ampl_variables)
@@ -542,9 +587,18 @@ and the latter will be a string describing the failure.</p>
  list that identifies these rows).</p>
 <p>For verbosity = 'Low' a simpler return object is created that doesn't use namedtuples
  and omits the foreign key cardinality.</p>
+<h1 id="ticdat.pandatfactory.PanDatFactory.get_row_predicates">get_row_predicates</h1>
+
+<pre><code class="python">PanDatFactory.get_row_predicates(self, table)
+</code></pre>
+
+<p>return all the row predicates for a given table</p>
+<p>:param table: a table in the schema</p>
+<p>:return: a dictionary mapping predicate_name to RowPredicateInfo named tuple (the entries of which
+         are based on the prior call to add_data_row_predicate).</p>
 <h1 id="ticdat.pandatfactory.PanDatFactory.good_pan_dat_object">good_pan_dat_object</h1>
 
-<pre><code class="python">PanDatFactory.good_pan_dat_object(self, data_obj, bad_message_handler=&lt;function PanDatFactory.&lt;lambda&gt; at 0x119535f28&gt;)
+<pre><code class="python">PanDatFactory.good_pan_dat_object(self, data_obj, bad_message_handler=&lt;function PanDatFactory.&lt;lambda&gt; at 0x118f79730&gt;)
 </code></pre>
 
 <p>determines if an object is a valid PanDat object for this schema</p>
@@ -561,6 +615,14 @@ and the latter will be a string describing the failure.</p>
 <p>:return: pan_dat, with the foreign key failures removed
          Note that all foreign key removals are cascading. When a child removal results in
          new foreign key failures, those failures are removed as well.</p>
+<h1 id="ticdat.pandatfactory.PanDatFactory.remove_parameter">remove_parameter</h1>
+
+<pre><code class="python">PanDatFactory.remove_parameter(self, name)
+</code></pre>
+
+<p>Undo a previous call to add_parameter.</p>
+<p>:param name: name of the parameter to remove</p>
+<p>:return:</p>
 <h1 id="ticdat.pandatfactory.PanDatFactory.schema">schema</h1>
 
 <pre><code class="python">PanDatFactory.schema(self, include_ancillary_info=False)
@@ -637,6 +699,18 @@ This is deliberate, since a bulk replacement in a primary key field is likely to
 <p><code>pdf.set_default_values(categories = {"minNutrition":0, "maxNutrition":float("inf")},
                  foods = {"cost":0}, nutritionQuantities = {"qty":0})</code></p>
 <p>:return:</p>
+<h1 id="ticdat.pandatfactory.PanDatFactory.set_duplicates_ticdat_init">set_duplicates_ticdat_init</h1>
+
+<pre><code class="python">PanDatFactory.set_duplicates_ticdat_init(self, value)
+</code></pre>
+
+<p>Set the duplicates_ticdat_init for the PanDatFactory. Choices are:
+--&gt; 'assert' : an assert is raised if duplicate rows are passed to TicDat.<strong>init</strong>
+--&gt; 'warn'   : emit a warning if duplicate rows are passed to TicDat.<strong>init</strong>
+--&gt; 'ignore' : don't do anything if duplicate rows are passed to TicDat.<strong>init</strong>
+This is only relevant when using copy_to_tic_dat
+:param value: either 'assert', 'warn' or 'ignore'
+:return:</p>
 <h1 id="ticdat.pandatfactory.PanDatFactory.set_infinity_io_flag">set_infinity_io_flag</h1>
 
 <pre><code class="python">PanDatFactory.set_infinity_io_flag(self, value)
@@ -658,6 +732,32 @@ parameters table will be serialized to a string/string database table. Infinity 
 "inf"/"-inf" in such serializations.</p>
 <p>:param value: a valid infinity_io_flag</p>
 <p>:return:</p>
+<h1 id="ticdat.pandatfactory.PanDatFactory.set_tooltip">set_tooltip</h1>
+
+<pre><code class="python">PanDatFactory.set_tooltip(self, table, field, tooltip)
+</code></pre>
+
+<p>Set the tooltip for a table, or for a (table, field) pair.</p>
+<p>:param table: a table in the schema</p>
+<p>:param field: an empty string (if you want to set the tooltip for a table)
+              or a field for this table</p>
+<p>:param tooltip: an empty string (if you want to delete a previously set tooltip) or the
+                tooltip you want to set</p>
+<p>:return:</p>
+<p>After calling this function, the tooltips property for this PanDatFactory will be appropriately adjusted.</p>
+<h1 id="ticdat.pandatfactory.PanDatFactory.set_xlsx_trailing_empty_rows">set_xlsx_trailing_empty_rows</h1>
+
+<pre><code class="python">PanDatFactory.set_xlsx_trailing_empty_rows(self, value)
+</code></pre>
+
+<p>Set the xlsx_trailing_empty_rows for the PanDatFactory. Choices are:
+--&gt; 'prune' : (the default) when reading an xlsx/xlsm file, look for trailing all pd.isnull rows in each table,
+              and prune them
+--&gt; 'ignore': retain such rows
+With the move to openpyxl for xlsx/xlsm file reading, its more likely that Excel users accidentally creating
+trailing all none rows.
+:param value: either 'prune' or 'ignore'
+:return:</p>
               
             </div>
           </div>
