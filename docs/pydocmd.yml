@@ -9,6 +9,10 @@ generate:
   - ticdat.pandatfactory.PanDatFactory.clear_data_type
   - ticdat.pandatfactory.PanDatFactory.clear_foreign_keys
   - ticdat.pandatfactory.PanDatFactory.clone
+  - ticdat.pandatfactory.PanDatFactory.clone_add_a_column
+  - ticdat.pandatfactory.PanDatFactory.clone_add_a_table
+  - ticdat.pandatfactory.PanDatFactory.clone_remove_a_column
+  - ticdat.pandatfactory.PanDatFactory.clone_rename_a_column
   - ticdat.pandatfactory.PanDatFactory.copy_from_ampl_variables
   - ticdat.pandatfactory.PanDatFactory.copy_pan_dat
   - ticdat.pandatfactory.PanDatFactory.copy_to_ampl
@@ -18,14 +22,19 @@ generate:
   - ticdat.pandatfactory.PanDatFactory.find_data_type_failures
   - ticdat.pandatfactory.PanDatFactory.find_duplicates
   - ticdat.pandatfactory.PanDatFactory.find_foreign_key_failures
+  - ticdat.pandatfactory.PanDatFactory.get_row_predicates
   - ticdat.pandatfactory.PanDatFactory.good_pan_dat_object
   - ticdat.pandatfactory.PanDatFactory.remove_foreign_key_failures
+  - ticdat.pandatfactory.PanDatFactory.remove_parameter
   - ticdat.pandatfactory.PanDatFactory.schema
   - ticdat.pandatfactory.PanDatFactory.set_ampl_data
   - ticdat.pandatfactory.PanDatFactory.set_data_type
   - ticdat.pandatfactory.PanDatFactory.set_default_value
   - ticdat.pandatfactory.PanDatFactory.set_default_values
+  - ticdat.pandatfactory.PanDatFactory.set_duplicates_ticdat_init
   - ticdat.pandatfactory.PanDatFactory.set_infinity_io_flag
+  - ticdat.pandatfactory.PanDatFactory.set_tooltip
+  - ticdat.pandatfactory.PanDatFactory.set_xlsx_trailing_empty_rows
 - pandatio.md:
   - ticdat.pandatio.CsvPanFactory++
   - ticdat.pandatio.JsonPanFactory++
@@ -53,12 +62,18 @@ generate:
   - ticdat.sqlitetd.SQLiteTicFactory++
 - ticdatfactory.md:
   - ticdat.ticdatfactory.TicDatFactory
+  - ticdat.ticdatfactory.TicDatFactory.add_implied_foreign_keys
   - ticdat.ticdatfactory.TicDatFactory.add_parameter
   - ticdat.ticdatfactory.TicDatFactory.add_data_row_predicate
   - ticdat.ticdatfactory.TicDatFactory.add_foreign_key
+  - ticdat.ticdatfactory.TicDatFactory.as_dict
   - ticdat.ticdatfactory.TicDatFactory.clear_data_type
   - ticdat.ticdatfactory.TicDatFactory.clear_foreign_keys
   - ticdat.ticdatfactory.TicDatFactory.clone
+  - ticdat.ticdatfactory.TicDatFactory.clone_add_a_column
+  - ticdat.ticdatfactory.TicDatFactory.clone_add_a_table
+  - ticdat.ticdatfactory.TicDatFactory.clone_remove_a_column
+  - ticdat.ticdatfactory.TicDatFactory.clone_rename_a_column
   - ticdat.ticdatfactory.TicDatFactory.copy_from_ampl_variables
   - ticdat.ticdatfactory.TicDatFactory.copy_tic_dat
   - ticdat.ticdatfactory.TicDatFactory.copy_to_ampl
@@ -70,18 +85,23 @@ generate:
   - ticdat.ticdatfactory.TicDatFactory.find_data_type_failures
   - ticdat.ticdatfactory.TicDatFactory.find_foreign_key_failures
   - ticdat.ticdatfactory.TicDatFactory.freeze_me
+  - ticdat.ticdatfactory.TicDatFactory.get_row_predicates
   - ticdat.ticdatfactory.TicDatFactory.good_tic_dat_object
   - ticdat.ticdatfactory.TicDatFactory.good_tic_dat_table
   - ticdat.ticdatfactory.TicDatFactory.obfusimplify
   - ticdat.ticdatfactory.TicDatFactory.remove_foreign_key_failures
+  - ticdat.ticdatfactory.TicDatFactory.remove_parameter
   - ticdat.ticdatfactory.TicDatFactory.replace_data_type_failures
   - ticdat.ticdatfactory.TicDatFactory.schema
   - ticdat.ticdatfactory.TicDatFactory.set_ampl_data
   - ticdat.ticdatfactory.TicDatFactory.set_data_type
   - ticdat.ticdatfactory.TicDatFactory.set_default_value
   - ticdat.ticdatfactory.TicDatFactory.set_default_values
+  - ticdat.ticdatfactory.TicDatFactory.set_duplicates_ticdat_init
   - ticdat.ticdatfactory.TicDatFactory.set_generator_tables
   - ticdat.ticdatfactory.TicDatFactory.set_infinity_io_flag
+  - ticdat.ticdatfactory.TicDatFactory.set_tooltip
+  - ticdat.ticdatfactory.TicDatFactory.set_xlsx_trailing_empty_rows
   - ticdat.ticdatfactory.freeze_me
 - utils.md:
   - ticdat.utils.standard_main
