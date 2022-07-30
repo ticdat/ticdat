@@ -1,0 +1,4834 @@
+[
+  [
+    "Los Angeles Cus",
+    "SetCordless18v",
+    "TP",
+    7095.0,
+    7095.0,
+    0.0
+  ],
+  [
+    "Chicago Cus",
+    "SetCordless18v",
+    "TP",
+    4935.0,
+    4935.0,
+    0.0
+  ],
+  [
+    "Houston Cus",
+    "SetCordless18v",
+    "TP",
+    4140.0,
+    4140.0,
+    0.0
+  ],
+  [
+    "Philadelphia Cus",
+    "SetCordless18v",
+    "TP",
+    2805.0,
+    2805.0,
+    0.0
+  ],
+  [
+    "Phoenix Cus",
+    "SetCordless18v",
+    "TP",
+    2850.0,
+    2850.0,
+    0.0
+  ],
+  [
+    "San Antonio Cus",
+    "SetCordless18v",
+    "TP",
+    2625.0,
+    2625.0,
+    0.0
+  ],
+  [
+    "San Diego Cus",
+    "SetCordless18v",
+    "TP",
+    2520.0,
+    2520.0,
+    0.0
+  ],
+  [
+    "Dallas Cus",
+    "SetCordless18v",
+    "TP",
+    2370.0,
+    2370.0,
+    0.0
+  ],
+  [
+    "San Jose Cus",
+    "SetCordless18v",
+    "TP",
+    1950.0,
+    1950.0,
+    0.0
+  ],
+  [
+    "Austin Cus",
+    "SetCordless18v",
+    "TP",
+    1725.0,
+    1725.0,
+    0.0
+  ],
+  [
+    "Indianapolis Cus",
+    "SetCordless18v",
+    "TP",
+    1650.0,
+    1650.0,
+    0.0
+  ],
+  [
+    "Jacksonville Cus",
+    "SetCordless18v",
+    "TP",
+    1620.0,
+    1620.0,
+    0.0
+  ],
+  [
+    "San Francisco Cus",
+    "SetCordless18v",
+    "TP",
+    1620.0,
+    1620.0,
+    0.0
+  ],
+  [
+    "Columbus Cus",
+    "SetCordless18v",
+    "TP",
+    1590.0,
+    1590.0,
+    0.0
+  ],
+  [
+    "Charlotte Cus",
+    "SetCordless18v",
+    "TP",
+    1590.0,
+    1590.0,
+    0.0
+  ],
+  [
+    "Fort Worth Cus",
+    "SetCordless18v",
+    "TP",
+    1545.0,
+    1545.0,
+    0.0
+  ],
+  [
+    "Detroit Cus",
+    "SetCordless18v",
+    "TP",
+    1410.0,
+    1410.0,
+    0.0
+  ],
+  [
+    "El Paso Cus",
+    "SetCordless18v",
+    "TP",
+    1260.0,
+    1260.0,
+    0.0
+  ],
+  [
+    "Memphis Cus",
+    "SetCordless18v",
+    "TP",
+    1290.0,
+    1290.0,
+    0.0
+  ],
+  [
+    "Seattle Cus",
+    "SetCordless18v",
+    "TP",
+    1260.0,
+    1260.0,
+    0.0
+  ],
+  [
+    "Denver Cus",
+    "SetCordless18v",
+    "TP",
+    1230.0,
+    1230.0,
+    0.0
+  ],
+  [
+    "Washington Cus",
+    "SetCordless18v",
+    "TP",
+    1230.0,
+    1230.0,
+    0.0
+  ],
+  [
+    "Boston Cus",
+    "SetCordless18v",
+    "TP",
+    1290.0,
+    1290.0,
+    0.0
+  ],
+  [
+    "Nashville Cus",
+    "SetCordless18v",
+    "TP",
+    1290.0,
+    1290.0,
+    0.0
+  ],
+  [
+    "Baltimore Cus",
+    "SetCordless18v",
+    "TP",
+    1185.0,
+    1185.0,
+    0.0
+  ],
+  [
+    "Oklahoma City Cus",
+    "SetCordless18v",
+    "TP",
+    1185.0,
+    1185.0,
+    0.0
+  ],
+  [
+    "Louisville Cus",
+    "SetCordless18v",
+    "TP",
+    1185.0,
+    1185.0,
+    0.0
+  ],
+  [
+    "Portland Cus",
+    "SetCordless18v",
+    "TP",
+    1155.0,
+    1155.0,
+    0.0
+  ],
+  [
+    "Las Vegas Cus",
+    "SetCordless18v",
+    "TP",
+    1230.0,
+    1230.0,
+    0.0
+  ],
+  [
+    "Milwaukee Cus",
+    "SetCordless18v",
+    "TP",
+    1230.0,
+    1230.0,
+    0.0
+  ],
+  [
+    "Albuquerque Cus",
+    "SetCordless18v",
+    "TP",
+    1050.0,
+    1050.0,
+    0.0
+  ],
+  [
+    "Tucson Cus",
+    "SetCordless18v",
+    "TP",
+    1050.0,
+    1050.0,
+    0.0
+  ],
+  [
+    "Fresno Cus",
+    "SetCordless18v",
+    "TP",
+    1080.0,
+    1080.0,
+    0.0
+  ],
+  [
+    "Sacramento Cus",
+    "SetCordless18v",
+    "TP",
+    930.0,
+    930.0,
+    0.0
+  ],
+  [
+    "Long Beach Cus",
+    "SetCordless18v",
+    "TP",
+    870.0,
+    870.0,
+    0.0
+  ],
+  [
+    "Kansas City Cus",
+    "SetCordless18v",
+    "TP",
+    1005.0,
+    1005.0,
+    0.0
+  ],
+  [
+    "Mesa Cus",
+    "SetCordless18v",
+    "TP",
+    870.0,
+    870.0,
+    0.0
+  ],
+  [
+    "Virginia Beach Cus",
+    "SetCordless18v",
+    "TP",
+    870.0,
+    870.0,
+    0.0
+  ],
+  [
+    "Atlanta Cus",
+    "SetCordless18v",
+    "TP",
+    975.0,
+    975.0,
+    0.0
+  ],
+  [
+    "Colorado Springs Cus",
+    "SetCordless18v",
+    "TP",
+    870.0,
+    870.0,
+    0.0
+  ],
+  [
+    "Omaha Cus",
+    "SetCordless18v",
+    "TP",
+    795.0,
+    795.0,
+    0.0
+  ],
+  [
+    "Raleigh Cus",
+    "SetCordless18v",
+    "TP",
+    825.0,
+    825.0,
+    0.0
+  ],
+  [
+    "Miami Cus",
+    "SetCordless18v",
+    "TP",
+    870.0,
+    870.0,
+    0.0
+  ],
+  [
+    "Oakland Cus",
+    "SetCordless18v",
+    "TP",
+    750.0,
+    750.0,
+    0.0
+  ],
+  [
+    "Minneapolis Cus",
+    "SetCordless18v",
+    "TP",
+    795.0,
+    795.0,
+    0.0
+  ],
+  [
+    "Tulsa Cus",
+    "SetCordless18v",
+    "TP",
+    900.0,
+    900.0,
+    0.0
+  ],
+  [
+    "Cleveland Cus",
+    "SetCordless18v",
+    "TP",
+    795.0,
+    795.0,
+    0.0
+  ],
+  [
+    "Wichita Cus",
+    "SetCordless18v",
+    "TP",
+    825.0,
+    825.0,
+    0.0
+  ],
+  [
+    "Arlington Cus",
+    "SetCordless18v",
+    "TP",
+    825.0,
+    825.0,
+    0.0
+  ],
+  [
+    "New Orleans Cus",
+    "SetCordless18v",
+    "TP",
+    825.0,
+    825.0,
+    0.0
+  ],
+  [
+    "Bakersfield Cus",
+    "SetCordless18v",
+    "TP",
+    720.0,
+    720.0,
+    0.0
+  ],
+  [
+    "Tampa Cus",
+    "SetCordless18v",
+    "TP",
+    690.0,
+    690.0,
+    0.0
+  ],
+  [
+    "Honolulu Cus",
+    "SetCordless18v",
+    "TP",
+    795.0,
+    795.0,
+    0.0
+  ],
+  [
+    "Aurora Cus",
+    "SetCordless18v",
+    "TP",
+    690.0,
+    690.0,
+    0.0
+  ],
+  [
+    "Anaheim Cus",
+    "SetCordless18v",
+    "TP",
+    690.0,
+    690.0,
+    0.0
+  ],
+  [
+    "Santa Ana Cus",
+    "SetCordless18v",
+    "TP",
+    720.0,
+    720.0,
+    0.0
+  ],
+  [
+    "St. Louis Cus",
+    "SetCordless18v",
+    "TP",
+    690.0,
+    690.0,
+    0.0
+  ],
+  [
+    "Riverside Cus",
+    "SetCordless18v",
+    "TP",
+    750.0,
+    750.0,
+    0.0
+  ],
+  [
+    "Corpus Christi Cus",
+    "SetCordless18v",
+    "TP",
+    690.0,
+    690.0,
+    0.0
+  ],
+  [
+    "Lexington Cus",
+    "SetCordless18v",
+    "TP",
+    645.0,
+    645.0,
+    0.0
+  ],
+  [
+    "Pittsburgh Cus",
+    "SetCordless18v",
+    "TP",
+    690.0,
+    690.0,
+    0.0
+  ],
+  [
+    "Anchorage Cus",
+    "SetCordless18v",
+    "TP",
+    720.0,
+    720.0,
+    0.0
+  ],
+  [
+    "Stockton Cus",
+    "SetCordless18v",
+    "TP",
+    615.0,
+    615.0,
+    0.0
+  ],
+  [
+    "Cincinnati Cus",
+    "SetCordless18v",
+    "TP",
+    645.0,
+    645.0,
+    0.0
+  ],
+  [
+    "Saint Paul Cus",
+    "SetCordless18v",
+    "TP",
+    690.0,
+    690.0,
+    0.0
+  ],
+  [
+    "Toledo Cus",
+    "SetCordless18v",
+    "TP",
+    690.0,
+    690.0,
+    0.0
+  ],
+  [
+    "Greensboro Cus",
+    "SetCordless18v",
+    "TP",
+    690.0,
+    690.0,
+    0.0
+  ],
+  [
+    "Newark Cus",
+    "SetCordless18v",
+    "TP",
+    540.0,
+    540.0,
+    0.0
+  ],
+  [
+    "Plano Cus",
+    "SetCordless18v",
+    "TP",
+    690.0,
+    690.0,
+    0.0
+  ],
+  [
+    "Henderson Cus",
+    "SetCordless18v",
+    "TP",
+    690.0,
+    690.0,
+    0.0
+  ],
+  [
+    "Lincoln Cus",
+    "SetCordless18v",
+    "TP",
+    570.0,
+    570.0,
+    0.0
+  ],
+  [
+    "Buffalo Cus",
+    "SetCordless18v",
+    "TP",
+    540.0,
+    540.0,
+    0.0
+  ],
+  [
+    "Jersey City Cus",
+    "SetCordless18v",
+    "TP",
+    615.0,
+    615.0,
+    0.0
+  ],
+  [
+    "Chula Vista Cus",
+    "SetCordless18v",
+    "TP",
+    645.0,
+    645.0,
+    0.0
+  ],
+  [
+    "Fort Wayne Cus",
+    "SetCordless18v",
+    "TP",
+    510.0,
+    510.0,
+    0.0
+  ],
+  [
+    "Orlando Cus",
+    "SetCordless18v",
+    "TP",
+    510.0,
+    510.0,
+    0.0
+  ],
+  [
+    "St. Petersburg Cus",
+    "SetCordless18v",
+    "TP",
+    540.0,
+    540.0,
+    0.0
+  ],
+  [
+    "Chandler Cus",
+    "SetCordless18v",
+    "TP",
+    615.0,
+    615.0,
+    0.0
+  ],
+  [
+    "Laredo Cus",
+    "SetCordless18v",
+    "TP",
+    615.0,
+    615.0,
+    0.0
+  ],
+  [
+    "Norfolk Cus",
+    "SetCordless18v",
+    "TP",
+    540.0,
+    540.0,
+    0.0
+  ],
+  [
+    "Durham Cus",
+    "SetCordless18v",
+    "TP",
+    465.0,
+    465.0,
+    0.0
+  ],
+  [
+    "Madison Cus",
+    "SetCordless18v",
+    "TP",
+    510.0,
+    510.0,
+    0.0
+  ],
+  [
+    "Lubbock Cus",
+    "SetCordless18v",
+    "TP",
+    615.0,
+    615.0,
+    0.0
+  ],
+  [
+    "Irvine Cus",
+    "SetCordless18v",
+    "TP",
+    510.0,
+    510.0,
+    0.0
+  ],
+  [
+    "Glendale Cus",
+    "SetCordless18v",
+    "TP",
+    570.0,
+    570.0,
+    0.0
+  ],
+  [
+    "Garland Cus",
+    "SetCordless18v",
+    "TP",
+    615.0,
+    615.0,
+    0.0
+  ],
+  [
+    "Hialeah Cus",
+    "SetCordless18v",
+    "TP",
+    540.0,
+    540.0,
+    0.0
+  ],
+  [
+    "Reno Cus",
+    "SetCordless18v",
+    "TP",
+    510.0,
+    510.0,
+    0.0
+  ],
+  [
+    "Chesapeake Cus",
+    "SetCordless18v",
+    "TP",
+    540.0,
+    540.0,
+    0.0
+  ],
+  [
+    "Gilbert Cus",
+    "SetCordless18v",
+    "TP",
+    510.0,
+    510.0,
+    0.0
+  ],
+  [
+    "Baton Rouge Cus",
+    "SetCordless18v",
+    "TP",
+    435.0,
+    435.0,
+    0.0
+  ],
+  [
+    "Irving Cus",
+    "SetCordless18v",
+    "TP",
+    465.0,
+    465.0,
+    0.0
+  ],
+  [
+    "Scottsdale Cus",
+    "SetCordless18v",
+    "TP",
+    510.0,
+    510.0,
+    0.0
+  ],
+  [
+    "North Las Vegas Cus",
+    "SetCordless18v",
+    "TP",
+    435.0,
+    435.0,
+    0.0
+  ],
+  [
+    "Fremont Cus",
+    "SetCordless18v",
+    "TP",
+    540.0,
+    540.0,
+    0.0
+  ],
+  [
+    "Boise Cus",
+    "SetCordless18v",
+    "TP",
+    465.0,
+    465.0,
+    0.0
+  ],
+  [
+    "Richmond Cus",
+    "SetCordless18v",
+    "TP",
+    465.0,
+    465.0,
+    0.0
+  ],
+  [
+    "San Bernardino Cus",
+    "SetCordless18v",
+    "TP",
+    465.0,
+    465.0,
+    0.0
+  ],
+  [
+    "Birmingham Cus",
+    "SetCordless18v",
+    "TP",
+    540.0,
+    540.0,
+    0.0
+  ],
+  [
+    "Spokane Cus",
+    "SetCordless18v",
+    "TP",
+    540.0,
+    540.0,
+    0.0
+  ],
+  [
+    "Rochester Cus",
+    "SetCordless18v",
+    "TP",
+    465.0,
+    465.0,
+    0.0
+  ],
+  [
+    "Des Moines Cus",
+    "SetCordless18v",
+    "TP",
+    510.0,
+    510.0,
+    0.0
+  ],
+  [
+    "Modesto Cus",
+    "SetCordless18v",
+    "TP",
+    540.0,
+    540.0,
+    0.0
+  ],
+  [
+    "Fayetteville Cus",
+    "SetCordless18v",
+    "TP",
+    510.0,
+    510.0,
+    0.0
+  ],
+  [
+    "Tacoma Cus",
+    "SetCordless18v",
+    "TP",
+    540.0,
+    540.0,
+    0.0
+  ],
+  [
+    "Oxnard Cus",
+    "SetCordless18v",
+    "TP",
+    390.0,
+    390.0,
+    0.0
+  ],
+  [
+    "Fontana Cus",
+    "SetCordless18v",
+    "TP",
+    510.0,
+    510.0,
+    0.0
+  ],
+  [
+    "Montgomery Cus",
+    "SetCordless18v",
+    "TP",
+    540.0,
+    540.0,
+    0.0
+  ],
+  [
+    "Moreno Valley Cus",
+    "SetCordless18v",
+    "TP",
+    390.0,
+    390.0,
+    0.0
+  ],
+  [
+    "Shreveport Cus",
+    "SetCordless18v",
+    "TP",
+    465.0,
+    465.0,
+    0.0
+  ],
+  [
+    "Yonkers Cus",
+    "SetCordless18v",
+    "TP",
+    510.0,
+    510.0,
+    0.0
+  ],
+  [
+    "Akron Cus",
+    "SetCordless18v",
+    "TP",
+    465.0,
+    465.0,
+    0.0
+  ],
+  [
+    "Huntington Beach Cus",
+    "SetCordless18v",
+    "TP",
+    390.0,
+    390.0,
+    0.0
+  ],
+  [
+    "Little Rock Cus",
+    "SetCordless18v",
+    "TP",
+    435.0,
+    435.0,
+    0.0
+  ],
+  [
+    "Augusta Cus",
+    "SetCordless18v",
+    "TP",
+    465.0,
+    465.0,
+    0.0
+  ],
+  [
+    "Amarillo Cus",
+    "SetCordless18v",
+    "TP",
+    510.0,
+    510.0,
+    0.0
+  ],
+  [
+    "Mobile Cus",
+    "SetCordless18v",
+    "TP",
+    390.0,
+    390.0,
+    0.0
+  ],
+  [
+    "Grand Rapids Cus",
+    "SetCordless18v",
+    "TP",
+    540.0,
+    540.0,
+    0.0
+  ],
+  [
+    "Salt Lake City Cus",
+    "SetCordless18v",
+    "TP",
+    540.0,
+    540.0,
+    0.0
+  ],
+  [
+    "Tallahassee Cus",
+    "SetCordless18v",
+    "TP",
+    390.0,
+    390.0,
+    0.0
+  ],
+  [
+    "Huntsville Cus",
+    "SetCordless18v",
+    "TP",
+    435.0,
+    435.0,
+    0.0
+  ],
+  [
+    "Grand Prairie Cus",
+    "SetCordless18v",
+    "TP",
+    510.0,
+    510.0,
+    0.0
+  ],
+  [
+    "Knoxville Cus",
+    "SetCordless18v",
+    "TP",
+    510.0,
+    510.0,
+    0.0
+  ],
+  [
+    "Worcester Cus",
+    "SetCordless18v",
+    "TP",
+    435.0,
+    435.0,
+    0.0
+  ],
+  [
+    "Newport News Cus",
+    "SetCordless18v",
+    "TP",
+    510.0,
+    510.0,
+    0.0
+  ],
+  [
+    "Brownsville Cus",
+    "SetCordless18v",
+    "TP",
+    360.0,
+    360.0,
+    0.0
+  ],
+  [
+    "Overland Park Cus",
+    "SetCordless18v",
+    "TP",
+    435.0,
+    435.0,
+    0.0
+  ],
+  [
+    "Santa Clarita Cus",
+    "SetCordless18v",
+    "TP",
+    390.0,
+    390.0,
+    0.0
+  ],
+  [
+    "Providence Cus",
+    "SetCordless18v",
+    "TP",
+    510.0,
+    510.0,
+    0.0
+  ],
+  [
+    "Garden Grove Cus",
+    "SetCordless18v",
+    "TP",
+    510.0,
+    510.0,
+    0.0
+  ],
+  [
+    "Chattanooga Cus",
+    "SetCordless18v",
+    "TP",
+    465.0,
+    465.0,
+    0.0
+  ],
+  [
+    "Oceanside Cus",
+    "SetCordless18v",
+    "TP",
+    390.0,
+    390.0,
+    0.0
+  ],
+  [
+    "Jackson Cus",
+    "SetCordless18v",
+    "TP",
+    510.0,
+    510.0,
+    0.0
+  ],
+  [
+    "Fort Lauderdale Cus",
+    "SetCordless18v",
+    "TP",
+    435.0,
+    435.0,
+    0.0
+  ],
+  [
+    "Santa Rosa Cus",
+    "SetCordless18v",
+    "TP",
+    390.0,
+    390.0,
+    0.0
+  ],
+  [
+    "Rancho Cucamonga Cus",
+    "SetCordless18v",
+    "TP",
+    360.0,
+    360.0,
+    0.0
+  ],
+  [
+    "Port St. Lucie Cus",
+    "SetCordless18v",
+    "TP",
+    435.0,
+    435.0,
+    0.0
+  ],
+  [
+    "Tempe Cus",
+    "SetCordless18v",
+    "TP",
+    435.0,
+    435.0,
+    0.0
+  ],
+  [
+    "Ontario Cus",
+    "SetCordless18v",
+    "TP",
+    330.0,
+    330.0,
+    0.0
+  ],
+  [
+    "Vancouver Cus",
+    "SetCordless18v",
+    "TP",
+    360.0,
+    360.0,
+    0.0
+  ],
+  [
+    "Cape Coral Cus",
+    "SetCordless18v",
+    "TP",
+    390.0,
+    390.0,
+    0.0
+  ],
+  [
+    "Sioux Falls Cus",
+    "SetCordless18v",
+    "TP",
+    390.0,
+    390.0,
+    0.0
+  ],
+  [
+    "Springfield Cus",
+    "SetCordless18v",
+    "TP",
+    435.0,
+    435.0,
+    0.0
+  ],
+  [
+    "Peoria Cus",
+    "SetCordless18v",
+    "TP",
+    360.0,
+    360.0,
+    0.0
+  ],
+  [
+    "Pembroke Pines Cus",
+    "SetCordless18v",
+    "TP",
+    330.0,
+    330.0,
+    0.0
+  ],
+  [
+    "Elk Grove Cus",
+    "SetCordless18v",
+    "TP",
+    360.0,
+    360.0,
+    0.0
+  ],
+  [
+    "Salem Cus",
+    "SetCordless18v",
+    "TP",
+    465.0,
+    465.0,
+    0.0
+  ],
+  [
+    "Lancaster Cus",
+    "SetCordless18v",
+    "TP",
+    465.0,
+    465.0,
+    0.0
+  ],
+  [
+    "Corona Cus",
+    "SetCordless18v",
+    "TP",
+    435.0,
+    435.0,
+    0.0
+  ],
+  [
+    "Eugene Cus",
+    "SetCordless18v",
+    "TP",
+    360.0,
+    360.0,
+    0.0
+  ],
+  [
+    "New York Cus",
+    "SetCordless12v",
+    "TP",
+    30450.0,
+    30450.0,
+    0.0
+  ],
+  [
+    "Los Angeles Cus",
+    "SetCordless12v",
+    "TP",
+    14145.0,
+    14145.0,
+    0.0
+  ],
+  [
+    "Chicago Cus",
+    "SetCordless12v",
+    "TP",
+    9825.0,
+    9825.0,
+    0.0
+  ],
+  [
+    "Houston Cus",
+    "SetCordless12v",
+    "TP",
+    8250.0,
+    8250.0,
+    0.0
+  ],
+  [
+    "Philadelphia Cus",
+    "SetCordless12v",
+    "TP",
+    5610.0,
+    5610.0,
+    0.0
+  ],
+  [
+    "Phoenix Cus",
+    "SetCordless12v",
+    "TP",
+    5655.0,
+    5655.0,
+    0.0
+  ],
+  [
+    "San Antonio Cus",
+    "SetCordless12v",
+    "TP",
+    5220.0,
+    5220.0,
+    0.0
+  ],
+  [
+    "San Diego Cus",
+    "SetCordless12v",
+    "TP",
+    5040.0,
+    5040.0,
+    0.0
+  ],
+  [
+    "Dallas Cus",
+    "SetCordless12v",
+    "TP",
+    4755.0,
+    4755.0,
+    0.0
+  ],
+  [
+    "San Jose Cus",
+    "SetCordless12v",
+    "TP",
+    3855.0,
+    3855.0,
+    0.0
+  ],
+  [
+    "Austin Cus",
+    "SetCordless12v",
+    "TP",
+    3420.0,
+    3420.0,
+    0.0
+  ],
+  [
+    "Indianapolis Cus",
+    "SetCordless12v",
+    "TP",
+    3270.0,
+    3270.0,
+    0.0
+  ],
+  [
+    "Jacksonville Cus",
+    "SetCordless12v",
+    "TP",
+    3240.0,
+    3240.0,
+    0.0
+  ],
+  [
+    "San Francisco Cus",
+    "SetCordless12v",
+    "TP",
+    3240.0,
+    3240.0,
+    0.0
+  ],
+  [
+    "Columbus Cus",
+    "SetCordless12v",
+    "TP",
+    3165.0,
+    3165.0,
+    0.0
+  ],
+  [
+    "Charlotte Cus",
+    "SetCordless12v",
+    "TP",
+    3165.0,
+    3165.0,
+    0.0
+  ],
+  [
+    "Fort Worth Cus",
+    "SetCordless12v",
+    "TP",
+    3060.0,
+    3060.0,
+    0.0
+  ],
+  [
+    "Detroit Cus",
+    "SetCordless12v",
+    "TP",
+    2775.0,
+    2775.0,
+    0.0
+  ],
+  [
+    "El Paso Cus",
+    "SetCordless12v",
+    "TP",
+    2520.0,
+    2520.0,
+    0.0
+  ],
+  [
+    "Memphis Cus",
+    "SetCordless12v",
+    "TP",
+    2595.0,
+    2595.0,
+    0.0
+  ],
+  [
+    "Seattle Cus",
+    "SetCordless12v",
+    "TP",
+    2520.0,
+    2520.0,
+    0.0
+  ],
+  [
+    "Denver Cus",
+    "SetCordless12v",
+    "TP",
+    2415.0,
+    2415.0,
+    0.0
+  ],
+  [
+    "Washington Cus",
+    "SetCordless12v",
+    "TP",
+    2415.0,
+    2415.0,
+    0.0
+  ],
+  [
+    "Boston Cus",
+    "SetCordless12v",
+    "TP",
+    2550.0,
+    2550.0,
+    0.0
+  ],
+  [
+    "Nashville Cus",
+    "SetCordless12v",
+    "TP",
+    2550.0,
+    2550.0,
+    0.0
+  ],
+  [
+    "Baltimore Cus",
+    "SetCordless12v",
+    "TP",
+    2370.0,
+    2370.0,
+    0.0
+  ],
+  [
+    "Oklahoma City Cus",
+    "SetCordless12v",
+    "TP",
+    2340.0,
+    2340.0,
+    0.0
+  ],
+  [
+    "Louisville Cus",
+    "SetCordless12v",
+    "TP",
+    2340.0,
+    2340.0,
+    0.0
+  ],
+  [
+    "Portland Cus",
+    "SetCordless12v",
+    "TP",
+    2310.0,
+    2310.0,
+    0.0
+  ],
+  [
+    "Las Vegas Cus",
+    "SetCordless12v",
+    "TP",
+    2445.0,
+    2445.0,
+    0.0
+  ],
+  [
+    "Milwaukee Cus",
+    "SetCordless12v",
+    "TP",
+    2415.0,
+    2415.0,
+    0.0
+  ],
+  [
+    "Albuquerque Cus",
+    "SetCordless12v",
+    "TP",
+    2055.0,
+    2055.0,
+    0.0
+  ],
+  [
+    "Tucson Cus",
+    "SetCordless12v",
+    "TP",
+    2085.0,
+    2085.0,
+    0.0
+  ],
+  [
+    "Fresno Cus",
+    "SetCordless12v",
+    "TP",
+    2160.0,
+    2160.0,
+    0.0
+  ],
+  [
+    "Sacramento Cus",
+    "SetCordless12v",
+    "TP",
+    1875.0,
+    1875.0,
+    0.0
+  ],
+  [
+    "Long Beach Cus",
+    "SetCordless12v",
+    "TP",
+    1695.0,
+    1695.0,
+    0.0
+  ],
+  [
+    "Kansas City Cus",
+    "SetCordless12v",
+    "TP",
+    1980.0,
+    1980.0,
+    0.0
+  ],
+  [
+    "Mesa Cus",
+    "SetCordless12v",
+    "TP",
+    1695.0,
+    1695.0,
+    0.0
+  ],
+  [
+    "Virginia Beach Cus",
+    "SetCordless12v",
+    "TP",
+    1725.0,
+    1725.0,
+    0.0
+  ],
+  [
+    "Atlanta Cus",
+    "SetCordless12v",
+    "TP",
+    1950.0,
+    1950.0,
+    0.0
+  ],
+  [
+    "Colorado Springs Cus",
+    "SetCordless12v",
+    "TP",
+    1725.0,
+    1725.0,
+    0.0
+  ],
+  [
+    "Omaha Cus",
+    "SetCordless12v",
+    "TP",
+    1590.0,
+    1590.0,
+    0.0
+  ],
+  [
+    "Raleigh Cus",
+    "SetCordless12v",
+    "TP",
+    1620.0,
+    1620.0,
+    0.0
+  ],
+  [
+    "Miami Cus",
+    "SetCordless12v",
+    "TP",
+    1725.0,
+    1725.0,
+    0.0
+  ],
+  [
+    "Oakland Cus",
+    "SetCordless12v",
+    "TP",
+    1500.0,
+    1500.0,
+    0.0
+  ],
+  [
+    "Minneapolis Cus",
+    "SetCordless12v",
+    "TP",
+    1590.0,
+    1590.0,
+    0.0
+  ],
+  [
+    "Tulsa Cus",
+    "SetCordless12v",
+    "TP",
+    1800.0,
+    1800.0,
+    0.0
+  ],
+  [
+    "Cleveland Cus",
+    "SetCordless12v",
+    "TP",
+    1590.0,
+    1590.0,
+    0.0
+  ],
+  [
+    "Wichita Cus",
+    "SetCordless12v",
+    "TP",
+    1650.0,
+    1650.0,
+    0.0
+  ],
+  [
+    "Arlington Cus",
+    "SetCordless12v",
+    "TP",
+    1650.0,
+    1650.0,
+    0.0
+  ],
+  [
+    "New Orleans Cus",
+    "SetCordless12v",
+    "TP",
+    1650.0,
+    1650.0,
+    0.0
+  ],
+  [
+    "Bakersfield Cus",
+    "SetCordless12v",
+    "TP",
+    1440.0,
+    1440.0,
+    0.0
+  ],
+  [
+    "Tampa Cus",
+    "SetCordless12v",
+    "TP",
+    1380.0,
+    1380.0,
+    0.0
+  ],
+  [
+    "Honolulu Cus",
+    "SetCordless12v",
+    "TP",
+    1590.0,
+    1590.0,
+    0.0
+  ],
+  [
+    "Aurora Cus",
+    "SetCordless12v",
+    "TP",
+    1380.0,
+    1380.0,
+    0.0
+  ],
+  [
+    "Anaheim Cus",
+    "SetCordless12v",
+    "TP",
+    1380.0,
+    1380.0,
+    0.0
+  ],
+  [
+    "Santa Ana Cus",
+    "SetCordless12v",
+    "TP",
+    1440.0,
+    1440.0,
+    0.0
+  ],
+  [
+    "St. Louis Cus",
+    "SetCordless12v",
+    "TP",
+    1380.0,
+    1380.0,
+    0.0
+  ],
+  [
+    "Riverside Cus",
+    "SetCordless12v",
+    "TP",
+    1500.0,
+    1500.0,
+    0.0
+  ],
+  [
+    "Corpus Christi Cus",
+    "SetCordless12v",
+    "TP",
+    1380.0,
+    1380.0,
+    0.0
+  ],
+  [
+    "Lexington Cus",
+    "SetCordless12v",
+    "TP",
+    1290.0,
+    1290.0,
+    0.0
+  ],
+  [
+    "Pittsburgh Cus",
+    "SetCordless12v",
+    "TP",
+    1380.0,
+    1380.0,
+    0.0
+  ],
+  [
+    "Anchorage Cus",
+    "SetCordless12v",
+    "TP",
+    1440.0,
+    1440.0,
+    0.0
+  ],
+  [
+    "Stockton Cus",
+    "SetCordless12v",
+    "TP",
+    1230.0,
+    1230.0,
+    0.0
+  ],
+  [
+    "Cincinnati Cus",
+    "SetCordless12v",
+    "TP",
+    1290.0,
+    1290.0,
+    0.0
+  ],
+  [
+    "Saint Paul Cus",
+    "SetCordless12v",
+    "TP",
+    1380.0,
+    1380.0,
+    0.0
+  ],
+  [
+    "Toledo Cus",
+    "SetCordless12v",
+    "TP",
+    1380.0,
+    1380.0,
+    0.0
+  ],
+  [
+    "Greensboro Cus",
+    "SetCordless12v",
+    "TP",
+    1380.0,
+    1380.0,
+    0.0
+  ],
+  [
+    "Newark Cus",
+    "SetCordless12v",
+    "TP",
+    1080.0,
+    1080.0,
+    0.0
+  ],
+  [
+    "Plano Cus",
+    "SetCordless12v",
+    "TP",
+    1380.0,
+    1380.0,
+    0.0
+  ],
+  [
+    "Henderson Cus",
+    "SetCordless12v",
+    "TP",
+    1380.0,
+    1380.0,
+    0.0
+  ],
+  [
+    "Lincoln Cus",
+    "SetCordless12v",
+    "TP",
+    1140.0,
+    1140.0,
+    0.0
+  ],
+  [
+    "Buffalo Cus",
+    "SetCordless12v",
+    "TP",
+    1080.0,
+    1080.0,
+    0.0
+  ],
+  [
+    "Jersey City Cus",
+    "SetCordless12v",
+    "TP",
+    1230.0,
+    1230.0,
+    0.0
+  ],
+  [
+    "Chula Vista Cus",
+    "SetCordless12v",
+    "TP",
+    1290.0,
+    1290.0,
+    0.0
+  ],
+  [
+    "Fort Wayne Cus",
+    "SetCordless12v",
+    "TP",
+    1020.0,
+    1020.0,
+    0.0
+  ],
+  [
+    "Orlando Cus",
+    "SetCordless12v",
+    "TP",
+    1020.0,
+    1020.0,
+    0.0
+  ],
+  [
+    "St. Petersburg Cus",
+    "SetCordless12v",
+    "TP",
+    1080.0,
+    1080.0,
+    0.0
+  ],
+  [
+    "Chandler Cus",
+    "SetCordless12v",
+    "TP",
+    1230.0,
+    1230.0,
+    0.0
+  ],
+  [
+    "Laredo Cus",
+    "SetCordless12v",
+    "TP",
+    1230.0,
+    1230.0,
+    0.0
+  ],
+  [
+    "Norfolk Cus",
+    "SetCordless12v",
+    "TP",
+    1080.0,
+    1080.0,
+    0.0
+  ],
+  [
+    "Durham Cus",
+    "SetCordless12v",
+    "TP",
+    930.0,
+    930.0,
+    0.0
+  ],
+  [
+    "Madison Cus",
+    "SetCordless12v",
+    "TP",
+    1020.0,
+    1020.0,
+    0.0
+  ],
+  [
+    "Lubbock Cus",
+    "SetCordless12v",
+    "TP",
+    1230.0,
+    1230.0,
+    0.0
+  ],
+  [
+    "Irvine Cus",
+    "SetCordless12v",
+    "TP",
+    1020.0,
+    1020.0,
+    0.0
+  ],
+  [
+    "Glendale Cus",
+    "SetCordless12v",
+    "TP",
+    1140.0,
+    1140.0,
+    0.0
+  ],
+  [
+    "Garland Cus",
+    "SetCordless12v",
+    "TP",
+    1230.0,
+    1230.0,
+    0.0
+  ],
+  [
+    "Hialeah Cus",
+    "SetCordless12v",
+    "TP",
+    1080.0,
+    1080.0,
+    0.0
+  ],
+  [
+    "Reno Cus",
+    "SetCordless12v",
+    "TP",
+    1020.0,
+    1020.0,
+    0.0
+  ],
+  [
+    "Chesapeake Cus",
+    "SetCordless12v",
+    "TP",
+    1080.0,
+    1080.0,
+    0.0
+  ],
+  [
+    "Gilbert Cus",
+    "SetCordless12v",
+    "TP",
+    1020.0,
+    1020.0,
+    0.0
+  ],
+  [
+    "Baton Rouge Cus",
+    "SetCordless12v",
+    "TP",
+    870.0,
+    870.0,
+    0.0
+  ],
+  [
+    "Irving Cus",
+    "SetCordless12v",
+    "TP",
+    930.0,
+    930.0,
+    0.0
+  ],
+  [
+    "Scottsdale Cus",
+    "SetCordless12v",
+    "TP",
+    1020.0,
+    1020.0,
+    0.0
+  ],
+  [
+    "North Las Vegas Cus",
+    "SetCordless12v",
+    "TP",
+    870.0,
+    870.0,
+    0.0
+  ],
+  [
+    "Fremont Cus",
+    "SetCordless12v",
+    "TP",
+    1080.0,
+    1080.0,
+    0.0
+  ],
+  [
+    "Boise Cus",
+    "SetCordless12v",
+    "TP",
+    930.0,
+    930.0,
+    0.0
+  ],
+  [
+    "Richmond Cus",
+    "SetCordless12v",
+    "TP",
+    930.0,
+    930.0,
+    0.0
+  ],
+  [
+    "San Bernardino Cus",
+    "SetCordless12v",
+    "TP",
+    930.0,
+    930.0,
+    0.0
+  ],
+  [
+    "Birmingham Cus",
+    "SetCordless12v",
+    "TP",
+    1080.0,
+    1080.0,
+    0.0
+  ],
+  [
+    "Spokane Cus",
+    "SetCordless12v",
+    "TP",
+    1080.0,
+    1080.0,
+    0.0
+  ],
+  [
+    "Rochester Cus",
+    "SetCordless12v",
+    "TP",
+    930.0,
+    930.0,
+    0.0
+  ],
+  [
+    "Des Moines Cus",
+    "SetCordless12v",
+    "TP",
+    1020.0,
+    1020.0,
+    0.0
+  ],
+  [
+    "Modesto Cus",
+    "SetCordless12v",
+    "TP",
+    1080.0,
+    1080.0,
+    0.0
+  ],
+  [
+    "Fayetteville Cus",
+    "SetCordless12v",
+    "TP",
+    1020.0,
+    1020.0,
+    0.0
+  ],
+  [
+    "Tacoma Cus",
+    "SetCordless12v",
+    "TP",
+    1080.0,
+    1080.0,
+    0.0
+  ],
+  [
+    "Oxnard Cus",
+    "SetCordless12v",
+    "TP",
+    780.0,
+    780.0,
+    0.0
+  ],
+  [
+    "Fontana Cus",
+    "SetCordless12v",
+    "TP",
+    1020.0,
+    1020.0,
+    0.0
+  ],
+  [
+    "Montgomery Cus",
+    "SetCordless12v",
+    "TP",
+    1080.0,
+    1080.0,
+    0.0
+  ],
+  [
+    "Moreno Valley Cus",
+    "SetCordless12v",
+    "TP",
+    780.0,
+    780.0,
+    0.0
+  ],
+  [
+    "Shreveport Cus",
+    "SetCordless12v",
+    "TP",
+    930.0,
+    930.0,
+    0.0
+  ],
+  [
+    "Yonkers Cus",
+    "SetCordless12v",
+    "TP",
+    1020.0,
+    1020.0,
+    0.0
+  ],
+  [
+    "Akron Cus",
+    "SetCordless12v",
+    "TP",
+    930.0,
+    930.0,
+    0.0
+  ],
+  [
+    "Huntington Beach Cus",
+    "SetCordless12v",
+    "TP",
+    780.0,
+    780.0,
+    0.0
+  ],
+  [
+    "Little Rock Cus",
+    "SetCordless12v",
+    "TP",
+    870.0,
+    870.0,
+    0.0
+  ],
+  [
+    "Augusta Cus",
+    "SetCordless12v",
+    "TP",
+    930.0,
+    930.0,
+    0.0
+  ],
+  [
+    "Amarillo Cus",
+    "SetCordless12v",
+    "TP",
+    1020.0,
+    1020.0,
+    0.0
+  ],
+  [
+    "Mobile Cus",
+    "SetCordless12v",
+    "TP",
+    780.0,
+    780.0,
+    0.0
+  ],
+  [
+    "Grand Rapids Cus",
+    "SetCordless12v",
+    "TP",
+    1080.0,
+    1080.0,
+    0.0
+  ],
+  [
+    "Salt Lake City Cus",
+    "SetCordless12v",
+    "TP",
+    1080.0,
+    1080.0,
+    0.0
+  ],
+  [
+    "Tallahassee Cus",
+    "SetCordless12v",
+    "TP",
+    780.0,
+    780.0,
+    0.0
+  ],
+  [
+    "Huntsville Cus",
+    "SetCordless12v",
+    "TP",
+    870.0,
+    870.0,
+    0.0
+  ],
+  [
+    "Grand Prairie Cus",
+    "SetCordless12v",
+    "TP",
+    1020.0,
+    1020.0,
+    0.0
+  ],
+  [
+    "Knoxville Cus",
+    "SetCordless12v",
+    "TP",
+    1020.0,
+    1020.0,
+    0.0
+  ],
+  [
+    "Worcester Cus",
+    "SetCordless12v",
+    "TP",
+    870.0,
+    870.0,
+    0.0
+  ],
+  [
+    "Newport News Cus",
+    "SetCordless12v",
+    "TP",
+    1020.0,
+    1020.0,
+    0.0
+  ],
+  [
+    "Brownsville Cus",
+    "SetCordless12v",
+    "TP",
+    720.0,
+    720.0,
+    0.0
+  ],
+  [
+    "Overland Park Cus",
+    "SetCordless12v",
+    "TP",
+    870.0,
+    870.0,
+    0.0
+  ],
+  [
+    "Santa Clarita Cus",
+    "SetCordless12v",
+    "TP",
+    780.0,
+    780.0,
+    0.0
+  ],
+  [
+    "Providence Cus",
+    "SetCordless12v",
+    "TP",
+    1020.0,
+    1020.0,
+    0.0
+  ],
+  [
+    "Garden Grove Cus",
+    "SetCordless12v",
+    "TP",
+    1020.0,
+    1020.0,
+    0.0
+  ],
+  [
+    "Chattanooga Cus",
+    "SetCordless12v",
+    "TP",
+    930.0,
+    930.0,
+    0.0
+  ],
+  [
+    "Oceanside Cus",
+    "SetCordless12v",
+    "TP",
+    780.0,
+    780.0,
+    0.0
+  ],
+  [
+    "Jackson Cus",
+    "SetCordless12v",
+    "TP",
+    1020.0,
+    1020.0,
+    0.0
+  ],
+  [
+    "Fort Lauderdale Cus",
+    "SetCordless12v",
+    "TP",
+    870.0,
+    870.0,
+    0.0
+  ],
+  [
+    "Santa Rosa Cus",
+    "SetCordless12v",
+    "TP",
+    780.0,
+    780.0,
+    0.0
+  ],
+  [
+    "Rancho Cucamonga Cus",
+    "SetCordless12v",
+    "TP",
+    720.0,
+    720.0,
+    0.0
+  ],
+  [
+    "Port St. Lucie Cus",
+    "SetCordless12v",
+    "TP",
+    870.0,
+    870.0,
+    0.0
+  ],
+  [
+    "Tempe Cus",
+    "SetCordless12v",
+    "TP",
+    870.0,
+    870.0,
+    0.0
+  ],
+  [
+    "Ontario Cus",
+    "SetCordless12v",
+    "TP",
+    660.0,
+    660.0,
+    0.0
+  ],
+  [
+    "Vancouver Cus",
+    "SetCordless12v",
+    "TP",
+    720.0,
+    720.0,
+    0.0
+  ],
+  [
+    "Cape Coral Cus",
+    "SetCordless12v",
+    "TP",
+    780.0,
+    780.0,
+    0.0
+  ],
+  [
+    "Sioux Falls Cus",
+    "SetCordless12v",
+    "TP",
+    780.0,
+    780.0,
+    0.0
+  ],
+  [
+    "Springfield Cus",
+    "SetCordless12v",
+    "TP",
+    870.0,
+    870.0,
+    0.0
+  ],
+  [
+    "Peoria Cus",
+    "SetCordless12v",
+    "TP",
+    720.0,
+    720.0,
+    0.0
+  ],
+  [
+    "Pembroke Pines Cus",
+    "SetCordless12v",
+    "TP",
+    660.0,
+    660.0,
+    0.0
+  ],
+  [
+    "Elk Grove Cus",
+    "SetCordless12v",
+    "TP",
+    720.0,
+    720.0,
+    0.0
+  ],
+  [
+    "Salem Cus",
+    "SetCordless12v",
+    "TP",
+    930.0,
+    930.0,
+    0.0
+  ],
+  [
+    "Lancaster Cus",
+    "SetCordless12v",
+    "TP",
+    930.0,
+    930.0,
+    0.0
+  ],
+  [
+    "Corona Cus",
+    "SetCordless12v",
+    "TP",
+    870.0,
+    870.0,
+    0.0
+  ],
+  [
+    "Eugene Cus",
+    "SetCordless12v",
+    "TP",
+    720.0,
+    720.0,
+    0.0
+  ],
+  [
+    "New York Cus",
+    "SetHammer",
+    "TP",
+    60900.0,
+    60900.0,
+    0.0
+  ],
+  [
+    "Los Angeles Cus",
+    "SetHammer",
+    "TP",
+    28290.0,
+    28290.0,
+    0.0
+  ],
+  [
+    "Chicago Cus",
+    "SetHammer",
+    "TP",
+    19650.0,
+    19650.0,
+    0.0
+  ],
+  [
+    "Houston Cus",
+    "SetHammer",
+    "TP",
+    16500.0,
+    16500.0,
+    0.0
+  ],
+  [
+    "Philadelphia Cus",
+    "SetHammer",
+    "TP",
+    11220.0,
+    11220.0,
+    0.0
+  ],
+  [
+    "Phoenix Cus",
+    "SetHammer",
+    "TP",
+    11310.0,
+    11310.0,
+    0.0
+  ],
+  [
+    "San Antonio Cus",
+    "SetHammer",
+    "TP",
+    10440.0,
+    10440.0,
+    0.0
+  ],
+  [
+    "San Diego Cus",
+    "SetHammer",
+    "TP",
+    10080.0,
+    10080.0,
+    0.0
+  ],
+  [
+    "Dallas Cus",
+    "SetHammer",
+    "TP",
+    9510.0,
+    9510.0,
+    0.0
+  ],
+  [
+    "San Jose Cus",
+    "SetHammer",
+    "TP",
+    7710.0,
+    7710.0,
+    0.0
+  ],
+  [
+    "Austin Cus",
+    "SetHammer",
+    "TP",
+    6840.0,
+    6840.0,
+    0.0
+  ],
+  [
+    "Indianapolis Cus",
+    "SetHammer",
+    "TP",
+    6540.0,
+    6540.0,
+    0.0
+  ],
+  [
+    "Jacksonville Cus",
+    "SetHammer",
+    "TP",
+    6480.0,
+    6480.0,
+    0.0
+  ],
+  [
+    "San Francisco Cus",
+    "SetHammer",
+    "TP",
+    6480.0,
+    6480.0,
+    0.0
+  ],
+  [
+    "Columbus Cus",
+    "SetHammer",
+    "TP",
+    6330.0,
+    6330.0,
+    0.0
+  ],
+  [
+    "Charlotte Cus",
+    "SetHammer",
+    "TP",
+    6330.0,
+    6330.0,
+    0.0
+  ],
+  [
+    "Fort Worth Cus",
+    "SetHammer",
+    "TP",
+    6120.0,
+    6120.0,
+    0.0
+  ],
+  [
+    "Detroit Cus",
+    "SetHammer",
+    "TP",
+    5550.0,
+    5550.0,
+    0.0
+  ],
+  [
+    "El Paso Cus",
+    "SetHammer",
+    "TP",
+    5040.0,
+    5040.0,
+    0.0
+  ],
+  [
+    "Memphis Cus",
+    "SetHammer",
+    "TP",
+    5190.0,
+    5190.0,
+    0.0
+  ],
+  [
+    "Seattle Cus",
+    "SetHammer",
+    "TP",
+    5040.0,
+    5040.0,
+    0.0
+  ],
+  [
+    "Denver Cus",
+    "SetHammer",
+    "TP",
+    4830.0,
+    4830.0,
+    0.0
+  ],
+  [
+    "Washington Cus",
+    "SetHammer",
+    "TP",
+    4830.0,
+    4830.0,
+    0.0
+  ],
+  [
+    "Boston Cus",
+    "SetHammer",
+    "TP",
+    5100.0,
+    5100.0,
+    0.0
+  ],
+  [
+    "Nashville Cus",
+    "SetHammer",
+    "TP",
+    5100.0,
+    5100.0,
+    0.0
+  ],
+  [
+    "Baltimore Cus",
+    "SetHammer",
+    "TP",
+    4740.0,
+    4740.0,
+    0.0
+  ],
+  [
+    "Oklahoma City Cus",
+    "SetHammer",
+    "TP",
+    4680.0,
+    4680.0,
+    0.0
+  ],
+  [
+    "Louisville Cus",
+    "SetHammer",
+    "TP",
+    4680.0,
+    4680.0,
+    0.0
+  ],
+  [
+    "Portland Cus",
+    "SetHammer",
+    "TP",
+    4620.0,
+    4620.0,
+    0.0
+  ],
+  [
+    "Las Vegas Cus",
+    "SetHammer",
+    "TP",
+    4890.0,
+    4890.0,
+    0.0
+  ],
+  [
+    "Milwaukee Cus",
+    "SetHammer",
+    "TP",
+    4830.0,
+    4830.0,
+    0.0
+  ],
+  [
+    "Albuquerque Cus",
+    "SetHammer",
+    "TP",
+    4110.0,
+    4110.0,
+    0.0
+  ],
+  [
+    "Tucson Cus",
+    "SetHammer",
+    "TP",
+    4170.0,
+    4170.0,
+    0.0
+  ],
+  [
+    "Fresno Cus",
+    "SetHammer",
+    "TP",
+    4320.0,
+    4320.0,
+    0.0
+  ],
+  [
+    "Sacramento Cus",
+    "SetHammer",
+    "TP",
+    3750.0,
+    3750.0,
+    0.0
+  ],
+  [
+    "Long Beach Cus",
+    "SetHammer",
+    "TP",
+    3390.0,
+    3390.0,
+    0.0
+  ],
+  [
+    "Kansas City Cus",
+    "SetHammer",
+    "TP",
+    3960.0,
+    3960.0,
+    0.0
+  ],
+  [
+    "Mesa Cus",
+    "SetHammer",
+    "TP",
+    3390.0,
+    3390.0,
+    0.0
+  ],
+  [
+    "Virginia Beach Cus",
+    "SetHammer",
+    "TP",
+    3450.0,
+    3450.0,
+    0.0
+  ],
+  [
+    "Atlanta Cus",
+    "SetHammer",
+    "TP",
+    3900.0,
+    3900.0,
+    0.0
+  ],
+  [
+    "Colorado Springs Cus",
+    "SetHammer",
+    "TP",
+    3450.0,
+    3450.0,
+    0.0
+  ],
+  [
+    "Omaha Cus",
+    "SetHammer",
+    "TP",
+    3180.0,
+    3180.0,
+    0.0
+  ],
+  [
+    "Raleigh Cus",
+    "SetHammer",
+    "TP",
+    3240.0,
+    3240.0,
+    0.0
+  ],
+  [
+    "Miami Cus",
+    "SetHammer",
+    "TP",
+    3450.0,
+    3450.0,
+    0.0
+  ],
+  [
+    "Oakland Cus",
+    "SetHammer",
+    "TP",
+    3000.0,
+    3000.0,
+    0.0
+  ],
+  [
+    "Minneapolis Cus",
+    "SetHammer",
+    "TP",
+    3180.0,
+    3180.0,
+    0.0
+  ],
+  [
+    "Tulsa Cus",
+    "SetHammer",
+    "TP",
+    3600.0,
+    3600.0,
+    0.0
+  ],
+  [
+    "Cleveland Cus",
+    "SetHammer",
+    "TP",
+    3180.0,
+    3180.0,
+    0.0
+  ],
+  [
+    "Wichita Cus",
+    "SetHammer",
+    "TP",
+    3300.0,
+    3300.0,
+    0.0
+  ],
+  [
+    "Arlington Cus",
+    "SetHammer",
+    "TP",
+    3300.0,
+    3300.0,
+    0.0
+  ],
+  [
+    "New Orleans Cus",
+    "SetHammer",
+    "TP",
+    3300.0,
+    3300.0,
+    0.0
+  ],
+  [
+    "Bakersfield Cus",
+    "SetHammer",
+    "TP",
+    2880.0,
+    2880.0,
+    0.0
+  ],
+  [
+    "Tampa Cus",
+    "SetHammer",
+    "TP",
+    2760.0,
+    2760.0,
+    0.0
+  ],
+  [
+    "Honolulu Cus",
+    "SetHammer",
+    "TP",
+    3180.0,
+    3180.0,
+    0.0
+  ],
+  [
+    "Aurora Cus",
+    "SetHammer",
+    "TP",
+    2760.0,
+    2760.0,
+    0.0
+  ],
+  [
+    "Anaheim Cus",
+    "SetHammer",
+    "TP",
+    2760.0,
+    2760.0,
+    0.0
+  ],
+  [
+    "Santa Ana Cus",
+    "SetHammer",
+    "TP",
+    2880.0,
+    2880.0,
+    0.0
+  ],
+  [
+    "St. Louis Cus",
+    "SetHammer",
+    "TP",
+    2760.0,
+    2760.0,
+    0.0
+  ],
+  [
+    "Riverside Cus",
+    "SetHammer",
+    "TP",
+    3000.0,
+    3000.0,
+    0.0
+  ],
+  [
+    "Corpus Christi Cus",
+    "SetHammer",
+    "TP",
+    2760.0,
+    2760.0,
+    0.0
+  ],
+  [
+    "Lexington Cus",
+    "SetHammer",
+    "TP",
+    2580.0,
+    2580.0,
+    0.0
+  ],
+  [
+    "Pittsburgh Cus",
+    "SetHammer",
+    "TP",
+    2760.0,
+    2760.0,
+    0.0
+  ],
+  [
+    "Anchorage Cus",
+    "SetHammer",
+    "TP",
+    2880.0,
+    2880.0,
+    0.0
+  ],
+  [
+    "Stockton Cus",
+    "SetHammer",
+    "TP",
+    2460.0,
+    2460.0,
+    0.0
+  ],
+  [
+    "Cincinnati Cus",
+    "SetHammer",
+    "TP",
+    2580.0,
+    2580.0,
+    0.0
+  ],
+  [
+    "Saint Paul Cus",
+    "SetHammer",
+    "TP",
+    2760.0,
+    2760.0,
+    0.0
+  ],
+  [
+    "Toledo Cus",
+    "SetHammer",
+    "TP",
+    2760.0,
+    2760.0,
+    0.0
+  ],
+  [
+    "Greensboro Cus",
+    "SetHammer",
+    "TP",
+    2760.0,
+    2760.0,
+    0.0
+  ],
+  [
+    "Newark Cus",
+    "SetHammer",
+    "TP",
+    2160.0,
+    2160.0,
+    0.0
+  ],
+  [
+    "Plano Cus",
+    "SetHammer",
+    "TP",
+    2760.0,
+    2760.0,
+    0.0
+  ],
+  [
+    "Henderson Cus",
+    "SetHammer",
+    "TP",
+    2760.0,
+    2760.0,
+    0.0
+  ],
+  [
+    "Lincoln Cus",
+    "SetHammer",
+    "TP",
+    2280.0,
+    2280.0,
+    0.0
+  ],
+  [
+    "Buffalo Cus",
+    "SetHammer",
+    "TP",
+    2160.0,
+    2160.0,
+    0.0
+  ],
+  [
+    "Jersey City Cus",
+    "SetHammer",
+    "TP",
+    2460.0,
+    2460.0,
+    0.0
+  ],
+  [
+    "Chula Vista Cus",
+    "SetHammer",
+    "TP",
+    2580.0,
+    2580.0,
+    0.0
+  ],
+  [
+    "Fort Wayne Cus",
+    "SetHammer",
+    "TP",
+    2040.0,
+    2040.0,
+    0.0
+  ],
+  [
+    "Orlando Cus",
+    "SetHammer",
+    "TP",
+    2040.0,
+    2040.0,
+    0.0
+  ],
+  [
+    "St. Petersburg Cus",
+    "SetHammer",
+    "TP",
+    2160.0,
+    2160.0,
+    0.0
+  ],
+  [
+    "Chandler Cus",
+    "SetHammer",
+    "TP",
+    2460.0,
+    2460.0,
+    0.0
+  ],
+  [
+    "Laredo Cus",
+    "SetHammer",
+    "TP",
+    2460.0,
+    2460.0,
+    0.0
+  ],
+  [
+    "Norfolk Cus",
+    "SetHammer",
+    "TP",
+    2160.0,
+    2160.0,
+    0.0
+  ],
+  [
+    "Durham Cus",
+    "SetHammer",
+    "TP",
+    1860.0,
+    1860.0,
+    0.0
+  ],
+  [
+    "Madison Cus",
+    "SetHammer",
+    "TP",
+    2040.0,
+    2040.0,
+    0.0
+  ],
+  [
+    "Lubbock Cus",
+    "SetHammer",
+    "TP",
+    2460.0,
+    2460.0,
+    0.0
+  ],
+  [
+    "Irvine Cus",
+    "SetHammer",
+    "TP",
+    2040.0,
+    2040.0,
+    0.0
+  ],
+  [
+    "Glendale Cus",
+    "SetHammer",
+    "TP",
+    2280.0,
+    2280.0,
+    0.0
+  ],
+  [
+    "Garland Cus",
+    "SetHammer",
+    "TP",
+    2460.0,
+    2460.0,
+    0.0
+  ],
+  [
+    "Hialeah Cus",
+    "SetHammer",
+    "TP",
+    2160.0,
+    2160.0,
+    0.0
+  ],
+  [
+    "Reno Cus",
+    "SetHammer",
+    "TP",
+    2040.0,
+    2040.0,
+    0.0
+  ],
+  [
+    "Chesapeake Cus",
+    "SetHammer",
+    "TP",
+    2160.0,
+    2160.0,
+    0.0
+  ],
+  [
+    "Gilbert Cus",
+    "SetHammer",
+    "TP",
+    2040.0,
+    2040.0,
+    0.0
+  ],
+  [
+    "Baton Rouge Cus",
+    "SetHammer",
+    "TP",
+    1740.0,
+    1740.0,
+    0.0
+  ],
+  [
+    "Irving Cus",
+    "SetHammer",
+    "TP",
+    1860.0,
+    1860.0,
+    0.0
+  ],
+  [
+    "Scottsdale Cus",
+    "SetHammer",
+    "TP",
+    2040.0,
+    2040.0,
+    0.0
+  ],
+  [
+    "North Las Vegas Cus",
+    "SetHammer",
+    "TP",
+    1740.0,
+    1740.0,
+    0.0
+  ],
+  [
+    "Fremont Cus",
+    "SetHammer",
+    "TP",
+    2160.0,
+    2160.0,
+    0.0
+  ],
+  [
+    "Boise Cus",
+    "SetHammer",
+    "TP",
+    1860.0,
+    1860.0,
+    0.0
+  ],
+  [
+    "Richmond Cus",
+    "SetHammer",
+    "TP",
+    1860.0,
+    1860.0,
+    0.0
+  ],
+  [
+    "San Bernardino Cus",
+    "SetHammer",
+    "TP",
+    1860.0,
+    1860.0,
+    0.0
+  ],
+  [
+    "Birmingham Cus",
+    "SetHammer",
+    "TP",
+    2160.0,
+    2160.0,
+    0.0
+  ],
+  [
+    "Spokane Cus",
+    "SetHammer",
+    "TP",
+    2160.0,
+    2160.0,
+    0.0
+  ],
+  [
+    "Rochester Cus",
+    "SetHammer",
+    "TP",
+    1860.0,
+    1860.0,
+    0.0
+  ],
+  [
+    "Des Moines Cus",
+    "SetHammer",
+    "TP",
+    2040.0,
+    2040.0,
+    0.0
+  ],
+  [
+    "Modesto Cus",
+    "SetHammer",
+    "TP",
+    2160.0,
+    2160.0,
+    0.0
+  ],
+  [
+    "Fayetteville Cus",
+    "SetHammer",
+    "TP",
+    2040.0,
+    2040.0,
+    0.0
+  ],
+  [
+    "Tacoma Cus",
+    "SetHammer",
+    "TP",
+    2160.0,
+    2160.0,
+    0.0
+  ],
+  [
+    "Oxnard Cus",
+    "SetHammer",
+    "TP",
+    1560.0,
+    1560.0,
+    0.0
+  ],
+  [
+    "Fontana Cus",
+    "SetHammer",
+    "TP",
+    2040.0,
+    2040.0,
+    0.0
+  ],
+  [
+    "Montgomery Cus",
+    "SetHammer",
+    "TP",
+    2160.0,
+    2160.0,
+    0.0
+  ],
+  [
+    "Moreno Valley Cus",
+    "SetHammer",
+    "TP",
+    1560.0,
+    1560.0,
+    0.0
+  ],
+  [
+    "Shreveport Cus",
+    "SetHammer",
+    "TP",
+    1860.0,
+    1860.0,
+    0.0
+  ],
+  [
+    "Yonkers Cus",
+    "SetHammer",
+    "TP",
+    2040.0,
+    2040.0,
+    0.0
+  ],
+  [
+    "Akron Cus",
+    "SetHammer",
+    "TP",
+    1860.0,
+    1860.0,
+    0.0
+  ],
+  [
+    "Huntington Beach Cus",
+    "SetHammer",
+    "TP",
+    1560.0,
+    1560.0,
+    0.0
+  ],
+  [
+    "Little Rock Cus",
+    "SetHammer",
+    "TP",
+    1740.0,
+    1740.0,
+    0.0
+  ],
+  [
+    "Augusta Cus",
+    "SetHammer",
+    "TP",
+    1860.0,
+    1860.0,
+    0.0
+  ],
+  [
+    "Amarillo Cus",
+    "SetHammer",
+    "TP",
+    2040.0,
+    2040.0,
+    0.0
+  ],
+  [
+    "Mobile Cus",
+    "SetHammer",
+    "TP",
+    1560.0,
+    1560.0,
+    0.0
+  ],
+  [
+    "Grand Rapids Cus",
+    "SetHammer",
+    "TP",
+    2160.0,
+    2160.0,
+    0.0
+  ],
+  [
+    "Salt Lake City Cus",
+    "SetHammer",
+    "TP",
+    2160.0,
+    2160.0,
+    0.0
+  ],
+  [
+    "Tallahassee Cus",
+    "SetHammer",
+    "TP",
+    1560.0,
+    1560.0,
+    0.0
+  ],
+  [
+    "Huntsville Cus",
+    "SetHammer",
+    "TP",
+    1740.0,
+    1740.0,
+    0.0
+  ],
+  [
+    "Grand Prairie Cus",
+    "SetHammer",
+    "TP",
+    2040.0,
+    2040.0,
+    0.0
+  ],
+  [
+    "Knoxville Cus",
+    "SetHammer",
+    "TP",
+    2040.0,
+    2040.0,
+    0.0
+  ],
+  [
+    "Worcester Cus",
+    "SetHammer",
+    "TP",
+    1740.0,
+    1740.0,
+    0.0
+  ],
+  [
+    "Newport News Cus",
+    "SetHammer",
+    "TP",
+    2040.0,
+    2040.0,
+    0.0
+  ],
+  [
+    "Brownsville Cus",
+    "SetHammer",
+    "TP",
+    1440.0,
+    1440.0,
+    0.0
+  ],
+  [
+    "Overland Park Cus",
+    "SetHammer",
+    "TP",
+    1740.0,
+    1740.0,
+    0.0
+  ],
+  [
+    "Santa Clarita Cus",
+    "SetHammer",
+    "TP",
+    1560.0,
+    1560.0,
+    0.0
+  ],
+  [
+    "Providence Cus",
+    "SetHammer",
+    "TP",
+    2040.0,
+    2040.0,
+    0.0
+  ],
+  [
+    "Garden Grove Cus",
+    "SetHammer",
+    "TP",
+    2040.0,
+    2040.0,
+    0.0
+  ],
+  [
+    "Chattanooga Cus",
+    "SetHammer",
+    "TP",
+    1860.0,
+    1860.0,
+    0.0
+  ],
+  [
+    "Oceanside Cus",
+    "SetHammer",
+    "TP",
+    1560.0,
+    1560.0,
+    0.0
+  ],
+  [
+    "Jackson Cus",
+    "SetHammer",
+    "TP",
+    2040.0,
+    2040.0,
+    0.0
+  ],
+  [
+    "Fort Lauderdale Cus",
+    "SetHammer",
+    "TP",
+    1740.0,
+    1740.0,
+    0.0
+  ],
+  [
+    "Santa Rosa Cus",
+    "SetHammer",
+    "TP",
+    1560.0,
+    1560.0,
+    0.0
+  ],
+  [
+    "Rancho Cucamonga Cus",
+    "SetHammer",
+    "TP",
+    1440.0,
+    1440.0,
+    0.0
+  ],
+  [
+    "Port St. Lucie Cus",
+    "SetHammer",
+    "TP",
+    1740.0,
+    1740.0,
+    0.0
+  ],
+  [
+    "Tempe Cus",
+    "SetHammer",
+    "TP",
+    1740.0,
+    1740.0,
+    0.0
+  ],
+  [
+    "Ontario Cus",
+    "SetHammer",
+    "TP",
+    1320.0,
+    1320.0,
+    0.0
+  ],
+  [
+    "Vancouver Cus",
+    "SetHammer",
+    "TP",
+    1440.0,
+    1440.0,
+    0.0
+  ],
+  [
+    "Cape Coral Cus",
+    "SetHammer",
+    "TP",
+    1560.0,
+    1560.0,
+    0.0
+  ],
+  [
+    "Sioux Falls Cus",
+    "SetHammer",
+    "TP",
+    1560.0,
+    1560.0,
+    0.0
+  ],
+  [
+    "Springfield Cus",
+    "SetHammer",
+    "TP",
+    1740.0,
+    1740.0,
+    0.0
+  ],
+  [
+    "Peoria Cus",
+    "SetHammer",
+    "TP",
+    1440.0,
+    1440.0,
+    0.0
+  ],
+  [
+    "Pembroke Pines Cus",
+    "SetHammer",
+    "TP",
+    1320.0,
+    1320.0,
+    0.0
+  ],
+  [
+    "Elk Grove Cus",
+    "SetHammer",
+    "TP",
+    1440.0,
+    1440.0,
+    0.0
+  ],
+  [
+    "Salem Cus",
+    "SetHammer",
+    "TP",
+    1860.0,
+    1860.0,
+    0.0
+  ],
+  [
+    "Lancaster Cus",
+    "SetHammer",
+    "TP",
+    1860.0,
+    1860.0,
+    0.0
+  ],
+  [
+    "Corona Cus",
+    "SetHammer",
+    "TP",
+    1740.0,
+    1740.0,
+    0.0
+  ],
+  [
+    "Eugene Cus",
+    "SetHammer",
+    "TP",
+    1440.0,
+    1440.0,
+    0.0
+  ],
+  [
+    "New York Cus",
+    "SetDriver",
+    "TP",
+    42435.0,
+    42435.0,
+    0.0
+  ],
+  [
+    "Los Angeles Cus",
+    "SetDriver",
+    "TP",
+    29475.0,
+    29475.0,
+    0.0
+  ],
+  [
+    "Chicago Cus",
+    "SetDriver",
+    "TP",
+    24750.0,
+    24750.0,
+    0.0
+  ],
+  [
+    "Houston Cus",
+    "SetDriver",
+    "TP",
+    16830.0,
+    16830.0,
+    0.0
+  ],
+  [
+    "Philadelphia Cus",
+    "SetDriver",
+    "TP",
+    16965.0,
+    16965.0,
+    0.0
+  ],
+  [
+    "Phoenix Cus",
+    "SetDriver",
+    "TP",
+    15660.0,
+    15660.0,
+    0.0
+  ],
+  [
+    "San Antonio Cus",
+    "SetDriver",
+    "TP",
+    15120.0,
+    15120.0,
+    0.0
+  ],
+  [
+    "San Diego Cus",
+    "SetDriver",
+    "TP",
+    14265.0,
+    14265.0,
+    0.0
+  ],
+  [
+    "Dallas Cus",
+    "SetDriver",
+    "TP",
+    11565.0,
+    11565.0,
+    0.0
+  ],
+  [
+    "San Jose Cus",
+    "SetDriver",
+    "TP",
+    10260.0,
+    10260.0,
+    0.0
+  ],
+  [
+    "Austin Cus",
+    "SetDriver",
+    "TP",
+    9810.0,
+    9810.0,
+    0.0
+  ],
+  [
+    "Indianapolis Cus",
+    "SetDriver",
+    "TP",
+    9720.0,
+    9720.0,
+    0.0
+  ],
+  [
+    "Jacksonville Cus",
+    "SetDriver",
+    "TP",
+    9720.0,
+    9720.0,
+    0.0
+  ],
+  [
+    "San Francisco Cus",
+    "SetDriver",
+    "TP",
+    9495.0,
+    9495.0,
+    0.0
+  ],
+  [
+    "Columbus Cus",
+    "SetDriver",
+    "TP",
+    9495.0,
+    9495.0,
+    0.0
+  ],
+  [
+    "Charlotte Cus",
+    "SetDriver",
+    "TP",
+    9180.0,
+    9180.0,
+    0.0
+  ],
+  [
+    "Fort Worth Cus",
+    "SetDriver",
+    "TP",
+    8325.0,
+    8325.0,
+    0.0
+  ],
+  [
+    "Detroit Cus",
+    "SetDriver",
+    "TP",
+    7560.0,
+    7560.0,
+    0.0
+  ],
+  [
+    "El Paso Cus",
+    "SetDriver",
+    "TP",
+    7785.0,
+    7785.0,
+    0.0
+  ],
+  [
+    "Memphis Cus",
+    "SetDriver",
+    "TP",
+    7560.0,
+    7560.0,
+    0.0
+  ],
+  [
+    "Seattle Cus",
+    "SetDriver",
+    "TP",
+    7245.0,
+    7245.0,
+    0.0
+  ],
+  [
+    "Denver Cus",
+    "SetDriver",
+    "TP",
+    7245.0,
+    7245.0,
+    0.0
+  ],
+  [
+    "Washington Cus",
+    "SetDriver",
+    "TP",
+    7650.0,
+    7650.0,
+    0.0
+  ],
+  [
+    "Boston Cus",
+    "SetDriver",
+    "TP",
+    7650.0,
+    7650.0,
+    0.0
+  ],
+  [
+    "Nashville Cus",
+    "SetDriver",
+    "TP",
+    7110.0,
+    7110.0,
+    0.0
+  ],
+  [
+    "Baltimore Cus",
+    "SetDriver",
+    "TP",
+    7020.0,
+    7020.0,
+    0.0
+  ],
+  [
+    "Oklahoma City Cus",
+    "SetDriver",
+    "TP",
+    7020.0,
+    7020.0,
+    0.0
+  ],
+  [
+    "Louisville Cus",
+    "SetDriver",
+    "TP",
+    6930.0,
+    6930.0,
+    0.0
+  ],
+  [
+    "Portland Cus",
+    "SetDriver",
+    "TP",
+    7335.0,
+    7335.0,
+    0.0
+  ],
+  [
+    "Las Vegas Cus",
+    "SetDriver",
+    "TP",
+    7245.0,
+    7245.0,
+    0.0
+  ],
+  [
+    "Milwaukee Cus",
+    "SetDriver",
+    "TP",
+    6165.0,
+    6165.0,
+    0.0
+  ],
+  [
+    "Albuquerque Cus",
+    "SetDriver",
+    "TP",
+    6255.0,
+    6255.0,
+    0.0
+  ],
+  [
+    "Tucson Cus",
+    "SetDriver",
+    "TP",
+    6480.0,
+    6480.0,
+    0.0
+  ],
+  [
+    "Fresno Cus",
+    "SetDriver",
+    "TP",
+    5625.0,
+    5625.0,
+    0.0
+  ],
+  [
+    "Sacramento Cus",
+    "SetDriver",
+    "TP",
+    5085.0,
+    5085.0,
+    0.0
+  ],
+  [
+    "Long Beach Cus",
+    "SetDriver",
+    "TP",
+    5940.0,
+    5940.0,
+    0.0
+  ],
+  [
+    "Kansas City Cus",
+    "SetDriver",
+    "TP",
+    5085.0,
+    5085.0,
+    0.0
+  ],
+  [
+    "Mesa Cus",
+    "SetDriver",
+    "TP",
+    5175.0,
+    5175.0,
+    0.0
+  ],
+  [
+    "Virginia Beach Cus",
+    "SetDriver",
+    "TP",
+    5850.0,
+    5850.0,
+    0.0
+  ],
+  [
+    "Atlanta Cus",
+    "SetDriver",
+    "TP",
+    5175.0,
+    5175.0,
+    0.0
+  ],
+  [
+    "Colorado Springs Cus",
+    "SetDriver",
+    "TP",
+    4770.0,
+    4770.0,
+    0.0
+  ],
+  [
+    "Omaha Cus",
+    "SetDriver",
+    "TP",
+    4860.0,
+    4860.0,
+    0.0
+  ],
+  [
+    "Raleigh Cus",
+    "SetDriver",
+    "TP",
+    5175.0,
+    5175.0,
+    0.0
+  ],
+  [
+    "Miami Cus",
+    "SetDriver",
+    "TP",
+    4500.0,
+    4500.0,
+    0.0
+  ],
+  [
+    "Oakland Cus",
+    "SetDriver",
+    "TP",
+    4770.0,
+    4770.0,
+    0.0
+  ],
+  [
+    "Minneapolis Cus",
+    "SetDriver",
+    "TP",
+    5400.0,
+    5400.0,
+    0.0
+  ],
+  [
+    "Tulsa Cus",
+    "SetDriver",
+    "TP",
+    4770.0,
+    4770.0,
+    0.0
+  ],
+  [
+    "Cleveland Cus",
+    "SetDriver",
+    "TP",
+    4950.0,
+    4950.0,
+    0.0
+  ],
+  [
+    "Wichita Cus",
+    "SetDriver",
+    "TP",
+    4950.0,
+    4950.0,
+    0.0
+  ],
+  [
+    "Arlington Cus",
+    "SetDriver",
+    "TP",
+    4950.0,
+    4950.0,
+    0.0
+  ],
+  [
+    "New Orleans Cus",
+    "SetDriver",
+    "TP",
+    4320.0,
+    4320.0,
+    0.0
+  ],
+  [
+    "Bakersfield Cus",
+    "SetDriver",
+    "TP",
+    4140.0,
+    4140.0,
+    0.0
+  ],
+  [
+    "Tampa Cus",
+    "SetDriver",
+    "TP",
+    4770.0,
+    4770.0,
+    0.0
+  ],
+  [
+    "Honolulu Cus",
+    "SetDriver",
+    "TP",
+    4140.0,
+    4140.0,
+    0.0
+  ],
+  [
+    "Aurora Cus",
+    "SetDriver",
+    "TP",
+    4140.0,
+    4140.0,
+    0.0
+  ],
+  [
+    "Anaheim Cus",
+    "SetDriver",
+    "TP",
+    4320.0,
+    4320.0,
+    0.0
+  ],
+  [
+    "Santa Ana Cus",
+    "SetDriver",
+    "TP",
+    4140.0,
+    4140.0,
+    0.0
+  ],
+  [
+    "St. Louis Cus",
+    "SetDriver",
+    "TP",
+    4500.0,
+    4500.0,
+    0.0
+  ],
+  [
+    "Riverside Cus",
+    "SetDriver",
+    "TP",
+    4140.0,
+    4140.0,
+    0.0
+  ],
+  [
+    "Corpus Christi Cus",
+    "SetDriver",
+    "TP",
+    3870.0,
+    3870.0,
+    0.0
+  ],
+  [
+    "Lexington Cus",
+    "SetDriver",
+    "TP",
+    4140.0,
+    4140.0,
+    0.0
+  ],
+  [
+    "Pittsburgh Cus",
+    "SetDriver",
+    "TP",
+    4320.0,
+    4320.0,
+    0.0
+  ],
+  [
+    "Anchorage Cus",
+    "SetDriver",
+    "TP",
+    3690.0,
+    3690.0,
+    0.0
+  ],
+  [
+    "Stockton Cus",
+    "SetDriver",
+    "TP",
+    3870.0,
+    3870.0,
+    0.0
+  ],
+  [
+    "Cincinnati Cus",
+    "SetDriver",
+    "TP",
+    4140.0,
+    4140.0,
+    0.0
+  ],
+  [
+    "Saint Paul Cus",
+    "SetDriver",
+    "TP",
+    4140.0,
+    4140.0,
+    0.0
+  ],
+  [
+    "Toledo Cus",
+    "SetDriver",
+    "TP",
+    4140.0,
+    4140.0,
+    0.0
+  ],
+  [
+    "Greensboro Cus",
+    "SetDriver",
+    "TP",
+    3240.0,
+    3240.0,
+    0.0
+  ],
+  [
+    "Newark Cus",
+    "SetDriver",
+    "TP",
+    4140.0,
+    4140.0,
+    0.0
+  ],
+  [
+    "Plano Cus",
+    "SetDriver",
+    "TP",
+    4140.0,
+    4140.0,
+    0.0
+  ],
+  [
+    "Henderson Cus",
+    "SetDriver",
+    "TP",
+    3420.0,
+    3420.0,
+    0.0
+  ],
+  [
+    "Lincoln Cus",
+    "SetDriver",
+    "TP",
+    3240.0,
+    3240.0,
+    0.0
+  ],
+  [
+    "Buffalo Cus",
+    "SetDriver",
+    "TP",
+    3690.0,
+    3690.0,
+    0.0
+  ],
+  [
+    "Jersey City Cus",
+    "SetDriver",
+    "TP",
+    3870.0,
+    3870.0,
+    0.0
+  ],
+  [
+    "Chula Vista Cus",
+    "SetDriver",
+    "TP",
+    3060.0,
+    3060.0,
+    0.0
+  ],
+  [
+    "Fort Wayne Cus",
+    "SetDriver",
+    "TP",
+    3060.0,
+    3060.0,
+    0.0
+  ],
+  [
+    "Orlando Cus",
+    "SetDriver",
+    "TP",
+    3240.0,
+    3240.0,
+    0.0
+  ],
+  [
+    "St. Petersburg Cus",
+    "SetDriver",
+    "TP",
+    3690.0,
+    3690.0,
+    0.0
+  ],
+  [
+    "Chandler Cus",
+    "SetDriver",
+    "TP",
+    3690.0,
+    3690.0,
+    0.0
+  ],
+  [
+    "Laredo Cus",
+    "SetDriver",
+    "TP",
+    3240.0,
+    3240.0,
+    0.0
+  ],
+  [
+    "Norfolk Cus",
+    "SetDriver",
+    "TP",
+    2790.0,
+    2790.0,
+    0.0
+  ],
+  [
+    "Durham Cus",
+    "SetDriver",
+    "TP",
+    3060.0,
+    3060.0,
+    0.0
+  ],
+  [
+    "Madison Cus",
+    "SetDriver",
+    "TP",
+    3690.0,
+    3690.0,
+    0.0
+  ],
+  [
+    "Lubbock Cus",
+    "SetDriver",
+    "TP",
+    3060.0,
+    3060.0,
+    0.0
+  ],
+  [
+    "Irvine Cus",
+    "SetDriver",
+    "TP",
+    3690.0,
+    3690.0,
+    0.0
+  ],
+  [
+    "Glendale Cus",
+    "SetDriver",
+    "TP",
+    3690.0,
+    3690.0,
+    0.0
+  ],
+  [
+    "Garland Cus",
+    "SetDriver",
+    "TP",
+    3240.0,
+    3240.0,
+    0.0
+  ],
+  [
+    "Hialeah Cus",
+    "SetDriver",
+    "TP",
+    3060.0,
+    3060.0,
+    0.0
+  ],
+  [
+    "Reno Cus",
+    "SetDriver",
+    "TP",
+    3240.0,
+    3240.0,
+    0.0
+  ],
+  [
+    "Chesapeake Cus",
+    "SetDriver",
+    "TP",
+    3060.0,
+    3060.0,
+    0.0
+  ],
+  [
+    "Gilbert Cus",
+    "SetDriver",
+    "TP",
+    2610.0,
+    2610.0,
+    0.0
+  ],
+  [
+    "Baton Rouge Cus",
+    "SetDriver",
+    "TP",
+    2790.0,
+    2790.0,
+    0.0
+  ],
+  [
+    "Irving Cus",
+    "SetDriver",
+    "TP",
+    3060.0,
+    3060.0,
+    0.0
+  ],
+  [
+    "Scottsdale Cus",
+    "SetDriver",
+    "TP",
+    2610.0,
+    2610.0,
+    0.0
+  ],
+  [
+    "North Las Vegas Cus",
+    "SetDriver",
+    "TP",
+    3240.0,
+    3240.0,
+    0.0
+  ],
+  [
+    "Fremont Cus",
+    "SetDriver",
+    "TP",
+    2790.0,
+    2790.0,
+    0.0
+  ],
+  [
+    "Boise Cus",
+    "SetDriver",
+    "TP",
+    2790.0,
+    2790.0,
+    0.0
+  ],
+  [
+    "Richmond Cus",
+    "SetDriver",
+    "TP",
+    2790.0,
+    2790.0,
+    0.0
+  ],
+  [
+    "San Bernardino Cus",
+    "SetDriver",
+    "TP",
+    3240.0,
+    3240.0,
+    0.0
+  ],
+  [
+    "Birmingham Cus",
+    "SetDriver",
+    "TP",
+    3240.0,
+    3240.0,
+    0.0
+  ],
+  [
+    "Spokane Cus",
+    "SetDriver",
+    "TP",
+    2790.0,
+    2790.0,
+    0.0
+  ],
+  [
+    "Rochester Cus",
+    "SetDriver",
+    "TP",
+    3060.0,
+    3060.0,
+    0.0
+  ],
+  [
+    "Des Moines Cus",
+    "SetDriver",
+    "TP",
+    3240.0,
+    3240.0,
+    0.0
+  ],
+  [
+    "Modesto Cus",
+    "SetDriver",
+    "TP",
+    3060.0,
+    3060.0,
+    0.0
+  ],
+  [
+    "Fayetteville Cus",
+    "SetDriver",
+    "TP",
+    3240.0,
+    3240.0,
+    0.0
+  ],
+  [
+    "Tacoma Cus",
+    "SetDriver",
+    "TP",
+    2340.0,
+    2340.0,
+    0.0
+  ],
+  [
+    "Oxnard Cus",
+    "SetDriver",
+    "TP",
+    3060.0,
+    3060.0,
+    0.0
+  ],
+  [
+    "Fontana Cus",
+    "SetDriver",
+    "TP",
+    3240.0,
+    3240.0,
+    0.0
+  ],
+  [
+    "Montgomery Cus",
+    "SetDriver",
+    "TP",
+    2340.0,
+    2340.0,
+    0.0
+  ],
+  [
+    "Moreno Valley Cus",
+    "SetDriver",
+    "TP",
+    2790.0,
+    2790.0,
+    0.0
+  ],
+  [
+    "Shreveport Cus",
+    "SetDriver",
+    "TP",
+    3060.0,
+    3060.0,
+    0.0
+  ],
+  [
+    "Yonkers Cus",
+    "SetDriver",
+    "TP",
+    2790.0,
+    2790.0,
+    0.0
+  ],
+  [
+    "Akron Cus",
+    "SetDriver",
+    "TP",
+    2340.0,
+    2340.0,
+    0.0
+  ],
+  [
+    "Huntington Beach Cus",
+    "SetDriver",
+    "TP",
+    2610.0,
+    2610.0,
+    0.0
+  ],
+  [
+    "Little Rock Cus",
+    "SetDriver",
+    "TP",
+    2790.0,
+    2790.0,
+    0.0
+  ],
+  [
+    "Augusta Cus",
+    "SetDriver",
+    "TP",
+    3060.0,
+    3060.0,
+    0.0
+  ],
+  [
+    "Amarillo Cus",
+    "SetDriver",
+    "TP",
+    2340.0,
+    2340.0,
+    0.0
+  ],
+  [
+    "Mobile Cus",
+    "SetDriver",
+    "TP",
+    3240.0,
+    3240.0,
+    0.0
+  ],
+  [
+    "Grand Rapids Cus",
+    "SetDriver",
+    "TP",
+    3240.0,
+    3240.0,
+    0.0
+  ],
+  [
+    "Salt Lake City Cus",
+    "SetDriver",
+    "TP",
+    2340.0,
+    2340.0,
+    0.0
+  ],
+  [
+    "Tallahassee Cus",
+    "SetDriver",
+    "TP",
+    2610.0,
+    2610.0,
+    0.0
+  ],
+  [
+    "Huntsville Cus",
+    "SetDriver",
+    "TP",
+    3060.0,
+    3060.0,
+    0.0
+  ],
+  [
+    "Grand Prairie Cus",
+    "SetDriver",
+    "TP",
+    3060.0,
+    3060.0,
+    0.0
+  ],
+  [
+    "Knoxville Cus",
+    "SetDriver",
+    "TP",
+    2610.0,
+    2610.0,
+    0.0
+  ],
+  [
+    "Worcester Cus",
+    "SetDriver",
+    "TP",
+    3060.0,
+    3060.0,
+    0.0
+  ],
+  [
+    "Newport News Cus",
+    "SetDriver",
+    "TP",
+    2160.0,
+    2160.0,
+    0.0
+  ],
+  [
+    "Brownsville Cus",
+    "SetDriver",
+    "TP",
+    2610.0,
+    2610.0,
+    0.0
+  ],
+  [
+    "Overland Park Cus",
+    "SetDriver",
+    "TP",
+    2340.0,
+    2340.0,
+    0.0
+  ],
+  [
+    "Santa Clarita Cus",
+    "SetDriver",
+    "TP",
+    3060.0,
+    3060.0,
+    0.0
+  ],
+  [
+    "Providence Cus",
+    "SetDriver",
+    "TP",
+    3060.0,
+    3060.0,
+    0.0
+  ],
+  [
+    "Garden Grove Cus",
+    "SetDriver",
+    "TP",
+    2790.0,
+    2790.0,
+    0.0
+  ],
+  [
+    "Chattanooga Cus",
+    "SetDriver",
+    "TP",
+    2340.0,
+    2340.0,
+    0.0
+  ],
+  [
+    "Oceanside Cus",
+    "SetDriver",
+    "TP",
+    3060.0,
+    3060.0,
+    0.0
+  ],
+  [
+    "Jackson Cus",
+    "SetDriver",
+    "TP",
+    2610.0,
+    2610.0,
+    0.0
+  ],
+  [
+    "Fort Lauderdale Cus",
+    "SetDriver",
+    "TP",
+    2340.0,
+    2340.0,
+    0.0
+  ],
+  [
+    "Santa Rosa Cus",
+    "SetDriver",
+    "TP",
+    2160.0,
+    2160.0,
+    0.0
+  ],
+  [
+    "Rancho Cucamonga Cus",
+    "SetDriver",
+    "TP",
+    2610.0,
+    2610.0,
+    0.0
+  ],
+  [
+    "Port St. Lucie Cus",
+    "SetDriver",
+    "TP",
+    2610.0,
+    2610.0,
+    0.0
+  ],
+  [
+    "Tempe Cus",
+    "SetDriver",
+    "TP",
+    1980.0,
+    1980.0,
+    0.0
+  ],
+  [
+    "Ontario Cus",
+    "SetDriver",
+    "TP",
+    2160.0,
+    2160.0,
+    0.0
+  ],
+  [
+    "Vancouver Cus",
+    "SetDriver",
+    "TP",
+    2340.0,
+    2340.0,
+    0.0
+  ],
+  [
+    "Cape Coral Cus",
+    "SetDriver",
+    "TP",
+    2340.0,
+    2340.0,
+    0.0
+  ],
+  [
+    "Sioux Falls Cus",
+    "SetDriver",
+    "TP",
+    2610.0,
+    2610.0,
+    0.0
+  ],
+  [
+    "Springfield Cus",
+    "SetDriver",
+    "TP",
+    2160.0,
+    2160.0,
+    0.0
+  ],
+  [
+    "Peoria Cus",
+    "SetDriver",
+    "TP",
+    1980.0,
+    1980.0,
+    0.0
+  ],
+  [
+    "Pembroke Pines Cus",
+    "SetDriver",
+    "TP",
+    2160.0,
+    2160.0,
+    0.0
+  ],
+  [
+    "Elk Grove Cus",
+    "SetDriver",
+    "TP",
+    2790.0,
+    2790.0,
+    0.0
+  ],
+  [
+    "Salem Cus",
+    "SetDriver",
+    "TP",
+    2790.0,
+    2790.0,
+    0.0
+  ],
+  [
+    "Lancaster Cus",
+    "SetDriver",
+    "TP",
+    2610.0,
+    2610.0,
+    0.0
+  ],
+  [
+    "Corona Cus",
+    "SetDriver",
+    "TP",
+    2160.0,
+    2160.0,
+    0.0
+  ],
+  [
+    "Eugene Cus",
+    "SetDriver",
+    "TP",
+    2000.0,
+    2000.0,
+    0.0
+  ],
+  [
+    "New York Cus",
+    "SetCordless18v",
+    "TP",
+    15225.0,
+    15225.0,
+    0.0
+  ]
+]
