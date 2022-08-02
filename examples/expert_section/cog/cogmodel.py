@@ -68,6 +68,7 @@ def solve(dat, diagnostic_log, error_and_warning_log, progress):
     assert input_schema.good_tic_dat_object(dat)
     assert not input_schema.find_foreign_key_failures(dat)
     assert not input_schema.find_data_type_failures(dat)
+    assert not input_schema.find_data_row_failures(dat)
     diagnostic_log.write("COG output log\n%s\n\n" % time_stamp())
     error_and_warning_log.write("COG error log\n%s\n\n" % time_stamp())
 
