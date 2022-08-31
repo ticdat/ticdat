@@ -97,7 +97,7 @@ diet_dat = diet_schema.TicDat(**
   ['macaroni', 'protein', 12],
   ['hamburger', 'protein', 24]]})
 
-@fail_to_debugger
+#@fail_to_debugger
 class TestPostres(unittest.TestCase):
     can_run = False
 
