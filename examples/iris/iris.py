@@ -17,7 +17,9 @@ input_schema = PanDatFactory(parameters=[['Name'], ['Value']],
 # the core data fields should be positive, non-infinite numbers
 for fld in _core_numeric_fields:
     input_schema.set_data_type("iris", fld, inclusive_min=False, inclusive_max=False, min=0, max=float("inf"))
+    input_schema.set_default_value("iris", fld, 1)
 input_schema.set_data_type("iris", 'Species', number_allowed=False, strings_allowed='*')
+input_schema.set_default_value("iris", 'Species', 'setosa') # default value is just a common species
 
 # the number of clusters is our only parameter, but using a parameters table makes it easy to add more as needed
 input_schema.add_parameter("Number of Clusters", default_value=4, inclusive_min=False, inclusive_max=False, min=0,
@@ -27,6 +29,9 @@ input_schema.add_parameter("Number of Clusters", default_value=4, inclusive_min=
 # ------------------------ define the output schema -------------------------------
 solution_schema = PanDatFactory(iris=[[],['Sepal Length', 'Sepal Width', 'Petal Length', 'Petal Width', 'Species',
                                           'Cluster ID']])
+# The text solution fields only need a data type if you're going to deploy this as an app.
+solution_schema.set_data_type("iris", 'Species', number_allowed=False, strings_allowed='*')
+solution_schema.set_default_value("iris", 'Species', '') # empty string default is safer for the solution
 # ---------------------------------------------------------------------------------
 
 # ------------------------ create a solve function --------------------------------
