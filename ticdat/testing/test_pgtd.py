@@ -7,6 +7,11 @@ import time
 import datetime
 import math
 import pickle
+import os
+import inspect
+import json
+def _this_directory() :
+    return os.path.dirname(os.path.realpath(os.path.abspath(inspect.getsourcefile(_this_directory))))
 
 import unittest
 try:
@@ -519,6 +524,22 @@ class TestPostres(unittest.TestCase):
         pg_pan_dat = pgpf.create_pan_dat(self.engine, schema)
         print(f"\npdf reading {big_dat._len_dict()} : {time.time()-now}**&&**\n")
         self.assertTrue(pdf._same_data(pan_dat, pg_pan_dat))
+
+    def test_big_demand_lol(self):
+        demand_lol_path = os.path.join(_this_directory(), "demand_lol.json")
+        with open(demand_lol_path, "r") as f:
+            demand_lol = json.load(f)
+        self.assertTrue(set(map(len, demand_lol)) == {6}) # all rows of length six
+        demand_lol = demand_lol * int(2000)
+        self.assertTrue(len(demand_lol) == 1208000) # 1200K  records is a solid stress test
+        print(len(demand_lol))
+        pdf = PanDatFactory(demand=[["Site", "Proudct", "Time Period"], ["Min Demand", "Max Demand", "Revenue"]])
+        pan_dat = pdf.PanDat(demand=demand_lol)
+        schema = "test_big_demand_lol"
+        pdf.pgsql.write_schema(self.engine, schema, include_ancillary_info=False)
+        now = time.time()
+        pdf.pgsql.write_data(pan_dat, self.engine, schema)
+        print(f"\npdf writing {len(demand_lol)} : {time.time()-now}**&&**\n")
 
     def test_extra_fields_pd(self):
         pdf = PanDatFactory(boger = [["a"], ["b", "c"]])
