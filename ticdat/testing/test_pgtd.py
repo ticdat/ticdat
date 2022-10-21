@@ -10,6 +10,7 @@ import pickle
 import os
 import inspect
 import json
+from itertools import product
 def _this_directory() :
     return os.path.dirname(os.path.realpath(os.path.abspath(inspect.getsourcefile(_this_directory))))
 
@@ -138,6 +139,28 @@ class TestPostres(unittest.TestCase):
         self.assertTrue(tdf.pgsql.find_duplicates(self.engine, schema))
         self.assertFalse(tdf.pgsql.find_duplicates(self.engine, schema, active_fld="da_active"))
 
+    def test_context_manager_write(self):
+        cntxt_events = set()
+        outer_self = self
+        def context_manager_factory(t):
+            class ContextManager(object):
+                def __enter__(self, *execinfo):
+                    outer_self.assertFalse((t, "enter") in cntxt_events)
+                    cntxt_events.add((t, "enter"))
+                def __exit__(self, *excinfo):
+                    outer_self.assertFalse((t, "exit") in cntxt_events)
+                    cntxt_events.add((t, "exit"))
+            return ContextManager
+        schema = test_schema+"_cntx_mgr"
+        pdf = PanDatFactory.create_from_full_schema(diet_schema.schema(include_ancillary_info=True))
+        pan_dat = diet_schema.copy_to_pandas(diet_dat, reset_index=True)
+        pdf.pgsql.write_schema(self.engine, schema, include_ancillary_info=False)
+        cntx_arg = {t: context_manager_factory(t) for t in ["foods", "nutrition_quantities"]}
+        self.assertFalse(cntxt_events)
+        pdf.pgsql.write_data(pan_dat, self.engine, schema, table_specific_context_manager=cntx_arg)
+        self.assertTrue(cntxt_events == {(t, e) for t, e in product(cntx_arg, ["enter", "exit"])})
+        pan_dat_2 = pdf.pgsql.create_pan_dat(self.engine, schema)
+        self.assertTrue(pdf._same_data(pan_dat, pan_dat_2, epsilon=1e-10))
 
     def test_pgtd_active(self):
         if not self.can_run:
