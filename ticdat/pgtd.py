@@ -504,7 +504,7 @@ class PostgresPanFactory(_PostgresFactory):
         return self.tdf._general_post_read_adjustment(rtn, push_parameters_to_be_valid=True)
 
     def write_data(self, pan_dat, engine, schema, pre_existing_rows=None, active_fld="",
-                   progress=None):
+                   progress=None, table_specific_context_manager=None):
         '''
         write the PanDat data to a postgres database
 
@@ -523,9 +523,29 @@ class PostgresPanFactory(_PostgresFactory):
 
         :param progress: if provided, a ticdat.Progress object that is called every time a table is uploaded
 
+        :param table_specific_context_manager: if provided, a dict mapping table name to a context manager.
+                the DataFrame.to_sql statement writing to the database will happen within this context manager
+                this is an expert level only feature - don't use it without studying this whole subroutine
+
         :return:
         '''
         verify(_pg_name(active_fld) ==  active_fld, "active_fld needs to be compliant with PG naming conventions")
+        table_specific_context_manager = table_specific_context_manager or {}
+        verify(isinstance(table_specific_context_manager, dict), "table_specific_context_manager needs to be dict")
+        verify(set(table_specific_context_manager).issubset(self.tdf.all_tables),
+               "bad table_specific_context_manager keys")
+        verify(all(map(callable, table_specific_context_manager.values())),
+               "values of table_specific_context_manager should be context managers (and thus calleable)")
+        verify(all(all(hasattr(v, a) for a in ["__enter__", "__exit__"]) for v in
+                   table_specific_context_manager.values()),
+               "values of table_specific_context_manager should be context managers")
+        class EmptyContextManager(object):
+            def __enter__(self, *execinfo):
+                pass
+            def __exit__(self, *excinfo):
+                pass
+        table_specific_context_manager = {t: table_specific_context_manager.get(t, EmptyContextManager)
+                                          for t in self.tdf.all_tables}
         active_field_tables = _active_fld_tables(engine, schema, active_fld) if active_fld else set()
         self._check_good_pgtd_compatible_table_field_names()
         msg = []
@@ -541,6 +561,7 @@ class PostgresPanFactory(_PostgresFactory):
             df.rename(columns={f: _pg_name(f) for f in fields}, inplace=True)
             if table in active_field_tables:
                 df[active_fld] = True
-            df.to_sql(name=table, schema=schema, con=engine, if_exists="append", index=False)
+            with table_specific_context_manager[table]():
+                df.to_sql(name=table, schema=schema, con=engine, if_exists="append", index=False)
             if progress and not progress.numerical_progress("Uploading...", 100.*i/len(to_upload)):
                 break
