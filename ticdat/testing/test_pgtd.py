@@ -120,6 +120,36 @@ class TestPostres(unittest.TestCase):
             self.engine.dispose()
             self.postgresql.stop()
 
+    def test_datetime_defaults(self):
+        if not self.can_run:
+            return
+        tdf = TicDatFactory(orders=[["Name"], ["Deliver By"]])
+        tdf.set_data_type("orders", "Deliver By", datetime=True)
+        tdf.set_default_value("orders", "Deliver By", "Jan 1 2019 1 PM")
+        schema = test_schema + "_dt_dfs_1"
+        tdf.pgsql.write_schema(self.engine, schema, include_ancillary_info=False,
+                               forced_field_types={("orders", "Deliver By"): "text"})
+        self.engine.execute(f"Insert into {schema}.orders (name) values ('blah')")
+        dat = tdf.pgsql.create_tic_dat(self.engine, schema)
+        self.assertTrue(dat._len_dict() == {"orders": 1})
+        self.assertFalse(tdf.find_data_type_failures(dat))
+
+    def test_datetime_defaults_2(self): # for Roundoff
+        if not self.can_run:
+            return
+        tdf = TicDatFactory(orders=[[], ["Name", "Deliver By"]])
+        tdf.set_data_type("orders", "Deliver By", datetime=True)
+        tdf.set_default_value("orders", "Deliver By", "Jan 1 2019 1 PM")
+        tdf2 = tdf.clone()
+        tdf2.set_data_type("orders", "Deliver By", datetime=True, nullable=True)
+        schema = test_schema + "_dt_dfs_2"
+        tdf2.pgsql.write_schema(self.engine, schema, include_ancillary_info=True,
+                               forced_field_types={("orders", "Name"): "text", ("orders", "Deliver By"): "text"})
+        self.engine.execute(f"Insert into {schema}.orders (name) values ('blah')")
+        dat = tdf2.pgsql.create_tic_dat(self.engine, schema)
+        self.assertTrue(dat._len_dict() == {"orders": 1})
+        self.assertFalse(tdf.find_data_type_failures(dat))
+
     def test_pgtd_active_dups(self):
         if not self.can_run:
             return
