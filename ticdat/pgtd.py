@@ -158,6 +158,8 @@ class _PostgresFactory(freezable_factory(object, "_isFrozen"),):
             return fld_type.nullable
 
         def default_sql_str(t, f):
+            if forced_field_types.get((t, f)) == "text" and stringish(self.tdf.default_values[t][f]):
+                return f" DEFAULT {db_default(t, f)}"
             fld_type = self.tdf.data_types.get(t, {}).get(f)
             if (fld_type and fld_type.datetime) or get_fld_type(t, f, '') == "bytea":
                 return ""
@@ -208,6 +210,9 @@ class _PostgresFactory(freezable_factory(object, "_isFrozen"),):
             for t, dts in self.tdf.data_types.items():
                 for f, dt in dts.items():
                     tdf.set_data_type(t, f, *dt)
+            for t, dfvs in self.tdf.default_values.items():
+                for f, dfv in dfvs.items():
+                    tdf.set_default_value(t, f, dfv)
             forced_field_types_ = {(t, f): "text" for t, (pks, dfs) in self.tdf.schema().items() for f in pks
                        if f not in tdf.data_types.get(t, {})}
             forced_field_types_.update(forced_field_types)
