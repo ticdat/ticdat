@@ -1005,8 +1005,10 @@ def deep_copy(x):
     :param x: the object to deep copy. should be nested dicts, tuples, lists or TicDatFactory/PanDatFactory
     :return: a deep (and unfrozen, other than tuples) copy of x
     '''
-    if isinstance(x, (tuple, str, bool)) or numericish(x) or x is None:
-        return x # tuples are frozen anyway
+    if isinstance(x, (str, bool)) or ticdat.utils.numericish(x) or x is None:
+        return x
+    if isinstance(x, tuple):
+        return tuple(deep_copy(y) for y in x)
     if isinstance(x, frozenset):
         return frozenset({deep_copy(y) for y in x})
     if isinstance(x, set):
