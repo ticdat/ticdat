@@ -921,7 +921,11 @@ def safe_apply(f) :
             return None
     return _rtn
 
-def dictish(x): return all(hasattr(x, _) for _ in
+def dictish(x):
+    '''
+    !WATCH OUT! a pandas.DataFrame qualifies as dictish. Probably a dumb subroutine.
+    '''
+    return all(hasattr(x, _) for _ in
                            ("__getitem__", "keys", "values", "items", "__contains__", "__len__"))
 def stringish(x): return all(hasattr(x, _) for _ in ("lower", "upper", "strip"))
 def containerish(x): return all(hasattr(x, _) for _ in ("__iter__", "__len__", "__contains__")) \
