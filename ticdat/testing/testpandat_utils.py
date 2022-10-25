@@ -22,6 +22,31 @@ def _deep_anonymize(x)  :
 class TestUtils(unittest.TestCase):
     canRun = False
 
+    def test_the_wacky_fk_bug_issue_173(self):
+        pdf = PanDatFactory(parent=[[], ["Field"]], child=[[],["Field"]])
+        pdf.add_foreign_key("child", "parent", ["Field", ] * 2)
+        # if you expose it, the crash will look like TypeError: '<' not supported between instances of 'str' and 'int'
+        crashes = lambda _: utils.safe_apply(pdf.find_foreign_key_failures)(_) is None
+        # getting a crash is a funky business, as you can see. it needs duplications
+        dat_1 = pdf.PanDat(child=[["now"], ["now"]], parent=[[1], [2]])
+        dat_2 = pdf.PanDat(child=[["a"], ["a"]], parent=[[1], [2]])
+        dat_3 = pdf.PanDat(child=[["a"], ["b"]], parent=[[1], [2]])
+        self.assertTrue(list(map(crashes, [dat_1, dat_2, dat_3])) == [True, True, False])
+
+        # its also not symmetrical
+        dat_1 = pdf.PanDat(parent=[["now"], ["now"]], child=[[1], [2]])
+        dat_2 = pdf.PanDat(parent=[["a"], ["a"]], child=[[1], [2]])
+        dat_3 = pdf.PanDat(parent=[["a"], ["b"]], child=[[1], [2]])
+        self.assertTrue(list(map(crashes, [dat_1, dat_2, dat_3])) == [False, False, False])
+
+        # just to make sure nothing is crashing in TicDat world (this makes sense - this is a pandas issue)
+        tdf = pdf.clone(clone_factory=TicDatFactory)
+        crashes = lambda _: utils.safe_apply(tdf.find_foreign_key_failures)(_) is None
+        dat_1 = tdf.TicDat(child=[["now"], ["now"]], parent=[[1], [2]])
+        dat_2 = tdf.TicDat(child=[["a"], ["a"]], parent=[[1], [2]])
+        dat_3 = tdf.TicDat(child=[["a"], ["b"]], parent=[[1], [2]])
+        self.assertTrue(list(map(crashes, [dat_1, dat_2, dat_3])) == [False, False, False])
+
     def test_advanced_kwargs_cloning(self):
         if not self.canRun:
             return

@@ -921,7 +921,11 @@ def safe_apply(f) :
             return None
     return _rtn
 
-def dictish(x): return all(hasattr(x, _) for _ in
+def dictish(x):
+    '''
+    !WATCH OUT! a pandas.DataFrame qualifies as dictish. Probably a dumb subroutine.
+    '''
+    return all(hasattr(x, _) for _ in
                            ("__getitem__", "keys", "values", "items", "__contains__", "__len__"))
 def stringish(x): return all(hasattr(x, _) for _ in ("lower", "upper", "strip"))
 def containerish(x): return all(hasattr(x, _) for _ in ("__iter__", "__len__", "__contains__")) \
@@ -1005,8 +1009,10 @@ def deep_copy(x):
     :param x: the object to deep copy. should be nested dicts, tuples, lists or TicDatFactory/PanDatFactory
     :return: a deep (and unfrozen, other than tuples) copy of x
     '''
-    if isinstance(x, (tuple, str, bool)) or numericish(x) or x is None:
-        return x # tuples are frozen anyway
+    if isinstance(x, (str, bool)) or ticdat.utils.numericish(x) or x is None:
+        return x
+    if isinstance(x, tuple):
+        return tuple(deep_copy(y) for y in x)
     if isinstance(x, frozenset):
         return frozenset({deep_copy(y) for y in x})
     if isinstance(x, set):

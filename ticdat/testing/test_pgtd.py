@@ -10,6 +10,7 @@ import pickle
 import os
 import inspect
 import json
+from itertools import product
 def _this_directory() :
     return os.path.dirname(os.path.realpath(os.path.abspath(inspect.getsourcefile(_this_directory))))
 
@@ -119,6 +120,36 @@ class TestPostres(unittest.TestCase):
             self.engine.dispose()
             self.postgresql.stop()
 
+    def test_datetime_defaults(self):
+        if not self.can_run:
+            return
+        tdf = TicDatFactory(orders=[["Name"], ["Deliver By"]])
+        tdf.set_data_type("orders", "Deliver By", datetime=True)
+        tdf.set_default_value("orders", "Deliver By", "Jan 1 2019 1 PM")
+        schema = test_schema + "_dt_dfs_1"
+        tdf.pgsql.write_schema(self.engine, schema, include_ancillary_info=False,
+                               forced_field_types={("orders", "Deliver By"): "text"})
+        self.engine.execute(f"Insert into {schema}.orders (name) values ('blah')")
+        dat = tdf.pgsql.create_tic_dat(self.engine, schema)
+        self.assertTrue(dat._len_dict() == {"orders": 1})
+        self.assertFalse(tdf.find_data_type_failures(dat))
+
+    def test_datetime_defaults_2(self): # for Roundoff
+        if not self.can_run:
+            return
+        tdf = TicDatFactory(orders=[[], ["Name", "Deliver By"]])
+        tdf.set_data_type("orders", "Deliver By", datetime=True)
+        tdf.set_default_value("orders", "Deliver By", "Jan 1 2019 1 PM")
+        tdf2 = tdf.clone()
+        tdf2.set_data_type("orders", "Deliver By", datetime=True, nullable=True)
+        schema = test_schema + "_dt_dfs_2"
+        tdf2.pgsql.write_schema(self.engine, schema, include_ancillary_info=True,
+                               forced_field_types={("orders", "Name"): "text", ("orders", "Deliver By"): "text"})
+        self.engine.execute(f"Insert into {schema}.orders (name) values ('blah')")
+        dat = tdf2.pgsql.create_tic_dat(self.engine, schema)
+        self.assertTrue(dat._len_dict() == {"orders": 1})
+        self.assertFalse(tdf.find_data_type_failures(dat))
+
     def test_pgtd_active_dups(self):
         if not self.can_run:
             return
@@ -138,6 +169,28 @@ class TestPostres(unittest.TestCase):
         self.assertTrue(tdf.pgsql.find_duplicates(self.engine, schema))
         self.assertFalse(tdf.pgsql.find_duplicates(self.engine, schema, active_fld="da_active"))
 
+    def test_context_manager_write(self):
+        cntxt_events = set()
+        outer_self = self
+        def context_manager_factory(t):
+            class ContextManager(object):
+                def __enter__(self, *execinfo):
+                    outer_self.assertFalse((t, "enter") in cntxt_events)
+                    cntxt_events.add((t, "enter"))
+                def __exit__(self, *excinfo):
+                    outer_self.assertFalse((t, "exit") in cntxt_events)
+                    cntxt_events.add((t, "exit"))
+            return ContextManager
+        schema = test_schema+"_cntx_mgr"
+        pdf = PanDatFactory.create_from_full_schema(diet_schema.schema(include_ancillary_info=True))
+        pan_dat = diet_schema.copy_to_pandas(diet_dat, reset_index=True)
+        pdf.pgsql.write_schema(self.engine, schema, include_ancillary_info=False)
+        cntx_arg = {t: context_manager_factory(t) for t in ["foods", "nutrition_quantities"]}
+        self.assertFalse(cntxt_events)
+        pdf.pgsql.write_data(pan_dat, self.engine, schema, table_specific_context_manager=cntx_arg)
+        self.assertTrue(cntxt_events == {(t, e) for t, e in product(cntx_arg, ["enter", "exit"])})
+        pan_dat_2 = pdf.pgsql.create_pan_dat(self.engine, schema)
+        self.assertTrue(pdf._same_data(pan_dat, pan_dat_2, epsilon=1e-10))
 
     def test_pgtd_active(self):
         if not self.can_run:
