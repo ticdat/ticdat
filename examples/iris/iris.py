@@ -31,7 +31,6 @@ solution_schema = PanDatFactory(iris=[[],['Sepal Length', 'Sepal Width', 'Petal 
                                           'Cluster ID']])
 # The text solution fields only need a data type if you're going to deploy this as an app.
 solution_schema.set_data_type("iris", 'Species', number_allowed=False, strings_allowed='*')
-solution_schema.set_default_value("iris", 'Species', '') # empty string default is safer for the solution
 # ---------------------------------------------------------------------------------
 
 # ------------------------ create a solve function --------------------------------
