@@ -528,9 +528,11 @@ class PostgresPanFactory(_PostgresFactory):
 
         :param progress: if provided, a ticdat.Progress object that is called every time a table is uploaded
 
-        :param table_specific_context_manager: if provided, a dict mapping table name to a context manager.
-                the DataFrame.to_sql statement writing to the database will happen within this context manager
-                this is an expert level only feature - don't use it without studying this whole subroutine
+        :param table_specific_context_manager: if provided, a dict mapping table name to a context manager factory.
+                That is to say, table_specific_context_manager.values() should be zero argument calleables that return
+                context manager objects. The DataFrame.to_sql statement writing to the database will happen within this
+                resulting context manager for every entry in this dict.
+                This is an expert level only feature - don't use it without studying this whole subroutine
 
         :return:
         '''
