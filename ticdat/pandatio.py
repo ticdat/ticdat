@@ -616,10 +616,8 @@ class XlsPanFactory(freezable_factory(object, "_isFrozen")):
         case_space_sheet_names = case_space_sheet_names and \
                                  len(set(self.pan_dat_factory.all_tables)) == \
                                  len(set(map(case_space_to_pretty, self.pan_dat_factory.all_tables)))
-        writer = pd.ExcelWriter(file_path)
-        for t in self.pan_dat_factory.all_tables:
-            getattr(pan_dat, t).to_excel(writer,
-                                         (case_space_to_pretty(t) if case_space_sheet_names else t)[:_longest_sheet],
-                                         index=False)
-        writer.save()
-        writer.close()
+        with pd.ExcelWriter(file_path) as writer:
+            for t in self.pan_dat_factory.all_tables:
+                getattr(pan_dat, t).to_excel \
+                    (writer, (case_space_to_pretty(t) if case_space_sheet_names else t)[:_longest_sheet], index=False)
+
