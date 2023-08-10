@@ -1544,6 +1544,12 @@ class TestUtils(unittest.TestCase):
                                  'products': [['name'], []],
                                  'lines': [['name'], ['plant', 'weird stuff']]})
                 tdf_ = tdf_.clone_add_a_column("products", "governor", "data", 0)
+                ex = None
+                try:
+                    tdf_ = tdf_.clone_add_a_column("products", "governor", "data", 1)
+                except Exception as e:
+                    ex = str(e)
+                self.assertTrue(ex == 'governor already present in products')
                 tdf_ = tdf_.clone_add_a_column("line_descriptor", "governor", "primary key", 1)
                 tdf_ = tdf_.clone_add_a_column("line_descriptor", "wanker", "primary key")
                 tdf_ = tdf_.clone_add_a_table("the_wank", ["Name"], [])

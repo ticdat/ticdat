@@ -98,8 +98,8 @@ def clone_add_a_column(tdf_pdf, table, field, field_type, field_position="append
     verify(table in tdf_pdf.all_tables, "Unrecognized table name %s" % table)
     verify(isinstance(field, str), "field needs to be a string")
     verify(field_type in ['primary key', 'data'], "field_type needs to be 'primary key' or 'data'")
-    current_fields = getattr(tdf_pdf, {"primary key": "primary_key_fields", "data": "data_fields"}[field_type])
-    verify(field not in current_fields, f"{field} already present in {current_fields}")
+    current_fields = getattr(tdf_pdf, {"primary key": "primary_key_fields", "data": "data_fields"}[field_type])[table]
+    verify(field not in current_fields, f"{field} already present in {table}")
     if field_position == "append":
         field_position = len(current_fields)
     verify(0 <= field_position <= len(current_fields),
