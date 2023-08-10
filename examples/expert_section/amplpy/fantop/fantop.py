@@ -77,7 +77,7 @@ solution_schema = PanDatFactory(
                                 'Starter Or Reserve']])
 # ---------------------------------------------------------------------------------
 
-# roundoff app building tool needs to tweak the field types for one input field and 4 solution fields
+# Foresta app building tool needs to tweak the field types for one input field and 4 solution fields
 roundoff_configurations = {"input_configurations": {"field_types": {("players", "Position"): "text"}},
                            "solution_configurations": {"field_types": {("parameters", "Value"): "text"}}}
 for _ in ["Position", "Planned Or Actual", "Starter Or Reserve"]:
