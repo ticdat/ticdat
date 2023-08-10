@@ -1408,8 +1408,14 @@ class PanDatFactory(object):
             child.insert(0, magic_field*2, range(0, len(child)))
             parent.set_index(new_index, drop=True, inplace=True)
             child.set_index(new_index, drop=True, inplace=True)
-            joined = child.join(parent, rsuffix=magic_field)
-            bad_rows = set(joined[joined[magic_field] != True][magic_field*2])
+            try:
+                joined = child.join(parent, rsuffix=magic_field)
+            except TypeError:
+                joined = None # see ticdat issue 173
+            except:
+                raise
+            bad_rows = set(child[magic_field*2]) if joined is None else \
+                       set(joined[joined[magic_field] != True][magic_field*2])
             if bad_rows:
                 # I'm casting to list here because child is a copy that doesn't have the original index
                 # This is fixable, (i.e. we could return a Series with an index matching the original child table)

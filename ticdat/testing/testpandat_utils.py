@@ -31,13 +31,18 @@ class TestUtils(unittest.TestCase):
         dat_1 = pdf.PanDat(child=[["now"], ["now"]], parent=[[1], [2]])
         dat_2 = pdf.PanDat(child=[["a"], ["a"]], parent=[[1], [2]])
         dat_3 = pdf.PanDat(child=[["a"], ["b"]], parent=[[1], [2]])
-        self.assertTrue(list(map(crashes, [dat_1, dat_2, dat_3])) == [True, True, False])
-
+        # was  [True, True, False] before I fixed it
+        self.assertTrue(list(map(crashes, [dat_1, dat_2, dat_3])) == [False, False, False])
+        fails = {('child', 'parent', ('Field', 'Field')): [True, True]}
+        for d in [dat_1, dat_2, dat_3]:
+             self.assertTrue(pdf.find_foreign_key_failures(d, verbosity="Low", as_table=False) == fails)
         # its also not symmetrical
         dat_1 = pdf.PanDat(parent=[["now"], ["now"]], child=[[1], [2]])
         dat_2 = pdf.PanDat(parent=[["a"], ["a"]], child=[[1], [2]])
         dat_3 = pdf.PanDat(parent=[["a"], ["b"]], child=[[1], [2]])
         self.assertTrue(list(map(crashes, [dat_1, dat_2, dat_3])) == [False, False, False])
+        for d in [dat_1, dat_2, dat_3]:
+             self.assertTrue(pdf.find_foreign_key_failures(d, verbosity="Low", as_table=False) == fails)
 
         # just to make sure nothing is crashing in TicDat world (this makes sense - this is a pandas issue)
         tdf = pdf.clone(clone_factory=TicDatFactory)
@@ -46,6 +51,9 @@ class TestUtils(unittest.TestCase):
         dat_2 = tdf.TicDat(child=[["a"], ["a"]], parent=[[1], [2]])
         dat_3 = tdf.TicDat(child=[["a"], ["b"]], parent=[[1], [2]])
         self.assertTrue(list(map(crashes, [dat_1, dat_2, dat_3])) == [False, False, False])
+        for d in [dat_1, dat_2, dat_3]:
+            fails = tdf.find_foreign_key_failures(d, verbosity="Low")
+            self.assertTrue(len(fails) == 1 and fails[('child', 'parent', ('Field', 'Field'))][1] == (0, 1))
 
     def test_advanced_kwargs_cloning(self):
         if not self.canRun:
