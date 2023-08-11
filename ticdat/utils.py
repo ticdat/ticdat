@@ -514,7 +514,6 @@ def standard_main(input_schema, solution_schema, solve, case_space_table_names=F
         EngineProxy = namedtuple("EngineProxy", ["input_schema", "solution_schema", "solve"])
         dummy_engine = EngineProxy(input_schema, solution_schema, solve)
         engine_on_foresta = dspotconnect.TicDatConnector(con, dummy_engine)
-        debug_break()
         def foresta_upload(dat):
             upload_kwargs = {"scenario_name": foresta_dict["scenario"]} if "scenario" in foresta_dict else {}
             new_scenario_id = engine_on_foresta.upload_input_dat(dat, **upload_kwargs)
