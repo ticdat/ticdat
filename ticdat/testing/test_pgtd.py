@@ -134,7 +134,7 @@ class TestPostres(unittest.TestCase):
         self.assertTrue(dat._len_dict() == {"orders": 1})
         self.assertFalse(tdf.find_data_type_failures(dat))
 
-    def test_datetime_defaults_2(self): # for Roundoff
+    def test_datetime_defaults_2(self): # for Foresta
         if not self.can_run:
             return
         tdf = TicDatFactory(orders=[[], ["Name", "Deliver By"]])
@@ -966,7 +966,8 @@ class TestPostres(unittest.TestCase):
         self.assertTrue(tdf._same_data(dat, dat_3, nans_are_same_for_data_rows=True))
 
     def test_pgtd_pandas_none_null(self):
-        # roundoff (issue 5) is particularly interested in getting the PG NULL to map onto None with PanDatFactory
+        # https://rb.gy/t6m88 (issue 5 on pjcpjc/ro_h) is particularly interested in getting the PG NULL to map onto
+        # None with PanDatFactory
         if not self.can_run:
             return
         schema = test_schema+"_none_null"

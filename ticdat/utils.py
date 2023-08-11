@@ -18,9 +18,9 @@ except:
     dateutil = None
 import json
 try:
-    import roundoffconnect
+    import dspotconnect
 except:
-    roundoffconnect = None
+    dspotconnect = None
 try:
     import pandas as pd
     from pandas import DataFrame
@@ -428,7 +428,8 @@ def standard_main(input_schema, solution_schema, solve, case_space_table_names=F
 
     Implements a command line signature of
 
-    "python engine_file.py --input <input_file_or_dir> --output <output_file_or_dir> --roundoff <roundoff config file>"
+    "python engine_file.py --input <input_file_or_dir> --output <output_file_or_dir> --foresta <Foresta config file>
+                           --errors <error_file_or_dir>"
 
     For the input/output command line arguments.
 
@@ -450,7 +451,7 @@ def standard_main(input_schema, solution_schema, solve, case_space_table_names=F
 
     Defaults are input.xlsx, output.xlsx
 
-    The roundoff config file is optional. See ticdat wiki for a description of the roundoff config file.
+    The Foresta config file is optional. See ticdat wiki for a description of the Foresta config file.
     """
     verify(all(isinstance(_, ticdat.TicDatFactory) for _ in (input_schema, solution_schema)) or
            all(isinstance(_, ticdat.PanDatFactory) for _ in (input_schema, solution_schema)),
@@ -465,14 +466,14 @@ def standard_main(input_schema, solution_schema, solve, case_space_table_names=F
     file_name = sys.argv[0]
     def usage():
         print (f"python {file_name} --help --input <input file or dir> --output <output file or dir> " +
-               "--roundoff <roundoff config file>")
+               "--foresta <Foresta config file> --errors <errors file or dir>")
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "hi:o:r:e:", ["help", "input=", "output=", "roundoff=", "errors="])
+        opts, args = getopt.getopt(sys.argv[1:], "hi:o:f:e:", ["help", "input=", "output=", "foresta=", "errors="])
     except getopt.GetoptError as err:
         print (str(err))  # will print something like "option -a not recognized"
         usage()
         sys.exit(2)
-    input_file, output_file, roundoff_file, error_file = "input.xlsx", "output.xlsx", None, None
+    input_file, output_file, foresta_file, error_file = "input.xlsx", "output.xlsx", None, None
     for o, a in opts:
         if o in ("-h", "--help"):
             usage()
@@ -481,60 +482,60 @@ def standard_main(input_schema, solution_schema, solve, case_space_table_names=F
             input_file = a
         elif o in ("-o", "--output"):
             output_file = a
-        elif o in ("-r", "--roundoff"):
-            roundoff_file = a
+        elif o in ("-f", "--foresta"):
+            foresta_file = a
         elif o in ("-e", "--errors"):
             error_file = a
         else:
             verify(False, "unhandled option")
 
-    if roundoff_file and error_file:
+    if foresta_file and error_file:
         print("The -r and -e command line arguments are incompatible. Use one, or the other, or neither, but not both.")
 
     recognized_extensions = (".json", ".xls", ".xlsx", ".db")
     if create_routine == "create_tic_dat":
         recognized_extensions += (".sql", ".mdb", ".accdb")
 
-    roundoff_based_solve = None
-    if roundoff_file:
-        verify(roundoffconnect, "roundoffconnect not installed")
-        if not os.path.isfile(roundoff_file):
-            print("%s is not a valid roundoff file"%roundoff_file)
+    foresta_based_solve = None
+    if foresta_file:
+        verify(dspotconnect, "dspotconnect not installed")
+        if not os.path.isfile(foresta_file):
+            print("%s is not a valid Foresta file"%foresta_file)
             return
-        with open(roundoff_file, "r") as f:
-            roundoff_dict = json.load(f)
-        verify(isinstance(roundoff_dict, dict) and set(roundoff_dict).issuperset(["app_id", "server", "token"]),
-               f"{roundoff_file} failed to resolve to a proper json dict")
+        with open(foresta_file, "r") as f:
+            foresta_dict = json.load(f)
+        verify(isinstance(foresta_dict, dict) and set(foresta_dict).issuperset(["app_id", "server", "token"]),
+               f"{foresta_file} failed to resolve to a proper json dict")
         valid_modes = ["upload and solve", "upload only", "download from scenario"]
-        roundoff_mode = roundoff_dict.get("mode", valid_modes[0])
-        verify(roundoff_mode in valid_modes, f"mode entry from {roundoff_file} needs to be one of {valid_modes}")
-        con = roundoffconnect.AppConnect(*(roundoff_dict[_] for _ in ["server", "token", "app_id"]))
-        print(f"Connection established with Roundoff app {con.app_name} on server {roundoff_dict['server']}")
+        foresta_mode = foresta_dict.get("mode", valid_modes[0])
+        verify(foresta_mode in valid_modes, f"mode entry from {foresta_file} needs to be one of {valid_modes}")
+        con = dspotconnect.AppConnect(*(foresta_dict[_] for _ in ["server", "token", "app_id"]))
+        print(f"Connection established with Foresta app {con.app_name} on server {foresta_dict['server']}")
         EngineProxy = namedtuple("EngineProxy", ["input_schema", "solution_schema", "solve"])
         dummy_engine = EngineProxy(input_schema, solution_schema, solve)
-        engine_on_roundoff = roundoffconnect.TicDatConnector(con, dummy_engine)
-        def roundoff_upload(dat):
-            upload_kwargs = {"scenario_name": roundoff_dict["scenario"]} if "scenario" in roundoff_dict else {}
-            new_scenario_id = engine_on_roundoff.upload_input_dat(dat, **upload_kwargs)
-            print(f"Loaded data into Roundoff scenario {con.current_scenarios()[new_scenario_id]}")
+        engine_on_foresta = dspotconnect.TicDatConnector(con, dummy_engine)
+        def foresta_upload(dat):
+            upload_kwargs = {"scenario_name": foresta_dict["scenario"]} if "scenario" in foresta_dict else {}
+            new_scenario_id = engine_on_foresta.upload_input_dat(dat, **upload_kwargs)
+            print(f"Loaded data into Foresta scenario {con.current_scenarios()[new_scenario_id]}")
             return new_scenario_id
-        if roundoff_mode == "upload and solve":
-            def roundoff_based_solve(dat):
-                new_scenario_id = roundoff_upload(dat)
+        if foresta_mode == "upload and solve":
+            def foresta_based_solve(dat):
+                new_scenario_id = foresta_upload(dat)
                 con.launch_solve(new_scenario_id)
                 while con.is_solving_underway(new_scenario_id):
                     time.sleep(1)
-                    print("Solving on Roundoff...")
-                print(f"Downloading solution from Roundoff scenario {con.current_scenarios()[new_scenario_id]}")
-                return engine_on_roundoff.download_solution(new_scenario_id)
-        elif roundoff_mode == "upload only":
-            roundoff_based_solve = lambda dat: roundoff_upload(dat) and None
+                    print("Solving on Foresta...")
+                print(f"Downloading solution from Foresta scenario {con.current_scenarios()[new_scenario_id]}")
+                return engine_on_foresta.download_solution(new_scenario_id)
+        elif foresta_mode == "upload only":
+            foresta_based_solve = lambda dat: foresta_upload(dat) and None
             output_file = None
         else:
-            def roundoff_based_solve():
-                verify("scenario" in roundoff_dict, "'download from scenario' mode requires a 'scenario' entry")
-                print(f"Downloading solution from Roundoff scenario {roundoff_dict['scenario']}")
-                return engine_on_roundoff.download_solution(roundoff_dict["scenario"])
+            def foresta_based_solve():
+                verify("scenario" in foresta_dict, "'download from scenario' mode requires a 'scenario' entry")
+                print(f"Downloading solution from Foresta scenario {foresta_dict['scenario']}")
+                return engine_on_foresta.download_solution(foresta_dict["scenario"])
             input_file = None
 
     file_or_dir = lambda f: "file" if any(f.endswith(_) for _ in recognized_extensions) else "directory"
@@ -572,13 +573,13 @@ def standard_main(input_schema, solution_schema, solve, case_space_table_names=F
             return
 
 
-    if roundoff_based_solve is None:
+    if foresta_based_solve is None:
         sln = solve(dat)
     elif output_file:
-        sln = roundoff_based_solve(*([dat] if input_file else []))
+        sln = foresta_based_solve(*([dat] if input_file else []))
     else:
-        roundoff_based_solve(dat)
-        print(f"Returning without solving, as requested by the 'upload only' mode from {roundoff_file}")
+        foresta_based_solve(dat)
+        print(f"Returning without solving, as requested by the 'upload only' mode from {foresta_file}")
         return
 
     verify(not (sln is not None and safe_apply(bool)(sln) is None),
