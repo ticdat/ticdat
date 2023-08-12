@@ -1751,7 +1751,7 @@ class TestUtils(unittest.TestCase):
         self.assertFalse(_integrity_solve(pdf, tdf.copy_to_pandas(good_dat, reset_index=True)))
         do_integrity_check(_integrity_solve(pdf, tdf.copy_to_pandas(bad_dat, reset_index=True)))
         dup_dat = tdf.copy_to_pandas(good_dat, reset_index=True)
-        dup_dat.foods = dup_dat.foods.append(dup_dat.foods[dup_dat.foods["cost"] < 1.6], sort=False)
+        dup_dat.foods = utils.pd.concat([dup_dat.foods, dup_dat.foods[dup_dat.foods["cost"] < 1.6]])
         i_fails = _integrity_solve(pdf, dup_dat)
         self.assertTrue(i_fails._len_dict() == {"duplicate_rows": 3})
 
