@@ -3,6 +3,7 @@ Read/write ticDat objects from PostGres database. Requires the sqlalchemy module
 """
 
 from collections import defaultdict
+import math
 from ticdat.utils import freezable_factory, TicDatError, verify, stringish, FrozenDict, find_duplicates
 from ticdat.utils import create_duplicate_focused_tdf, dictish, numericish, safe_apply
 try:
@@ -145,6 +146,8 @@ class _PostgresFactory(freezable_factory(object, "_isFrozen"),):
                 return bool(rtn)
             if rtn is None or rtn == "":
                 return "NULL"
+            if numericish(rtn) and abs(rtn) == float("inf") and numericish(self.tdf.infinity_io_flag):
+                return math.copysign(self.tdf.infinity_io_flag, rtn)
             if stringish(rtn) and rtn:
                 return f"'{rtn}'"
             return rtn
@@ -207,6 +210,7 @@ class _PostgresFactory(freezable_factory(object, "_isFrozen"),):
         if not include_ancillary_info:
             from ticdat import TicDatFactory
             tdf = TicDatFactory(**{t: [[], pks + dfs] for t, (pks, dfs) in self.tdf.schema().items()})
+            tdf.set_infinity_io_flag(self.tdf.infinity_io_flag)
             for t, dts in self.tdf.data_types.items():
                 for f, dt in dts.items():
                     tdf.set_data_type(t, f, *dt)
