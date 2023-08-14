@@ -1,4 +1,4 @@
-# roundoffconnect simple app and unit test helper
+# dspotconnect simple app and unit test helper
 from ticdat import TicDatFactory
 from ticdat.utils import verify
 import time

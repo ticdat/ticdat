@@ -13,6 +13,7 @@ try:
     import kehaar
 except:
     kehaar = None
+import math
 from ticdat.testing.ticdattestutils import flagged_as_run_alone, fail_to_debugger, makeCleanDir
 import ticdat.utils as utils
 import unittest
@@ -72,40 +73,28 @@ class TestSlowBernardo(unittest.TestCase):
             self.postgresql.stop()
         shutil.rmtree(_scratchDir)
 
-
     def test_tdf(self):
         tdf = kehaar.input_schema
-        dat = _timeit(tdf.csv.create_tic_dat, 90)(os.path.join(_codeDir(), "bernardo_slowby"))
+        dat = _timeit(tdf.csv.create_tic_dat, 30)(os.path.join(_codeDir(), "bernardo_slowby"))
         tdf.pgsql.write_schema(self.engine, test_schemas[0], include_ancillary_info=False,
                                forced_field_types=_forced_field_types())
-        _timeit(tdf.pgsql.write_data, 90)(dat, self.engine, test_schemas[0], dsn=self.postgresql.dsn())
-        _timeit(tdf.pgsql.create_tic_dat, 50)(self.engine, test_schemas[0])
+        _timeit(tdf.pgsql.write_data, 30)(dat, self.engine, test_schemas[0], dsn=self.postgresql.dsn())
+        _timeit(tdf.pgsql.create_tic_dat, 15)(self.engine, test_schemas[0])
 
     def test_tdf_2(self):
         tdf = kehaar.input_schema
-        dat = _timeit(tdf.csv.create_tic_dat, 90)(os.path.join(_codeDir(), "bernardo_slowby"))
-        _timeit(tdf.xls.write_file, 150)(dat, os.path.join(_scratchDir, "bernslow.xlsx"))
-        _timeit(tdf.xls.create_tic_dat, 150)(os.path.join(_scratchDir, "bernslow.xlsx"))
+        dat = _timeit(tdf.csv.create_tic_dat, 30)(os.path.join(_codeDir(), "bernardo_slowby"))
+        _timeit(tdf.xls.write_file, 50)(dat, os.path.join(_scratchDir, "bernslow.xlsx"))
+        _timeit(tdf.xls.create_tic_dat, 80)(os.path.join(_scratchDir, "bernslow.xlsx"))
 
     def test_pdf(self):
-        pdf = PanDatFactory.create_from_full_schema(kehaar.input_schema.schema(include_ancillary_info=True))
-        dat = _timeit(pdf.csv.create_pan_dat, 35)(os.path.join(_codeDir(), "bernardo_slowby"))
+        pdf = kehaar.input_schema.clone(clone_factory=PanDatFactory)
+        dat = _timeit(pdf.csv.create_pan_dat, 10)(os.path.join(_codeDir(), "bernardo_slowby"))
         pdf.pgsql.write_schema(self.engine, test_schemas[1], include_ancillary_info=False,
                                forced_field_types=_forced_field_types())
-        # it takes a bit longer because thare might be infinities to manage into PG
-        _timeit(pdf.pgsql.write_data, 170)(dat, self.engine, test_schemas[1])
-        _timeit(pdf.pgsql.create_pan_dat, 35)(self.engine, test_schemas[1])
+        _timeit(pdf.pgsql.write_data, 25)(dat, self.engine, test_schemas[1])
+        _timeit(pdf.pgsql.create_pan_dat, 15)(self.engine, test_schemas[1])
 
-
-    def test_pdf_2(self):
-        pdf = PanDatFactory.create_from_full_schema(kehaar.input_schema.schema(include_ancillary_info=True))
-        pdf.set_infinity_io_flag("N/A") # this speeds thing up, since less munging
-        dat = _timeit(pdf.csv.create_pan_dat, 5)(os.path.join(_codeDir(), "bernardo_slowby"))
-        pdf.pgsql.write_schema(self.engine, test_schemas[2], include_ancillary_info=False,
-                               forced_field_types=_forced_field_types())
-        # this one a bit slower than 90 - not sure why.
-        _timeit(pdf.pgsql.write_data, 90)(dat, self.engine, test_schemas[2])
-        _timeit(pdf.pgsql.create_pan_dat, 5)(self.engine, test_schemas[2])
 
 test_schemas = [f"test_schema_{_}" for _ in range(5)]
 _scratchDir = TestSlowBernardo.__name__ + "_scratch"

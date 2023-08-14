@@ -204,7 +204,8 @@ class TestIO(unittest.TestCase):
                            ["json", core_path + "2.json", "write_file"],
                            ["xls", core_path+".xlsx", "write_file"]]:
             getattr(getattr(pdf, attr), func)(dat, path)
-            dat_1 = getattr(pdf, attr).create_pan_dat(path)
+            # FutureWarning: Inferring datetime64[ns] from data containing strings is deprecated
+            dat_1 = getattr(pdf, attr).create_pan_dat(path) # happens here, but only when "2.json" in path
             self.assertFalse(pdf._same_data(dat, dat_1))
             self.assertFalse(pdf.find_data_type_failures(dat_1) or pdf.find_data_row_failures(dat_1))
             dat_1 = pdf.copy_to_tic_dat(dat_1)
@@ -221,7 +222,7 @@ class TestIO(unittest.TestCase):
                             {True, False})
 
     def testDateTimeTwo(self):
-        file = os.path.join(_scratchDir, "datetime_pd.xls")
+        file = os.path.join(_scratchDir, "datetime_pd.xlsx")
         df = utils.pd.DataFrame({"a":list(map(utils.pd.Timestamp,
             ["June 13 1960 4:30PM", "Dec 11 1970 1AM", "Sept 11 2001 9:30AM"]))})
         df.to_excel(file, "Cool Runnings")
