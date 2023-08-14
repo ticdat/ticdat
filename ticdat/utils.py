@@ -490,7 +490,7 @@ def standard_main(input_schema, solution_schema, solve, case_space_table_names=F
             verify(False, "unhandled option")
 
     if foresta_file and error_file:
-        print("The -r and -e command line arguments are incompatible. Use one, or the other, or neither, but not both.")
+        print("The -f and -e command line arguments are incompatible. Use one, or the other, or neither, but not both.")
 
     recognized_extensions = (".json", ".xls", ".xlsx", ".db")
     if create_routine == "create_tic_dat":
