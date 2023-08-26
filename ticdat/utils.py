@@ -161,6 +161,8 @@ def clone_rename_a_column(tdf_pdf, table, field, new_field):
             return tuple(do_renaming(_) for _ in mp)if containerish(mp) else mp
         if needs_renaming(fk.mapping):
             rtn.add_foreign_key(fk.native_table, fk.foreign_table, do_renaming(fk.mapping))
+    if (table, field) in tdf_pdf.tooltips:
+        rtn.set_tooltip(table, new_field, tdf_pdf.tooltips[table, field])
     return rtn
 
 def clone_a_anchillary_info_schema(schema, table_restrictions, fields_to_remove=None):

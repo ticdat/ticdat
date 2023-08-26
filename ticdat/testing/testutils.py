@@ -1595,6 +1595,15 @@ class TestUtils(unittest.TestCase):
                     self.assertTrue(all(_.native_field.endswith(" Woz") and _.foreign_field.endswith(" Woz")
                                         for _ in fk.mapping))
 
+    def test_clone_rename_a_column_deletes_a_tooltip(self): # issue 189
+        tdf = TicDatFactory(table=[["Pk Field"], ["D Field 1", "D Field 2"]],
+                            table_two=[["Blah"], []])
+        tdf.set_tooltip("table", "Pk Field", "blah")
+        tdf.set_tooltip("table", "", "something")
+        tdf2 = tdf.clone_rename_a_column("table", "Pk Field", "The PK field")
+        self.assertTrue(tdf.tooltips == {('table', 'Pk Field'): 'blah', 'table': 'something'})
+        self.assertTrue(tdf2.tooltips == {('table', 'The PK field'): 'blah', 'table': 'something'})
+
     def test_foresta_command_line(self):
         # this test NOT self contained. It will connect to a testing Foresta via a live token. DON'T check
         # a live token into GitHub for all to read. Just generate as needed for test then delete from Foresta
