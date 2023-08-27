@@ -607,9 +607,9 @@ class PanDatFactory(object):
 
         !!! NB!!!!
 
-        **pandas will render None as nan.**
+        **pandas will typically render NULL as nan. In rare cases, it uses None.**
 
-        **Don't check for None in your predicate functions, use pandas.isnull instead**
+        **Don't check for None (or nan) in your predicate functions. Use pandas.isnull**
 
         !!!!!!!!!!
 

@@ -1404,9 +1404,9 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
 
         :param new_field: new name for the field
 
-        :return: a clone of the TicDatFactory, with field renamed to new_field. Data types, default values and
-                 foreign keys will reflect the new field name, but row predicates will be copied over as-is (and thus you will need
-                 to re-create them as needed).
+        :return: a clone of the TicDatFactory, with field renamed to new_field. Data types, default values,
+                 foreign keys and tooltips will reflect the new field name, but row predicates will be copied over as-is
+                 (and thus you will need to re-create them as needed).
         '''
         return utils.clone_rename_a_column(self, table, field, new_field)
     def clone_remove_a_column(self, table, field):
