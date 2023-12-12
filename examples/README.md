@@ -42,6 +42,5 @@ tables in Python. There are two choices.
    curious about other MIP engines, like `docplex` and `pulp`. Since `ticdat` is just a MIP facilitator, 
    those examples are very similar to `gurobipy`. 
    
-   The `expert_section/amplpy` directory demonstrates the `ticdat`  convenience functions that can help you
-   use the AMPL programming language within a Python based engine. Unfortunately, such an approach is not currently 
-   recommended due to the immature state of the AMPL licensing technology.
+The `xpress_model` examples are a convenient set of examples that access the `xpress` package indirectly, via
+the `ticdat.Model` pacakge.

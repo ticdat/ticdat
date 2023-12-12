@@ -31,12 +31,13 @@ class TestModel(unittest.TestCase):
     def _testDiet(self, modelType):
         sln, cost = dietSolver(modelType)
         self.assertTrue(sln)
-        self.assertTrue(nearlySame(cost, 11.8289))
+        self.assertTrue(nearlySame(cost, 11.8289)) # the KPI check includes a check on sln values
     def _testNetflow(self, modelType):
         sln, cost = netflowSolver(modelType)
         self.assertTrue(sln)
-        self.assertTrue(nearlySame(cost, 5500.0))
+        self.assertTrue(nearlySame(cost, 5500.0)) # the KPI check includes a check on sln values
     def _testFantop(self, modelType):
+        # the draft_yield is based on the results of get_solution_value
         sln, draft_yield = _testFantop(modelType, "sample_data.sql")
         self.assertTrue(sln and nearlySame(draft_yield, 2988.61))
         sln, draft_yield = _testFantop(modelType, "sample_tweaked_most_importants.sql")
@@ -65,7 +66,7 @@ class TestModel(unittest.TestCase):
         self._testDiet("xpress")
         self._testNetflow("xpress")
         self._testFantop("xpress")
-        self._testParameters("xpress") # not yet working
+        self._testParameters("xpress")
 
 def _testFantop(modelType, sqlFile):
     dataFactory = TicDatFactory (
@@ -193,6 +194,7 @@ def _testFantop(modelType, sqlFile):
     assert len(picked) <= len(dat.my_draft_positions)
     if len(picked) < len(dat.my_draft_positions):
         print("Your model is over-constrained, and thus only a partial draft was possible")
+        return None
 
     draft_yield = 0
     for player_name, draft_position in zip(picked, sorted(dat.my_draft_positions)):
