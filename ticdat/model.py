@@ -138,12 +138,12 @@ class Model(object):
                    "The list of known parameters is %s\n"%list(known_parameters) +
                    "Feel free to set this parameter directly using core_model.")
             if k == "MIP_Gap":
-                verify(self.model_type != "xpress",
-                       "MIP_Gap parameter not yet implemented for xpress.")
                 if self.model_type == "gurobi":
                     self.core_model.Params.MIPGap = v
                 elif self.model_type == "cplex":
                     self.core_model.parameters.mip.tolerances.mipgap = v
+                elif self.model_type == "xpress":
+                    self.core_model.controls.miprelstop = v
 
     def optimize(self, *args, **kwargs):
         """
