@@ -1,5 +1,6 @@
 import ticdat.utils as utils
 from ticdat.utils import verify, gurobi_env
+import math
 
 try:
     import docplex.mp.model as cplex
@@ -15,6 +16,9 @@ try:
     import xpress
 except:
     xpress = "xpress"
+
+from collections import namedtuple
+MIP_Results = namedtuple("MIP_Results", ["best_bound", "objective_value"])
 
 class Model(object):
     """
@@ -181,6 +185,20 @@ class Model(object):
            return self._cplex_soln.get_value(var)
         if self.model_type == "xpress":
             return self.core_model.getSolution(var)
+
+    def get_mip_results(self):
+        """
+        For a MIP solve, returns MIP_Results object. Don't call for a pure linear model.
+        :return: A MIP_Results object, which has attributes best_bound and objective_value
+        """
+        if self.model_type == "gurobi":
+            return MIP_Results(getattr(self.core_model, "objBound", self.core_model.objVal), self.core_model.objVal)
+        if self.model_type == "cplex":
+            lb = self.core_model.solve_details.best_bound
+            return MIP_Results(self._cplex_soln.get_objective_value() if math.isnan(lb) else lb,
+                               self._cplex_soln.get_objective_value())
+        if self.model_type == "xpress":
+            return MIP_Results(self.core_model.attributes.bestbound, self.core_model.attributes.mipobjval)
 
     @property
     def sum(self):
