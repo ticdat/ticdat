@@ -43,6 +43,8 @@ class Model(object):
         self._model_type = model_type
         self._sum = ({"gurobi":lambda : gurobi.quicksum, "cplex": lambda : self.core_model.sum,
                      "xpress":lambda : xpress.Sum}[model_type])()
+        self._var_index = {} if model_type == "xpress" else None
+        self._xpress_solution_list = [] if model_type == "xpress" else None
 
     @property
     def core_model(self):
@@ -86,6 +88,8 @@ class Model(object):
             vtype = {"continuous":xpress.continuous, "binary":xpress.binary}[type]
             rtn = xpress.var(lb=lb, ub=ub, vartype=vtype,  **name_dict)
             self.core_model.addVariable(rtn)
+            self._var_index[rtn] = len(self._var_index)
+            # assert self._var_index[rtn] == rtn.__hash__() - 1 # SADLY DOESN'T WORK WITH MORE THAN ONE MODEL
             return rtn
 
     def add_constraint(self, constraint, name=""):
@@ -171,8 +175,9 @@ class Model(object):
             return rtn
         if self.model_type == "xpress":
             self.core_model.solve(*args, **kwargs)
-            return self.core_model.getProbStatus() in [xpress.lp_optimal, xpress.mip_optimal]
-
+            rtn = self.core_model.getProbStatus() in [xpress.lp_optimal, xpress.mip_optimal]
+            self._xpress_solution_list = self.core_model.getSolution() if rtn else []
+            return rtn
     def get_solution_value(self, var):
         """
         Get the value for a variable in the solution. Only call after a successful optimize() call.
@@ -184,7 +189,7 @@ class Model(object):
         if self.model_type == "cplex":
            return self._cplex_soln.get_value(var)
         if self.model_type == "xpress":
-            return self.core_model.getSolution(var)
+            return self._xpress_solution_list[self._var_index[var]]
 
     def get_mip_results(self):
         """
