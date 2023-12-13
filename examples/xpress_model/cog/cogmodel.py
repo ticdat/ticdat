@@ -156,6 +156,7 @@ def solve(dat, diagnostic_log, error_and_warning_log, progress):
 
     mdl.set_objective(mdl.sum(var * get_distance(n,assigned_to) * dat.sites[n]["Demand"] for (n, assigned_to), var in
                               assign_vars.items()), "minimize")
+    progress.add_xpress_callback("COG Optimization", mdl.core_model)
     if mdl.optimize():
         progress.numerical_progress("Core Optimization", 100)
 

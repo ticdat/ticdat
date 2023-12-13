@@ -175,7 +175,7 @@ class Model(object):
             return rtn
         if self.model_type == "xpress":
             self.core_model.solve(*args, **kwargs)
-            rtn = self.core_model.getProbStatus() in [xpress.lp_optimal, xpress.mip_optimal]
+            rtn = str(self.core_model.attributes.solvestatus) in ['SolveStatus.COMPLETED', 'SolveStatus.STOPPED']
             self._xpress_solution_list = self.core_model.getSolution() if rtn else []
             return rtn
     def get_solution_value(self, var):
