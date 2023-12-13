@@ -59,11 +59,11 @@ class Model(object):
         Add a variable to the model.
         :param lb: The lower bound of the variable.
         :param ub: The upper bound of the variable.
-        :param type: either 'binary' or 'continuous'
+        :param type: either 'binary', 'continuous' or 'integer'
         :param name: The name of the variable. (Ignored if falsey).
         :return: The variable object associated with the model_type engine API
         """
-        verify(type in ["continuous", "binary"], "type needs to be 'continuous' or 'binary'")
+        verify(type in ["continuous", "binary", 'integer'], "type needs to be 'continuous' or 'binary'")
         verify(utils.numericish(lb) and utils.numericish(ub), "lb, ub need to be numbers")
         verify(ub>=lb, "lb cannot be bigger than ub")
         verify(lb < float("inf"), "lb cannot be positive infinity")
@@ -73,19 +73,22 @@ class Model(object):
             verify(lb in [0,1] and ub in [0,1], "lb,ub need to be 0 or 1 when type = 'binary'")
         name_dict = {"name":name} if name else {}
         if self.model_type == "gurobi":
-            vtype = {"continuous":gurobi.GRB.CONTINUOUS, "binary":gurobi.GRB.BINARY}[type]
+            vtype = {"continuous":gurobi.GRB.CONTINUOUS, "binary":gurobi.GRB.BINARY,
+                     "integer":gurobi.GRB.INTEGER}[type]
             rtn =  self.core_model.addVar(lb=lb, ub=ub, vtype=vtype, **name_dict)
             return rtn
         if self.model_type == "cplex":
             if type == "continuous":
                 return self.core_model.continuous_var(lb=lb, ub=ub, **name_dict)
+            if type == "integer":
+                return self.core_model.integer_var(lb=lb, ub=ub, **name_dict)
             rtn = self.core_model.binary_var(**name_dict)
             rhs = ub if ub == 0 else (lb if lb == 1 else None)
             if utils.numericish(rhs):
                 self.core_model.add_constraint(rtn == rhs)
             return rtn
         if self.model_type == "xpress":
-            vtype = {"continuous":xpress.continuous, "binary":xpress.binary}[type]
+            vtype = {"continuous":xpress.continuous, "binary":xpress.binary, "integer": xpress.integer}[type]
             rtn = xpress.var(lb=lb, ub=ub, vartype=vtype,  **name_dict)
             self.core_model.addVariable(rtn)
             self._var_index[rtn] = len(self._var_index)

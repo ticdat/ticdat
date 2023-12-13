@@ -17,6 +17,22 @@ def _codeDir():
 
 #@fail_to_debugger
 class TestModel(unittest.TestCase):
+    def _testIntegers(self, model_type):
+        def run_it(type):
+            mdl = Model(model_type=model_type, model_name="int tester")
+            v1 = mdl.add_var(ub=3, type=type, name="v1")
+            v2 = mdl.add_var(ub=2, type=type, name="v2")
+            v3 = mdl.add_var(type="binary", name="v3") # so there is always a MIP
+            mdl.add_constraint(1.5*v2 + v1 + 10*v3 <= 4.8)
+            mdl.set_objective(v2 + v1 + v3, sense="maximize")
+            self.assertTrue(mdl.optimize())
+            results = mdl.get_mip_results()
+            return results
+        results = run_it("integer")
+        self.assertTrue(results.best_bound == results.objective_value == 4)
+        results = run_it("continuous")
+        self.assertTrue(results.best_bound == results.objective_value == 4.2)
+
     def _testCog(self, modelType):
         dat = cogmodel.input_schema.sql.create_tic_dat_from_sql(os.path.join(_codeDir(), "cog_sample_data.sql"))
         dat.parameters["Core Model Type"] = modelType
@@ -54,6 +70,7 @@ class TestModel(unittest.TestCase):
         mdl.set_parameters(MIP_Gap =  0.01)
     def testCplex(self):
         self.assertFalse(utils.stringish(cplex))
+        self._testIntegers("cplex")
         self._testCog("cplex")
         self._testDiet("cplex")
         self._testNetflow("cplex")
@@ -61,6 +78,7 @@ class TestModel(unittest.TestCase):
         self._testParameters("cplex")
     def testGurobi(self):
         self.assertFalse(utils.stringish(gurobi))
+        self._testIntegers("gurobi")
         self._testCog("gurobi")
         self._testDiet("gurobi")
         self._testNetflow("gurobi")
@@ -68,6 +86,7 @@ class TestModel(unittest.TestCase):
         self._testParameters("gurobi")
     def testXpress(self):
         self.assertFalse(utils.stringish(xpress))
+        self._testIntegers("xpress")
         self._testCog("xpress")
         self._testDiet("xpress")
         self._testNetflow("xpress")
