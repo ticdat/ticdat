@@ -28,6 +28,11 @@ class TestModel(unittest.TestCase):
         sln =cogmodel.solve(dat, CogStopProgress())
         self.assertTrue(sln.parameters["Upper Bound"]["Value"] < 1e10)
         self.assertTrue(sln.parameters["Lower Bound"]["Value"] > 0.1 * sln.parameters["Upper Bound"]["Value"])
+        self.assertTrue(len(sln.openings) == 3)
+        self.assertTrue(set(sln.openings).issubset(dat.sites))
+        self.assertTrue({_[0] for _ in sln.assignments} == set(dat.sites))
+        self.assertTrue({_[1] for _ in sln.assignments} == set(sln.openings))
+
     def _testDiet(self, modelType):
         sln, cost = dietSolver(modelType)
         self.assertTrue(sln)
@@ -63,6 +68,7 @@ class TestModel(unittest.TestCase):
         self._testParameters("gurobi")
     def testXpress(self):
         self.assertFalse(utils.stringish(xpress))
+        self._testCog("xpress")
         self._testDiet("xpress")
         self._testNetflow("xpress")
         self._testFantop("xpress")
