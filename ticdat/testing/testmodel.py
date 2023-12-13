@@ -6,6 +6,7 @@ import unittest
 import os
 import inspect
 import ticdat.testing.cogmodel as cogmodel
+from types import ModuleType
 
 def _codeFile() :
     return  os.path.realpath(os.path.abspath(inspect.getsourcefile(_codeFile)))
@@ -20,6 +21,8 @@ class TestModel(unittest.TestCase):
     def _testIntegers(self, model_type):
         def run_it(type):
             mdl = Model(model_type=model_type, model_name="int tester")
+            self.assertTrue(isinstance(mdl.core_module, ModuleType))
+            self.assertFalse(isinstance(mdl.core_model, ModuleType))
             v1 = mdl.add_var(ub=3, type=type, name="v1")
             v2 = mdl.add_var(ub=2, type=type, name="v2")
             v3 = mdl.add_var(type="binary", name="v3") # so there is always a MIP

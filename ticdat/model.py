@@ -25,7 +25,7 @@ class Model(object):
     Mixed Integer Programming modeling object. Provides pass-through functionality to one
     of the three main commercial MIP Python APIs (CPLEX, Gurobi, and XPRESS).
     """
-    def __init__(self, model_type = 'gurobi', model_name = "model"):
+    def __init__(self, model_type='gurobi', model_name="model"):
         """
         or another
         :param model_type: either gurobi, cplex or xpress
@@ -49,6 +49,9 @@ class Model(object):
     @property
     def core_model(self):
         return self._core_model
+    @property
+    def core_module(self):
+        return {"gurobi": gurobi, "cplex": cplex, "xpress": xpress}[self._model_type]
 
     @property
     def model_type(self):

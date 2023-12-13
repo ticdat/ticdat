@@ -151,12 +151,19 @@ def solve(dat, diagnostic_log, error_and_warning_log, progress):
 
     mdl.set_parameters(MIP_Gap=full_parameters["MIP Gap"])
 
-
     progress.numerical_progress("Core Model Creation", 100)
 
     mdl.set_objective(mdl.sum(var * get_distance(n,assigned_to) * dat.sites[n]["Demand"] for (n, assigned_to), var in
                               assign_vars.items()), "minimize")
-    progress.add_xpress_callback("COG Optimization", mdl.core_model)
+
+    progress.add_xpress_callback("COG Optimization", mdl.core_model) # handle LB/UB progress in Foresta compliant way
+
+    def xpress_solve_stdout_redicted(prob, object, msgtype, msg):
+        if msgtype is not None: # I think its an xpress bug that msgtype has everything, but living with it.
+            diagnostic_log.write(f"{msgtype}\n")
+    mdl.core_model.addcbmessage(xpress_solve_stdout_redicted, None, 0)
+    mdl.core_module.setOutputEnabled(False) # call xpress.setOutputEnabled to quiet stdout
+
     if mdl.optimize():
         progress.numerical_progress("Core Optimization", 100)
 
