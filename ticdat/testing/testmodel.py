@@ -18,6 +18,7 @@ def _codeDir():
 
 #@fail_to_debugger
 class TestModel(unittest.TestCase):
+
     def _testIntegers(self, model_type):
         def run_it(type):
             mdl = Model(model_type=model_type, model_name="int tester")
@@ -30,6 +31,8 @@ class TestModel(unittest.TestCase):
             mdl.set_objective(v2 + v1 + v3, sense="maximize")
             self.assertTrue(mdl.optimize())
             results = mdl.get_mip_results()
+            mdl.add_constraint(v2 + v1 + v3 >= results.objective_value * 1.1)
+            self.assertFalse(mdl.optimize())
             return results
         results = run_it("integer")
         self.assertTrue(results.best_bound == results.objective_value == 4)
