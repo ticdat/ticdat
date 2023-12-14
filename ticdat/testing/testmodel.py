@@ -44,7 +44,10 @@ class TestModel(unittest.TestCase):
         v1 = mdl.add_var(type="binary")
         v2 = mdl.add_var(type="binary", ub=0)
         v3 = mdl.add_var(type="binary", lb=1)
-        mdl.add_constraint(v1 + v2 + v3 >= 2)
+        # making a dict below to also exercise the sum() against an odd case
+        # strangely, xpress.Sum floundered on dict.values() but seems fine on iters in general
+        # constraint is v1 + v2 + v3 >= 2, just writing it this goofy way for testing
+        mdl.add_constraint(mdl.sum({"one": v1, "two": v2, "three": v3}.values()) >= 2)
         mdl.set_objective(2 * v1  + v2 + 10 * v3)
         self.assertTrue(mdl.optimize())
         self.assertTrue(mdl.get_mip_results().best_bound == 12) # v2 is off

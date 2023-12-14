@@ -41,8 +41,11 @@ class Model(object):
         self._core_model = getattr(engines[model_type],
                             {"gurobi":"Model", "cplex":"Model","xpress":"problem"}[model_type])(model_name, **env)
         self._model_type = model_type
+        def xpress_sum_workaround_bug(iterable):
+            # needed because xpress.Sum(d.values()) throws an error for a dict that has xpress vars in the values()
+            return xpress.Sum(iter(iterable))
         self._sum = ({"gurobi":lambda : gurobi.quicksum, "cplex": lambda : self.core_model.sum,
-                     "xpress":lambda : xpress.Sum}[model_type])()
+                     "xpress":lambda : xpress_sum_workaround_bug}[model_type])()
         self._var_index = {} if model_type == "xpress" else None
         self._xpress_solution_list = [] if model_type == "xpress" else None
 
