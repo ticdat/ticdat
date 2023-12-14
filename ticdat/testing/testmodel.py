@@ -39,6 +39,18 @@ class TestModel(unittest.TestCase):
         results = run_it("continuous")
         self.assertTrue(results.best_bound == results.objective_value == 4.2)
 
+    def _testBinaryBounds(self, model_type):
+        mdl = Model(model_type=model_type, model_name="int LB")
+        v1 = mdl.add_var(type="binary")
+        v2 = mdl.add_var(type="binary", ub=0)
+        v3 = mdl.add_var(type="binary", lb=1)
+        mdl.add_constraint(v1 + v2 + v3 >= 2)
+        mdl.set_objective(2 * v1  + v2 + 10 * v3)
+        self.assertTrue(mdl.optimize())
+        self.assertTrue(mdl.get_mip_results().best_bound == 12) # v2 is off
+
+
+
     def _testCog(self, modelType):
         dat = cogmodel.input_schema.sql.create_tic_dat_from_sql(os.path.join(_codeDir(), "cog_sample_data.sql"))
         dat.parameters["Core Model Type"] = modelType
@@ -76,6 +88,7 @@ class TestModel(unittest.TestCase):
         mdl.set_parameters(MIP_Gap =  0.01)
     def testCplex(self):
         self.assertFalse(utils.stringish(cplex))
+        self._testBinaryBounds("cplex")
         self._testIntegers("cplex")
         self._testCog("cplex")
         self._testDiet("cplex")
@@ -84,6 +97,7 @@ class TestModel(unittest.TestCase):
         self._testParameters("cplex")
     def testGurobi(self):
         self.assertFalse(utils.stringish(gurobi))
+        self._testBinaryBounds("gurobi")
         self._testIntegers("gurobi")
         self._testCog("gurobi")
         self._testDiet("gurobi")
@@ -92,12 +106,30 @@ class TestModel(unittest.TestCase):
         self._testParameters("gurobi")
     def testXpress(self):
         self.assertFalse(utils.stringish(xpress))
+        self._testBinaryBounds("xpress")
         self._testIntegers("xpress")
         self._testCog("xpress")
         self._testDiet("xpress")
         self._testNetflow("xpress")
         self._testFantop("xpress")
         self._testParameters("xpress")
+
+    def testXpressLbBug(self): # CPLEX probably  has the same bug, add that test later on
+        p = xpress.problem()
+        x1 = xpress.var(lb=0, ub=float("inf"), vartype=xpress.binary)
+        p.addVariable(x1)
+        x2 = xpress.var(lb=0, ub=float("inf"), vartype=xpress.binary)
+        p.addVariable(x2)
+        x3 = xpress.var(lb=1, ub=float("inf"), vartype=xpress.binary)
+        p.addVariable(x3)
+        cnstr = xpress.constraint(x1 + x2 + x3>=2)
+        p.addConstraint(cnstr)
+        p.setObjective(x1 + x2 + 10 * x3, sense=xpress.minimize)
+        p.solve()
+        self.assertTrue(str(p.attributes.solstatus) == 'SolStatus.OPTIMAL')
+        self.assertTrue(p.attributes.mipobjval == 2) # SHOULD BE 11
+        self.assertTrue(p.getSolution() == [1, 1, 0]) # should be [1, 0, 1] or [0, 1, 1]
+
 
 def _testFantop(modelType, sqlFile):
     dataFactory = TicDatFactory (

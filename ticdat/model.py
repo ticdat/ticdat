@@ -86,9 +86,9 @@ class Model(object):
             if type == "integer":
                 return self.core_model.integer_var(lb=lb, ub=ub, **name_dict)
             rtn = self.core_model.binary_var(**name_dict)
-            rhs = ub if ub == 0 else (lb if lb == 1 else None)
+            rhs = ub if ub == 0 else (lb if lb >= 1 else None)
             if utils.numericish(rhs):
-                self.core_model.add_constraint(rtn == rhs)
+                self.add_constraint(rtn == rhs)
             return rtn
         if self.model_type == "xpress":
             vtype = {"continuous":xpress.continuous, "binary":xpress.binary, "integer": xpress.integer}[type]
@@ -96,6 +96,10 @@ class Model(object):
             self.core_model.addVariable(rtn)
             self._var_index[rtn] = len(self._var_index)
             # assert self._var_index[rtn] == rtn.__hash__() - 1 # SADLY DOESN'T WORK WITH MORE THAN ONE MODEL
+            if type == "binary":
+                rhs = ub if ub == 0 else (lb if lb >= 1 else None)
+                if utils.numericish(rhs):
+                    self.add_constraint(rtn == rhs)
             return rtn
 
     def add_constraint(self, constraint, name=""):
