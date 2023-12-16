@@ -1244,6 +1244,22 @@ class Progress(object):
                 if not keep_going :
                     model.terminate()
         return rtn
+    def add_xpress_callback(self, theme, problem):
+        """
+        Add a callback function to the xpress problem that is connected to this progress object
+        **Only for minimize**
+        :param theme: short descriptive string
+        :param problem: xpress..problem() object (or ticdat.Model.core_model)
+        :return:
+        """
+        def callback(prob, object):
+            assert object is None
+            # assert prob is problem # this fails for some reason!
+            ub = prob.attributes.mipobjval
+            lb = prob.attributes.bestbound
+            keep_going = self.mip_progress(theme, lb, ub)
+            return 0 if keep_going else 1
+        problem.addcbmiplog(callback=callback, data=None, priority=0)
     def add_cplex_listener(self, theme, model):
         '''
         Allow a CPLEX model to call mip_progress. **Only for minimize**
