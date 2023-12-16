@@ -119,13 +119,13 @@ class TestModel(unittest.TestCase):
 
     def testXpressLbBug(self): # CPLEX probably  has the same bug, add that test later on
         p = xpress.problem()
-        x1 = xpress.var(lb=0, ub=float("inf"), vartype=xpress.binary)
+        x1 = xpress.var(vartype=xpress.binary)
         p.addVariable(x1)
-        x2 = xpress.var(lb=0, ub=float("inf"), vartype=xpress.binary)
+        x2 = xpress.var(vartype=xpress.binary)
         p.addVariable(x2)
-        x3 = xpress.var(lb=1, ub=float("inf"), vartype=xpress.binary)
+        x3 = xpress.var(lb=1, vartype=xpress.binary)
         p.addVariable(x3)
-        cnstr = xpress.constraint(x1 + x2 + x3>=2)
+        cnstr = xpress.constraint(x1 + x2 + x3 >= 2)
         p.addConstraint(cnstr)
         p.setObjective(x1 + x2 + 10 * x3, sense=xpress.minimize)
         p.solve()
