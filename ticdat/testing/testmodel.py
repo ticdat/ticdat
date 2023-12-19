@@ -89,33 +89,34 @@ class TestModel(unittest.TestCase):
     def _testParameters(self, modelType):
         mdl = Model(modelType, "parameters")
         mdl.set_parameters(MIP_Gap =  0.01)
-    def testCplex(self):
+    def testCplexCommunity(self):
         self.assertFalse(utils.stringish(cplex))
         self._testBinaryBounds("cplex")
         self._testIntegers("cplex")
-        self._testCog("cplex")
         self._testDiet("cplex")
         self._testNetflow("cplex")
-        self._testFantop("cplex")
         self._testParameters("cplex")
+    def testCplexNeedsFullVersion(self):
+        self._testFantop("cplex")
+        self._testCog("cplex")
     def testGurobi(self):
         self.assertFalse(utils.stringish(gurobi))
         self._testBinaryBounds("gurobi")
         self._testIntegers("gurobi")
-        self._testCog("gurobi")
         self._testDiet("gurobi")
         self._testNetflow("gurobi")
-        self._testFantop("gurobi")
         self._testParameters("gurobi")
+        self._testFantop("gurobi")
+        self._testCog("gurobi")
     def testXpress(self):
         self.assertFalse(utils.stringish(xpress))
         self._testBinaryBounds("xpress")
         self._testIntegers("xpress")
-        self._testCog("xpress")
         self._testDiet("xpress")
         self._testNetflow("xpress")
-        self._testFantop("xpress")
         self._testParameters("xpress")
+        self._testFantop("xpress")
+        self._testCog("xpress")
 
     def testXpressLbBug(self): # CPLEX probably  has the same bug, add that test later on
         p = xpress.problem()
