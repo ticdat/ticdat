@@ -124,6 +124,22 @@ class Model(object):
             self.core_model.addConstraint(rtn)
             return rtn
 
+    def add_indicator_constraint(self, constraint_1, constraint_2, name=""):
+        '''
+        Add an indicator constraint to the model.
+        :param constraint_1: The primary constraint. Aka the condition.
+        :param constraint_2: The secondary constraint. The MIP will enforce the secondary constraint
+        whenever the primary constraint is obeyed. If the primary constraint is violated, then the secondary
+        constraint can be violated.
+        :param name: The name of the constraint. Ignored if falsey. Ignored for xpress.
+        :return: None
+        '''
+        verify(self.model_type != "cplex", "indicator_constraints not implemented for cplex at this time")
+        if self.model_type == "gurobi":
+            self.core_model.addConstr(constraint_1 >> constraint_2, **({"name":name} if name else {}))
+        elif self.model_type == "xpress":
+            self.core_model.addIndicator((constraint_1, constraint_2))
+
     def set_objective(self, expression, sense="minimize"):
         """
         Set the objective for the model.
