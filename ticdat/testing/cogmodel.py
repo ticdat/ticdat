@@ -89,6 +89,8 @@ def solve(dat, progress):
                      for (n, assigned_to),var in assign_vars.items()), sense="minimize")
     if full_parameters["Core Model Type"] == "cplex":
         progress.add_cplex_listener("COG Optimization", m.core_model)
+    if full_parameters["Core Model Type"] == "xpress":
+        progress.add_xpress_callback("COG Optimization", m.core_model)
 
     worked = m.optimize(*([progress.gurobi_call_back_factory("COG Optimization", m.core_model)]
                  if full_parameters["Core Model Type"] == "gurobi" else []))
@@ -96,14 +98,9 @@ def solve(dat, progress):
     assert worked, "testing model set up only for success"
 
     sln = solution_schema.TicDat()
-    if full_parameters["Core Model Type"] == "gurobi":
-        sln.parameters["Lower Bound"] = getattr(m.core_model, "objBound", m.core_model.objVal)
-        sln.parameters["Upper Bound"] = m.core_model.objVal
-    else:
-        lb = m.core_model.solve_details.best_bound
-        sln.parameters["Lower Bound"] = worked.get_objective_value() if isnan(lb) else lb
-        sln.parameters["Upper Bound"] = worked.get_objective_value()
-
+    results = m.get_mip_results()
+    sln.parameters["Lower Bound"] = results.best_bound
+    sln.parameters["Upper Bound"] = results.objective_value
 
     def almostone(x) :
         return abs(x-1) < 0.0001

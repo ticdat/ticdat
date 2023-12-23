@@ -6,6 +6,7 @@ import unittest
 import os
 import inspect
 import ticdat.testing.cogmodel as cogmodel
+from types import ModuleType
 
 def _codeFile() :
     return  os.path.realpath(os.path.abspath(inspect.getsourcefile(_codeFile)))
@@ -17,6 +18,50 @@ def _codeDir():
 
 #@fail_to_debugger
 class TestModel(unittest.TestCase):
+
+    def _testIntegers(self, model_type):
+        def run_it(type):
+            mdl = Model(model_type=model_type, model_name="int tester")
+            self.assertTrue(isinstance(mdl.core_module, ModuleType))
+            self.assertFalse(isinstance(mdl.core_model, ModuleType))
+            v1 = mdl.add_var(ub=3, type=type, name="v1")
+            v2 = mdl.add_var(ub=2, type=type, name="v2")
+            v3 = mdl.add_var(type="binary", name="v3") # so there is always a MIP
+            mdl.add_constraint(1.5*v2 + v1 + 10*v3 <= 4.8)
+            mdl.set_objective(v2 + v1 + v3, sense="maximize")
+            self.assertTrue(mdl.optimize())
+            results = mdl.get_mip_results()
+            mdl.add_constraint(v2 + v1 + v3 >= results.objective_value * 1.1)
+            self.assertFalse(mdl.optimize())
+            return results
+        results = run_it("integer")
+        self.assertTrue(results.best_bound == results.objective_value == 4)
+        results = run_it("continuous")
+        self.assertTrue(results.best_bound == results.objective_value == 4.2)
+
+    def _testBinaryBounds(self, model_type):
+        mdl = Model(model_type=model_type, model_name="int LB")
+        v1 = mdl.add_var(type="binary")
+        v2 = mdl.add_var(type="binary", ub=0)
+        v3 = mdl.add_var(type="binary", lb=1)
+        # making a dict below to also exercise the sum() against an odd case
+        # strangely, xpress.Sum floundered on dict.values() but seems fine on iters in general
+        # constraint is v1 + v2 + v3 >= 2, just writing it this goofy way for testing
+        mdl.add_constraint(mdl.sum({"one": v1, "two": v2, "three": v3}.values()) >= 2)
+        mdl.set_objective(2 * v1  + v2 + 10 * v3)
+        self.assertTrue(mdl.optimize())
+        self.assertTrue(mdl.get_mip_results().best_bound == 12) # v2 is off
+
+    def _test_indicator(self, model_type):
+        for condition in [True, False]:
+            mdl = Model(model_type=model_type, model_name="indicator")
+            v1 = mdl.add_var(type="binary")
+            v2 = mdl.add_var(ub=10)
+            mdl.add_indicator_constraint(v1, condition, v2 == 0)
+            mdl.set_objective(v2 - 1.5 * v1, sense="maximize")
+            self.assertTrue(mdl.optimize())
+            self.assertTrue(mdl.get_mip_results().best_bound == 10 if condition else 8.5)
+
     def _testCog(self, modelType):
         dat = cogmodel.input_schema.sql.create_tic_dat_from_sql(os.path.join(_codeDir(), "cog_sample_data.sql"))
         dat.parameters["Core Model Type"] = modelType
@@ -28,15 +73,21 @@ class TestModel(unittest.TestCase):
         sln =cogmodel.solve(dat, CogStopProgress())
         self.assertTrue(sln.parameters["Upper Bound"]["Value"] < 1e10)
         self.assertTrue(sln.parameters["Lower Bound"]["Value"] > 0.1 * sln.parameters["Upper Bound"]["Value"])
+        self.assertTrue(len(sln.openings) == 3)
+        self.assertTrue(set(sln.openings).issubset(dat.sites))
+        self.assertTrue({_[0] for _ in sln.assignments} == set(dat.sites))
+        self.assertTrue({_[1] for _ in sln.assignments} == set(sln.openings))
+
     def _testDiet(self, modelType):
         sln, cost = dietSolver(modelType)
         self.assertTrue(sln)
-        self.assertTrue(nearlySame(cost, 11.8289))
+        self.assertTrue(nearlySame(cost, 11.8289)) # the KPI check includes a check on sln values
     def _testNetflow(self, modelType):
         sln, cost = netflowSolver(modelType)
         self.assertTrue(sln)
-        self.assertTrue(nearlySame(cost, 5500.0))
+        self.assertTrue(nearlySame(cost, 5500.0)) # the KPI check includes a check on sln values
     def _testFantop(self, modelType):
+        # the draft_yield is based on the results of get_solution_value
         sln, draft_yield = _testFantop(modelType, "sample_data.sql")
         self.assertTrue(sln and nearlySame(draft_yield, 2988.61))
         sln, draft_yield = _testFantop(modelType, "sample_tweaked_most_importants.sql")
@@ -45,27 +96,56 @@ class TestModel(unittest.TestCase):
         self.assertTrue(sln and nearlySame(draft_yield, 2952.252))
     def _testParameters(self, modelType):
         mdl = Model(modelType, "parameters")
-        mdl.set_parameters(MIP_Gap =  0.01)
-    def testCplex(self):
+        mdl.set_parameters(MIP_Gap=0.01)
+        if modelType != "cplex":
+            mdl.set_parameters(time_limit=100)
+    def testCplexCommunity(self):
         self.assertFalse(utils.stringish(cplex))
-        self._testCog("cplex")
+        self._testBinaryBounds("cplex")
+        self._testIntegers("cplex")
         self._testDiet("cplex")
         self._testNetflow("cplex")
-        self._testFantop("cplex")
         self._testParameters("cplex")
+    def testCplexNeedsFullVersion(self):
+        self._testFantop("cplex")
+        self._testCog("cplex")
     def testGurobi(self):
         self.assertFalse(utils.stringish(gurobi))
-        self._testCog("gurobi")
+        self._test_indicator("gurobi")
+        self._testBinaryBounds("gurobi")
+        self._testIntegers("gurobi")
         self._testDiet("gurobi")
         self._testNetflow("gurobi")
-        self._testFantop("gurobi")
         self._testParameters("gurobi")
+        self._testFantop("gurobi")
+        self._testCog("gurobi")
     def testXpress(self):
         self.assertFalse(utils.stringish(xpress))
+        self._test_indicator("xpress")
+        self._testBinaryBounds("xpress")
+        self._testIntegers("xpress")
         self._testDiet("xpress")
         self._testNetflow("xpress")
+        self._testParameters("xpress")
         self._testFantop("xpress")
-        self._testParameters("xpress") # not yet working
+        self._testCog("xpress")
+
+    def testXpressLbBug(self): # CPLEX probably  has the same bug, add that test later on
+        p = xpress.problem()
+        x1 = xpress.var(vartype=xpress.binary)
+        p.addVariable(x1)
+        x2 = xpress.var(vartype=xpress.binary)
+        p.addVariable(x2)
+        x3 = xpress.var(lb=1, vartype=xpress.binary)
+        p.addVariable(x3)
+        cnstr = xpress.constraint(x1 + x2 + x3 >= 2)
+        p.addConstraint(cnstr)
+        p.setObjective(x1 + x2 + 10 * x3, sense=xpress.minimize)
+        p.solve()
+        self.assertTrue(str(p.attributes.solstatus) == 'SolStatus.OPTIMAL')
+        self.assertTrue(p.attributes.mipobjval == 2) # SHOULD BE 11
+        self.assertTrue(p.getSolution() == [1, 1, 0]) # should be [1, 0, 1] or [0, 1, 1]
+
 
 def _testFantop(modelType, sqlFile):
     dataFactory = TicDatFactory (
@@ -193,6 +273,7 @@ def _testFantop(modelType, sqlFile):
     assert len(picked) <= len(dat.my_draft_positions)
     if len(picked) < len(dat.my_draft_positions):
         print("Your model is over-constrained, and thus only a partial draft was possible")
+        return None
 
     draft_yield = 0
     for player_name, draft_position in zip(picked, sorted(dat.my_draft_positions)):
