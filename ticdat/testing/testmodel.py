@@ -88,7 +88,9 @@ class TestModel(unittest.TestCase):
         self.assertTrue(sln and nearlySame(draft_yield, 2952.252))
     def _testParameters(self, modelType):
         mdl = Model(modelType, "parameters")
-        mdl.set_parameters(MIP_Gap =  0.01)
+        mdl.set_parameters(MIP_Gap=0.01)
+        if modelType != "cplex":
+            mdl.set_parameters(time_limit=100)
     def testCplexCommunity(self):
         self.assertFalse(utils.stringish(cplex))
         self._testBinaryBounds("cplex")

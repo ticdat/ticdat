@@ -152,7 +152,7 @@ class Model(object):
                        MIP_Gap : set the MIP optimization tolerance
         :return: None
         """
-        known_parameters = ("MIP_Gap",)
+        known_parameters = ("MIP_Gap", "time_limit")
         for k,v in kwargs.items():
             verify(k in known_parameters,
                    "set_parameter does not yet know how to set %s.\n"%k +
@@ -165,6 +165,12 @@ class Model(object):
                     self.core_model.parameters.mip.tolerances.mipgap = v
                 elif self.model_type == "xpress":
                     self.core_model.controls.miprelstop = v
+            if k == "time_limit":
+                verify(self.model_type != "cplex", "time_limit not yet implemented for cplex")
+                if self.model_type == "gurobi":
+                    self.core_model.Params.TimeLimit = v
+                elif self.model_type == "xpress":
+                    self.core_model.controls.timelimit = v
 
     def optimize(self, *args, **kwargs):
         """
