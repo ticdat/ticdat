@@ -56,7 +56,7 @@ class TestModel(unittest.TestCase):
         mdl = Model(model_type=model_type, model_name="indicator")
         v1 = mdl.add_var(type="binary")
         v2 = mdl.add_var(ub=10)
-        mdl.add_indicator_constraint((v1 == 0), (v2 == 0))
+        mdl.add_indicator_constraint(v1, False, v2 == 0)
         mdl.set_objective(v2 - 1.5 * v1, sense="maximize")
         self.assertTrue(mdl.optimize())
         self.assertTrue(mdl.get_mip_results().best_bound == 8.5)
