@@ -124,6 +124,21 @@ class Model(object):
             self.core_model.addConstraint(rtn)
             return rtn
 
+    def add_indicator_constraint(self, binary_variable, on_or_off, constraint):
+        '''
+        Add an indicator constraint to the model.
+        :param binary_variable: The condition variable. Should be a binary variable.
+        :param on_or_off:  The required condition for the condition variable. Handled as a boolean.
+        :param constraint: The constraint that must be obeyed if the condition variable meets the condition.
+        :return: None
+        '''
+        verify(self.model_type != "cplex", "indicator_constraints not implemented for cplex at this time")
+        if self.model_type == "gurobi":
+            self.core_model.addGenConstrIndicator(binary_variable, bool(on_or_off), constraint)
+        elif self.model_type == "xpress":
+            indicator = binary_variable == (1 if on_or_off else 0)
+            self.core_model.addIndicator((indicator, constraint))
+
     def set_objective(self, expression, sense="minimize"):
         """
         Set the objective for the model.
@@ -152,7 +167,7 @@ class Model(object):
                        MIP_Gap : set the MIP optimization tolerance
         :return: None
         """
-        known_parameters = ("MIP_Gap",)
+        known_parameters = ("MIP_Gap", "time_limit")
         for k,v in kwargs.items():
             verify(k in known_parameters,
                    "set_parameter does not yet know how to set %s.\n"%k +
@@ -165,6 +180,12 @@ class Model(object):
                     self.core_model.parameters.mip.tolerances.mipgap = v
                 elif self.model_type == "xpress":
                     self.core_model.controls.miprelstop = v
+            if k == "time_limit":
+                verify(self.model_type != "cplex", "time_limit not yet implemented for cplex")
+                if self.model_type == "gurobi":
+                    self.core_model.Params.TimeLimit = v
+                elif self.model_type == "xpress":
+                    self.core_model.controls.timelimit = v
 
     def optimize(self, *args, **kwargs):
         """

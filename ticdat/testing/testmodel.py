@@ -52,7 +52,15 @@ class TestModel(unittest.TestCase):
         self.assertTrue(mdl.optimize())
         self.assertTrue(mdl.get_mip_results().best_bound == 12) # v2 is off
 
-
+    def _test_indicator(self, model_type):
+        for condition in [True, False]:
+            mdl = Model(model_type=model_type, model_name="indicator")
+            v1 = mdl.add_var(type="binary")
+            v2 = mdl.add_var(ub=10)
+            mdl.add_indicator_constraint(v1, condition, v2 == 0)
+            mdl.set_objective(v2 - 1.5 * v1, sense="maximize")
+            self.assertTrue(mdl.optimize())
+            self.assertTrue(mdl.get_mip_results().best_bound == 10 if condition else 8.5)
 
     def _testCog(self, modelType):
         dat = cogmodel.input_schema.sql.create_tic_dat_from_sql(os.path.join(_codeDir(), "cog_sample_data.sql"))
@@ -88,7 +96,9 @@ class TestModel(unittest.TestCase):
         self.assertTrue(sln and nearlySame(draft_yield, 2952.252))
     def _testParameters(self, modelType):
         mdl = Model(modelType, "parameters")
-        mdl.set_parameters(MIP_Gap =  0.01)
+        mdl.set_parameters(MIP_Gap=0.01)
+        if modelType != "cplex":
+            mdl.set_parameters(time_limit=100)
     def testCplexCommunity(self):
         self.assertFalse(utils.stringish(cplex))
         self._testBinaryBounds("cplex")
@@ -101,6 +111,7 @@ class TestModel(unittest.TestCase):
         self._testCog("cplex")
     def testGurobi(self):
         self.assertFalse(utils.stringish(gurobi))
+        self._test_indicator("gurobi")
         self._testBinaryBounds("gurobi")
         self._testIntegers("gurobi")
         self._testDiet("gurobi")
@@ -110,6 +121,7 @@ class TestModel(unittest.TestCase):
         self._testCog("gurobi")
     def testXpress(self):
         self.assertFalse(utils.stringish(xpress))
+        self._test_indicator("xpress")
         self._testBinaryBounds("xpress")
         self._testIntegers("xpress")
         self._testDiet("xpress")
