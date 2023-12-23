@@ -53,13 +53,14 @@ class TestModel(unittest.TestCase):
         self.assertTrue(mdl.get_mip_results().best_bound == 12) # v2 is off
 
     def _test_indicator(self, model_type):
-        mdl = Model(model_type=model_type, model_name="indicator")
-        v1 = mdl.add_var(type="binary")
-        v2 = mdl.add_var(ub=10)
-        mdl.add_indicator_constraint(v1, False, v2 == 0)
-        mdl.set_objective(v2 - 1.5 * v1, sense="maximize")
-        self.assertTrue(mdl.optimize())
-        self.assertTrue(mdl.get_mip_results().best_bound == 8.5)
+        for condition in [True, False]:
+            mdl = Model(model_type=model_type, model_name="indicator")
+            v1 = mdl.add_var(type="binary")
+            v2 = mdl.add_var(ub=10)
+            mdl.add_indicator_constraint(v1, condition, v2 == 0)
+            mdl.set_objective(v2 - 1.5 * v1, sense="maximize")
+            self.assertTrue(mdl.optimize())
+            self.assertTrue(mdl.get_mip_results().best_bound == 10 if condition else 8.5)
 
     def _testCog(self, modelType):
         dat = cogmodel.input_schema.sql.create_tic_dat_from_sql(os.path.join(_codeDir(), "cog_sample_data.sql"))
