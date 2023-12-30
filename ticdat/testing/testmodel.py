@@ -146,6 +146,16 @@ class TestModel(unittest.TestCase):
         self.assertTrue(p.attributes.mipobjval == 2) # SHOULD BE 11
         self.assertTrue(p.getSolution() == [1, 1, 0]) # should be [1, 0, 1] or [0, 1, 1]
 
+    def testVariableHashing(self):
+        for model_type in ["cplex", "xpress", "gurobi"]:
+            mdl = Model(model_type=model_type, model_name="hashme")
+            vars = [mdl.add_var() for i in range(100)]
+            mdl.core_model.update() if mdl.model_type == "gurobi" else None # odd gurobipy issue
+            var_dict = {v: i%5 for i, v in enumerate(vars)}
+            for v1, v2 in zip(vars, vars[1:]):
+                mdl.add_constraint(v1 + v2 <= 10)
+            self.assertTrue(all(var_dict[v] == (len(vars)-i-1) % 5) for i, v in enumerate(reversed(vars)))
+
 
 def _testFantop(modelType, sqlFile):
     dataFactory = TicDatFactory (
