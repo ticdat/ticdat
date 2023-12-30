@@ -169,6 +169,36 @@ class TestUtils(unittest.TestCase):
         input_schema.remove_foreign_key_failures(dat)
         self.assertTrue(input_schema._same_data(dat, orig_dat) and not input_schema.find_foreign_key_failures(dat))
 
+    def testXToManyThree(self):
+        input_schema = TicDatFactory(complex_parent=[["Name", "Value"], ["Data"]],
+                                     simple_parent=[["Name"], ["Data"]],
+                                     child_table=[["Complex", "Simple"], ["Data"]])
+        input_schema.add_foreign_key("child_table", "simple_parent", ["Simple", "Name"])
+        input_schema.add_foreign_key("child_table", "complex_parent", ["Complex", "Name"])
+        self.assertTrue({fk.cardinality for fk in input_schema.foreign_keys} ==
+                        {'many-to-one', 'many-to-many'})
+
+        dat = input_schema.TicDat(complex_parent=[["A", _, _ * 10] for _ in range(1, 5)] +
+                                  [["B", _, _ * 5] for _ in range(2, 5)],
+                                  simple_parent=[["Fred", 100], ["Larry", 200]],
+                                  child_table=[[c, s, i+1] for i, (c, s) in
+                                               enumerate(itertools.product(["A", "B"], ["Fred", "Larry"]))])
+        self.assertFalse(input_schema.find_foreign_key_failures(dat))
+
+        dat2 = input_schema.TicDat(complex_parent=[["A", _, _ * 10] for _ in range(1, 5)],
+                                   simple_parent=dat.simple_parent, child_table=dat.child_table)
+        fails = input_schema.find_foreign_key_failures(dat2, verbosity="Low")
+        self.assertTrue(set(fails) == {('child_table', 'complex_parent', ('Complex', 'Name'))})
+        details = fails['child_table', 'complex_parent', ('Complex', 'Name')]
+        self.assertTrue(details[0] == ('B',) and len(details[1]) == 2 and {_[0] for _ in details[1]} == {'B'})
+
+        dat3 = input_schema.TicDat(complex_parent=dat.complex_parent, child_table=dat.child_table,
+                                   simple_parent=[["Larry", 200]])
+        fails = input_schema.find_foreign_key_failures(dat3, verbosity="Low")
+        self.assertTrue(set(fails) == {('child_table', 'simple_parent', ('Simple', 'Name'))})
+        details = fails['child_table', 'simple_parent', ('Simple', 'Name')]
+        self.assertTrue(details[0] == ('Fred',) and len(details[1]) == 2 and {_[1] for _ in details[1]} == {'Fred'})
+
     def testFindCaseSpaceDuplicates(self):
         test2 = TicDatFactory(table=[['PK 1','PK 2'],['DF 1','DF 2']])
         self.assertFalse(utils.find_case_space_duplicates(test2))
