@@ -124,7 +124,7 @@ class TestUtils(unittest.TestCase):
 
         dat = input_schema.TicDat(table_one = [[1,2], [3,4], [5,6], [7,8]], table_two = {1:2, 3:4, 5:6})
         ex = self.firesException(lambda : input_schema.obfusimplify(dat))
-        self.assertTrue("complex foreign key" in str(ex))
+        self.assertTrue("see issue 195" in str(ex).lower())
         orig_dat = input_schema.copy_tic_dat(dat, freeze_it=True)
         self.assertFalse(input_schema.find_foreign_key_failures(orig_dat))
         dat.table_two[9]=10
@@ -1864,6 +1864,57 @@ class TestUtils(unittest.TestCase):
         tic_dat3 = tdf3.TicDat(**{t: getattr(pan_dat, t) for t in tdf.all_tables})
         self.assertFalse(tdf2._same_data(tic_dat2, tic_dat3, epsilon=1e-5))
         self.assertTrue({r["extra"] for r in tic_dat3.foods.values()} == {100})
+
+    def test_195(self):
+        tdf = TicDatFactory(products=[["Name"], []], recipes=[["Name"], []],
+                            bill_of_materials=[["Recipe", "Component", "Assembly"], ["Quantity"]],
+                            byproduct=[['Recipe', 'Assembly', 'Byproduct'], ['Quantity']])
+        tdf.add_foreign_key('bill_of_materials', 'products', ('Component', 'Name'))
+        tdf.add_foreign_key('bill_of_materials', 'products', ('Assembly', 'Name'))
+        tdf.add_foreign_key('bill_of_materials', 'recipes', ('Recipe', 'Name'))
+        tdf.add_foreign_key('byproduct', 'bill_of_materials', (('Recipe', 'Recipe'), ('Assembly', 'Assembly')))
+        tdf.add_foreign_key('byproduct', 'products', ('Byproduct', 'Name'))
+        dat = tdf.TicDat(products=[["A"], ["B"], ["C"]], recipes=[["hey"], ["now"]],
+                         bill_of_materials=[["hey", "A", "B", 1], ["now", "A", "B", 112],
+                                            ["now", "C", "B", 1.12]],
+                         byproduct=[["hey", "B", "C", 0.12], ["now", "B", "A", 7]])
+        self.assertTrue(not tdf.find_foreign_key_failures(dat))
+        copy, renamings = tdf.obfusimplify(dat)
+        self.assertFalse(tdf.find_foreign_key_failures(copy))
+        self.assertTrue(dat._len_dict() == copy._len_dict())
+        self.assertFalse(set(dat.products).intersection(copy.products) or set(dat.recipes).intersection(copy.recipes))
+        for (r, a, by), row in copy.byproduct.items():
+            self.assertTrue(dat.byproduct[renamings[r][1], renamings[a][1], renamings[by][1]]["Quantity"] ==
+                            row["Quantity"] > 0)
+
+        tdf = TicDatFactory(products=[["Name"], []], sites=[["Name"], []],
+                            production_lines=[["Site", "Name"], []],
+                            production_by_production_lines=[["Site", 'Production Line', "Product"], ["Quantity"]],
+                            carbon_by_production_line=[["Site", 'Production Line', "Product"], ["Quantity"]])
+
+        tdf.add_foreign_key("carbon_by_production_line", "production_by_production_lines",
+                        [["Site", "Site"], ["Production Line", "Production Line"], ["Product", "Product"]])
+        tdf.add_foreign_key('production_by_production_lines', 'products', ('Product', 'Name'))
+        tdf.add_foreign_key('production_by_production_lines', 'production_lines',
+                        (('Production Line', 'Name'), ('Site', 'Site')))
+        tdf.add_foreign_key('production_lines', 'sites', ('Site', 'Name'))
+        dat = tdf.TicDat(products=[["A"], ["B"], ["C"]], sites=[["hey"], ["now"]],
+                         production_lines=[["hey", 1], ["hey", 2], ["now", 1]])
+        self.assertTrue(not tdf.find_foreign_key_failures(dat))
+        for i, ((s, pl), p) in enumerate(itertools.product(dat.production_lines, dat.products)):
+            dat.production_by_production_lines[s, pl, p] = i+1
+            dat.carbon_by_production_line[s, pl, p] = (i+1) * 0.1
+        copy, renamings = tdf.obfusimplify(dat)
+        self.assertFalse(tdf.find_foreign_key_failures(copy))
+        self.assertTrue(dat._len_dict() == copy._len_dict())
+        self.assertFalse(set(dat.products).intersection(copy.products) or set(dat.sites).intersection(copy.sites))
+        for (s, pl, p), row in copy.production_by_production_lines.items():
+            self.assertTrue(dat.production_by_production_lines[renamings[s][1], pl, renamings[p][1]]
+                            ["Quantity"] == row["Quantity"])
+        for (s, pl, p), row in copy.carbon_by_production_line.items():
+            self.assertTrue(dat.carbon_by_production_line[renamings[s][1], pl, renamings[p][1]]
+                            ["Quantity"] == row["Quantity"])
+
 
 _scratchDir = TestUtils.__name__ + "_scratch"
 

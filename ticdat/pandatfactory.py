@@ -1493,6 +1493,41 @@ class PanDatFactory(object):
                 if dups.any():
                     rtn[t] = getattr(pan_dat, t)[list(dups)] if as_table else dups
         return rtn
+    def obfusimplify(self, pan_dat, table_prepends=utils.FrozenDict(), skip_tables=()) :
+        """
+        copies the pan_dat object into a new, obfuscated, simplified pan_dat object
+
+        :param pan_dat: a ticdat object
+
+        :param table_prepends: a dictionary with mapping each table to the prepend it should apply
+                               when its entries are renamed.  A valid table prepend must be all caps and
+                               not end with I. Should be restricted to entity tables (single field primary
+                               that is not a foreign key child)
+
+        :param skip_tables: a listing of entity tables whose single field primary key shouldn't be renamed
+
+        :return: A named tuple with the following components.
+
+         copy : a deep copy of the pan_dat argument, with the single field primary key values
+                renamed to simple "short capital letters followed by numbers" strings.
+
+         renamings : a dictionary matching the new entries to their original (table, primary key value)
+                     this entry can be used to cross reference any diagnostic information gleaned from the
+                     obfusimplified copy to the original names. For example, "P5 has no production"
+                     can easily be recognized as "Product KX12212 has no production".
+        """
+        from ticdat import TicDatFactory # TicDatFactory.obfusimplify will do the heavy lifting here
+        msg = []
+        verify(self.good_pan_dat_object(pan_dat, msg.append),
+               "pan_dat not a good object for this factory : %s"%"\n".join(msg))
+        tic_dat = self.copy_to_tic_dat(pan_dat)
+        tdf = self.clone(clone_factory=TicDatFactory)
+        rtn = tdf.obfusimplify(tic_dat, table_prepends, skip_tables)
+        dat2 = tdf.copy_to_pandas(rtn.copy, reset_index=True)
+        RtnType = clt.namedtuple("ObfusimplifyResults", "copy renamings")
+        return RtnType(self.PanDat(**{t: getattr(dat2, t) for t in self.all_tables}), rtn.renamings)
+
+
     def copy_to_ampl(self, pan_dat, field_renamings = None, excluded_tables = None):
         """
         copies the pan_dat object into a new pan_dat object populated with amplpy.DataFrame objects

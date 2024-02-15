@@ -519,19 +519,18 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
                 "The foreign keys can't be changed after a TicDatFactory has been used.")
         def findderivedforeignkey():
             curFKs = self._foreign_keys_by_native()
-            if not self._complex_fks():
-                for (nativetable, bridgetable), nativebridgemappings in list(self._foreign_keys.items()):
-                    for nb_map in nativebridgemappings :
-                      for bfk in curFKs.get(bridgetable,()):
-                        nativefields = bfk.nativefields()
-                        assert set(nativefields).issubset(self._allFields(bridgetable))
-                        bridgetonative = {bf:nf for nf,bf in nb_map}
-                        foreigntobridge = bfk.foreigntonativemapping()
-                        newnativeft = tuple((bridgetonative[bf], ff) for ff,bf in
-                                             foreigntobridge.items() if bf in bridgetonative)
-                        fkSet = self._foreign_keys[nativetable, bfk.foreign_table]
-                        if newnativeft not in fkSet and self._simple_fk(bfk.foreign_table, newnativeft):
-                            return fkSet.add(newnativeft) or True
+            for (nativetable, bridgetable), nativebridgemappings in list(self._foreign_keys.items()):
+                for nb_map in nativebridgemappings :
+                  for bfk in curFKs.get(bridgetable,()):
+                    nativefields = bfk.nativefields()
+                    assert set(nativefields).issubset(self._allFields(bridgetable))
+                    bridgetonative = {bf:nf for nf,bf in nb_map}
+                    foreigntobridge = bfk.foreigntonativemapping()
+                    newnativeft = tuple((bridgetonative[bf], ff) for ff,bf in
+                                         foreigntobridge.items() if bf in bridgetonative)
+                    fkSet = self._foreign_keys[nativetable, bfk.foreign_table]
+                    if newnativeft not in fkSet and self._simple_fk(bfk.foreign_table, newnativeft):
+                        return fkSet.add(newnativeft) or True
         while findderivedforeignkey():
             pass
     def add_foreign_key(self, native_table, foreign_table, mappings):
@@ -2073,10 +2072,6 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
         msg  = []
         verify(self.good_tic_dat_object(tic_dat, msg.append),
                "tic_dat not a good object for this factory : %s" %"\n".join(msg))
-        verify(not self._complex_fks(), ("complex foreign key between %s and %s prevents " +
-                                         "obfusimplify") % ((self._complex_fks() or [(None,) * 3])[0][:2]))
-        verify({fk.cardinality for fk in self.foreign_keys}.issubset({"many-to-one", "one-to-one"}),
-               "many-to-many and one-to-many foreign keys are not currently supported for obfusimplify")
         verify(not self.find_foreign_key_failures(tic_dat),
                "Cannot obfusimplify an object with foreign key failures")
         verify(not self.generator_tables, "Cannot obfusimplify a tic_dat that uses generators")
@@ -2165,7 +2160,9 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
 
         rtn = RtnType(better_self.freeze_me(better_self.TicDat(**rtn_dict)) if freeze_it else better_self.TicDat(**rtn_dict),
                       {v:k for k,v in reverse_renamings.items()})
-        assert not better_self.find_foreign_key_failures(rtn.copy)
+        fk_fails = better_self.find_foreign_key_failures(rtn.copy)
+        assert self._complex_fks() or not fk_fails, "foreign key fails here can only happen because of X-to-many FKs"
+        verify(not fk_fails, "X-to-many FK relationships are sometimes incompatible with obfusimplify. See issue 195")
         assert len(rtn.renamings) == len(reverse_renamings)
         return rtn
 
