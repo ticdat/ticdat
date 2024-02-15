@@ -556,6 +556,36 @@ class TestUtils(unittest.TestCase):
         self.assertFalse(input_schema.find_foreign_key_failures(new_pan_dat))
         self.assertTrue(input_schema._same_data(orig_pan_dat, new_pan_dat))
 
+    def testXToManyThree(self):
+        input_schema = PanDatFactory(complex_parent=[["Name", "Value"], ["Data"]],
+                                     simple_parent=[["Name"], ["Data"]],
+                                     child_table=[["Complex", "Simple"], ["Data"]])
+        input_schema.add_foreign_key("child_table", "simple_parent", ["Simple", "Name"])
+        input_schema.add_foreign_key("child_table", "complex_parent", ["Complex", "Name"])
+        self.assertTrue({fk.cardinality for fk in input_schema.foreign_keys} ==
+                        {'many-to-one', 'many-to-many'})
+
+        dat = input_schema.PanDat(complex_parent=[["A", _, _ * 10] for _ in range(1, 5)] +
+                                  [["B", _, _ * 5] for _ in range(2, 5)],
+                                  simple_parent=[["Fred", 100], ["Larry", 200]],
+                                  child_table=[[c, s, i+1] for i, (c, s) in
+                                               enumerate(itertools.product(["A", "B"], ["Fred", "Larry"]))])
+        self.assertFalse(input_schema.find_foreign_key_failures(dat))
+
+        dat2 = input_schema.PanDat(complex_parent=[["A", _, _ * 10] for _ in range(1, 5)],
+                                   simple_parent=dat.simple_parent, child_table=dat.child_table)
+        fails = input_schema.find_foreign_key_failures(dat2, verbosity="Low")
+        self.assertTrue(set(fails) == {('child_table', 'complex_parent', ('Complex', 'Name'))})
+        df = fails['child_table', 'complex_parent', ('Complex', 'Name')]
+        self.assertTrue(len(df) == 2 and set(df["Complex"]) == {'B'})
+
+        dat3 = input_schema.PanDat(complex_parent=dat.complex_parent, child_table=dat.child_table,
+                                   simple_parent=[["Larry", 200]])
+        fails = input_schema.find_foreign_key_failures(dat3, verbosity="Low")
+        self.assertTrue(set(fails) == {('child_table', 'simple_parent', ('Simple', 'Name'))})
+        df = fails['child_table', 'simple_parent', ('Simple', 'Name')]
+        self.assertTrue(len(df) == 2 and set(df["Simple"]) == {'Fred'})
+
     def _testPdfReproduction(self, pdf):
         def _tdfs_same(pdf, pdf2):
             self.assertTrue(pdf.schema() == pdf2.schema())
@@ -899,6 +929,34 @@ class TestUtils(unittest.TestCase):
         dat = pdf.PanDat(nutritionQuantities=[[f"food_{_}", f"cat_{_}", 10] for _ in range(10)],
                          foods = [[f"food_{_}", 10] for _ in range(1, 0)]) # empty list results
         self.assertTrue(dat._len_dict() == {"nutritionQuantities": 10})
+
+
+    def test_obfusimplify(self):
+        # only need a simple test since the heavy work is being done by TicDatFactory
+        pdf = PanDatFactory(products=[["Name"], []], recipes=[["Name"], []],
+                            bill_of_materials=[["Recipe", "Component", "Assembly"], ["Quantity"]],
+                            byproduct=[['Recipe', 'Assembly', 'Byproduct'], ['Quantity']])
+        pdf.add_foreign_key('bill_of_materials', 'products', ('Component', 'Name'))
+        pdf.add_foreign_key('bill_of_materials', 'products', ('Assembly', 'Name'))
+        pdf.add_foreign_key('bill_of_materials', 'recipes', ('Recipe', 'Name'))
+        pdf.add_foreign_key('byproduct', 'bill_of_materials', (('Recipe', 'Recipe'), ('Assembly', 'Assembly')))
+        pdf.add_foreign_key('byproduct', 'products', ('Byproduct', 'Name'))
+        dat = pdf.PanDat(products=[["A"], ["B"], ["C"]], recipes=[["hey"], ["now"]],
+                         bill_of_materials=[["hey", "A", "B", 1], ["now", "A", "B", 112],
+                                            ["now", "C", "B", 1.12]],
+                         byproduct=[["hey", "B", "C", 0.12], ["now", "B", "A", 7]])
+        self.assertTrue(not pdf.find_foreign_key_failures(dat))
+        copy, renamings = pdf.obfusimplify(dat)
+        self.assertFalse(pdf.find_foreign_key_failures(copy))
+        self.assertTrue(dat._len_dict() == copy._len_dict())
+        self.assertFalse(set(dat.products["Name"]).intersection(copy.products["Name"]) or
+                         set(dat.recipes["Name"]).intersection(copy.recipes["Name"]))
+        tic_dat = pdf.copy_to_tic_dat(dat)
+        copy_dat = pdf.copy_to_tic_dat(copy)
+        for (r, a, by), row in copy_dat.byproduct.items():
+            self.assertTrue(tic_dat.byproduct[renamings[r][1], renamings[a][1], renamings[by][1]]["Quantity"] ==
+                            row["Quantity"] > 0)
+
 
 # Run the tests.
 if __name__ == "__main__":
