@@ -168,6 +168,20 @@ class TestPostres(unittest.TestCase):
                             t_two= [["Field One"], []])
         self.assertTrue(tdf.pgsql.find_duplicates(self.engine, schema))
         self.assertFalse(tdf.pgsql.find_duplicates(self.engine, schema, active_fld="da_active"))
+        pan_dat_1 = tdf_1.clone(clone_factory=PanDatFactory).pgsql.create_pan_dat(self.engine, schema)
+        pdf = tdf.clone(clone_factory=PanDatFactory).clone_add_a_column("t_one", "Da Active", "data").\
+            clone_add_a_column("t_two", "Da Active", "data")
+        pan_dat_2 = pdf.pgsql.create_pan_dat(self.engine, schema)
+        pan_dat_3 = tdf_1.copy_to_pandas(dat, reset_index=True)
+        self.assertTrue(tdf_1.clone(clone_factory=PanDatFactory)._same_data(pan_dat_1, pan_dat_2))
+        self.assertTrue(tdf_1.clone(clone_factory=PanDatFactory)._same_data(pan_dat_2, pan_dat_3))
+
+        pan_dat_4 = pdf.PanDat(t_one = [["a", "b", True], ["a", "c", None], ["a", "b", False], ["a", "d", True]],
+                               t_two = [["a", True], ["b", None], ["a", None], ["b", False], ["a", False]])
+        pdf.pgsql.write_data(pan_dat_4, self.engine, schema)
+        pan_dat_5 = pdf.pgsql.create_pan_dat(self.engine, schema)
+        self.assertTrue(tdf_1.clone(clone_factory=PanDatFactory)._same_data(pan_dat_4, pan_dat_5,
+                                                                            nans_are_same_for_data_rows=True))
 
     def test_context_manager_write(self):
         cntxt_events = set()
