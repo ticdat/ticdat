@@ -120,6 +120,34 @@ class TestPostres(unittest.TestCase):
             self.engine.dispose()
             self.postgresql.stop()
 
+    def test_temp_pgtd_active_dups(self):
+        if not self.can_run:
+            return
+        schema = "sch_a"
+        pdf = PanDatFactory(t_one=[[], ["Field One", "Field Two", "Da Active"]],
+                              t_two=[[], ["Field One", "Da Active"]])
+        forced_field_types = lambda bt: {(t, f): bt if "Active" in f else "text" for t, (pks, dfs) in pdf.schema().items()
+         for f in pks + dfs}
+        make_str = lambda lol : [list(map(str, row)) for row in lol]
+        dat = pdf.PanDat(t_one=make_str([["a", "b", True], ["a", "c", True], ["a", "b", False], ["a", "d", True]]),
+                           t_two=make_str([["a", True], ["b", False], ["a", False], ["b", False], ["a", False]]))
+        self.assertTrue(len(dat.t_one) == 4 and len(dat.t_two) == 5)
+        pdf.pgsql.write_schema(self.engine, schema, include_ancillary_info=False,
+                               forced_field_types=forced_field_types("text"))
+        pdf.pgsql.write_data(dat, self.engine, schema)
+        pdf.pgsql.write_schema(self.engine, "sch_b", include_ancillary_info=False,
+                               forced_field_types=forced_field_types("boolean"))
+        self.engine.execute("Insert into sch_b.t_one (field_one, field_two, da_active) " +
+                            "Select field_one, field_two, bool(da_active) from sch_a.t_one")
+        self.engine.execute("Insert into sch_b.t_two (field_one, da_active) " +
+                            "Select field_one, bool(da_active) from sch_a.t_two")
+        dat = pdf.PanDat(t_one = [["a", "b", True], ["a", "c", True], ["a", "b", False], ["a", "d", True]],
+                         t_two = [["a", True], ["b", False], ["a", False], ["b", False], ["a", False]])
+        pan_dat_1 = pdf.pgsql.create_pan_dat(self.engine, schema)
+        pan_dat_2 = pdf.pgsql.create_pan_dat(self.engine, "sch_b")
+        self.assertFalse(pdf._same_data(dat, pan_dat_1))
+        self.assertTrue(pdf._same_data(dat, pan_dat_2))
+
     def test_datetime_defaults(self):
         if not self.can_run:
             return
