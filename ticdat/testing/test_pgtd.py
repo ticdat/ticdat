@@ -126,8 +126,8 @@ class TestPostres(unittest.TestCase):
         schema = "sch_a"
         pdf = PanDatFactory(t_one=[[], ["Field One", "Field Two", "Da Active"]],
                               t_two=[[], ["Field One", "Da Active"]])
-        forced_field_types = lambda bt: {(t, f): bt if "Active" in f else "text" for t, (pks, dfs) in pdf.schema().items()
-         for f in pks + dfs}
+        forced_field_types = lambda bt: {(t, f): bt if "Active" in f else "text"
+                                         for t, (pks, dfs) in pdf.schema().items() for f in pks + dfs}
         make_str = lambda lol : [list(map(str, row)) for row in lol]
         dat = pdf.PanDat(t_one=make_str([["a", "b", True], ["a", "c", True], ["a", "b", False], ["a", "d", True]]),
                            t_two=make_str([["a", True], ["b", False], ["a", False], ["b", False], ["a", False]]))
@@ -137,10 +137,21 @@ class TestPostres(unittest.TestCase):
         pdf.pgsql.write_data(dat, self.engine, schema)
         pdf.pgsql.write_schema(self.engine, "sch_b", include_ancillary_info=False,
                                forced_field_types=forced_field_types("boolean"))
-        self.engine.execute("Insert into sch_b.t_one (field_one, field_two, da_active) " +
-                            "Select field_one, field_two, bool(da_active) from sch_a.t_one")
-        self.engine.execute("Insert into sch_b.t_two (field_one, da_active) " +
-                            "Select field_one, bool(da_active) from sch_a.t_two")
+        type_check = {(sch, t, f): dt for t in ["t_one", "t_two"] for sch, f, dt in self.engine.execute(
+            'SELECT table_schema, column_name, data_type FROM information_schema.columns WHERE ' +
+            f"table_name = '{t}'")}
+        def all_cols(tbl, cast_as_needed):
+            common_cols = sorted({k[-1] for k in type_check if k[:2] == ('sch_a', tbl)}.intersection(
+                {k[-1] for k in type_check if k[:2] == ('sch_b', tbl)}))
+            cast_as_needed = (lambda _:  f"bool({_})" if type_check['sch_b', tbl, _] == 'boolean'
+                                                      and type_check['sch_a', tbl, _] == 'text'else _) \
+                             if cast_as_needed else (lambda _: _)
+            rtn = ", ".join(map(cast_as_needed, common_cols))
+            return rtn
+        self.engine.execute(f"Insert into sch_b.t_one ({all_cols('t_one', False)}) " +
+                            f"Select {all_cols('t_one', True)} from sch_a.t_one")
+        self.engine.execute(f"Insert into sch_b.t_two ({all_cols('t_two', False)}) " +
+                            f"Select {all_cols('t_two', True)} from sch_a.t_two")
         dat = pdf.PanDat(t_one = [["a", "b", True], ["a", "c", True], ["a", "b", False], ["a", "d", True]],
                          t_two = [["a", True], ["b", False], ["a", False], ["b", False], ["a", False]])
         pan_dat_1 = pdf.pgsql.create_pan_dat(self.engine, schema)
