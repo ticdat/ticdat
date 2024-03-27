@@ -247,7 +247,7 @@ def dateutil_adjuster(x):
         return _try_to_timestamp(str(x))
 
 def acceptable_default(v) :
-    return numericish(v) or stringish(v) or (v is None)
+    return numericish(v) or stringish(v) or v in [True, False] or v is None
 
 def all_fields(tpdf, tbl):
     assert tbl in tpdf.all_tables
