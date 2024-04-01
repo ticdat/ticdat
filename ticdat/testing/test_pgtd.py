@@ -120,6 +120,51 @@ class TestPostres(unittest.TestCase):
             self.engine.dispose()
             self.postgresql.stop()
 
+    def test_temp_pgtd_active_dups(self):
+        if not self.can_run:
+            return
+        schema = "sch_a"
+        pdf = PanDatFactory(t_one=[[], ["Field One", "Field Two", "Da Active"]],
+                              t_two=[[], ["Field One", "Da Active"]])
+        pdf.set_default_value("t_one", "Da Active", True)
+        pdf.set_default_value("t_two", "Da Active", False)
+        forced_field_types = lambda bt: {(t, f): bt if "Active" in f else "text"
+                                         for t, (pks, dfs) in pdf.schema().items() for f in pks + dfs}
+        make_str = lambda lol : [list(map(str, row)) for row in lol]
+        dat = pdf.PanDat(t_one=make_str([["a", "b", True], ["a", "c", True], ["a", "b", False], ["a", "d", True]]),
+                           t_two=make_str([["a", True], ["b", False], ["a", False], ["b", False], ["a", False]]))
+        self.assertTrue(len(dat.t_one) == 4 and len(dat.t_two) == 5)
+        pdf.pgsql.write_schema(self.engine, schema, include_ancillary_info=False,
+                               forced_field_types=forced_field_types("text"))
+        pdf.pgsql.write_data(dat, self.engine, schema)
+        pdf.pgsql.write_schema(self.engine, "sch_b", include_ancillary_info=True,
+                               forced_field_types=forced_field_types("boolean"))
+        type_check = {(sch, t, f): dt for t in ["t_one", "t_two"] for sch, f, dt in self.engine.execute(
+            'SELECT table_schema, column_name, data_type FROM information_schema.columns WHERE ' +
+            f"table_name = '{t}'")}
+        def all_cols(tbl, cast_as_needed):
+            common_cols = sorted({k[-1] for k in type_check if k[:2] == ('sch_a', tbl)}.intersection(
+                {k[-1] for k in type_check if k[:2] == ('sch_b', tbl)}))
+            cast_as_needed = (lambda _:  f"bool({_})" if type_check['sch_b', tbl, _] == 'boolean'
+                                                      and type_check['sch_a', tbl, _] == 'text'else _) \
+                             if cast_as_needed else (lambda _: _)
+            rtn = ", ".join(map(cast_as_needed, common_cols))
+            return rtn
+        self.engine.execute(f"Insert into sch_b.t_one ({all_cols('t_one', False)}) " +
+                            f"Select {all_cols('t_one', True)} from sch_a.t_one")
+        self.engine.execute(f"Insert into sch_b.t_two ({all_cols('t_two', False)}) " +
+                            f"Select {all_cols('t_two', True)} from sch_a.t_two")
+        dat = pdf.PanDat(t_one = [["a", "b", True], ["a", "c", True], ["a", "b", False], ["a", "d", True]],
+                         t_two = [["a", True], ["b", False], ["a", False], ["b", False], ["a", False]])
+        pan_dat_1 = pdf.pgsql.create_pan_dat(self.engine, schema)
+        pan_dat_2 = pdf.pgsql.create_pan_dat(self.engine, "sch_b")
+        self.assertFalse(pdf._same_data(dat, pan_dat_1))
+        self.assertTrue(pdf._same_data(dat, pan_dat_2))
+        self.engine.execute("Delete from sch_b.t_one where field_two = 'd'")
+        self.engine.execute("Insert into sch_b.t_one  (field_one, field_two) values  ('a', 'd')")
+        pan_dat_3 = pdf.pgsql.create_pan_dat(self.engine, "sch_b")
+        self.assertTrue(pdf._same_data(dat, pan_dat_3))
+
     def test_datetime_defaults(self):
         if not self.can_run:
             return
