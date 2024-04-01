@@ -126,6 +126,8 @@ class TestPostres(unittest.TestCase):
         schema = "sch_a"
         pdf = PanDatFactory(t_one=[[], ["Field One", "Field Two", "Da Active"]],
                               t_two=[[], ["Field One", "Da Active"]])
+        pdf.set_default_value("t_one", "Da Active", True)
+        pdf.set_default_value("t_two", "Da Active", False)
         forced_field_types = lambda bt: {(t, f): bt if "Active" in f else "text"
                                          for t, (pks, dfs) in pdf.schema().items() for f in pks + dfs}
         make_str = lambda lol : [list(map(str, row)) for row in lol]
@@ -135,7 +137,7 @@ class TestPostres(unittest.TestCase):
         pdf.pgsql.write_schema(self.engine, schema, include_ancillary_info=False,
                                forced_field_types=forced_field_types("text"))
         pdf.pgsql.write_data(dat, self.engine, schema)
-        pdf.pgsql.write_schema(self.engine, "sch_b", include_ancillary_info=False,
+        pdf.pgsql.write_schema(self.engine, "sch_b", include_ancillary_info=True,
                                forced_field_types=forced_field_types("boolean"))
         type_check = {(sch, t, f): dt for t in ["t_one", "t_two"] for sch, f, dt in self.engine.execute(
             'SELECT table_schema, column_name, data_type FROM information_schema.columns WHERE ' +
@@ -158,6 +160,10 @@ class TestPostres(unittest.TestCase):
         pan_dat_2 = pdf.pgsql.create_pan_dat(self.engine, "sch_b")
         self.assertFalse(pdf._same_data(dat, pan_dat_1))
         self.assertTrue(pdf._same_data(dat, pan_dat_2))
+        self.engine.execute("Delete from sch_b.t_one where field_two = 'd'")
+        self.engine.execute("Insert into sch_b.t_one  (field_one, field_two) values  ('a', 'd')")
+        pan_dat_3 = pdf.pgsql.create_pan_dat(self.engine, "sch_b")
+        self.assertTrue(pdf._same_data(dat, pan_dat_3))
 
     def test_datetime_defaults(self):
         if not self.can_run:
