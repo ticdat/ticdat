@@ -576,7 +576,12 @@ def standard_main(input_schema, solution_schema, solve, case_space_table_names=F
 
 
     if foresta_based_solve is None:
-        sln = solve(dat)
+        result = solve(dat)
+        if containerish(result) and len(result) == 2:
+            msg, sln = result
+            print("**\n" + msg + "\n**\n")
+        else:
+            sln = result
     elif output_file:
         sln = foresta_based_solve(*([dat] if input_file else []))
     else:
