@@ -1308,6 +1308,35 @@ class TestUtils(unittest.TestCase):
         self.assertTrue(set(sln.table) == set(dat.table))
         sys.modules.pop(funky.solve.__module__)
 
+    def test_solve_message_object(self):
+        # we want to suport solves that return a (message, object) two element tuple (see roundoff_helper issue 160)
+        data_path = os.path.join(_scratchDir, "message_solve")
+        makeCleanDir(data_path)
+        module_path = get_testing_file_path("funky.py")
+        import ticdat.testing.funky as funky
+        weirdo_hacks_needed = ["solve"]
+        for w in weirdo_hacks_needed:
+            _w = getattr(funky, w)
+            _w.__module__ = "weirdo_temp_junky_thing_for_hacking"
+        sys.modules[funky.solve.__module__] = funky
+        dat = funky.input_schema.TicDat(table=[['c'], ['d'], ["speak"]])
+        funky.input_schema.json.write_file(dat, os.path.join(data_path, "input.json"))
+        test_args_one = [module_path, "-i", os.path.join(data_path, "input.json"),
+                         "-o", os.path.join(data_path, "output.json")]
+        with patch.object(sys, 'argv', test_args_one):
+            utils.standard_main(funky.input_schema, funky.solution_schema, funky.solve)
+        sln = funky.solution_schema.json.create_tic_dat(os.path.join(data_path, "output.json"))
+        self.assertTrue(set(sln.table) == set(dat.table))
+
+        makeCleanDir(data_path)
+        dat = funky.input_schema.TicDat(table=[['c'], ['d'], ["fail"]])
+        funky.input_schema.json.write_file(dat, os.path.join(data_path, "input.json"))
+        with patch.object(sys, 'argv', test_args_one):
+            utils.standard_main(funky.input_schema, funky.solution_schema, funky.solve)
+        self.assertFalse(os.path.exists(os.path.join(data_path, "output.json")))
+
+        sys.modules.pop(funky.solve.__module__)
+
     def testTwentyEight(self):
         sch = """
         {"tables_fields": {"categories": [["Name"], ["Min Nutrition", "Max Nutrition"]], 
