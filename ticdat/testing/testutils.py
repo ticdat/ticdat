@@ -1211,6 +1211,19 @@ class TestUtils(unittest.TestCase):
             new_sch["foreign_keys"] = sorted(new_sch["foreign_keys"])
             self.assertTrue(new_sch == simple_sch)
 
+    def test_issue_201(self):
+        tdf = TicDatFactory(table_with_stuffs=[["PK Field"], ["Data Field"]],
+                            parameters=[["Key"], ["Value"]])
+        tdf.set_data_type("table_with_stuffs", "Data Field", datetime=True)
+        tdf.add_parameter("p1", "Dec 15 1970", datetime=True)
+        tdf.add_parameter("p2", None, datetime=True, nullable=True)
+        dat = tdf.TicDat(table_with_stuffs=[["a", '2024-03-22 18:56:32.738122+46'],
+                                            ["b", '2024-03-22 18:56:32 PST']],
+                         parameters=[["p1", '2024-03-22 18:56:32 PST'], ["p2", '2024-03-22 18:56:32.738122+46']])
+        self.assertTrue(set(map(len, [tdf.find_data_type_failures(dat), tdf.find_data_row_failures(dat)])) == {1})
+        self.assertTrue(next(iter(tdf.find_data_type_failures(dat).values())).pks == ('a', ))
+        self.assertTrue(next(iter(tdf.find_data_row_failures(dat).values())) == ('p2',))
+
     def testTwentyTwo(self):
         tdf = TicDatFactory(table_with_stuffs = [["field one"], ["field two"]],
                             parameters = [["a"],["b"]])

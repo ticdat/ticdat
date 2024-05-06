@@ -263,7 +263,10 @@ class TypeDictionary(namedtuple("TypeDictionary",
         if self.datetime:
             # data is not None and dateutil_adjuster(data) is None will always be invalid, re:less of self.nullable
             # self.nullable only refers to whether the true None can be passed.
-            return isinstance(data, datetime_.datetime) or dateutil_adjuster(data) is not None
+            if isinstance(data, datetime_.datetime):
+                return True
+            munged = dateutil_adjuster(data)
+            return munged is not None and safe_apply(repr)(munged) is not None # see issue 201 for details
         if numericish(data):
             if not self.number_allowed:
                 return False
