@@ -61,9 +61,9 @@ class JsonPanFactory(freezable_factory(object, "_isFrozen")):
         :return:
         """
         self.pan_dat_factory = pan_dat_factory
-        to_json_args = inspect.getfullargspec(pd.DataFrame.to_json).args
-        assert "orient" in to_json_args
-        self._modern_pandas = "index" in to_json_args
+        to_json_args = inspect.getfullargspec(pd.DataFrame.to_json)
+        assert "orient" in to_json_args.args + to_json_args.kwonlyargs
+        self._modern_pandas = "index" in to_json_args.args + to_json_args.kwonlyargs
         self._isFrozen = True
     def create_pan_dat(self, path_or_buf, fill_missing_fields=False, orient='split', **kwargs):
         """
