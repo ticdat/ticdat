@@ -1332,12 +1332,13 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
 
         :param clone_factory : optional. Defaults to TicDatFactory. Can also be PanDatFactory. Can also be a function,
                                in which case it should behave similarly to create_from_full_schema.
-                               in which case it should behave similarly to create_from_full_schema.
                                If clone_factory=PanDatFactory, the row predicates that use predicate_kwargs_maker
                                will only be copied over if a convert_dat argument is provided.
 
         :param convert_dat : optional. A function that converts the dat object before it is passed to any
-                                       predicate_kwargs_maker functions
+                                       predicate_kwargs_maker functions. This function will be applied to the
+                                       predicate_kwargs_maker references from row predicates copied over as part of this
+                                       clone, and not to row predicates added subsequently.
 
         :return: a clone of the TicDatFactory. Returned object will based on clone_factory, if provided.
 
@@ -1367,6 +1368,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
         if convert_dat:
             assert callable(convert_dat) and len(inspect.getfullargspec(convert_dat).args) >= 1
             rtn._convert_dat = convert_dat # this function is effectively a constructor so _ reference is ok
+            rtn._uses_convert_dat = {(tbl, pn) for tbl, pns in rtn._data_row_predicates.items() for pn in pns}
         return rtn
     def clone_add_a_table(self, table, pk_fields, df_fields):
         '''
@@ -1995,9 +1997,10 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
                     return number_failures[0] >= max_failures
             for tbl, row_predicates in data_row_predicates.items():
                 for pn, rpi in row_predicates.items():
+                    uses_convert = (tbl, pn) in getattr(self, "_uses_convert_dat", [])
                     predicate_kwargs = {}
                     if rpi.predicate_kwargs_maker:
-                        if hasattr(self, "_convert_dat") and not converted_dat:
+                        if uses_convert and not converted_dat:
                             if exception_handling == "Handled as Failure":
                                 try:
                                     converted_dat.append(self._convert_dat(tic_dat))
@@ -2006,8 +2009,8 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
                             else:
                                 converted_dat.append(self._convert_dat(tic_dat))
                         if rpi.predicate_kwargs_maker not in predicate_kwargs_maker_results:
-                            __tic_dat = converted_dat[0] if converted_dat else tic_dat
-                            if converted_dat and isinstance(converted_dat[0], str):
+                            __tic_dat = converted_dat[0] if uses_convert else tic_dat
+                            if uses_convert and isinstance(converted_dat[0], str):
                                 _predicate_kwargs = converted_dat[0]
                             elif exception_handling == "Handled as Failure":
                                 try:

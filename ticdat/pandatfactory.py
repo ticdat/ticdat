@@ -183,7 +183,9 @@ class PanDatFactory(object):
                                will only be copied over if a convert_dat argument is provided.
 
         :param convert_dat : optional. A function that converts the dat object before it is passed to any
-                                       predicate_kwargs_maker functions
+                                       predicate_kwargs_maker functions. This function will be applied to the
+                                       predicate_kwargs_maker references from row predicates copied over as part of this
+                                       clone, and not to row predicates added subsequently.
 
         :return: a clone of the PanDatFactory. Returned object will be based on clone_factory, if provided.
 
@@ -194,7 +196,7 @@ class PanDatFactory(object):
         """
         clone_factory = clone_factory or PanDatFactory
         from ticdat import TicDatFactory
-        no_copy_predicate_kwargs_maker = (clone_factory == TicDatFactory  and not convert_dat)
+        no_copy_predicate_kwargs_maker = (clone_factory == TicDatFactory and not convert_dat)
         if hasattr(clone_factory, "create_from_full_schema"):
             clone_factory = clone_factory.create_from_full_schema
         full_schema = utils.clone_a_anchillary_info_schema(self.schema(include_ancillary_info=True),
@@ -210,6 +212,7 @@ class PanDatFactory(object):
         if convert_dat:
             assert callable(convert_dat) and len(inspect.getfullargspec(convert_dat).args) >= 1
             rtn._convert_dat = convert_dat # this function is effectively a constructor so _ reference is ok
+            rtn._uses_convert_dat = {(tbl, pn) for tbl, pns in rtn._data_row_predicates.items() for pn in pns}
         return rtn
     def clone_add_a_table(self, table, pk_fields, df_fields):
         '''
@@ -1284,9 +1287,10 @@ class PanDatFactory(object):
         for tbl, row_predicates in data_row_predicates.items():
             _table = getattr(pan_dat, tbl)
             for pn, rpi in row_predicates.items():
+                uses_convert = (tbl, pn) in getattr(self, "_uses_convert_dat", [])
                 predicate_kwargs = {}
                 if rpi.predicate_kwargs_maker:
-                    if hasattr(self, "_convert_dat") and not converted_dat:
+                    if uses_convert and not converted_dat:
                         if exception_handling == "Handled as Failure":
                             try:
                                 converted_dat.append(self._convert_dat(pan_dat))
@@ -1295,8 +1299,8 @@ class PanDatFactory(object):
                         else:
                             converted_dat.append(self._convert_dat(pan_dat))
                     if rpi.predicate_kwargs_maker not in predicate_kwargs_maker_results:
-                        __pan_dat = converted_dat[0] if converted_dat else pan_dat
-                        if converted_dat and isinstance(converted_dat[0], str):
+                        __pan_dat = converted_dat[0] if uses_convert else pan_dat
+                        if uses_convert and isinstance(converted_dat[0], str):
                             _predicate_kwargs = converted_dat[0]
                         elif exception_handling == "Handled as Failure":
                             try:
