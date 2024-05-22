@@ -921,6 +921,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
         self._xlsx_trailing_empty_rows = ["prune"]
         self._duplicates_ticdat_init = ["assert"]
         self._none_as_infinity_bias_cache = {}
+        self._convert_dat = []
         self._isFrozen=True
 
     @property
@@ -1365,10 +1366,10 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
                                                    predicate_kwargs_maker=rpi.predicate_kwargs_maker,
                                                    predicate_failure_response=rpi.predicate_failure_response)
         rtn.enable_foreign_key_links() if self._foreign_key_links_enabled else None
-        if convert_dat:
+        if convert_dat: # this function is effectively a constructor so _ reference is ok
             assert callable(convert_dat) and len(inspect.getfullargspec(convert_dat).args) >= 1
-            rtn._convert_dat = convert_dat # this function is effectively a constructor so _ reference is ok
-            rtn._uses_convert_dat = {(tbl, pn) for tbl, pns in rtn._data_row_predicates.items() for pn in pns}
+            rtn._convert_dat[:] = [convert_dat,
+                                   {(tbl, pn) for tbl, pns in rtn._data_row_predicates.items() for pn in pns}]
         return rtn
     def clone_add_a_table(self, table, pk_fields, df_fields):
         '''
@@ -1997,17 +1998,17 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
                     return number_failures[0] >= max_failures
             for tbl, row_predicates in data_row_predicates.items():
                 for pn, rpi in row_predicates.items():
-                    uses_convert = (tbl, pn) in getattr(self, "_uses_convert_dat", [])
+                    uses_convert = self._convert_dat and (tbl, pn) in self._convert_dat[1]
                     predicate_kwargs = {}
                     if rpi.predicate_kwargs_maker:
                         if uses_convert and not converted_dat:
                             if exception_handling == "Handled as Failure":
                                 try:
-                                    converted_dat.append(self._convert_dat(tic_dat))
+                                    converted_dat.append(self._convert_dat[0](tic_dat))
                                 except Exception as e:
                                     converted_dat.append(f"Exception<{e}>")
                             else:
-                                converted_dat.append(self._convert_dat(tic_dat))
+                                converted_dat.append(self._convert_dat[0](tic_dat))
                         if rpi.predicate_kwargs_maker not in predicate_kwargs_maker_results:
                             __tic_dat = converted_dat[0] if uses_convert else tic_dat
                             if uses_convert and isinstance(converted_dat[0], str):

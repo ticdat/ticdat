@@ -209,10 +209,10 @@ class PanDatFactory(object):
                         rtn.add_data_row_predicate(tbl, predicate=rpi.predicate, predicate_name=pn,
                                                    predicate_kwargs_maker=rpi.predicate_kwargs_maker,
                                                    predicate_failure_response=rpi.predicate_failure_response)
-        if convert_dat:
+        if convert_dat: # this function is effectively a constructor so _ reference is ok
             assert callable(convert_dat) and len(inspect.getfullargspec(convert_dat).args) >= 1
-            rtn._convert_dat = convert_dat # this function is effectively a constructor so _ reference is ok
-            rtn._uses_convert_dat = {(tbl, pn) for tbl, pns in rtn._data_row_predicates.items() for pn in pns}
+            rtn._convert_dat[:] = [convert_dat,
+                                   {(tbl, pn) for tbl, pns in rtn._data_row_predicates.items() for pn in pns}]
         return rtn
     def clone_add_a_table(self, table, pk_fields, df_fields):
         '''
@@ -933,7 +933,7 @@ class PanDatFactory(object):
         self._xlsx_trailing_empty_rows = ["prune"]
         self._duplicates_ticdat_init = ["assert"]
         self._none_as_infinity_bias_cache = {}
-
+        self._convert_dat = []
 
         self.all_tables = frozenset(init_fields)
         superself = self
@@ -1287,17 +1287,17 @@ class PanDatFactory(object):
         for tbl, row_predicates in data_row_predicates.items():
             _table = getattr(pan_dat, tbl)
             for pn, rpi in row_predicates.items():
-                uses_convert = (tbl, pn) in getattr(self, "_uses_convert_dat", [])
+                uses_convert = self._convert_dat and (tbl, pn) in self._convert_dat[1]
                 predicate_kwargs = {}
                 if rpi.predicate_kwargs_maker:
                     if uses_convert and not converted_dat:
                         if exception_handling == "Handled as Failure":
                             try:
-                                converted_dat.append(self._convert_dat(pan_dat))
+                                converted_dat.append(self._convert_dat[0](pan_dat))
                             except Exception as e:
                                 converted_dat.append(f"Exception<{e}>")
                         else:
-                            converted_dat.append(self._convert_dat(pan_dat))
+                            converted_dat.append(self._convert_dat[0](pan_dat))
                     if rpi.predicate_kwargs_maker not in predicate_kwargs_maker_results:
                         __pan_dat = converted_dat[0] if uses_convert else pan_dat
                         if uses_convert and isinstance(converted_dat[0], str):
