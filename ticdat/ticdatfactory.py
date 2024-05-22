@@ -3,6 +3,7 @@ Create TicDatFactory. Along with pandatfactory.py, one of two main entry points 
 PEP8
 """
 import collections as clt
+import inspect
 from collections import namedtuple, defaultdict
 import ticdat.utils as utils
 from ticdat.utils import verify, freezable_factory, FrozenDict, FreezeableDict
@@ -920,6 +921,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
         self._xlsx_trailing_empty_rows = ["prune"]
         self._duplicates_ticdat_init = ["assert"]
         self._none_as_infinity_bias_cache = {}
+        self._convert_dat = []
         self._isFrozen=True
 
     @property
@@ -1321,7 +1323,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
                     if not any (samerow(r1, r2) for r2 in _iter(t2)) :
                         return False
         return True
-    def clone(self, table_restrictions=None, clone_factory=None):
+    def clone(self, table_restrictions=None, clone_factory=None, convert_dat=None):
         """
         clones the TicDatFactory
 
@@ -1332,7 +1334,12 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
         :param clone_factory : optional. Defaults to TicDatFactory. Can also be PanDatFactory. Can also be a function,
                                in which case it should behave similarly to create_from_full_schema.
                                If clone_factory=PanDatFactory, the row predicates that use predicate_kwargs_maker
-                               won't be copied over.
+                               will only be copied over if a convert_dat argument is provided.
+
+        :param convert_dat : optional. A function that converts the dat object before it is passed to any
+                                       predicate_kwargs_maker functions. This function will be applied to the
+                                       predicate_kwargs_maker references from row predicates copied over as part of this
+                                       clone, and not to row predicates added subsequently.
 
         :return: a clone of the TicDatFactory. Returned object will based on clone_factory, if provided.
 
@@ -1343,7 +1350,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
         """
         clone_factory = clone_factory or TicDatFactory
         from ticdat import PanDatFactory
-        no_copy_predicate_kwargs_maker = clone_factory == PanDatFactory
+        no_copy_predicate_kwargs_maker = (clone_factory == PanDatFactory and not convert_dat)
         if hasattr(clone_factory, "create_from_full_schema"):
             clone_factory = clone_factory.create_from_full_schema
         full_schema = utils.clone_a_anchillary_info_schema(self.schema(include_ancillary_info=True),
@@ -1359,6 +1366,12 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
                                                    predicate_kwargs_maker=rpi.predicate_kwargs_maker,
                                                    predicate_failure_response=rpi.predicate_failure_response)
         rtn.enable_foreign_key_links() if self._foreign_key_links_enabled else None
+        if convert_dat: # this function is effectively a constructor so _ reference is ok
+            assert callable(convert_dat) and len(inspect.getfullargspec(convert_dat).args) >= 1
+            rtn._convert_dat[:] = [convert_dat,
+                                   {(tbl, pn) for tbl, pns in rtn._data_row_predicates.items() for pn in pns}]
+        else:
+            rtn._convert_dat[:] = self._convert_dat[:]
         return rtn
     def clone_add_a_table(self, table, pk_fields, df_fields):
         '''
@@ -1979,6 +1992,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
         rtn = clt.defaultdict(set)
         PKEM = clt.namedtuple("PrimaryKeyErrorMessage", ["primary_key", "error_message"])
         number_failures = [0] if max_failures < float("inf") else None
+        converted_dat = []
         def populate_rtn():
             def inc_failures_trips_end():
                 if number_failures:
@@ -1986,16 +2000,28 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"opl_prepend", "ampl
                     return number_failures[0] >= max_failures
             for tbl, row_predicates in data_row_predicates.items():
                 for pn, rpi in row_predicates.items():
+                    uses_convert = self._convert_dat and (tbl, pn) in self._convert_dat[1]
                     predicate_kwargs = {}
                     if rpi.predicate_kwargs_maker:
-                        if rpi.predicate_kwargs_maker not in predicate_kwargs_maker_results:
+                        if uses_convert and not converted_dat:
                             if exception_handling == "Handled as Failure":
                                 try:
-                                    _predicate_kwargs = rpi.predicate_kwargs_maker(tic_dat)
+                                    converted_dat.append(self._convert_dat[0](tic_dat))
+                                except Exception as e:
+                                    converted_dat.append(f"Exception<{e}>")
+                            else:
+                                converted_dat.append(self._convert_dat[0](tic_dat))
+                        if rpi.predicate_kwargs_maker not in predicate_kwargs_maker_results:
+                            __tic_dat = converted_dat[0] if uses_convert else tic_dat
+                            if uses_convert and isinstance(converted_dat[0], str):
+                                _predicate_kwargs = converted_dat[0]
+                            elif exception_handling == "Handled as Failure":
+                                try:
+                                    _predicate_kwargs = rpi.predicate_kwargs_maker(__tic_dat)
                                 except Exception as e:
                                     _predicate_kwargs = f"Exception<{e}>"
                             else:
-                                _predicate_kwargs = rpi.predicate_kwargs_maker(tic_dat)
+                                _predicate_kwargs = rpi.predicate_kwargs_maker(__tic_dat)
                             predicate_kwargs_maker_results[rpi.predicate_kwargs_maker] = _predicate_kwargs
                         predicate_kwargs = predicate_kwargs_maker_results[rpi.predicate_kwargs_maker]
                     if not isinstance(predicate_kwargs, dict):

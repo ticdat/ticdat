@@ -1957,6 +1957,33 @@ class TestUtils(unittest.TestCase):
             self.assertTrue(dat.carbon_by_production_line[renamings[s][1], pl, renamings[p][1]]
                             ["Quantity"] == row["Quantity"])
 
+    def test_clone_convert_dat(self):
+        sch = {"table_one": [["Name"], []], "table_two": [["Name"], []], "table_three": [["Name"], []]}
+        tdf = TicDatFactory(**sch)
+        pdf = PanDatFactory(**sch)
+        def both_tables_tic_dat(dat):
+            return {"both_tables": set(dat.table_one).union(dat.table_two)}
+        def both_tables_pan_dat(dat):
+            return {"both_tables": set(dat.table_one["Name"]).union(dat.table_two["Name"])}
+        tdf.add_data_row_predicate("table_three", predicate_name="in one or other",
+            predicate_kwargs_maker=both_tables_tic_dat, predicate=lambda row, both_tables: row["Name"] in both_tables)
+        pdf.add_data_row_predicate("table_three", predicate_name="in one or other",
+            predicate_kwargs_maker=both_tables_pan_dat, predicate=lambda row, both_tables: row["Name"] in both_tables)
+        tdf2 = pdf.clone(clone_factory=TicDatFactory, convert_dat=lambda dat: tdf.copy_to_pandas(dat, reset_index=True))
+        tdf2 = tdf2.clone()
+        pdf2 = tdf.clone(clone_factory=PanDatFactory, convert_dat=lambda dat: pdf.copy_to_tic_dat(dat)).clone()
+        the_data = {"table_one": [['a'], ['b'], ['c']], "table_two": [['b'], ['c'], ['d'], ['e']],
+                    "table_three": [['z'], ['a'], ['b'], ['c'], ['d'], ['e'], ['x']]}
+        fails_one = tdf.find_data_row_failures(tdf.TicDat(**the_data))
+        fails_one_b = tdf2.find_data_row_failures(tdf.TicDat(**the_data))
+        fails_two = pdf.find_data_row_failures(pdf.PanDat(**the_data))
+        fails_two_b = pdf2.find_data_row_failures(pdf.PanDat(**the_data))
+        self.assertTrue(set(map(tuple, fails_one)) == set(map(tuple, fails_two)))
+        self.assertTrue(set(map(tuple, fails_one)) == set(map(tuple, fails_one_b)) == set(map(tuple, fails_two_b)))
+        self.assertTrue(all(set(_['table_three', 'in one or other']) == {'x', 'z'} for _ in [fails_one, fails_one_b]))
+        self.assertTrue(all(set(_['table_three', 'in one or other']["Name"]) == {'x', 'z'} for _ in
+                            [fails_two, fails_two_b]))
+
 
 _scratchDir = TestUtils.__name__ + "_scratch"
 
