@@ -1970,7 +1970,8 @@ class TestUtils(unittest.TestCase):
         pdf.add_data_row_predicate("table_three", predicate_name="in one or other",
             predicate_kwargs_maker=both_tables_pan_dat, predicate=lambda row, both_tables: row["Name"] in both_tables)
         tdf2 = pdf.clone(clone_factory=TicDatFactory, convert_dat=lambda dat: tdf.copy_to_pandas(dat, reset_index=True))
-        pdf2 = tdf.clone(clone_factory=PanDatFactory, convert_dat=lambda dat: pdf.copy_to_tic_dat(dat))
+        tdf2 = tdf2.clone()
+        pdf2 = tdf.clone(clone_factory=PanDatFactory, convert_dat=lambda dat: pdf.copy_to_tic_dat(dat)).clone()
         the_data = {"table_one": [['a'], ['b'], ['c']], "table_two": [['b'], ['c'], ['d'], ['e']],
                     "table_three": [['z'], ['a'], ['b'], ['c'], ['d'], ['e'], ['x']]}
         fails_one = tdf.find_data_row_failures(tdf.TicDat(**the_data))
@@ -1979,10 +1980,9 @@ class TestUtils(unittest.TestCase):
         fails_two_b = pdf2.find_data_row_failures(pdf.PanDat(**the_data))
         self.assertTrue(set(map(tuple, fails_one)) == set(map(tuple, fails_two)))
         self.assertTrue(set(map(tuple, fails_one)) == set(map(tuple, fails_one_b)) == set(map(tuple, fails_two_b)))
-        self.assertTrue(set(fails_two['table_three', 'in one or other']["Name"]) ==
-                        set(fails_one['table_three', 'in one or other']) == {'x', 'z'})
-
-
+        self.assertTrue(all(set(_['table_three', 'in one or other']) == {'x', 'z'} for _ in [fails_one, fails_one_b]))
+        self.assertTrue(all(set(_['table_three', 'in one or other']["Name"]) == {'x', 'z'} for _ in
+                            [fails_two, fails_two_b]))
 
 
 _scratchDir = TestUtils.__name__ + "_scratch"

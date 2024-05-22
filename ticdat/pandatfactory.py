@@ -213,6 +213,8 @@ class PanDatFactory(object):
             assert callable(convert_dat) and len(inspect.getfullargspec(convert_dat).args) >= 1
             rtn._convert_dat[:] = [convert_dat,
                                    {(tbl, pn) for tbl, pns in rtn._data_row_predicates.items() for pn in pns}]
+        else:
+            rtn._convert_dat[:] = self._convert_dat[:]
         return rtn
     def clone_add_a_table(self, table, pk_fields, df_fields):
         '''
