@@ -212,7 +212,8 @@ class PanDatFactory(object):
         if convert_dat: # this function is effectively a constructor so _ reference is ok
             assert callable(convert_dat) and len(inspect.getfullargspec(convert_dat).args) >= 1
             rtn._convert_dat[:] = [convert_dat,
-                                   {(tbl, pn) for tbl, pns in rtn._data_row_predicates.items() for pn in pns}]
+                                   {(tbl, pn) for tbl, pns in rtn._data_row_predicates.items()
+                                    for pn, rpi in pns.items() if rpi.predicate_kwargs_maker}]
         else:
             rtn._convert_dat[:] = self._convert_dat[:]
         return rtn
