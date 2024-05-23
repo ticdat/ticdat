@@ -161,10 +161,10 @@ class JsonPanFactory(freezable_factory(object, "_isFrozen")):
         pan_dat = self.pan_dat_factory._pre_write_adjustment(pan_dat)
         jdict = {}
         def fix_cell(x):
-            if isinstance(x, (pd.Timestamp, numpy.datetime64, datetime.datetime)):
-                return str(x)
             if pd.isnull(x):
                 return None
+            if isinstance(x, (pd.Timestamp, numpy.datetime64, datetime.datetime)):
+                return str(x)
             return x
 
         for t, (pks, dfs) in self.pan_dat_factory.schema().items():
