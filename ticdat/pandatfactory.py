@@ -8,6 +8,7 @@ from ticdat.utils import ForeignKey, ForeignKeyMapping, TypeDictionary, verify, 
 from ticdat.utils import lupish, deep_freeze, containerish, FrozenDict, safe_apply, stringish
 import ticdat.pandatio as pandatio
 from itertools import count
+import inspect
 import math
 try:
     from pandas import isnull
@@ -167,7 +168,7 @@ class PanDatFactory(object):
                 for f, tip in tip_dict.items():
                     rtn.set_tooltip(t, f, tip)
         return rtn
-    def clone(self, table_restrictions=None, clone_factory=None):
+    def clone(self, table_restrictions=None, clone_factory=None, convert_dat=None):
         """
 
         clones the PanDatFactory
@@ -179,7 +180,12 @@ class PanDatFactory(object):
         :param clone_factory : optional. Defaults to PanDatFactory. Can also be TicDatFactory.  Can also be a function,
                                in which case it should behave similarly to create_from_full_schema.
                                If clone_factory=TicDatFactory, the row predicates that use predicate_kwargs_maker
-                               won't be copied over.
+                               will only be copied over if a convert_dat argument is provided.
+
+        :param convert_dat : optional. A function that converts the dat object before it is passed to any
+                                       predicate_kwargs_maker functions. This function will be applied to the
+                                       predicate_kwargs_maker references from row predicates copied over as part of this
+                                       clone, and not to row predicates added subsequently.
 
         :return: a clone of the PanDatFactory. Returned object will be based on clone_factory, if provided.
 
@@ -190,7 +196,7 @@ class PanDatFactory(object):
         """
         clone_factory = clone_factory or PanDatFactory
         from ticdat import TicDatFactory
-        no_copy_predicate_kwargs_maker = clone_factory == TicDatFactory
+        no_copy_predicate_kwargs_maker = (clone_factory == TicDatFactory and not convert_dat)
         if hasattr(clone_factory, "create_from_full_schema"):
             clone_factory = clone_factory.create_from_full_schema
         full_schema = utils.clone_a_anchillary_info_schema(self.schema(include_ancillary_info=True),
@@ -203,6 +209,13 @@ class PanDatFactory(object):
                         rtn.add_data_row_predicate(tbl, predicate=rpi.predicate, predicate_name=pn,
                                                    predicate_kwargs_maker=rpi.predicate_kwargs_maker,
                                                    predicate_failure_response=rpi.predicate_failure_response)
+        if convert_dat: # this function is effectively a constructor so _ reference is ok
+            assert callable(convert_dat) and len(inspect.getfullargspec(convert_dat).args) >= 1
+            rtn._convert_dat[:] = [convert_dat,
+                                   {(tbl, pn) for tbl, pns in rtn._data_row_predicates.items()
+                                    for pn, rpi in pns.items() if rpi.predicate_kwargs_maker}]
+        else:
+            rtn._convert_dat[:] = self._convert_dat[:]
         return rtn
     def clone_add_a_table(self, table, pk_fields, df_fields):
         '''
@@ -923,7 +936,7 @@ class PanDatFactory(object):
         self._xlsx_trailing_empty_rows = ["prune"]
         self._duplicates_ticdat_init = ["assert"]
         self._none_as_infinity_bias_cache = {}
-
+        self._convert_dat = []
 
         self.all_tables = frozenset(init_fields)
         superself = self
@@ -1273,19 +1286,32 @@ class PanDatFactory(object):
         predicate_kwargs_maker_results = {}
         TPN = clt.namedtuple("TablePredicateName", ["table", "predicate_name"])
         PKEM = clt.namedtuple("PrimaryKeyErrorMessage", ["primary_key", "error_message"])
+        converted_dat = []
         for tbl, row_predicates in data_row_predicates.items():
             _table = getattr(pan_dat, tbl)
             for pn, rpi in row_predicates.items():
+                uses_convert = self._convert_dat and (tbl, pn) in self._convert_dat[1]
                 predicate_kwargs = {}
                 if rpi.predicate_kwargs_maker:
-                    if rpi.predicate_kwargs_maker not in predicate_kwargs_maker_results:
+                    if uses_convert and not converted_dat:
                         if exception_handling == "Handled as Failure":
                             try:
-                                _predicate_kwargs = rpi.predicate_kwargs_maker(pan_dat)
+                                converted_dat.append(self._convert_dat[0](pan_dat))
+                            except Exception as e:
+                                converted_dat.append(f"Exception<{e}>")
+                        else:
+                            converted_dat.append(self._convert_dat[0](pan_dat))
+                    if rpi.predicate_kwargs_maker not in predicate_kwargs_maker_results:
+                        __pan_dat = converted_dat[0] if uses_convert else pan_dat
+                        if uses_convert and isinstance(converted_dat[0], str):
+                            _predicate_kwargs = converted_dat[0]
+                        elif exception_handling == "Handled as Failure":
+                            try:
+                                _predicate_kwargs = rpi.predicate_kwargs_maker(__pan_dat)
                             except Exception as e:
                                 _predicate_kwargs = f"Exception<{e}>"
                         else:
-                            _predicate_kwargs = rpi.predicate_kwargs_maker(pan_dat)
+                            _predicate_kwargs = rpi.predicate_kwargs_maker(__pan_dat)
                         predicate_kwargs_maker_results[rpi.predicate_kwargs_maker] = _predicate_kwargs
                     predicate_kwargs = predicate_kwargs_maker_results[rpi.predicate_kwargs_maker]
                 if not isinstance(predicate_kwargs, dict):

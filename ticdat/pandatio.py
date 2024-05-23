@@ -61,9 +61,9 @@ class JsonPanFactory(freezable_factory(object, "_isFrozen")):
         :return:
         """
         self.pan_dat_factory = pan_dat_factory
-        to_json_args = inspect.getfullargspec(pd.DataFrame.to_json).args
-        assert "orient" in to_json_args
-        self._modern_pandas = "index" in to_json_args
+        to_json_args = inspect.getfullargspec(pd.DataFrame.to_json)
+        assert "orient" in to_json_args.args + to_json_args.kwonlyargs
+        self._modern_pandas = "index" in to_json_args.args + to_json_args.kwonlyargs
         self._isFrozen = True
     def create_pan_dat(self, path_or_buf, fill_missing_fields=False, orient='split', **kwargs):
         """
@@ -161,10 +161,10 @@ class JsonPanFactory(freezable_factory(object, "_isFrozen")):
         pan_dat = self.pan_dat_factory._pre_write_adjustment(pan_dat)
         jdict = {}
         def fix_cell(x):
-            if isinstance(x, (pd.Timestamp, numpy.datetime64, datetime.datetime)):
-                return str(x)
             if pd.isnull(x):
                 return None
+            if isinstance(x, (pd.Timestamp, numpy.datetime64, datetime.datetime)):
+                return str(x)
             return x
 
         for t, (pks, dfs) in self.pan_dat_factory.schema().items():
