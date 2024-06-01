@@ -49,6 +49,8 @@ input_schema.add_parameter("Number of Centroids", default_value=1, inclusive_min
 input_schema.add_parameter("MIP Gap", default_value=0.001, inclusive_min=False, inclusive_max=False, min=0,
                                 max=float("inf"), must_be_int=False)
 input_schema.add_parameter("Formulation", "Strong", number_allowed=False, strings_allowed=["Weak", "Strong"])
+input_schema.add_parameter("Core Model Type", "xpress", number_allowed=False,
+                           strings_allowed=["gurobi", "cplex", "xpress"])
 # ---------------------------------------------------------------------------------
 
 
@@ -106,7 +108,7 @@ def solve(dat, diagnostic_log, error_and_warning_log, progress):
 
     progress.numerical_progress("Feasibility Analysis" , 100)
 
-    mdl = Model(model_type="xpress", model_name="cog")
+    mdl = Model(model_type=full_parameters["Core Model Type"], model_name="cog")
 
     assign_vars = {(n, assigned_to): mdl.add_var(type='binary', name="%s_%s"%(n,assigned_to))
                     for n in dat.sites for assigned_to in dat.sites
@@ -155,16 +157,28 @@ def solve(dat, diagnostic_log, error_and_warning_log, progress):
 
     mdl.set_objective(mdl.sum(var * get_distance(n,assigned_to) * dat.sites[n]["Demand"] for (n, assigned_to), var in
                               assign_vars.items()), "minimize")
+    # handle LB/UB progress in Foresta compliant way
+    optimize_args = []
+    if full_parameters["Core Model Type"] == "xpress":
+        progress.add_xpress_callback("COG Optimization", mdl.core_model)
+        def xpress_solve_stdout_redicted(prob, object, msgtype, msg):
+            if msgtype is not None: # I think its an xpress bug that msgtype has everything, but living with it.
+                diagnostic_log.write(f"{msgtype}\n")
+        mdl.core_model.addcbmessage(xpress_solve_stdout_redicted, None, 0)
+        mdl.core_module.setOutputEnabled(False) # call xpress.setOutputEnabled to quiet stdout
+    elif full_parameters["Core Model Type"] == "gurobi":
+        mdl.core_model.setParam("LogToConsole", 0)
+        gu_progress_call_back = progress.gurobi_call_back_factory("COG Optimization", mdl.core_model)
+        def gu_call_back(gu_model, where):
+            if where == mdl.core_module.GRB.callback.MESSAGE:
+                msg = gu_model.cbGet(mdl.core_module.GRB.callback.MSG_STRING)
+                diagnostic_log.write(msg)
+            gu_progress_call_back(gu_model, where)
+        optimize_args.append(gu_call_back)
+    else:
+        progress.add_cplex_listener("COG Optimization", mdl.core_model)
 
-    progress.add_xpress_callback("COG Optimization", mdl.core_model) # handle LB/UB progress in Foresta compliant way
-
-    def xpress_solve_stdout_redicted(prob, object, msgtype, msg):
-        if msgtype is not None: # I think its an xpress bug that msgtype has everything, but living with it.
-            diagnostic_log.write(f"{msgtype}\n")
-    mdl.core_model.addcbmessage(xpress_solve_stdout_redicted, None, 0)
-    mdl.core_module.setOutputEnabled(False) # call xpress.setOutputEnabled to quiet stdout
-
-    if mdl.optimize():
+    if mdl.optimize(*optimize_args):
         progress.numerical_progress("Core Optimization", 100)
 
         sln = solution_schema.TicDat()
