@@ -29,7 +29,9 @@ from ticdat import TicDatFactory, standard_main, Model
 input_schema = TicDatFactory (
     categories=[["Name"], ["Min Nutrition", "Max Nutrition"]],
     foods=[["Name"], ["Cost"]],
-    nutrition_quantities=[["Food", "Category"], ["Quantity"]])
+    nutrition_quantities=[["Food", "Category"], ["Quantity"]],
+    parameters=[["Parameter"], ["Value"]]
+)
 
 # Define the foreign key relationships
 input_schema.add_foreign_key("nutrition_quantities", "foods", ["Food", "Name"])
@@ -53,6 +55,9 @@ input_schema.add_data_row_predicate(
 
 # The default-default of zero makes sense everywhere except for Max Nutrition
 input_schema.set_default_value("categories", "Max Nutrition", float("inf"))
+
+input_schema.add_parameter("Core Model Type", "xpress", number_allowed=False,
+                           strings_allowed=["gurobi", "cplex", "xpress"])
 # ---------------------------------------------------------------------------------
 
 
@@ -77,8 +82,7 @@ def solve(dat):
     assert not input_schema.find_data_type_failures(dat)
     assert not input_schema.find_data_row_failures(dat)
 
-
-    mdl = Model(model_type="xpress", model_name="diet")
+    mdl = Model(model_type=input_schema.create_full_parameters_dict(dat)["Core Model Type"], model_name="diet")
 
     nutrition = {c: mdl.add_var(lb=n["Min Nutrition"], ub=n["Max Nutrition"], name=c)
                 for c, n in dat.categories.items()}

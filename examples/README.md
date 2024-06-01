@@ -43,4 +43,5 @@ tables in Python. There are two choices.
    those examples are very similar to `gurobipy`. 
    
 The `xpress_model` examples are a convenient set of examples that access the `xpress` package indirectly, via
-the `ticdat.Model` pacakge.
+the `ticdat.Model` pacakge. These models can also be directed to use `docplex` or `gurobipy` based on an optional
+parameter.
