@@ -1223,6 +1223,9 @@ class TestUtils(unittest.TestCase):
         self.assertTrue(set(map(len, [tdf.find_data_type_failures(dat), tdf.find_data_row_failures(dat)])) == {1})
         self.assertTrue(next(iter(tdf.find_data_type_failures(dat).values())).pks == ('a', ))
         self.assertTrue(next(iter(tdf.find_data_row_failures(dat).values())) == ('p2',))
+        dat = tdf.json.create_tic_dat(tdf.json.write_file(dat, ""))
+        self.assertTrue(next(iter(tdf.find_data_type_failures(dat).values())).pks == ('a', ))
+        self.assertTrue(next(iter(tdf.find_data_row_failures(dat).values())) == ('p2',))
 
     def testTwentyTwo(self):
         tdf = TicDatFactory(table_with_stuffs = [["field one"], ["field two"]],

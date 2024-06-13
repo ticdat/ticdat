@@ -233,6 +233,9 @@ def dateutil_adjuster(x):
         return x
     # note that pd.Timestamp tends to create NaT from Falsey, this is ok so long as you check for null using pd.isnull
     # also, pd.Timestampp can do weird things making Timestamps from numbers, so not enabling that.
+    def _repr_safe(x): # see issues 201 and 208
+        if x is not None and safe_apply(repr)(x) is not None:
+            return x
     def _try_to_timestamp(y):
         if pd and not numericish(y):
             rtn = safe_apply(pd.Timestamp)(y)
@@ -240,11 +243,11 @@ def dateutil_adjuster(x):
                 return rtn
         if dateutil:
             return safe_apply(dateutil.parser.parse)(y)
-    rtn = _try_to_timestamp(x)
+    rtn = _repr_safe(_try_to_timestamp(x))
     if rtn is not None:
         return rtn
     if not numericish(x):
-        return _try_to_timestamp(str(x))
+        return _repr_safe(_try_to_timestamp(str(x)))
 
 def acceptable_default(v) :
     return numericish(v) or stringish(v) or v in [True, False] or v is None
