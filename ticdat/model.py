@@ -69,7 +69,7 @@ class Model(object):
         :param name: The name of the variable. (Ignored if falsey).
         :return: The variable object associated with the model_type engine API
         """
-        verify(type in ["continuous", "binary", 'integer'], "type needs to be 'continuous' or 'binary'")
+        verify(type in ["continuous", "binary", 'integer'], "type needs to be 'continuous', 'binary' or 'integer'")
         verify(utils.numericish(lb) and utils.numericish(ub), "lb, ub need to be numbers")
         verify(ub>=lb, "lb cannot be bigger than ub")
         verify(lb < float("inf"), "lb cannot be positive infinity")
