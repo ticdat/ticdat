@@ -824,8 +824,6 @@ def change_fields_with_reserved_keywords(tdf, reserved_keywords, undo=False):
         if original_field in tdf.data_types.get(table, ()):
             rtn.set_data_type(table, new_field,
                               *(tdf.data_types[table][original_field]))
-    if hasattr(tdf,'opl_prepend'):
-        rtn.opl_prepend = tdf.opl_prepend
     if hasattr(tdf,'ampl_prepend'):
         rtn.ampl_prepend = tdf.ampl_prepend
     return rtn
