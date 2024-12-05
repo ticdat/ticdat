@@ -1249,7 +1249,7 @@ class Progress(object):
             if where == gu.GRB.callback.MIP:
                 ub = model.cbGet(gu.GRB.callback.MIP_OBJBST)
                 lb = model.cbGet(gu.GRB.callback.MIP_OBJBND)
-                keep_going = self.mip_progress(theme, lb, ub)
+                keep_going = self.mip_progress(theme, lb, ub) # reverse lb, ub if maximization
                 if not keep_going :
                     model.terminate()
         return rtn
@@ -1266,7 +1266,7 @@ class Progress(object):
             # assert prob is problem # this fails for some reason!
             ub = prob.attributes.mipobjval
             lb = prob.attributes.bestbound
-            keep_going = self.mip_progress(theme, lb, ub)
+            keep_going = self.mip_progress(theme, lb, ub) # reverse lb, ub if maximization!
             return 0 if keep_going else 1
         problem.addcbmiplog(callback=callback, data=None, priority=0)
     def add_cplex_listener(self, theme, model):
