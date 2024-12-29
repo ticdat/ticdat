@@ -432,16 +432,13 @@ class PanDatFactory(object):
                             fields_w_issues.add(f)
                 apply(df, find_fields_w_issues)
                 for f in fields_w_issues:
-                    fixme = apply(df, lambda row: utils.numericish(row[f]) and row[f] >= self.infinity_io_flag)
-                    if fixme.any():
-                        df.loc[fixme, f] = float("inf")
-                    fixme = apply(df, lambda row: utils.numericish(row[f]) and row[f] <= -self.infinity_io_flag)
-                    if fixme.any():
-                        df.loc[fixme, f] = -float("inf")
+                    df[f] = apply(df, lambda row: row[f] if not utils.numericish(row[f]) else
+                                        (float("inf") if row[f] >= self.infinity_io_flag else
+                                         (-float("inf") if row[f] <= -self.infinity_io_flag else row[f])))
             for f in all_fields:
                 if not utils.numericish(self.infinity_io_flag) and utils.numericish(self._none_as_infinity_bias(t, f)):
                     assert self.infinity_io_flag is None
-                    df[f].fillna(value=self._none_as_infinity_bias(t, f) * float("inf"), inplace=True)
+                    df[f] = df[f].fillna(value=self._none_as_infinity_bias(t, f) * float("inf"))
                 dt = self.data_types.get(t, {}).get(f, None)
                 if dt and dt.datetime:
                     def fixed_row(row):
