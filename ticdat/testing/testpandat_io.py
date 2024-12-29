@@ -165,6 +165,7 @@ class TestIO(unittest.TestCase):
             self.assertFalse(pdf._same_data(dat, dat_1, epsilon=1e-5))
             protein = dat_1.categories["name"] == "protein"
             self.assertTrue(list(dat_1.categories[protein]["maxNutrition"])[0] == 999999999)
+            dat_1.categories['maxNutrition'] = dat_1.categories['maxNutrition'].astype(float)
             dat_1.categories.loc[protein, "maxNutrition"] = float("inf")
             self.assertTrue(pdf._same_data(dat, dat_1, epsilon=1e-5))
 
@@ -225,7 +226,7 @@ class TestIO(unittest.TestCase):
         file = os.path.join(_scratchDir, "datetime_pd.xlsx")
         df = utils.pd.DataFrame({"a":list(map(utils.pd.Timestamp,
             ["June 13 1960 4:30PM", "Dec 11 1970 1AM", "Sept 11 2001 9:30AM"]))})
-        df.to_excel(file, "Cool Runnings")
+        df.to_excel(file, sheet_name="Cool Runnings")
         pdf = PanDatFactory(cool_runnings = [["a"],[]])
         pdf.set_data_type("cool_runnings", "a", datetime=True)
         dat = pdf.xls.create_pan_dat(file)
