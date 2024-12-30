@@ -70,13 +70,20 @@ class TestModel(unittest.TestCase):
                 super(CogStopProgress, self).mip_progress(theme, lower_bound, upper_bound)
                 # return True (to continue optimization) if the bounds look nutty far apart
                 return lower_bound < upper_bound * 0.1
-        sln =cogmodel.solve(dat, CogStopProgress())
+        sln = cogmodel.solve(dat, CogStopProgress())
         self.assertTrue(sln.parameters["Upper Bound"]["Value"] < 1e10)
         self.assertTrue(sln.parameters["Lower Bound"]["Value"] > 0.1 * sln.parameters["Upper Bound"]["Value"])
         self.assertTrue(len(sln.openings) == 3)
         self.assertTrue(set(sln.openings).issubset(dat.sites))
         self.assertTrue({_[0] for _ in sln.assignments} == set(dat.sites))
         self.assertTrue({_[1] for _ in sln.assignments} == set(sln.openings))
+
+        dat.parameters["Maximize Subtract"] = 1e9
+        sln2 = cogmodel.solve(dat, CogStopProgress())
+        self.assertTrue(nearlySame(sln2.parameters["Upper Bound"]["Value"], sln.parameters["Upper Bound"]["Value"],
+                        epsilon=1e-3))
+        self.assertTrue(nearlySame(sln2.parameters["Lower Bound"]["Value"], sln.parameters["Lower Bound"]["Value"],
+                        epsilon=1e-3))
 
     def _testDiet(self, modelType):
         sln, cost = dietSolver(modelType)
