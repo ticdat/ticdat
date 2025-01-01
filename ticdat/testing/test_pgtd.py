@@ -17,8 +17,9 @@ def _this_directory() :
 import unittest
 try:
     import sqlalchemy as sa
+    saxt = sa.text
 except:
-    sa = None
+    sa = saxt = None
 try:
     import testing.postgresql as testing_postgresql
 except:
@@ -113,7 +114,8 @@ class TestPostres(unittest.TestCase):
         if self.engine_fail:
             print(f"!!!!Engine failed to load due to {self.engine_fail}")
         if self.engine and utils.safe_apply(lambda: test_schema in sa.inspect(self.engine).get_schema_names())():
-            self.engine.execute(sa.schema.DropSchema(test_schema, cascade=True))
+            with self.engine.connect() as cn:
+                cn.execute(sa.schema.DropSchema(test_schema, cascade=True))
 
     def tearDown(self):
         if self.postgresql:
@@ -124,109 +126,115 @@ class TestPostres(unittest.TestCase):
         if not self.can_run:
             return
         schema = "sch_a"
-        pdf = PanDatFactory(t_one=[[], ["Field One", "Field Two", "Da Active"]],
-                              t_two=[[], ["Field One", "Da Active"]])
-        pdf.set_default_value("t_one", "Da Active", True)
-        pdf.set_default_value("t_two", "Da Active", False)
-        forced_field_types = lambda bt: {(t, f): bt if "Active" in f else "text"
-                                         for t, (pks, dfs) in pdf.schema().items() for f in pks + dfs}
-        make_str = lambda lol : [list(map(str, row)) for row in lol]
-        dat = pdf.PanDat(t_one=make_str([["a", "b", True], ["a", "c", True], ["a", "b", False], ["a", "d", True]]),
-                           t_two=make_str([["a", True], ["b", False], ["a", False], ["b", False], ["a", False]]))
-        self.assertTrue(len(dat.t_one) == 4 and len(dat.t_two) == 5)
-        pdf.pgsql.write_schema(self.engine, schema, include_ancillary_info=False,
-                               forced_field_types=forced_field_types("text"))
-        pdf.pgsql.write_data(dat, self.engine, schema)
-        pdf.pgsql.write_schema(self.engine, "sch_b", include_ancillary_info=True,
-                               forced_field_types=forced_field_types("boolean"))
-        type_check = {(sch, t, f): dt for t in ["t_one", "t_two"] for sch, f, dt in self.engine.execute(
-            'SELECT table_schema, column_name, data_type FROM information_schema.columns WHERE ' +
-            f"table_name = '{t}'")}
-        def all_cols(tbl, cast_as_needed):
-            common_cols = sorted({k[-1] for k in type_check if k[:2] == ('sch_a', tbl)}.intersection(
-                {k[-1] for k in type_check if k[:2] == ('sch_b', tbl)}))
-            cast_as_needed = (lambda _:  f"bool({_})" if type_check['sch_b', tbl, _] == 'boolean'
-                                                      and type_check['sch_a', tbl, _] == 'text'else _) \
-                             if cast_as_needed else (lambda _: _)
-            rtn = ", ".join(map(cast_as_needed, common_cols))
-            return rtn
-        self.engine.execute(f"Insert into sch_b.t_one ({all_cols('t_one', False)}) " +
-                            f"Select {all_cols('t_one', True)} from sch_a.t_one")
-        self.engine.execute(f"Insert into sch_b.t_two ({all_cols('t_two', False)}) " +
-                            f"Select {all_cols('t_two', True)} from sch_a.t_two")
-        dat = pdf.PanDat(t_one = [["a", "b", True], ["a", "c", True], ["a", "b", False], ["a", "d", True]],
-                         t_two = [["a", True], ["b", False], ["a", False], ["b", False], ["a", False]])
-        pan_dat_1 = pdf.pgsql.create_pan_dat(self.engine, schema)
-        pan_dat_2 = pdf.pgsql.create_pan_dat(self.engine, "sch_b")
-        self.assertFalse(pdf._same_data(dat, pan_dat_1))
-        self.assertTrue(pdf._same_data(dat, pan_dat_2))
-        self.engine.execute("Delete from sch_b.t_one where field_two = 'd'")
-        self.engine.execute("Insert into sch_b.t_one  (field_one, field_two) values  ('a', 'd')")
-        pan_dat_3 = pdf.pgsql.create_pan_dat(self.engine, "sch_b")
-        self.assertTrue(pdf._same_data(dat, pan_dat_3))
+        with self.engine.connect() as cn:
+            pdf = PanDatFactory(t_one=[[], ["Field One", "Field Two", "Da Active"]],
+                                t_two=[[], ["Field One", "Da Active"]])
+            pdf.set_default_value("t_one", "Da Active", True)
+            pdf.set_default_value("t_two", "Da Active", False)
+            forced_field_types = lambda bt: {(t, f): bt if "Active" in f else "text"
+                                             for t, (pks, dfs) in pdf.schema().items() for f in pks + dfs}
+            make_str = lambda lol: [list(map(str, row)) for row in lol]
+            dat = pdf.PanDat(t_one=make_str([["a", "b", True], ["a", "c", True], ["a", "b", False], ["a", "d", True]]),
+                             t_two=make_str([["a", True], ["b", False], ["a", False], ["b", False], ["a", False]]))
+            self.assertTrue(len(dat.t_one) == 4 and len(dat.t_two) == 5)
+            pdf.pgsql.write_schema(cn, schema, include_ancillary_info=False,
+                                   forced_field_types=forced_field_types("text"))
+            pdf.pgsql.write_data(dat, cn, schema)
+            pdf.pgsql.write_schema(cn, "sch_b", include_ancillary_info=True,
+                                   forced_field_types=forced_field_types("boolean"))
+            type_check = {(sch, t, f): dt for t in ["t_one", "t_two"] for sch, f, dt in cn.execute(saxt(
+                'SELECT table_schema, column_name, data_type FROM information_schema.columns WHERE ' +
+                f"table_name = '{t}'"))}
+
+            def all_cols(tbl, cast_as_needed):
+                common_cols = sorted({k[-1] for k in type_check if k[:2] == ('sch_a', tbl)}.intersection(
+                    {k[-1] for k in type_check if k[:2] == ('sch_b', tbl)}))
+                cast_as_needed = (lambda _: f"bool({_})" if type_check['sch_b', tbl, _] == 'boolean'
+                                                            and type_check['sch_a', tbl, _] == 'text' else _) \
+                    if cast_as_needed else (lambda _: _)
+                rtn = ", ".join(map(cast_as_needed, common_cols))
+                return rtn
+
+            cn.execute(saxt(f"Insert into sch_b.t_one ({all_cols('t_one', False)}) " +
+                            f"Select {all_cols('t_one', True)} from sch_a.t_one"))
+            cn.execute(saxt(f"Insert into sch_b.t_two ({all_cols('t_two', False)}) " +
+                            f"Select {all_cols('t_two', True)} from sch_a.t_two"))
+            dat = pdf.PanDat(t_one=[["a", "b", True], ["a", "c", True], ["a", "b", False], ["a", "d", True]],
+                             t_two=[["a", True], ["b", False], ["a", False], ["b", False], ["a", False]])
+            pan_dat_1 = pdf.pgsql.create_pan_dat(cn, schema)
+            pan_dat_2 = pdf.pgsql.create_pan_dat(cn, "sch_b")
+            self.assertFalse(pdf._same_data(dat, pan_dat_1))
+            self.assertTrue(pdf._same_data(dat, pan_dat_2))
+            cn.execute(saxt("Delete from sch_b.t_one where field_two = 'd'"))
+            cn.execute(saxt("Insert into sch_b.t_one  (field_one, field_two) values  ('a', 'd')"))
+            pan_dat_3 = pdf.pgsql.create_pan_dat(cn, "sch_b")
+            self.assertTrue(pdf._same_data(dat, pan_dat_3))
 
     def test_datetime_defaults(self):
         if not self.can_run:
             return
-        tdf = TicDatFactory(orders=[["Name"], ["Deliver By"]])
-        tdf.set_data_type("orders", "Deliver By", datetime=True)
-        tdf.set_default_value("orders", "Deliver By", "Jan 1 2019 1 PM")
-        schema = test_schema + "_dt_dfs_1"
-        tdf.pgsql.write_schema(self.engine, schema, include_ancillary_info=False,
-                               forced_field_types={("orders", "Deliver By"): "text"})
-        self.engine.execute(f"Insert into {schema}.orders (name) values ('blah')")
-        dat = tdf.pgsql.create_tic_dat(self.engine, schema)
-        self.assertTrue(dat._len_dict() == {"orders": 1})
-        self.assertFalse(tdf.find_data_type_failures(dat))
+        with self.engine.connect() as cn:
+            tdf = TicDatFactory(orders=[["Name"], ["Deliver By"]])
+            tdf.set_data_type("orders", "Deliver By", datetime=True)
+            tdf.set_default_value("orders", "Deliver By", "Jan 1 2019 1 PM")
+            schema = test_schema + "_dt_dfs_1"
+            tdf.pgsql.write_schema(cn, schema, include_ancillary_info=False,
+                                   forced_field_types={("orders", "Deliver By"): "text"})
+            cn.execute(saxt(f"Insert into {schema}.orders (name) values ('blah')"))
+            dat = tdf.pgsql.create_tic_dat(cn, schema)
+            self.assertTrue(dat._len_dict() == {"orders": 1})
+            self.assertFalse(tdf.find_data_type_failures(dat))
 
     def test_datetime_defaults_2(self): # for Foresta
         if not self.can_run:
             return
-        tdf = TicDatFactory(orders=[[], ["Name", "Deliver By"]])
-        tdf.set_data_type("orders", "Deliver By", datetime=True)
-        tdf.set_default_value("orders", "Deliver By", "Jan 1 2019 1 PM")
-        tdf2 = tdf.clone()
-        tdf2.set_data_type("orders", "Deliver By", datetime=True, nullable=True)
-        schema = test_schema + "_dt_dfs_2"
-        tdf2.pgsql.write_schema(self.engine, schema, include_ancillary_info=True,
-                               forced_field_types={("orders", "Name"): "text", ("orders", "Deliver By"): "text"})
-        self.engine.execute(f"Insert into {schema}.orders (name) values ('blah')")
-        dat = tdf2.pgsql.create_tic_dat(self.engine, schema)
-        self.assertTrue(dat._len_dict() == {"orders": 1})
-        self.assertFalse(tdf.find_data_type_failures(dat))
+        with self.engine.connect() as cn:
+            tdf = TicDatFactory(orders=[[], ["Name", "Deliver By"]])
+            tdf.set_data_type("orders", "Deliver By", datetime=True)
+            tdf.set_default_value("orders", "Deliver By", "Jan 1 2019 1 PM")
+            tdf2 = tdf.clone()
+            tdf2.set_data_type("orders", "Deliver By", datetime=True, nullable=True)
+            schema = test_schema + "_dt_dfs_2"
+            tdf2.pgsql.write_schema(cn, schema, include_ancillary_info=True,
+                                   forced_field_types={("orders", "Name"): "text", ("orders", "Deliver By"): "text"})
+            cn.execute(saxt(f"Insert into {schema}.orders (name) values ('blah')"))
+            dat = tdf2.pgsql.create_tic_dat(cn, schema)
+            self.assertTrue(dat._len_dict() == {"orders": 1})
+            self.assertFalse(tdf.find_data_type_failures(dat))
 
     def test_pgtd_active_dups(self):
         if not self.can_run:
             return
         schema = test_schema+"_act_dups"
-        tdf_1 = TicDatFactory(t_one=[[], ["Field One", "Field Two", "Da Active"]],
-                              t_two=[[], ["Field One", "Da Active"]])
-        dat = tdf_1.TicDat(t_one = [["a", "b", True], ["a", "c", True], ["a", "b", False], ["a", "d", True]],
-                           t_two = [["a", True], ["b", False], ["a", False], ["b", False], ["a", False]])
-        self.assertTrue(len(dat.t_one) == 4 and len(dat.t_two) == 5)
-        tdf_1.pgsql.write_schema(self.engine, schema, include_ancillary_info=False, forced_field_types=
-            {(t, f): "boolean" if "Active" in f else "text" for t, (pks, dfs) in tdf_1.schema().items()
-             for f in pks + dfs})
-        tdf_1.pgsql.write_data(dat, self.engine, schema)
-        self.assertTrue(tdf_1._same_data(dat, tdf_1.pgsql.create_tic_dat(self.engine, schema), epsilon=1e-8))
-        tdf = TicDatFactory(t_one= [["Field One", "Field Two"], []],
-                            t_two= [["Field One"], []])
-        self.assertTrue(tdf.pgsql.find_duplicates(self.engine, schema))
-        self.assertFalse(tdf.pgsql.find_duplicates(self.engine, schema, active_fld="da_active"))
-        pan_dat_1 = tdf_1.clone(clone_factory=PanDatFactory).pgsql.create_pan_dat(self.engine, schema)
-        pdf = tdf.clone(clone_factory=PanDatFactory).clone_add_a_column("t_one", "Da Active", "data").\
-            clone_add_a_column("t_two", "Da Active", "data")
-        pan_dat_2 = pdf.pgsql.create_pan_dat(self.engine, schema)
-        pan_dat_3 = tdf_1.copy_to_pandas(dat, reset_index=True)
-        self.assertTrue(tdf_1.clone(clone_factory=PanDatFactory)._same_data(pan_dat_1, pan_dat_2))
-        self.assertTrue(tdf_1.clone(clone_factory=PanDatFactory)._same_data(pan_dat_2, pan_dat_3))
+        with self.engine.connect() as cn:
+            tdf_1 = TicDatFactory(t_one=[[], ["Field One", "Field Two", "Da Active"]],
+                                  t_two=[[], ["Field One", "Da Active"]])
+            dat = tdf_1.TicDat(t_one = [["a", "b", True], ["a", "c", True], ["a", "b", False], ["a", "d", True]],
+                               t_two = [["a", True], ["b", False], ["a", False], ["b", False], ["a", False]])
+            self.assertTrue(len(dat.t_one) == 4 and len(dat.t_two) == 5)
+            tdf_1.pgsql.write_schema(cn, schema, include_ancillary_info=False, forced_field_types=
+                {(t, f): "boolean" if "Active" in f else "text" for t, (pks, dfs) in tdf_1.schema().items()
+                 for f in pks + dfs})
+            tdf_1.pgsql.write_data(dat, cn, schema)
+            self.assertTrue(tdf_1._same_data(dat, tdf_1.pgsql.create_tic_dat(cn, schema), epsilon=1e-8))
+            tdf = TicDatFactory(t_one= [["Field One", "Field Two"], []],
+                                t_two= [["Field One"], []])
+            self.assertTrue(tdf.pgsql.find_duplicates(cn, schema))
+            self.assertFalse(tdf.pgsql.find_duplicates(cn, schema, active_fld="da_active"))
+            pan_dat_1 = tdf_1.clone(clone_factory=PanDatFactory).pgsql.create_pan_dat(cn, schema)
+            pdf = tdf.clone(clone_factory=PanDatFactory).clone_add_a_column("t_one", "Da Active", "data").\
+                clone_add_a_column("t_two", "Da Active", "data")
+            pan_dat_2 = pdf.pgsql.create_pan_dat(cn, schema)
+            pan_dat_3 = tdf_1.copy_to_pandas(dat, reset_index=True)
+            self.assertTrue(tdf_1.clone(clone_factory=PanDatFactory)._same_data(pan_dat_1, pan_dat_2))
+            self.assertTrue(tdf_1.clone(clone_factory=PanDatFactory)._same_data(pan_dat_2, pan_dat_3))
 
-        pan_dat_4 = pdf.PanDat(t_one = [["a", "b", True], ["a", "c", None], ["a", "b", False], ["a", "d", True]],
-                               t_two = [["a", True], ["b", None], ["a", None], ["b", False], ["a", False]])
-        pdf.pgsql.write_data(pan_dat_4, self.engine, schema)
-        pan_dat_5 = pdf.pgsql.create_pan_dat(self.engine, schema)
-        self.assertTrue(tdf_1.clone(clone_factory=PanDatFactory)._same_data(pan_dat_4, pan_dat_5,
-                                                                            nans_are_same_for_data_rows=True))
+            pan_dat_4 = pdf.PanDat(t_one = [["a", "b", True], ["a", "c", None], ["a", "b", False], ["a", "d", True]],
+                                   t_two = [["a", True], ["b", None], ["a", None], ["b", False], ["a", False]])
+            pdf.pgsql.write_data(pan_dat_4, cn, schema)
+            pan_dat_5 = pdf.pgsql.create_pan_dat(cn, schema)
+            self.assertTrue(tdf_1.clone(clone_factory=PanDatFactory)._same_data(pan_dat_4, pan_dat_5,
+                                                                                nans_are_same_for_data_rows=True))
 
     def test_context_manager_write(self):
         cntxt_events = set()
@@ -241,56 +249,61 @@ class TestPostres(unittest.TestCase):
                     cntxt_events.add((t, "exit"))
             return ContextManager
         schema = test_schema+"_cntx_mgr"
-        pdf = PanDatFactory.create_from_full_schema(diet_schema.schema(include_ancillary_info=True))
-        pan_dat = diet_schema.copy_to_pandas(diet_dat, reset_index=True)
-        pdf.pgsql.write_schema(self.engine, schema, include_ancillary_info=False)
-        cntx_arg = {t: context_manager_factory(t) for t in ["foods", "nutrition_quantities"]}
-        self.assertFalse(cntxt_events)
-        pdf.pgsql.write_data(pan_dat, self.engine, schema, table_specific_context_manager=cntx_arg)
-        self.assertTrue(cntxt_events == {(t, e) for t, e in product(cntx_arg, ["enter", "exit"])})
-        pan_dat_2 = pdf.pgsql.create_pan_dat(self.engine, schema)
-        self.assertTrue(pdf._same_data(pan_dat, pan_dat_2, epsilon=1e-10))
+        with self.engine.connect() as cn:
+            pdf = PanDatFactory.create_from_full_schema(diet_schema.schema(include_ancillary_info=True))
+            pan_dat = diet_schema.copy_to_pandas(diet_dat, reset_index=True)
+            pdf.pgsql.write_schema(cn, schema, include_ancillary_info=False)
+            cntx_arg = {t: context_manager_factory(t) for t in ["foods", "nutrition_quantities"]}
+            self.assertFalse(cntxt_events)
+            pdf.pgsql.write_data(pan_dat, cn, schema, table_specific_context_manager=cntx_arg)
+            self.assertTrue(cntxt_events == {(t, e) for t, e in product(cntx_arg, ["enter", "exit"])})
+            pan_dat_2 = pdf.pgsql.create_pan_dat(cn, schema)
+            self.assertTrue(pdf._same_data(pan_dat, pan_dat_2, epsilon=1e-10))
 
     def test_pgtd_active(self):
         if not self.can_run:
             return
         schema = test_schema+"_active"
-        tdf = TicDatFactory(**{k:[pks, (["active_fld"] if k == "categories" else []) + dfs]
-                                      for k, (pks, dfs) in diet_schema.schema().items()})
-        tdf.pgsql.write_schema(self.engine, schema, include_ancillary_info=False,
-                               forced_field_types={('categories', 'active_fld'):'boolean'})
-        tdf = diet_schema.clone()
-        dat = tdf.copy_tic_dat(diet_dat)
-        dat.categories["junk"] = {}
-        tdf.pgsql.write_data(dat, self.engine, schema, active_fld="active_fld")
-        self.assertTrue(set(_[0] for _ in self.engine.execute(f"Select active_fld from {schema}.categories")) == {True})
-        self.engine.execute(f"Update {schema}.categories set active_fld = False where name = 'junk'")
-        dat_2 = tdf.pgsql.create_tic_dat(self.engine, schema, active_fld="active_fld")
-        self.assertTrue(tdf._same_data(dat_2, diet_dat, epsilon=1e-10))
+        with self.engine.connect() as cn:
+            tdf = TicDatFactory(**{k:[pks, (["active_fld"] if k == "categories" else []) + dfs]
+                                          for k, (pks, dfs) in diet_schema.schema().items()})
+            tdf.pgsql.write_schema(cn, schema, include_ancillary_info=False,
+                                   forced_field_types={('categories', 'active_fld'):'boolean'})
+            tdf = diet_schema.clone()
+            dat = tdf.copy_tic_dat(diet_dat)
+            dat.categories["junk"] = {}
+            tdf.pgsql.write_data(dat, cn, schema, active_fld="active_fld")
+            self.assertTrue(set(_[0] for _ in cn.execute(saxt(f"Select active_fld from {schema}.categories"))) ==
+                            {True})
+            cn.execute(saxt(f"Update {schema}.categories set active_fld = False where name = 'junk'"))
+            dat_2 = tdf.pgsql.create_tic_dat(cn, schema, active_fld="active_fld")
+            self.assertTrue(tdf._same_data(dat_2, diet_dat, epsilon=1e-10))
 
-        pdf = PanDatFactory.create_from_full_schema(diet_schema.schema(include_ancillary_info=True))
-        pan_dat = tdf.copy_to_pandas(diet_dat, drop_pk_columns=False)
-        pan_dat_2 = pdf.pgsql.create_pan_dat(self.engine, schema, active_fld="active_fld")
-        self.assertTrue(pdf._same_data(pan_dat, pan_dat_2, epsilon=1e-10))
-        self.assertTrue(set(_[0] for _ in self.engine.execute(f"Select active_fld from {schema}.categories")) ==
-                        {True, False})
-        pdf.pgsql.write_data(pan_dat, self.engine, schema, active_fld="active_fld")
-        self.assertTrue(set(_[0] for _ in self.engine.execute(f"Select active_fld from {schema}.categories")) == {True})
+            pdf = PanDatFactory.create_from_full_schema(diet_schema.schema(include_ancillary_info=True))
+            pan_dat = tdf.copy_to_pandas(diet_dat, drop_pk_columns=False)
+            pan_dat_2 = pdf.pgsql.create_pan_dat(cn, schema, active_fld="active_fld")
+            self.assertTrue(pdf._same_data(pan_dat, pan_dat_2, epsilon=1e-10))
+            self.assertTrue(set(_[0] for _ in cn.execute(saxt(f"Select active_fld from {schema}.categories"))) ==
+                            {True, False})
+            pdf.pgsql.write_data(pan_dat, cn, schema, active_fld="active_fld")
+            self.assertTrue(set(_[0] for _ in cn.execute(saxt(f"Select active_fld from {schema}.categories"))) ==
+                            {True})
 
     def test_issue_68(self):
         if not self.can_run:
             return
         tdf = diet_schema.clone()
         pgtf = tdf.pgsql
-        pgtf.write_schema(self.engine, test_schema, include_ancillary_info=False)
-        dat = tdf.copy_tic_dat(diet_dat)
-        import numpy
-        dat.categories["protein"]["Max Nutrition"] = numpy.int64(200)
-        dat.categories["fat"]["Max Nutrition"] = numpy.float64(65)
-        pgtf.write_data(dat, self.engine, test_schema)
-        self.assertFalse(pgtf.find_duplicates(self.engine, test_schema))
-        pg_tic_dat = pgtf.create_tic_dat(self.engine, test_schema)
-        self.assertTrue(diet_schema._same_data(dat, pg_tic_dat))
+        with self.engine.connect() as cn:
+            pgtf.write_schema(cn, test_schema, include_ancillary_info=False)
+            dat = tdf.copy_tic_dat(diet_dat)
+            import numpy
+            dat.categories["protein"]["Max Nutrition"] = numpy.int64(200)
+            dat.categories["fat"]["Max Nutrition"] = numpy.float64(65)
+            pgtf.write_data(dat, cn, test_schema)
+            self.assertFalse(pgtf.find_duplicates(cn, test_schema))
+            pg_tic_dat = pgtf.create_tic_dat(cn, test_schema)
+            self.assertTrue(diet_schema._same_data(dat, pg_tic_dat))
 
     def test_issue_68_pd(self):
         # kind of a dumb test since the numpy types tend to be the ones pandas creates naturally, but no harm
@@ -300,56 +313,61 @@ class TestPostres(unittest.TestCase):
         tdf = diet_schema.clone()
         pdf = PanDatFactory.create_from_full_schema(tdf.schema(include_ancillary_info=True))
         pgtf = pdf.pgsql
-        pgtf.write_schema(self.engine, test_schema, include_ancillary_info=False)
-        dat = tdf.copy_tic_dat(diet_dat)
-        import numpy
-        dat.categories["protein"]["Max Nutrition"] = numpy.int64(200)
-        dat.categories["fat"]["Max Nutrition"] = numpy.float64(65)
-        pan_dat = pdf.copy_pan_dat(tdf.copy_to_pandas(dat, drop_pk_columns=False))
-        pgtf.write_data(pan_dat, self.engine, test_schema)
-        pg_pan_dat = pgtf.create_pan_dat(self.engine, test_schema)
-        self.assertTrue(pdf._same_data(pan_dat, pg_pan_dat))
-        pan_dat.categories["Max Nutrition"] = utils.faster_df_apply(pan_dat.categories,
-                                                               lambda row: numpy.int64(row["Max Nutrition"]))
-        pan_dat.foods["Cost"] = utils.faster_df_apply(pan_dat.foods, lambda row: numpy.float64(row["Cost"]))
-        pgtf.write_data(pan_dat, self.engine, test_schema)
-        pg_pan_dat = pgtf.create_pan_dat(self.engine, test_schema)
-        self.assertTrue(pdf._same_data(pan_dat, pg_pan_dat))
+        with self.engine.connect() as cn:
+            pgtf.write_schema(self.engine, test_schema, include_ancillary_info=False)
+            dat = tdf.copy_tic_dat(diet_dat)
+            import numpy
+            dat.categories["protein"]["Max Nutrition"] = numpy.int64(200)
+            dat.categories["fat"]["Max Nutrition"] = numpy.float64(65)
+            pan_dat = pdf.copy_pan_dat(tdf.copy_to_pandas(dat, drop_pk_columns=False))
+            pgtf.write_data(pan_dat, cn, test_schema)
+            pg_pan_dat = pgtf.create_pan_dat(cn, test_schema)
+            self.assertTrue(pdf._same_data(pan_dat, pg_pan_dat))
+            pan_dat.categories["Max Nutrition"] = utils.faster_df_apply(pan_dat.categories,
+                                                                   lambda row: numpy.int64(row["Max Nutrition"]))
+            pan_dat.foods["Cost"] = utils.faster_df_apply(pan_dat.foods, lambda row: numpy.float64(row["Cost"]))
+            pgtf.write_data(pan_dat, cn, test_schema)
+            pg_pan_dat = pgtf.create_pan_dat(cn, test_schema)
+            self.assertTrue(pdf._same_data(pan_dat, pg_pan_dat))
 
     def test_wtf(self):
         schema = "wtf"
         tdf = TicDatFactory(table_one=[["Cost per Distance", "Cost per Hr. (in-transit)"], ["Stuff"]],
                             table_two=[["This", "That"], ["Tho"]])
-        tdf.pgsql.write_schema(self.engine, schema)
-        data = [["a", "b", 1], ["dd", "ee", 10], ["023", "210", 102.1]]
-        tic_dat = tdf.TicDat(table_one=data, table_two=data)
-        tdf.pgsql.write_data(tic_dat, self.engine, schema, dsn=self.postgresql.dsn())
-        pg_tic_dat = tdf.pgsql.create_tic_dat(self.engine, schema)
-        self.assertTrue(tdf._same_data(tic_dat, pg_tic_dat))
+        with self.engine.connect() as cn:
+            tdf.pgsql.write_schema(cn, schema)
+            cn.commit()
+            data = [["a", "b", 1], ["dd", "ee", 10], ["023", "210", 102.1]]
+            tic_dat = tdf.TicDat(table_one=data, table_two=data)
+            tdf.pgsql.write_data(tic_dat, cn, schema, dsn=self.postgresql.dsn())
+            pg_tic_dat = tdf.pgsql.create_tic_dat(cn, schema)
+            self.assertTrue(tdf._same_data(tic_dat, pg_tic_dat))
 
     def test_diet_dsn(self):
         if not self.can_run:
             return
         pgtf = diet_schema.pgsql
-        pgtf.write_schema(self.engine, test_schema)
-        pgtf.write_data(diet_dat, self.engine, test_schema, dsn=self.postgresql.dsn())
-        self.assertFalse(pgtf.find_duplicates(self.engine, test_schema))
-        pg_tic_dat = pgtf.create_tic_dat(self.engine, test_schema)
-        self.assertTrue(diet_schema._same_data(diet_dat, pg_tic_dat))
+        with self.engine.connect() as cn:
+            pgtf.write_schema(cn, test_schema)
+            pgtf.write_data(diet_dat, cn, test_schema, dsn=self.postgresql.dsn())
+            self.assertFalse(pgtf.find_duplicates(cn, test_schema))
+            pg_tic_dat = pgtf.create_tic_dat(cn, test_schema)
+            self.assertTrue(diet_schema._same_data(diet_dat, pg_tic_dat))
 
     def test_diet_no_inf_flagging(self):
         pgtf = diet_schema.pgsql
-        pgtf.write_schema(self.engine, test_schema, include_ancillary_info=False)
-        if not self.can_run:
-            return
-        for dsn in [None, self.postgresql.dsn()]:
-            pgtf.write_data(diet_dat, self.engine, test_schema, dsn=dsn)
-            self.assertTrue(sorted([_ for _ in self.engine.execute(f"Select * from {test_schema}.categories")]) ==
-              [('calories', 1800.0, 2200.0), ('fat', 0.0, 65.0), ('protein', 91.0, float("inf")),
-               ('sodium', 0.0, 1779.0)])
-            self.assertFalse(pgtf.find_duplicates(self.engine, test_schema))
-            pg_tic_dat = pgtf.create_tic_dat(self.engine, test_schema)
-            self.assertTrue(diet_schema._same_data(diet_dat, pg_tic_dat))
+        with self.engine.connect() as cn:
+            pgtf.write_schema(cn, test_schema, include_ancillary_info=False)
+            if not self.can_run:
+                return
+            for dsn in [None, self.postgresql.dsn()]:
+                pgtf.write_data(diet_dat, cn, test_schema, dsn=dsn)
+                self.assertTrue(sorted([_ for _ in cn.execute(saxt(f"Select * from {test_schema}.categories"))]) ==
+                  [('calories', 1800.0, 2200.0), ('fat', 0.0, 65.0), ('protein', 91.0, float("inf")),
+                   ('sodium', 0.0, 1779.0)])
+                self.assertFalse(pgtf.find_duplicates(cn, test_schema))
+                pg_tic_dat = pgtf.create_tic_dat(cn, test_schema)
+                self.assertTrue(diet_schema._same_data(diet_dat, pg_tic_dat))
 
     def test_diet_no_inf_pd_flagging(self):
         pdf = PanDatFactory.create_from_full_schema(diet_schema.schema(include_ancillary_info=True))
