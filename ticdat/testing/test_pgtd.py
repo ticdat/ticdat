@@ -797,51 +797,53 @@ class TestPostres(unittest.TestCase):
             tdf.set_data_type("table", f, nullable=True)
         dat = tdf.TicDat(table = [[None, 100], [200, 109], [0, 300], [300, None], [400, 0]])
         schema = test_schema + "_bool_defaults"
-        tdf.pgsql.write_schema(self.engine, schema, include_ancillary_info=False)
-        tdf.pgsql.write_data(dat, self.engine, schema)
+        with self.engine.connect() as cn:
+            tdf.pgsql.write_schema(cn, schema, include_ancillary_info=False)
+            tdf.pgsql.write_data(dat, cn, schema)
 
-        dat_1 = tdf.pgsql.create_tic_dat(self.engine, schema)
-        self.assertTrue(tdf._same_data(dat, dat_1))
+            dat_1 = tdf.pgsql.create_tic_dat(cn, schema)
+            self.assertTrue(tdf._same_data(dat, dat_1))
 
-        tdf = TicDatFactory(table=[["field one"], ["field two"]])
-        for f in ["field one", "field two"]:
-            tdf.set_data_type("table", f, max=float("inf"), inclusive_max=True)
-        tdf.set_infinity_io_flag(None)
-        dat_inf = tdf.TicDat(table = [[float("inf"), 100], [200, 109], [0, 300], [300, float("inf")], [400, 0]])
-        dat_1 = tdf.pgsql.create_tic_dat(self.engine, schema)
+            tdf = TicDatFactory(table=[["field one"], ["field two"]])
+            for f in ["field one", "field two"]:
+                tdf.set_data_type("table", f, max=float("inf"), inclusive_max=True)
+            tdf.set_infinity_io_flag(None)
+            dat_inf = tdf.TicDat(table = [[float("inf"), 100], [200, 109], [0, 300], [300, float("inf")], [400, 0]])
+            dat_1 = tdf.pgsql.create_tic_dat(cn, schema)
 
-        self.assertTrue(tdf._same_data(dat_inf, dat_1))
-        tdf.pgsql.write_data(dat_inf, self.engine, schema)
-        dat_1 = tdf.pgsql.create_tic_dat(self.engine, schema)
-        self.assertTrue(tdf._same_data(dat_inf, dat_1))
+            self.assertTrue(tdf._same_data(dat_inf, dat_1))
+            tdf.pgsql.write_data(dat_inf, cn, schema)
+            dat_1 = tdf.pgsql.create_tic_dat(cn, schema)
+            self.assertTrue(tdf._same_data(dat_inf, dat_1))
 
-        tdf = TicDatFactory(table=[["field one"], ["field two"]])
-        for f in ["field one", "field two"]:
-            tdf.set_data_type("table", f, min=-float("inf"), inclusive_min=True)
-        tdf.set_infinity_io_flag(None)
-        dat_1 = tdf.pgsql.create_tic_dat(self.engine, schema)
-        self.assertFalse(tdf._same_data(dat_inf, dat_1))
-        dat_inf = tdf.TicDat(table = [[float("-inf"), 100], [200, 109], [0, 300], [300, -float("inf")], [400, 0]])
-        self.assertTrue(tdf._same_data(dat_inf, dat_1))
+            tdf = TicDatFactory(table=[["field one"], ["field two"]])
+            for f in ["field one", "field two"]:
+                tdf.set_data_type("table", f, min=-float("inf"), inclusive_min=True)
+            tdf.set_infinity_io_flag(None)
+            dat_1 = tdf.pgsql.create_tic_dat(cn, schema)
+            self.assertFalse(tdf._same_data(dat_inf, dat_1))
+            dat_inf = tdf.TicDat(table = [[float("-inf"), 100], [200, 109], [0, 300], [300, -float("inf")], [400, 0]])
+            self.assertTrue(tdf._same_data(dat_inf, dat_1))
 
     def testDietWithInfFlagging(self):
         tdf = diet_schema.clone()
         dat = tdf.copy_tic_dat(diet_dat)
         tdf.set_infinity_io_flag(999999999)
         schema = test_schema + "_diet_inf_flagging"
-        tdf.pgsql.write_schema(self.engine, schema)
-        tdf.pgsql.write_data(dat, self.engine, schema)
-        dat_1 = tdf.pgsql.create_tic_dat(self.engine, schema)
-        self.assertTrue(tdf._same_data(dat, dat_1))
-        tdf = tdf.clone()
-        dat_1 = tdf.pgsql.create_tic_dat(self.engine, schema)
-        self.assertTrue(tdf._same_data(dat, dat_1))
-        tdf = TicDatFactory(**diet_schema.schema())
-        dat_1 = tdf.pgsql.create_tic_dat(self.engine, schema)
-        self.assertFalse(tdf._same_data(dat, dat_1))
-        self.assertTrue(dat_1.categories["protein"]["Max Nutrition"] == 999999999)
-        dat_1.categories["protein"]["Max Nutrition"] = float("inf")
-        self.assertTrue(tdf._same_data(dat, dat_1))
+        with self.engine.connect() as cn:
+            tdf.pgsql.write_schema(cn, schema)
+            tdf.pgsql.write_data(dat, cn, schema)
+            dat_1 = tdf.pgsql.create_tic_dat(cn, schema)
+            self.assertTrue(tdf._same_data(dat, dat_1))
+            tdf = tdf.clone()
+            dat_1 = tdf.pgsql.create_tic_dat(cn, schema)
+            self.assertTrue(tdf._same_data(dat, dat_1))
+            tdf = TicDatFactory(**diet_schema.schema())
+            dat_1 = tdf.pgsql.create_tic_dat(cn, schema)
+            self.assertFalse(tdf._same_data(dat, dat_1))
+            self.assertTrue(dat_1.categories["protein"]["Max Nutrition"] == 999999999)
+            dat_1.categories["protein"]["Max Nutrition"] = float("inf")
+            self.assertTrue(tdf._same_data(dat, dat_1))
 
     def testNullsPd(self):
         pdf = PanDatFactory(table=[[], ["field one", "field two"]])
@@ -849,54 +851,56 @@ class TestPostres(unittest.TestCase):
             pdf.set_data_type("table", f, nullable=True)
         dat = pdf.PanDat(table = {"field one": [None, 200, 0, 300, 400], "field two": [100, 109, 300, None, 0]})
         schema = test_schema + "_bool_defaults_pd"
-        pdf.pgsql.write_schema(self.engine, schema, include_ancillary_info=False)
-        pdf.pgsql.write_data(dat, self.engine, schema)
+        with self.engine.connect() as cn:
+            pdf.pgsql.write_schema(cn, schema, include_ancillary_info=False)
+            pdf.pgsql.write_data(dat, cn, schema)
 
-        dat_1 = pdf.pgsql.create_pan_dat(self.engine, schema)
-        self.assertTrue(pdf._same_data(dat, dat_1, nans_are_same_for_data_rows=True))
+            dat_1 = pdf.pgsql.create_pan_dat(cn, schema)
+            self.assertTrue(pdf._same_data(dat, dat_1, nans_are_same_for_data_rows=True))
 
-        pdf = PanDatFactory(table=[["field one"], ["field two"]])
-        for f in ["field one", "field two"]:
-            pdf.set_data_type("table", f, max=float("inf"), inclusive_max=True)
-        pdf.set_infinity_io_flag(None)
-        dat_inf = pdf.PanDat(table = {"field one": [float("inf"), 200, 0, 300, 400],
-                                      "field two": [100, 109, 300, float("inf"), 0]})
-        dat_1 = pdf.pgsql.create_pan_dat(self.engine, schema)
+            pdf = PanDatFactory(table=[["field one"], ["field two"]])
+            for f in ["field one", "field two"]:
+                pdf.set_data_type("table", f, max=float("inf"), inclusive_max=True)
+            pdf.set_infinity_io_flag(None)
+            dat_inf = pdf.PanDat(table = {"field one": [float("inf"), 200, 0, 300, 400],
+                                          "field two": [100, 109, 300, float("inf"), 0]})
+            dat_1 = pdf.pgsql.create_pan_dat(cn, schema)
 
-        self.assertTrue(pdf._same_data(dat_inf, dat_1))
-        pdf.pgsql.write_data(dat_inf, self.engine, schema)
-        dat_1 = pdf.pgsql.create_pan_dat(self.engine, schema)
-        self.assertTrue(pdf._same_data(dat_inf, dat_1))
+            self.assertTrue(pdf._same_data(dat_inf, dat_1))
+            pdf.pgsql.write_data(dat_inf, cn, schema)
+            dat_1 = pdf.pgsql.create_pan_dat(cn, schema)
+            self.assertTrue(pdf._same_data(dat_inf, dat_1))
 
-        pdf = PanDatFactory(table=[["field one"], ["field two"]])
-        for f in ["field one", "field two"]:
-            pdf.set_data_type("table", f, min=-float("inf"), inclusive_min=True)
-        pdf.set_infinity_io_flag(None)
-        dat_1 = pdf.pgsql.create_pan_dat(self.engine, schema)
-        self.assertFalse(pdf._same_data(dat_inf, dat_1))
-        dat_inf = pdf.PanDat(table = {"field one": [-float("inf"), 200, 0, 300, 400],
-                                      "field two": [100, 109, 300, -float("inf"), 0]})
-        self.assertTrue(pdf._same_data(dat_inf, dat_1))
+            pdf = PanDatFactory(table=[["field one"], ["field two"]])
+            for f in ["field one", "field two"]:
+                pdf.set_data_type("table", f, min=-float("inf"), inclusive_min=True)
+            pdf.set_infinity_io_flag(None)
+            dat_1 = pdf.pgsql.create_pan_dat(cn, schema)
+            self.assertFalse(pdf._same_data(dat_inf, dat_1))
+            dat_inf = pdf.PanDat(table = {"field one": [-float("inf"), 200, 0, 300, 400],
+                                          "field two": [100, 109, 300, -float("inf"), 0]})
+            self.assertTrue(pdf._same_data(dat_inf, dat_1))
 
     def testDietWithInfFlaggingPd(self):
         pdf = PanDatFactory.create_from_full_schema(diet_schema.schema(include_ancillary_info=True))
         dat = diet_schema.copy_to_pandas(diet_dat, drop_pk_columns=False)
         pdf.set_infinity_io_flag(999999999)
         schema = test_schema + "_diet_inf_flagging_pd"
-        pdf.pgsql.write_schema(self.engine, schema)
-        pdf.pgsql.write_data(dat, self.engine, schema)
-        dat_1 = pdf.pgsql.create_pan_dat(self.engine, schema)
-        self.assertTrue(pdf._same_data(dat, dat_1))
-        pdf = pdf.clone()
-        dat_1 = pdf.pgsql.create_pan_dat(self.engine, schema)
-        self.assertTrue(pdf._same_data(dat, dat_1))
-        tdf = PanDatFactory(**diet_schema.schema())
-        dat_1 = tdf.pgsql.create_pan_dat(self.engine, schema)
-        self.assertFalse(tdf._same_data(dat, dat_1))
-        protein = dat_1.categories["Name"] == "protein"
-        self.assertTrue(list(dat_1.categories[protein]["Max Nutrition"])[0] == 999999999)
-        dat_1.categories.loc[protein, "Max Nutrition"] = float("inf")
-        self.assertTrue(tdf._same_data(dat, dat_1))
+        with self.engine.connect() as cn:
+            pdf.pgsql.write_schema(cn, schema)
+            pdf.pgsql.write_data(dat, cn, schema)
+            dat_1 = pdf.pgsql.create_pan_dat(cn, schema)
+            self.assertTrue(pdf._same_data(dat, dat_1))
+            pdf = pdf.clone()
+            dat_1 = pdf.pgsql.create_pan_dat(cn, schema)
+            self.assertTrue(pdf._same_data(dat, dat_1))
+            tdf = PanDatFactory(**diet_schema.schema())
+            dat_1 = tdf.pgsql.create_pan_dat(cn, schema)
+            self.assertFalse(tdf._same_data(dat, dat_1))
+            protein = dat_1.categories["Name"] == "protein"
+            self.assertTrue(list(dat_1.categories[protein]["Max Nutrition"])[0] == 999999999)
+            dat_1.categories.loc[protein, "Max Nutrition"] = float("inf")
+            self.assertTrue(tdf._same_data(dat, dat_1))
 
     def test_parameters(self):
         schema = test_schema + "_parameters"
@@ -904,10 +908,11 @@ class TestPostres(unittest.TestCase):
         tdf.add_parameter("Something", 100)
         tdf.add_parameter("Different", 'boo', strings_allowed='*', number_allowed=False)
         dat = tdf.TicDat(parameters = [["Something",float("inf")], ["Different", "inf"]])
-        tdf.pgsql.write_schema(self.engine, schema)
-        tdf.pgsql.write_data(dat, self.engine, schema)
-        dat_ = tdf.pgsql.create_tic_dat(self.engine, schema)
-        self.assertTrue(tdf._same_data(dat, dat_))
+        with self.engine.connect() as cn:
+            tdf.pgsql.write_schema(cn, schema)
+            tdf.pgsql.write_data(dat, cn, schema)
+            dat_ = tdf.pgsql.create_tic_dat(cn, schema)
+            self.assertTrue(tdf._same_data(dat, dat_))
 
     def test_parameters_pd(self):
         schema = test_schema + "_parameters_pd"
@@ -916,10 +921,11 @@ class TestPostres(unittest.TestCase):
         pdf.add_parameter("Different", 'boo', strings_allowed='*', number_allowed=False)
         dat = TicDatFactory(**pdf.schema()).TicDat(parameters = [["Something",float("inf")], ["Different", "inf"]])
         dat = TicDatFactory(**pdf.schema()).copy_to_pandas(dat, drop_pk_columns=False)
-        pdf.pgsql.write_schema(self.engine, schema)
-        pdf.pgsql.write_data(dat, self.engine, schema)
-        dat_ = pdf.pgsql.create_pan_dat(self.engine, schema)
-        self.assertTrue(pdf._same_data(dat, dat_))
+        with self.engine.connect() as cn:
+            pdf.pgsql.write_schema(cn, schema)
+            pdf.pgsql.write_data(dat, cn, schema)
+            dat_ = pdf.pgsql.create_pan_dat(cn, schema)
+            self.assertTrue(pdf._same_data(dat, dat_))
 
     def testDateTime(self):
         schema = test_schema + "_datetime"
