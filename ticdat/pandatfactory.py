@@ -1196,9 +1196,14 @@ class PanDatFactory(object):
                 verify(self._true_data_types()[table][field].valid_data(value),
                        "The replacement value %s is not itself valid for %s : %s"%(value, table, field))
 
-        for (table, field), rows in replacements_needed.items() :
+        for table, field in replacements_needed:
             if (table, field) in real_replacements:
-                getattr(pan_dat, table).loc[rows, field] = real_replacements[table, field]
+                data_type = self._true_data_types()[table][field]
+                def bad_row(row):
+                    data = row[field]
+                    return not data_type.valid_data(None if isnull(data) else data)
+                getattr(pan_dat, table)[field] = utils.faster_df_apply(getattr(pan_dat, table), lambda row:
+                        real_replacements[table, field] if bad_row(row) else row[field])
         assert not set(self.find_data_type_failures(pan_dat)).intersection(real_replacements)
         return pan_dat
     def find_data_row_failures(self, pan_dat, as_table=True, exception_handling="__debug__",
