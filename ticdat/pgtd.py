@@ -235,6 +235,7 @@ class _PostgresFactory(freezable_factory(object, "_isFrozen"),):
             engine.execute(sa.schema.CreateSchema(schema))
         for str in self._get_schema_sql(self.tdf.all_tables, schema, forced_field_types):
             engine.execute(saxt(str))
+        engine.commit() if hasattr(engine, "commit") else None
 
     def _handle_prexisting_rows(self, engine, schema, pre_existing_rows):
         verify(isinstance(pre_existing_rows, dict), "pre_existing_rows needs to dict")
@@ -462,6 +463,7 @@ class PostgresTicFactory(_PostgresFactory):
                 print("***pgtd.py not using most efficient data writing technique**")
             for sql_str, data in all_dat:
                 engine.execute(saxt(sql_str), data)
+        engine.commit() if hasattr(engine, "commit") else None
 
 
 class PostgresPanFactory(_PostgresFactory):
@@ -587,3 +589,4 @@ class PostgresPanFactory(_PostgresFactory):
                 df.to_sql(name=table, schema=schema, con=engine, if_exists="append", index=False)
             if progress and not progress.numerical_progress("Uploading...", 100.*i/len(to_upload)):
                 break
+        engine.commit() if hasattr(engine, "commit") else None
