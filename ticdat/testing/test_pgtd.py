@@ -693,42 +693,43 @@ class TestPostres(unittest.TestCase):
         pdf.set_default_value("boger", "c", "hoya")
         dat = pdf.PanDat(boger = pd.DataFrame({"a": [1, 2, 3], "b":[4, 5,6], "c":['a', 'b', 'c']}))
         schema = "test_pd_extra_fields"
-        pdf.pgsql.write_schema(self.engine, schema, forced_field_types={("boger", "c"): "text",
-                                                                                      ("boger", "a"):"float"})
-        pdf.pgsql.write_data(dat, self.engine, schema)
-        pdf2 = PanDatFactory(boger=[["a"], ["b"]])
-        dat2 = pdf2.pgsql.create_pan_dat(self.engine, schema)
-        self.assertTrue(list(dat2.boger["a"]) == [1.0, 2.0, 3.0] and list(dat2.boger["b"]) == [4.0, 5.0, 6.0])
-        dat2_2 = pdf2.PanDat(boger = pd.DataFrame({"a": [10, 300], "b":[40, 60]}))
-        pdf2.pgsql.write_data(dat2_2, self.engine, schema)
-        dat = pdf.pgsql.create_pan_dat(self.engine, schema)
-        self.assertTrue(list(dat.boger["a"]) == [10, 300] and list(dat.boger["b"]) == [40, 60])
-        self.assertTrue(set(dat.boger["c"]) == {'hoya'})
+        with self.engine.connect() as cn:
+            pdf.pgsql.write_schema(cn, schema, forced_field_types={("boger", "c"): "text",
+                                                                                          ("boger", "a"):"float"})
+            pdf.pgsql.write_data(dat, cn, schema)
+            pdf2 = PanDatFactory(boger=[["a"], ["b"]])
+            dat2 = pdf2.pgsql.create_pan_dat(cn, schema)
+            self.assertTrue(list(dat2.boger["a"]) == [1.0, 2.0, 3.0] and list(dat2.boger["b"]) == [4.0, 5.0, 6.0])
+            dat2_2 = pdf2.PanDat(boger = pd.DataFrame({"a": [10, 300], "b":[40, 60]}))
+            pdf2.pgsql.write_data(dat2_2, cn, schema)
+            dat = pdf.pgsql.create_pan_dat(cn, schema)
+            self.assertTrue(list(dat.boger["a"]) == [10, 300] and list(dat.boger["b"]) == [40, 60])
+            self.assertTrue(set(dat.boger["c"]) == {'hoya'})
 
-        pdf2 = PanDatFactory(boger=[["b"], ["a"]])
-        dat2_2 = pdf2.PanDat(boger = pd.DataFrame({"b":[41, 61], "a": [21, 31]}))
-        pdf2.pgsql.write_data(dat2_2, self.engine, schema)
-        dat = pdf.pgsql.create_pan_dat(self.engine, schema)
-        self.assertTrue(list(dat.boger["a"]) == [21, 31] and list(dat.boger["b"]) == [41, 61])
-        self.assertTrue(set(dat.boger["c"]) == {'hoya'})
+            pdf2 = PanDatFactory(boger=[["b"], ["a"]])
+            dat2_2 = pdf2.PanDat(boger = pd.DataFrame({"b":[41, 61], "a": [21, 31]}))
+            pdf2.pgsql.write_data(dat2_2, cn, schema)
+            dat = pdf.pgsql.create_pan_dat(cn, schema)
+            self.assertTrue(list(dat.boger["a"]) == [21, 31] and list(dat.boger["b"]) == [41, 61])
+            self.assertTrue(set(dat.boger["c"]) == {'hoya'})
 
-        pdf2 = PanDatFactory(boger=[["b"], ["z", "a"]])
-        dat2_2 = pdf2.PanDat(boger = pd.DataFrame({"z": ["this", "that", "other"], "b":[42, 61, 1], "a": [22, 31, 2]}))
-        self.assertTrue(list(dat2_2.boger.columns) == ['b', 'z', 'a'])
-        # extra columns won't work when they are part of the PanDatFactory!
-        ex = []
-        try:
-            pdf2.pgsql.write_data(dat2_2, self.engine, schema)
-        except Exception as e:
-            ex.append(str(e))
-        self.assertTrue("Unable to recognize" in ex[0])
+            pdf2 = PanDatFactory(boger=[["b"], ["z", "a"]])
+            dat2_2 = pdf2.PanDat(boger = pd.DataFrame({"z": ["this", "that", "other"], "b":[42, 61, 1],
+                                                       "a": [22, 31, 2]}))
+            self.assertTrue(list(dat2_2.boger.columns) == ['b', 'z', 'a'])
+            # extra columns won't work when they are part of the PanDatFactory!
+            ex = []
+            try:
+                pdf2.pgsql.write_data(dat2_2, cn, schema)
+            except Exception as e:
+                ex.append(str(e))
+            self.assertTrue("Unable to recognize" in ex[0])
 
-        pdf2 = PanDatFactory(boger=[["b"], ["a"]])
-        pdf2.pgsql.write_data(dat2_2, self.engine, schema)
-        dat = pdf.pgsql.create_pan_dat(self.engine, schema)
-        self.assertTrue(list(dat.boger["a"]) == [22, 31, 2] and list(dat.boger["b"]) == [42, 61, 1])
-        self.assertTrue(set(dat.boger["c"]) == {'hoya'})
-
+            pdf2 = PanDatFactory(boger=[["b"], ["a"]])
+            pdf2.pgsql.write_data(dat2_2, cn, schema)
+            dat = pdf.pgsql.create_pan_dat(cn, schema)
+            self.assertTrue(list(dat.boger["a"]) == [22, 31, 2] and list(dat.boger["b"]) == [42, 61, 1])
+            self.assertTrue(set(dat.boger["c"]) == {'hoya'})
 
     def test_time_stamp(self):
         tdf = TicDatFactory(table=[["Blah"],["Timed Info"]])
@@ -738,40 +739,41 @@ class TestPostres(unittest.TestCase):
         dat.table[1] = dateutil.parser.parse("2014-05-01 18:47:05.069722")
         dat.table[2] = dateutil.parser.parse("2014-05-02 18:47:05.178768")
         pgtf = tdf.pgsql
-        pgtf.write_schema(self.engine, test_schema,
-                          forced_field_types={('table', 'Blah'):"integer", ('table', 'Timed Info'):"timestamp"})
-        pgtf.write_data(dat, self.engine, test_schema, dsn=self.postgresql.dsn())
-        dat_2 = pgtf.create_tic_dat(self.engine, test_schema)
-        self.assertTrue(tdf._same_data(dat, dat_2))
-        self.assertTrue(all(isinstance(row["Timed Info"], datetime.datetime) for row in dat_2.table.values()))
-        self.assertFalse(any(isinstance(k, datetime.datetime) for k in dat_2.table))
+        with self.engine.connect() as cn:
+            pgtf.write_schema(cn, test_schema,
+                              forced_field_types={('table', 'Blah'):"integer", ('table', 'Timed Info'):"timestamp"})
+            pgtf.write_data(dat, cn, test_schema, dsn=self.postgresql.dsn())
+            dat_2 = pgtf.create_tic_dat(cn, test_schema)
+            self.assertTrue(tdf._same_data(dat, dat_2))
+            self.assertTrue(all(isinstance(row["Timed Info"], datetime.datetime) for row in dat_2.table.values()))
+            self.assertFalse(any(isinstance(k, datetime.datetime) for k in dat_2.table))
 
-        pdf = PanDatFactory.create_from_full_schema(tdf.schema(include_ancillary_info=True))
-        def same_data(pan_dat, pan_dat_2):
-            df1, df2 = pan_dat.table, pan_dat_2.table
-            if list(df1["Blah"]) != list(df2["Blah"]):
-                return False
-            for dt1, dt2 in zip(df1["Timed Info"], df2["Timed Info"]):
-                delta = dt1 - dt2
-                if abs(delta.total_seconds()) > 1e-6:
+            pdf = PanDatFactory.create_from_full_schema(tdf.schema(include_ancillary_info=True))
+            def same_data(pan_dat, pan_dat_2):
+                df1, df2 = pan_dat.table, pan_dat_2.table
+                if list(df1["Blah"]) != list(df2["Blah"]):
                     return False
-            return True
-        pan_dat = pdf.pgsql.create_pan_dat(self.engine, test_schema)
-        pan_dat_2 = pan_dat_maker(tdf.schema(), dat_2)
-        self.assertTrue(same_data(pan_dat, pan_dat_2))
-        for df in [_.table for _ in [pan_dat, pan_dat_2]]:
-            for i in range(len(df)):
-                self.assertFalse(isinstance(df.loc[i, "Blah"], datetime.datetime))
-                self.assertTrue(isinstance(df.loc[i, "Timed Info"], datetime.datetime))
+                for dt1, dt2 in zip(df1["Timed Info"], df2["Timed Info"]):
+                    delta = dt1 - dt2
+                    if abs(delta.total_seconds()) > 1e-6:
+                        return False
+                return True
+            pan_dat = pdf.pgsql.create_pan_dat(cn, test_schema)
+            pan_dat_2 = pan_dat_maker(tdf.schema(), dat_2)
+            self.assertTrue(same_data(pan_dat, pan_dat_2))
+            for df in [_.table for _ in [pan_dat, pan_dat_2]]:
+                for i in range(len(df)):
+                    self.assertFalse(isinstance(df.loc[i, "Blah"], datetime.datetime))
+                    self.assertTrue(isinstance(df.loc[i, "Timed Info"], datetime.datetime))
 
-        pan_dat.table.loc[1, "Timed Info"] = dateutil.parser.parse("2014-05-02 18:48:05.178768")
-        self.assertFalse(same_data(pan_dat, pan_dat_2))
-        pdf.pgsql.write_data(pan_dat, self.engine, test_schema)
-        pan_dat_2 = pdf.pgsql.create_pan_dat(self.engine, test_schema)
-        self.assertTrue(same_data(pan_dat, pan_dat_2))
+            pan_dat.table.loc[1, "Timed Info"] = dateutil.parser.parse("2014-05-02 18:48:05.178768")
+            self.assertFalse(same_data(pan_dat, pan_dat_2))
+            pdf.pgsql.write_data(pan_dat, cn, test_schema)
+            pan_dat_2 = pdf.pgsql.create_pan_dat(cn, test_schema)
+            self.assertTrue(same_data(pan_dat, pan_dat_2))
 
-        dat.table[2] = dateutil.parser.parse("2014-05-02 18:48:05.178768")
-        self.assertFalse(tdf._same_data(dat, dat_2))
+            dat.table[2] = dateutil.parser.parse("2014-05-02 18:48:05.178768")
+            self.assertFalse(tdf._same_data(dat, dat_2))
 
     def test_missing_tables(self):
         schema = test_schema + "_missing_tables"
@@ -781,12 +783,13 @@ class TestPostres(unittest.TestCase):
         pdf_2 = PanDatFactory(**tdf_2.schema())
         dat = tdf_1.TicDat(this=[["a", 2],["b", 3],["c", 5]])
         pan_dat = tdf_1.copy_to_pandas(dat, drop_pk_columns=False)
-        tdf_1.pgsql.write_schema(self.engine, schema)
-        tdf_1.pgsql.write_data(dat, self.engine, schema)
-        pg_dat = tdf_2.pgsql.create_tic_dat(self.engine, schema)
-        self.assertTrue(tdf_1._same_data(dat, pg_dat))
-        pg_pan_dat = pdf_2.pgsql.create_pan_dat(self.engine, schema)
-        self.assertTrue(pdf_1._same_data(pan_dat, pg_pan_dat))
+        with self.engine.connect() as cn:
+            tdf_1.pgsql.write_schema(cn, schema)
+            tdf_1.pgsql.write_data(dat, cn, schema)
+            pg_dat = tdf_2.pgsql.create_tic_dat(cn, schema)
+            self.assertTrue(tdf_1._same_data(dat, pg_dat))
+            pg_pan_dat = pdf_2.pgsql.create_pan_dat(cn, schema)
+            self.assertTrue(pdf_1._same_data(pan_dat, pg_pan_dat))
 
     def testNullsAndInf(self):
         tdf = TicDatFactory(table=[["field one"], ["field two"]])
