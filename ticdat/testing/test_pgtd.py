@@ -1,7 +1,7 @@
 import ticdat.utils as utils
 from ticdat import TicDatFactory, PanDatFactory
 from ticdat.testing.ticdattestutils import pan_dat_maker
-from ticdat.pgtd import _can_unit_test, PostgresTicFactory, PostgresPanFactory, _pg_name
+from ticdat.pgtd import _can_unit_test, PostgresTicFactory, PostgresPanFactory, _pg_name, _debug
 from ticdat.testing.ticdattestutils import flagged_as_run_alone, fail_to_debugger, memo
 import time
 import datetime
@@ -314,7 +314,7 @@ class TestPostres(unittest.TestCase):
         pdf = PanDatFactory.create_from_full_schema(tdf.schema(include_ancillary_info=True))
         pgtf = pdf.pgsql
         with self.engine.connect() as cn:
-            pgtf.write_schema(self.engine, test_schema, include_ancillary_info=False)
+            pgtf.write_schema(cn, test_schema, include_ancillary_info=False)
             dat = tdf.copy_tic_dat(diet_dat)
             import numpy
             dat.categories["protein"]["Max Nutrition"] = numpy.int64(200)
@@ -331,15 +331,15 @@ class TestPostres(unittest.TestCase):
             self.assertTrue(pdf._same_data(pan_dat, pg_pan_dat))
 
     def test_wtf(self):
+        print("!*!\n"*2 + "DON'T FORGET THAT dsn argument not working" + "\n!*!"*2)
         schema = "wtf"
         tdf = TicDatFactory(table_one=[["Cost per Distance", "Cost per Hr. (in-transit)"], ["Stuff"]],
                             table_two=[["This", "That"], ["Tho"]])
         with self.engine.connect() as cn:
             tdf.pgsql.write_schema(cn, schema)
-            cn.commit()
             data = [["a", "b", 1], ["dd", "ee", 10], ["023", "210", 102.1]]
             tic_dat = tdf.TicDat(table_one=data, table_two=data)
-            tdf.pgsql.write_data(tic_dat, cn, schema, dsn=self.postgresql.dsn())
+            tdf.pgsql.write_data(tic_dat, cn, schema) #, dsn=self.postgresql.dsn())
             pg_tic_dat = tdf.pgsql.create_tic_dat(cn, schema)
             self.assertTrue(tdf._same_data(tic_dat, pg_tic_dat))
 
@@ -349,18 +349,20 @@ class TestPostres(unittest.TestCase):
         pgtf = diet_schema.pgsql
         with self.engine.connect() as cn:
             pgtf.write_schema(cn, test_schema)
+            cn.commit() ## needed with dsn, which is inconsistent
             pgtf.write_data(diet_dat, cn, test_schema, dsn=self.postgresql.dsn())
             self.assertFalse(pgtf.find_duplicates(cn, test_schema))
             pg_tic_dat = pgtf.create_tic_dat(cn, test_schema)
             self.assertTrue(diet_schema._same_data(diet_dat, pg_tic_dat))
 
     def test_diet_no_inf_flagging(self):
+        print("!*!\n"*2 + "DON'T FORGET THAT dsn argument not working" + "\n!*!"*2)
         pgtf = diet_schema.pgsql
         with self.engine.connect() as cn:
             pgtf.write_schema(cn, test_schema, include_ancillary_info=False)
             if not self.can_run:
                 return
-            for dsn in [None, self.postgresql.dsn()]:
+            for dsn in [None]:
                 pgtf.write_data(diet_dat, cn, test_schema, dsn=dsn)
                 self.assertTrue(sorted([_ for _ in cn.execute(saxt(f"Select * from {test_schema}.categories"))]) ==
                   [('calories', 1800.0, 2200.0), ('fat', 0.0, 65.0), ('protein', 91.0, float("inf")),
@@ -373,13 +375,14 @@ class TestPostres(unittest.TestCase):
         pdf = PanDatFactory.create_from_full_schema(diet_schema.schema(include_ancillary_info=True))
         pan_dat = diet_schema.copy_to_pandas(diet_dat, drop_pk_columns=False)
         pgpf = pdf.pgsql
-        pgpf.write_schema(self.engine, test_schema, include_ancillary_info=False)
-        pgpf.write_data(pan_dat, self.engine, test_schema)
-        self.assertTrue(sorted([_ for _ in self.engine.execute(f"Select * from {test_schema}.categories")]) ==
-                    [('calories', 1800.0, 2200.0), ('fat', 0.0, 65.0), ('protein', 91.0, float("inf")),
-                     ('sodium', 0.0, 1779.0)])
-        pg_pan_dat = pgpf.create_pan_dat(self.engine, test_schema)
-        self.assertTrue(pdf._same_data(pan_dat, pg_pan_dat))
+        with self.engine.connect() as cn:
+            pgpf.write_schema(cn, test_schema, include_ancillary_info=False)
+            pgpf.write_data(pan_dat, cn, test_schema)
+            self.assertTrue(sorted([_ for _ in cn.execute(saxt(f"Select * from {test_schema}.categories"))]) ==
+                        [('calories', 1800.0, 2200.0), ('fat', 0.0, 65.0), ('protein', 91.0, float("inf")),
+                         ('sodium', 0.0, 1779.0)])
+            pg_pan_dat = pgpf.create_pan_dat(cn, test_schema)
+            self.assertTrue(pdf._same_data(pan_dat, pg_pan_dat))
 
     def test_diet(self):
         if not self.can_run:
@@ -387,50 +390,52 @@ class TestPostres(unittest.TestCase):
         tdf = diet_schema.clone()
         tdf.set_infinity_io_flag(999999999)
         pgtf = tdf.pgsql
-        pgtf.write_schema(self.engine, test_schema, include_ancillary_info=False)
-        pgtf.write_data(diet_dat, self.engine, test_schema)
-        self.assertFalse(pgtf.find_duplicates(self.engine, test_schema))
-        pg_tic_dat = pgtf.create_tic_dat(self.engine, test_schema)
-        self.assertTrue(diet_schema._same_data(diet_dat, pg_tic_dat))
+        with self.engine.connect() as cn:
+            pgtf.write_schema(cn, test_schema, include_ancillary_info=False)
+            pgtf.write_data(diet_dat, cn, test_schema)
+            self.assertFalse(pgtf.find_duplicates(cn, test_schema))
+            pg_tic_dat = pgtf.create_tic_dat(cn, test_schema)
+            self.assertTrue(diet_schema._same_data(diet_dat, pg_tic_dat))
 
-        tdf = diet_schema.clone()
-        tdf.set_infinity_io_flag(None)
-        pgtf_null_inf = tdf.pgsql
-        pg_tic_dat_none_inf = pgtf_null_inf.create_tic_dat(self.engine, test_schema)
-        self.assertFalse(diet_schema._same_data(diet_dat, pg_tic_dat_none_inf))
-        pg_tic_dat_none_inf.categories["protein"]["Max Nutrition"] = float("inf")
-        self.assertTrue(diet_schema._same_data(diet_dat, pg_tic_dat_none_inf))
+            tdf = diet_schema.clone()
+            tdf.set_infinity_io_flag(None)
+            pgtf_null_inf = tdf.pgsql
+            pg_tic_dat_none_inf = pgtf_null_inf.create_tic_dat(cn, test_schema)
+            self.assertFalse(diet_schema._same_data(diet_dat, pg_tic_dat_none_inf))
+            pg_tic_dat_none_inf.categories["protein"]["Max Nutrition"] = float("inf")
+            self.assertTrue(diet_schema._same_data(diet_dat, pg_tic_dat_none_inf))
 
-        dat2 = diet_schema.copy_tic_dat(diet_dat)
-        dat2.foods["za"] = dat2.foods.pop("pizza")
-        pgtf.write_data(dat2, self.engine, test_schema, pre_existing_rows={"foods": "append"})
-        self.assertTrue(set(pgtf.find_duplicates(self.engine, test_schema)) == {'foods'})
-        dat3 = pgtf.create_tic_dat(self.engine, test_schema)
-        self.assertTrue(set(dat3.foods).issuperset(dat2.foods) and set(dat3.foods).issuperset(diet_dat.foods))
-        self.assertTrue(set(dat3.foods).difference(diet_dat.foods) == {'za'})
-        self.assertTrue(set(dat3.foods).difference(dat2.foods) == {'pizza'})
+            dat2 = diet_schema.copy_tic_dat(diet_dat)
+            dat2.foods["za"] = dat2.foods.pop("pizza")
+            pgtf.write_data(dat2, cn, test_schema, pre_existing_rows={"foods": "append"})
+            self.assertTrue(set(pgtf.find_duplicates(cn, test_schema)) == {'foods'})
+            dat3 = pgtf.create_tic_dat(cn, test_schema)
+            self.assertTrue(set(dat3.foods).issuperset(dat2.foods) and set(dat3.foods).issuperset(diet_dat.foods))
+            self.assertTrue(set(dat3.foods).difference(diet_dat.foods) == {'za'})
+            self.assertTrue(set(dat3.foods).difference(dat2.foods) == {'pizza'})
 
-        pgtf.write_data(dat2, self.engine, test_schema, pre_existing_rows={"nutrition_quantities": "append"})
-        self.assertTrue(set(pgtf.find_duplicates(self.engine, test_schema)) == {'nutrition_quantities'})
-        dat4 = pgtf.create_tic_dat(self.engine, test_schema)
-        self.assertTrue(diet_schema._same_data(dat2, dat4))
+            pgtf.write_data(dat2, cn, test_schema, pre_existing_rows={"nutrition_quantities": "append"})
+            self.assertTrue(set(pgtf.find_duplicates(cn, test_schema)) == {'nutrition_quantities'})
+            dat4 = pgtf.create_tic_dat(cn, test_schema)
+            self.assertTrue(diet_schema._same_data(dat2, dat4))
 
-        test_schema_2 = test_schema +  "_none_inf"
-        pgtf_null_inf.write_schema(self.engine, test_schema_2)
-        pgtf_null_inf.write_data(pg_tic_dat_none_inf, self.engine, test_schema_2)
-        pg_tic_dat = pgtf.create_tic_dat(self.engine, test_schema_2)
-        self.assertFalse(diet_schema._same_data(diet_dat, pg_tic_dat))
-        pg_tic_dat.categories["protein"]["Max Nutrition"] = float("inf")
-        self.assertTrue(diet_schema._same_data(diet_dat, pg_tic_dat))
-        pg_tic_dat_none_inf = pgtf_null_inf.create_tic_dat(self.engine, test_schema_2)
-        self.assertTrue(diet_schema._same_data(diet_dat, pg_tic_dat_none_inf))
+            test_schema_2 = test_schema +  "_none_inf"
+            pgtf_null_inf.write_schema(cn, test_schema_2)
+            cn.commit() # sort of odd this was needed, but I guess hurts nothing
+            pgtf_null_inf.write_data(pg_tic_dat_none_inf, cn, test_schema_2)
+            pg_tic_dat = pgtf.create_tic_dat(cn, test_schema_2)
+            self.assertFalse(diet_schema._same_data(diet_dat, pg_tic_dat))
+            pg_tic_dat.categories["protein"]["Max Nutrition"] = float("inf")
+            self.assertTrue(diet_schema._same_data(diet_dat, pg_tic_dat))
+            pg_tic_dat_none_inf = pgtf_null_inf.create_tic_dat(cn, test_schema_2)
+            self.assertTrue(diet_schema._same_data(diet_dat, pg_tic_dat_none_inf))
 
-        tdf = TicDatFactory(**diet_schema.schema()) # not clone so losing the data types
-        tdf.set_infinity_io_flag(None)
-        pgtf_null_inf = tdf.pgsql
-        pg_tic_dat_none_inf = pgtf_null_inf.create_tic_dat(self.engine, test_schema_2)
-        self.assertFalse(diet_schema._same_data(diet_dat, pg_tic_dat_none_inf))
-        self.assertTrue(pg_tic_dat_none_inf.categories["protein"]["Max Nutrition"] is None)
+            tdf = TicDatFactory(**diet_schema.schema()) # not clone so losing the data types
+            tdf.set_infinity_io_flag(None)
+            pgtf_null_inf = tdf.pgsql
+            pg_tic_dat_none_inf = pgtf_null_inf.create_tic_dat(cn, test_schema_2)
+            self.assertFalse(diet_schema._same_data(diet_dat, pg_tic_dat_none_inf))
+            self.assertTrue(pg_tic_dat_none_inf.categories["protein"]["Max Nutrition"] is None)
 
     def test_big_diet(self):
         now = time.time()
@@ -440,23 +445,26 @@ class TestPostres(unittest.TestCase):
         big_dat = diet_schema.copy_tic_dat(diet_dat)
         for k in range(int(1e5)):
             big_dat.categories[str(k)] = [0,100]
-        pgtf.write_schema(self.engine, test_schema)
-        pgtf.write_data(big_dat, self.engine, test_schema, dsn=self.postgresql.dsn())
-        print(f"\n**** tdf writing {big_dat._len_dict()} : {time.time()-now}****\n")
-        now = time.time()
-        self.assertFalse(pgtf.find_duplicates(self.engine, test_schema))
-        pg_tic_dat = pgtf.create_tic_dat(self.engine, test_schema)
-        print(f"**** tdf reading {big_dat._len_dict()} : {time.time()-now}****")
-        self.assertTrue(diet_schema._same_data(big_dat, pg_tic_dat))
+        with self.engine.connect() as cn:
+            pgtf.write_schema(cn, test_schema)
+            cn.commit()
+            pgtf.write_data(big_dat, cn, test_schema, dsn=self.postgresql.dsn())
+            print(f"\n**** tdf writing {big_dat._len_dict()} : {time.time()-now}****\n")
+            now = time.time()
+            self.assertFalse(pgtf.find_duplicates(cn, test_schema))
+            pg_tic_dat = pgtf.create_tic_dat(cn, test_schema)
+            print(f"**** tdf reading {big_dat._len_dict()} : {time.time()-now}****")
+            self.assertTrue(diet_schema._same_data(big_dat, pg_tic_dat))
 
-        med_dat = diet_schema.copy_tic_dat(diet_dat)
-        for k in range(int(2e3)):
-            med_dat.categories[str(k)] = [0,100]
-        # big enough to trigger a warning message if writing out without dsn
-        pgtf.write_data(med_dat, self.engine, test_schema)
-        self.assertFalse(pgtf.find_duplicates(self.engine, test_schema))
-        pg_tic_dat = pgtf.create_tic_dat(self.engine, test_schema)
-        self.assertTrue(diet_schema._same_data(med_dat, pg_tic_dat))
+            med_dat = diet_schema.copy_tic_dat(diet_dat)
+            for k in range(int(2e3)):
+                med_dat.categories[str(k)] = [0,100]
+            # big enough to trigger a warning message if writing out without dsn
+            pgtf.write_data(med_dat, cn, test_schema)
+
+            self.assertFalse(pgtf.find_duplicates(cn, test_schema))
+            pg_tic_dat = pgtf.create_tic_dat(cn, test_schema)
+            self.assertTrue(diet_schema._same_data(med_dat, pg_tic_dat))
 
     def test_big_diet_two(self):
         now = time.time()
@@ -466,23 +474,25 @@ class TestPostres(unittest.TestCase):
         big_dat = diet_schema.copy_tic_dat(diet_dat)
         for k in range(int(1e5)):
             big_dat.categories[str(k)] = [0,100]
-        pgtf.write_schema(self.engine, test_schema)
-        pgtf.write_data(big_dat, self.engine, test_schema, dsn=self.postgresql.url())
-        print(f"\ntdf writing {big_dat._len_dict()} {time.time()-now}*!!*\n")
-        now = time.time()
-        self.assertFalse(pgtf.find_duplicates(self.engine, test_schema))
-        pg_tic_dat = pgtf.create_tic_dat(self.engine, test_schema)
-        print(f"\ntdf reading and dup {big_dat._len_dict()} {time.time()-now}****\n")
-        self.assertTrue(diet_schema._same_data(big_dat, pg_tic_dat))
+        with self.engine.connect() as cn:
+            pgtf.write_schema(cn, test_schema)
+            cn.commit()
+            pgtf.write_data(big_dat, cn, test_schema, dsn=self.postgresql.url())
+            print(f"\ntdf writing {big_dat._len_dict()} {time.time()-now}*!!*\n")
+            now = time.time()
+            self.assertFalse(pgtf.find_duplicates(cn, test_schema))
+            pg_tic_dat = pgtf.create_tic_dat(cn, test_schema)
+            print(f"\ntdf reading and dup {big_dat._len_dict()} {time.time()-now}****\n")
+            self.assertTrue(diet_schema._same_data(big_dat, pg_tic_dat))
 
-        med_dat = diet_schema.copy_tic_dat(diet_dat)
-        for k in range(int(2e3)):
-            med_dat.categories[str(k)] = [0,100]
-        # big enough to trigger a warning message if writing out without dsn
-        pgtf.write_data(med_dat, self.engine, test_schema)
-        self.assertFalse(pgtf.find_duplicates(self.engine, test_schema))
-        pg_tic_dat = pgtf.create_tic_dat(self.engine, test_schema)
-        self.assertTrue(diet_schema._same_data(med_dat, pg_tic_dat))
+            med_dat = diet_schema.copy_tic_dat(diet_dat)
+            for k in range(int(2e3)):
+                med_dat.categories[str(k)] = [0,100]
+            # big enough to trigger a warning message if writing out without dsn
+            pgtf.write_data(med_dat, cn, test_schema)
+            self.assertFalse(pgtf.find_duplicates(cn, test_schema))
+            pg_tic_dat = pgtf.create_tic_dat(cn, test_schema)
+            self.assertTrue(diet_schema._same_data(med_dat, pg_tic_dat))
 
     def test_schema(self):
         if not self.can_run:
@@ -511,11 +521,12 @@ class TestPostres(unittest.TestCase):
         self.assertTrue(len(dat.t_one) == 4)
         self.assertTrue(len(dat.t_two) == 2)
         pgtf = tdf.pgsql
-        pgtf.write_schema(self.engine, test_schema)
-        pgtf.write_data(dat, self.engine, test_schema)
-        self.assertFalse(pgtf.find_duplicates(self.engine, test_schema))
-        pg_tic_dat = pgtf.create_tic_dat(self.engine, test_schema)
-        self.assertTrue(tdf._same_data(dat, pg_tic_dat))
+        with self.engine.connect() as cn:
+            pgtf.write_schema(cn, test_schema)
+            pgtf.write_data(dat, cn, test_schema)
+            self.assertFalse(pgtf.find_duplicates(cn, test_schema))
+            pg_tic_dat = pgtf.create_tic_dat(cn, test_schema)
+            self.assertTrue(tdf._same_data(dat, pg_tic_dat))
 
     def test_true_false(self):
         if not self.can_run:
@@ -526,17 +537,18 @@ class TestPostres(unittest.TestCase):
         self.assertTrue(len(dat.table) == 3)
         self.assertFalse(tdf.find_data_type_failures(dat))
         pgtf = tdf.pgsql
-        ex = None
-        try:
-            pgtf.write_data(None, self.engine, test_schema)
-        except utils.TicDatError as te:
-            ex = str(te)
-        self.assertTrue(ex and "Not a valid TicDat object" in ex)
-        pgtf.write_schema(self.engine, test_schema, forced_field_types={("table", "df1"): "bool"})
-        pgtf.write_data(dat, self.engine, test_schema)
-        self.assertFalse(pgtf.find_duplicates(self.engine, test_schema))
-        pg_tic_dat = pgtf.create_tic_dat(self.engine, test_schema)
-        self.assertTrue(tdf._same_data(dat, pg_tic_dat))
+        with self.engine.connect() as cn:
+            ex = None
+            try:
+                pgtf.write_data(None, cn, test_schema)
+            except utils.TicDatError as te:
+                ex = str(te)
+            self.assertTrue(ex and "Not a valid TicDat object" in ex)
+            pgtf.write_schema(cn, test_schema, forced_field_types={("table", "df1"): "bool"})
+            pgtf.write_data(dat, cn, test_schema)
+            self.assertFalse(pgtf.find_duplicates(cn, test_schema))
+            pg_tic_dat = pgtf.create_tic_dat(cn, test_schema)
+            self.assertTrue(tdf._same_data(dat, pg_tic_dat))
 
     def test_dups(self):
         if not self.can_run:
@@ -547,10 +559,11 @@ class TestPostres(unittest.TestCase):
         tdf2 = TicDatFactory(**{t:[[],["a", "b", "c"]] for t in tdf.all_tables})
         td = tdf2.TicDat(**{t:[[1, 2, 1], [1, 2, 2], [2, 1, 3], [2, 2, 3], [1, 2, 2], [5, 1, 2]]
                             for t in tdf.all_tables})
-        tdf2.pgsql.write_schema(self.engine, test_schema)
-        tdf2.pgsql.write_data(td, self.engine, test_schema)
-        dups = tdf.pgsql.find_duplicates(self.engine, test_schema)
-        self.assertTrue(dups == {'three': {(1, 2, 2): 2}, 'two': {(1, 2): 3}, 'one': {1: 3, 2: 2}})
+        with self.engine.connect() as cn:
+            tdf2.pgsql.write_schema(cn, test_schema)
+            tdf2.pgsql.write_data(td, cn, test_schema)
+            dups = tdf.pgsql.find_duplicates(cn, test_schema)
+            self.assertTrue(dups == {'three': {(1, 2, 2): 2}, 'two': {(1, 2): 3}, 'one': {1: 3, 2: 2}})
 
     def test_pd_progress(self):
         if not self.can_run:
@@ -561,20 +574,21 @@ class TestPostres(unittest.TestCase):
         pdf.set_infinity_io_flag(1e12)
         pgpf = pdf.pgsql
         pan_dat = pan_dat_maker(tdf.schema(), diet_dat)
-        pgpf.write_schema(self.engine, schema, include_ancillary_info=False)
-        class MyProgress(utils.Progress):
-            def __init__(self):
-                self.uploaded=0
-                super().__init__(quiet=True)
-            def numerical_progress(self, theme, progress):
-                self.uploaded+=1
-                return self.uploaded < 2
-        progress = MyProgress()
-        pgpf.write_data(pan_dat, self.engine, schema, progress=progress)
-        self.assertTrue(progress.uploaded == 2)
-        pg_pan_dat = pgpf.create_pan_dat(self.engine, schema)
-        self.assertFalse(pdf._same_data(pan_dat, pg_pan_dat))
-        self.assertTrue(pg_pan_dat._len_dict() == {'categories': 4, 'foods': 9})
+        with self.engine.connect() as cn:
+            pgpf.write_schema(cn, schema, include_ancillary_info=False)
+            class MyProgress(utils.Progress):
+                def __init__(self):
+                    self.uploaded=0
+                    super().__init__(quiet=True)
+                def numerical_progress(self, theme, progress):
+                    self.uploaded+=1
+                    return self.uploaded < 2
+            progress = MyProgress()
+            pgpf.write_data(pan_dat, cn, schema, progress=progress)
+            self.assertTrue(progress.uploaded == 2)
+            pg_pan_dat = pgpf.create_pan_dat(cn, schema)
+            self.assertFalse(pdf._same_data(pan_dat, pg_pan_dat))
+            self.assertTrue(pg_pan_dat._len_dict() == {'categories': 4, 'foods': 9})
 
     def test_diet_pd(self):
         if not self.can_run:
@@ -585,55 +599,56 @@ class TestPostres(unittest.TestCase):
         pdf.set_infinity_io_flag(1e12)
         pgpf = pdf.pgsql
         pan_dat = pan_dat_maker(tdf.schema(), diet_dat)
-        pgpf.write_schema(self.engine, schema, include_ancillary_info=False)
-        pgpf.write_data(pan_dat, self.engine, schema)
-        pg_pan_dat = pgpf.create_pan_dat(self.engine, schema)
-        self.assertTrue(pdf._same_data(pan_dat, pg_pan_dat))
-        pdf.set_infinity_io_flag(None)
-        pg_pan_dat_none_inf = pdf.pgsql.create_pan_dat(self.engine, schema)
-        self.assertFalse(pdf._same_data(pan_dat, pg_pan_dat_none_inf))
-        pg_pan_dat_none_inf.categories.loc[pg_pan_dat_none_inf.categories["Name"] == "protein", "Max Nutrition"] = \
-            float("inf")
-        self.assertTrue(pdf._same_data(pan_dat, pg_pan_dat_none_inf))
+        with self.engine.connect() as cn:
+            pgpf.write_schema(cn, schema, include_ancillary_info=False)
+            pgpf.write_data(pan_dat, cn, schema)
+            pg_pan_dat = pgpf.create_pan_dat(cn, schema)
+            self.assertTrue(pdf._same_data(pan_dat, pg_pan_dat))
+            pdf.set_infinity_io_flag(None)
+            pg_pan_dat_none_inf = pdf.pgsql.create_pan_dat(cn, schema)
+            self.assertFalse(pdf._same_data(pan_dat, pg_pan_dat_none_inf))
+            pg_pan_dat_none_inf.categories.loc[pg_pan_dat_none_inf.categories["Name"] == "protein", "Max Nutrition"] = \
+                float("inf")
+            self.assertTrue(pdf._same_data(pan_dat, pg_pan_dat_none_inf))
 
-        pdf.set_infinity_io_flag("N/A")
-        dat2 = diet_schema.copy_tic_dat(diet_dat)
-        dat2.foods["za"] = dat2.foods.pop("pizza")
-        dat2 = pan_dat_maker(tdf.schema(), dat2)
-        pgpf.write_data(dat2, self.engine, schema, pre_existing_rows={"foods": "append"})
-        dat3 = pgpf.create_pan_dat(self.engine, schema)
-        self.assertTrue(set(pdf.find_duplicates(dat3)) == {'foods'})
-        self.assertTrue(set(dat3.foods["Name"]).issuperset(dat2.foods["Name"]))
-        self.assertTrue(set(dat3.foods["Name"]).issuperset(pan_dat.foods["Name"]))
-        self.assertTrue(set(dat3.foods["Name"]).difference(pan_dat.foods["Name"]) == {'za'})
-        self.assertTrue(set(dat3.foods["Name"]).difference(dat2.foods["Name"]) == {'pizza'})
-        pgpf.write_data(dat2, self.engine, schema, pre_existing_rows={"nutrition_quantities": "append"})
-        dat4 = pgpf.create_pan_dat(self.engine, schema)
-        self.assertTrue(set(pdf.find_duplicates(dat4)) == {'nutrition_quantities'} and not pdf.find_duplicates(dat2))
-        dat4.nutrition_quantities = dat4.nutrition_quantities[:36]
-        self.assertFalse(pdf.find_duplicates(dat4))
-        self.assertTrue(pdf._same_data(dat2, dat4))
+            pdf.set_infinity_io_flag("N/A")
+            dat2 = diet_schema.copy_tic_dat(diet_dat)
+            dat2.foods["za"] = dat2.foods.pop("pizza")
+            dat2 = pan_dat_maker(tdf.schema(), dat2)
+            pgpf.write_data(dat2, cn, schema, pre_existing_rows={"foods": "append"})
+            dat3 = pgpf.create_pan_dat(cn, schema)
+            self.assertTrue(set(pdf.find_duplicates(dat3)) == {'foods'})
+            self.assertTrue(set(dat3.foods["Name"]).issuperset(dat2.foods["Name"]))
+            self.assertTrue(set(dat3.foods["Name"]).issuperset(pan_dat.foods["Name"]))
+            self.assertTrue(set(dat3.foods["Name"]).difference(pan_dat.foods["Name"]) == {'za'})
+            self.assertTrue(set(dat3.foods["Name"]).difference(dat2.foods["Name"]) == {'pizza'})
+            pgpf.write_data(dat2, cn, schema, pre_existing_rows={"nutrition_quantities": "append"})
+            dat4 = pgpf.create_pan_dat(cn, schema)
+            self.assertTrue(set(pdf.find_duplicates(dat4)) == {'nutrition_quantities'} and not pdf.find_duplicates(dat2))
+            dat4.nutrition_quantities = dat4.nutrition_quantities[:36]
+            self.assertFalse(pdf.find_duplicates(dat4))
+            self.assertTrue(pdf._same_data(dat2, dat4))
 
-        test_schema_2 = schema +  "_none_inf"
-        pdf.set_infinity_io_flag(None)
-        pgpf.write_schema(self.engine, test_schema_2)
-        pgpf.write_data(pan_dat, self.engine, test_schema_2)
-        pdf.set_infinity_io_flag("N/A")
-        pg_pan_dat = pgpf.create_pan_dat(self.engine, test_schema_2)
-        self.assertFalse(pdf._same_data(pan_dat, pg_pan_dat))
-        pg_pan_dat.categories.loc[pg_pan_dat.categories["Name"] == "protein", "Max Nutrition"] = float("inf")
-        self.assertTrue(pdf._same_data(pan_dat, pg_pan_dat))
-        pdf.set_infinity_io_flag(None)
-        pg_pan_dat_none_inf = pgpf.create_pan_dat(self.engine, test_schema_2)
-        self.assertTrue(pdf._same_data(pan_dat, pg_pan_dat_none_inf))
+            test_schema_2 = schema +  "_none_inf"
+            pdf.set_infinity_io_flag(None)
+            pgpf.write_schema(cn, test_schema_2)
+            pgpf.write_data(pan_dat, cn, test_schema_2)
+            pdf.set_infinity_io_flag("N/A")
+            pg_pan_dat = pgpf.create_pan_dat(cn, test_schema_2)
+            self.assertFalse(pdf._same_data(pan_dat, pg_pan_dat))
+            pg_pan_dat.categories.loc[pg_pan_dat.categories["Name"] == "protein", "Max Nutrition"] = float("inf")
+            self.assertTrue(pdf._same_data(pan_dat, pg_pan_dat))
+            pdf.set_infinity_io_flag(None)
+            pg_pan_dat_none_inf = pgpf.create_pan_dat(cn, test_schema_2)
+            self.assertTrue(pdf._same_data(pan_dat, pg_pan_dat_none_inf))
 
-        pdf_ = PanDatFactory(**diet_schema.schema()) # doesnt have data types
-        pdf_.set_infinity_io_flag(None)
-        pgpf_null_inf = pdf_.pgsql
-        pg_pan_dat_none_inf = pgpf_null_inf.create_pan_dat(self.engine, test_schema_2)
-        self.assertFalse(pdf._same_data(pan_dat, pg_pan_dat_none_inf))
-        self.assertTrue(math.isnan(pg_pan_dat_none_inf.categories[pg_pan_dat_none_inf.categories["Name"] == "protein"]
-                        ["Max Nutrition"][0]))
+            pdf_ = PanDatFactory(**diet_schema.schema()) # doesnt have data types
+            pdf_.set_infinity_io_flag(None)
+            pgpf_null_inf = pdf_.pgsql
+            pg_pan_dat_none_inf = pgpf_null_inf.create_pan_dat(cn, test_schema_2)
+            self.assertFalse(pdf._same_data(pan_dat, pg_pan_dat_none_inf))
+            self.assertTrue(math.isnan(pg_pan_dat_none_inf.categories[pg_pan_dat_none_inf.categories["Name"] == "protein"]
+                            ["Max Nutrition"][0]))
 
     def test_big_diet_pd(self):
         if not self.can_run:

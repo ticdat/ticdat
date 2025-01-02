@@ -20,6 +20,9 @@ try:
 except:
     pd = None
 
+_debug = [False]
+from ticdat.utils import debug_break
+
 _can_unit_test = bool(sa)
 # SELECT * FROM pg_get_keywords()  WHERE catdesc = 'reserved'; created _the_reserved_words
 _the_reserved_words = {_.lower() for _ in ["asymmetric", "session_user", "initially", "table", "user", "desc",
@@ -245,7 +248,10 @@ class _PostgresFactory(freezable_factory(object, "_isFrozen"),):
                     engine.execute(saxt(f"truncate table {schema}.{t}")) # postgres truncate will fail on FKs re:less
                 except Exception as e:
                     assert "foreign key" in str(e), "truncate should only fail due to foreign key issues"
+                    engine.rollback() if hasattr(engine, "rollback") else None
                     engine.execute(saxt(f"DELETE FROM {schema}.{t}"))
+                engine.commit() if hasattr(engine, "commit") else None
+
 
 class PostgresTicFactory(_PostgresFactory):
     """
@@ -401,7 +407,7 @@ class PostgresTicFactory(_PostgresFactory):
                     str = f"INSERT INTO {schema}.{t} ({', '.join(fields)}) VALUES ({', '.join(f':{_}' for _ in fields)})"
                     rtn.append((str, {f: v for f, v in zip(fields, datarow)}))
                 else:
-                    str = f"INSERT INTO {schema}.{t} ({', '.join(fields)}) VALUES ?"
+                    str = f"INSERT INTO {schema}.{t} ({', '.join(fields)}) VALUES %s"
                     rtn[str].append(datarow)
         return tuple(rtn) if dump_format == "list" else dict(rtn)
 
