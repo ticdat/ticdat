@@ -8,8 +8,9 @@ from ticdat.utils import freezable_factory, TicDatError, verify, stringish, Froz
 from ticdat.utils import create_duplicate_focused_tdf, dictish, numericish, safe_apply
 try:
     import sqlalchemy as sa
+    saxt = sa.text
 except:
-    sa = None
+    sa = saxt = None
 try:
     import psycopg2
 except:
@@ -39,8 +40,8 @@ def _pg_name(name):
     return "".join(rtn)
 
 def _active_fld_tables(engine, schema, active_fld):
-    return {_[0] for _ in engine.execute("SELECT table_name FROM information_schema.columns " +
-            f"WHERE table_schema = '{schema}' and column_name = '{active_fld}'")}
+    return {_[0] for _ in engine.execute(saxt("SELECT table_name FROM information_schema.columns " +
+            f"WHERE table_schema = '{schema}' and column_name = '{active_fld}'"))}
 
 class _PostgresFactory(freezable_factory(object, "_isFrozen"),):
     def __init__(self, tdf):
@@ -65,7 +66,7 @@ class _PostgresFactory(freezable_factory(object, "_isFrozen"),):
     def check_tables_fields(self, engine, schema, error_on_missing_table=False):
         '''
         throws a TicDatError if there there isn't a postgres schema in engine with the proper tables and fields.
-        :param engine: has an .execute method
+        :param engine: has an .execute method. LEGACY NAME. With modern sqlalchemy, pass a connection
         :param schema: string that represents a postgres schema
         :param error_on_missing_table: boolean - should an error be thrown for missing tables? If falsey, then
                print a warning instead.
@@ -73,15 +74,17 @@ class _PostgresFactory(freezable_factory(object, "_isFrozen"),):
                  error_on_missing_table is truthy.
         '''
         tdf = self.tdf
-        verify(schema in [row[0] for row in engine.execute("select schema_name from information_schema.schemata")],
+        verify(schema in [row[0] for row in engine.execute(saxt
+                ("select schema_name from information_schema.schemata"))],
                f"Schema {schema} is missing from engine {engine}")
-        pg_tables = [row[0] for row in engine.execute(
-            f"select table_name from information_schema.tables where table_schema ='{schema}'")]
+        pg_tables = [row[0] for row in engine.execute(saxt(
+            f"select table_name from information_schema.tables where table_schema ='{schema}'"))]
         missing_tables = []
         for table in tdf.all_tables:
             if table in pg_tables:
-                pg_fields = [row[0] for row in engine.execute(f"""SELECT column_name FROM information_schema.columns 
-                             WHERE table_schema = '{schema}' AND table_name = '{table}'""")]
+                pg_fields = [row[0] for row in engine.execute(saxt(
+                    f"""SELECT column_name FROM information_schema.columns 
+                             WHERE table_schema = '{schema}' AND table_name = '{table}'"""))]
                 for field in tdf.primary_key_fields.get(table, ()) + \
                              tdf.data_fields.get(table, ()):
                     matches = [f for f in pg_fields if f == _pg_name(field)]
@@ -187,7 +190,7 @@ class _PostgresFactory(freezable_factory(object, "_isFrozen"),):
 
     def write_schema(self, engine, schema, forced_field_types=None, include_ancillary_info=True):
         """
-        :param engine: typically a sqlalchemy database engine with drivertype postgres (really just needs an .execute)
+        :param engine: has an .execute method. LEGACY NAME. With modern sqlalchemy, pass a connection
 
         :param schema: a string naming the postgres schema to populate (will create if needed)
 
@@ -225,10 +228,11 @@ class _PostgresFactory(freezable_factory(object, "_isFrozen"),):
         verify(not getattr(self.tdf, "generic_tables", None),
                "TicDat for postgres does not yet support generic tables")
 
-        if schema not in [row[0] for row in engine.execute("select schema_name from information_schema.schemata")]:
+        if schema not in [rw[0] for rw in engine.execute(saxt("select schema_name from information_schema.schemata"))]:
             engine.execute(sa.schema.CreateSchema(schema))
         for str in self._get_schema_sql(self.tdf.all_tables, schema, forced_field_types):
-            engine.execute(str)
+            engine.execute(saxt(str))
+        engine.commit() if hasattr(engine, "commit") else None
 
     def _handle_prexisting_rows(self, engine, schema, pre_existing_rows):
         verify(isinstance(pre_existing_rows, dict), "pre_existing_rows needs to dict")
@@ -239,10 +243,13 @@ class _PostgresFactory(freezable_factory(object, "_isFrozen"),):
         for t in reversed(self._ordered_tables()):
             if pre_existing_rows[t] == "delete":
                 try:
-                    engine.execute(f"truncate table {schema}.{t}") # postgres truncate will fail on FKs re:less
+                    engine.execute(saxt(f"truncate table {schema}.{t}")) # postgres truncate will fail on FKs re:less
                 except Exception as e:
                     assert "foreign key" in str(e), "truncate should only fail due to foreign key issues"
-                    engine.execute(f"DELETE FROM {schema}.{t}")
+                    engine.rollback() if hasattr(engine, "rollback") else None
+                    engine.execute(saxt(f"DELETE FROM {schema}.{t}"))
+                engine.commit() if hasattr(engine, "commit") else None
+
 
 class PostgresTicFactory(_PostgresFactory):
     """
@@ -293,7 +300,7 @@ class PostgresTicFactory(_PostgresFactory):
         """
         Create a TicDat object from a PostGres connection
 
-        :param engine: A sqlalchemy connection to the PostGres database
+        :param engine: has an .execute method. LEGACY NAME. With modern sqlalchemy, pass a connection
 
         :param schema : The name of the schema to read from
 
@@ -331,8 +338,8 @@ class PostgresTicFactory(_PostgresFactory):
             assert tdf.primary_key_fields.get(table) or tdf.data_fields.get(table), "since no generic tables"
             fields = [_pg_name(f) for f in tdf.primary_key_fields.get(table, ()) +
                       tdf.data_fields.get(table, ())]
-            for row in engine.execute(f"Select {', '.join(fields)} from {schema}.{table}" +
-                                      (f" where {active_fld} is True" if table in active_fld_tables else "")):
+            for row in engine.execute(saxt(f"Select {', '.join(fields)} from {schema}.{table}" +
+                                      (f" where {active_fld} is True" if table in active_fld_tables else ""))):
                 if tdf.primary_key_fields.get(table):
                     pk = [self._read_data_cell(table, f, x) for f,x in
                           zip(tdf.primary_key_fields[table], row[:len(tdf.primary_key_fields[table])])]
@@ -348,7 +355,7 @@ class PostgresTicFactory(_PostgresFactory):
         """
         Find the row counts for duplicated rows.
 
-        :param engine: A sqlalchemy Engine object that can connect to our postgres instance
+        :param engine: has an .execute method. LEGACY NAME. With modern sqlalchemy, pass a connection
 
         :param schema: Name of the schema within the engine's database to use
 
@@ -393,12 +400,12 @@ class PostgresTicFactory(_PostgresFactory):
                 fields = list(map(_pg_name, fields))
                 if t in active_fld_tables:
                     fields.append(active_fld)
-                    datarow = datarow + (True,)
+                    datarow = datarow + (True, )
                 if dump_format == "list":
-                    str = f"INSERT INTO {schema}.{t} ({','.join(fields)}) VALUES ({','.join('%s' for _ in fields)})"
-                    rtn.append((str, datarow))
+                    str = f"INSERT INTO {schema}.{t} ({', '.join(fields)}) VALUES ({', '.join(f':{_}' for _ in fields)})"
+                    rtn.append((str, {f: v for f, v in zip(fields, datarow)}))
                 else:
-                    str = f"INSERT INTO {schema}.{t} ({','.join(fields)}) VALUES %s"
+                    str = f"INSERT INTO {schema}.{t} ({', '.join(fields)}) VALUES %s"
                     rtn[str].append(datarow)
         return tuple(rtn) if dump_format == "list" else dict(rtn)
 
@@ -408,7 +415,7 @@ class PostgresTicFactory(_PostgresFactory):
 
         :param tic_dat: the data object to write
 
-        :param engine: a sqlalchemy database engine with drivertype postgres
+        :param engine:  has an .execute method. LEGACY NAME. With modern sqlalchemy, pass a connection
 
         :param schema: the postgres schema to write to (call self.write_schema explicitly as needed)
 
@@ -425,7 +432,9 @@ class PostgresTicFactory(_PostgresFactory):
         :return:
         """
         verify(sa, "sqalchemy needs to be installed to use this subroutine")
-        verify(engine.name=='postgresql',
+        engine_name = safe_apply(getattr)(engine, "name") or \
+                      safe_apply(getattr)(safe_apply(getattr)(engine, "engine"), "name")
+        verify(engine_name =='postgresql',
                "a sqlalchemy engine with drivername='postgres' is required")
         verify(not dsn or psycopg2, "need psycopg2 to use the faster dsn write option")
         verify(_pg_name(active_fld) ==  active_fld, "active_fld needs to be compliant with PG naming conventions")
@@ -450,7 +459,8 @@ class PostgresTicFactory(_PostgresFactory):
             if len(all_dat) > 1000:
                 print("***pgtd.py not using most efficient data writing technique**")
             for sql_str, data in all_dat:
-                engine.execute(sql_str, data)
+                engine.execute(saxt(sql_str), data)
+        engine.commit() if hasattr(engine, "commit") else None
 
 
 class PostgresPanFactory(_PostgresFactory):
@@ -483,7 +493,7 @@ class PostgresPanFactory(_PostgresFactory):
         """
         Create a PanDat object from a PostGres connection
 
-        :param engine: A sqlalchemy connection to the PostGres database
+        :param engine: has an .execute method. LEGACY NAME. With modern sqlalchemy, pass a connection
 
         :param schema : The name of the schema to read from
 
@@ -519,7 +529,7 @@ class PostgresPanFactory(_PostgresFactory):
 
         :param pan_dat: a PanDat object
 
-        :param engine: A sqlalchemy connection to the PostGres database
+        :param engine: has an .execute method. LEGACY NAME. With modern sqlalchemy, pass a connection
 
         :param schema: The postgres schema to write to (call self.write_schema explicitly as needed)
 
@@ -576,3 +586,4 @@ class PostgresPanFactory(_PostgresFactory):
                 df.to_sql(name=table, schema=schema, con=engine, if_exists="append", index=False)
             if progress and not progress.numerical_progress("Uploading...", 100.*i/len(to_upload)):
                 break
+        engine.commit() if hasattr(engine, "commit") else None
