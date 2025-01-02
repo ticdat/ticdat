@@ -20,9 +20,6 @@ try:
 except:
     pd = None
 
-_debug = [False]
-from ticdat.utils import debug_break
-
 _can_unit_test = bool(sa)
 # SELECT * FROM pg_get_keywords()  WHERE catdesc = 'reserved'; created _the_reserved_words
 _the_reserved_words = {_.lower() for _ in ["asymmetric", "session_user", "initially", "table", "user", "desc",
