@@ -354,19 +354,19 @@ class TestPostres(unittest.TestCase):
             self.assertTrue(diet_schema._same_data(diet_dat, pg_tic_dat))
 
     def test_diet_no_inf_flagging(self):
-        print("!*!\n"*2 + "DON'T FORGET THAT dsn argument not working" + "\n!*!"*2)
+        if not self.can_run:
+            return
         pgtf = diet_schema.pgsql
-        with self.engine.connect() as cn:
-            pgtf.write_schema(cn, test_schema, include_ancillary_info=False)
-            if not self.can_run:
-                return
-            for dsn in [None]:
-                pgtf.write_data(diet_dat, cn, test_schema, dsn=dsn)
-                self.assertTrue(sorted([_ for _ in cn.execute(saxt(f"Select * from {test_schema}.categories"))]) ==
+        for i, dsn in enumerate([None, self.postgresql.dsn()]):
+            sch = test_schema + "_dnif_" + str(i)
+            with self.engine.connect() as cn:
+                pgtf.write_schema(cn, sch, include_ancillary_info=False)
+                pgtf.write_data(diet_dat, cn, sch, dsn=dsn)
+                self.assertTrue(sorted([_ for _ in cn.execute(saxt(f"Select * from {sch}.categories"))]) ==
                   [('calories', 1800.0, 2200.0), ('fat', 0.0, 65.0), ('protein', 91.0, float("inf")),
                    ('sodium', 0.0, 1779.0)])
-                self.assertFalse(pgtf.find_duplicates(cn, test_schema))
-                pg_tic_dat = pgtf.create_tic_dat(cn, test_schema)
+                self.assertFalse(pgtf.find_duplicates(cn, sch))
+                pg_tic_dat = pgtf.create_tic_dat(cn, sch)
                 self.assertTrue(diet_schema._same_data(diet_dat, pg_tic_dat))
 
     def test_diet_no_inf_pd_flagging(self):
