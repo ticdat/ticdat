@@ -662,13 +662,14 @@ class TestPostres(unittest.TestCase):
         pan_dat = pan_dat_maker(tdf.schema(), big_dat)
         schema = "test_pg_big_diet"
         now = time.time()
-        pgpf.write_schema(self.engine, schema)
-        pgpf.write_data(pan_dat, self.engine, schema)
-        print(f"\npdf writing {big_dat._len_dict()} : {time.time()-now}**&&**\n")
-        now = time.time()
-        pg_pan_dat = pgpf.create_pan_dat(self.engine, schema)
-        print(f"\npdf reading {big_dat._len_dict()} : {time.time()-now}**&&**\n")
-        self.assertTrue(pdf._same_data(pan_dat, pg_pan_dat))
+        with self.engine.connect() as cn:
+            pgpf.write_schema(cn, schema)
+            pgpf.write_data(pan_dat, cn, schema)
+            print(f"\npdf writing {big_dat._len_dict()} : {time.time()-now}**&&**\n")
+            now = time.time()
+            pg_pan_dat = pgpf.create_pan_dat(cn, schema)
+            print(f"\npdf reading {big_dat._len_dict()} : {time.time()-now}**&&**\n")
+            self.assertTrue(pdf._same_data(pan_dat, pg_pan_dat))
 
     def test_big_demand_lol(self):
         demand_lol_path = os.path.join(_this_directory(), "demand_lol.json")
@@ -681,10 +682,11 @@ class TestPostres(unittest.TestCase):
         pdf = PanDatFactory(demand=[["Site", "Proudct", "Time Period"], ["Min Demand", "Max Demand", "Revenue"]])
         pan_dat = pdf.PanDat(demand=demand_lol)
         schema = "test_big_demand_lol"
-        pdf.pgsql.write_schema(self.engine, schema, include_ancillary_info=False)
-        now = time.time()
-        pdf.pgsql.write_data(pan_dat, self.engine, schema)
-        print(f"\npdf writing {len(demand_lol)} : {time.time()-now}**&&**\n")
+        with self.engine.connect() as cn:
+            pdf.pgsql.write_schema(cn, schema, include_ancillary_info=False)
+            now = time.time()
+            pdf.pgsql.write_data(pan_dat, cn, schema)
+            print(f"\npdf writing {len(demand_lol)} : {time.time()-now}**&&**\n")
 
     def test_extra_fields_pd(self):
         pdf = PanDatFactory(boger = [["a"], ["b", "c"]])
