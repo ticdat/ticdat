@@ -1036,11 +1036,12 @@ class TestPostres(unittest.TestCase):
         bar_df = pd.DataFrame({'d': [10, 20], 'h': [30, 40], 'i': [50, 60]})
         pan_dat = pdf.PanDat(foo=foo_df, bar=bar_df)
         pgpf = pdf.pgsql
-        pgpf.write_schema(self.engine, schema, include_ancillary_info=False)
-        pgpf.write_data(pan_dat, self.engine, schema)
-        pan_dat_2 = pgpf.create_pan_dat(self.engine, schema)
-        self.assertTrue(pdf._same_data(pan_dat, pan_dat_2, epsilon=1e-4))
-        self.assertTrue(set(pan_dat.foo.columns).difference(pan_dat_2.foo.columns) == {'c'})
+        with self.engine.connect() as cn:
+            pgpf.write_schema(cn, schema, include_ancillary_info=False)
+            pgpf.write_data(pan_dat, cn, schema)
+            pan_dat_2 = pgpf.create_pan_dat(cn, schema)
+            self.assertTrue(pdf._same_data(pan_dat, pan_dat_2, epsilon=1e-4))
+            self.assertTrue(set(pan_dat.foo.columns).difference(pan_dat_2.foo.columns) == {'c'})
 
     def testDateTimeTwo(self):
         schema = test_schema + "_date_two"
@@ -1058,20 +1059,21 @@ class TestPostres(unittest.TestCase):
                          parameters = [["p1", "7/11/1911"], ["p2", None]])
         self.assertFalse(tdf.find_data_type_failures(dat) or tdf.find_data_row_failures(dat))
 
-        tdf.pgsql.write_schema(self.engine, schema,
-                               forced_field_types={("table_with_stuffs", "field one"): "date",
-                                                   ("table_with_stuffs", "field two"): "date"})
-        tdf.pgsql.write_data(dat, self.engine, schema)
+        with self.engine.connect() as cn:
+            tdf.pgsql.write_schema(cn, schema,
+                                   forced_field_types={("table_with_stuffs", "field one"): "date",
+                                                       ("table_with_stuffs", "field two"): "date"})
+            tdf.pgsql.write_data(dat, cn, schema)
 
-        dat_2 = tdf.pgsql.create_tic_dat(self.engine, schema)
-        self.assertFalse(tdf._same_data(dat, dat_2, nans_are_same_for_data_rows=True))
-        dat.parameters['p1']['b'] = dateutil.parser.parse(dat.parameters['p1']['b'])
-        self.assertTrue(tdf._same_data(dat, dat_2, nans_are_same_for_data_rows=True))
+            dat_2 = tdf.pgsql.create_tic_dat(cn, schema)
+            self.assertFalse(tdf._same_data(dat, dat_2, nans_are_same_for_data_rows=True))
+            dat.parameters['p1']['b'] = dateutil.parser.parse(dat.parameters['p1']['b'])
+            self.assertTrue(tdf._same_data(dat, dat_2, nans_are_same_for_data_rows=True))
 
-        pdf = PanDatFactory.create_from_full_schema(tdf.schema(include_ancillary_info=True))
-        pan_dat = pdf.pgsql.create_pan_dat(self.engine, schema)
-        dat_3 = pdf.copy_to_tic_dat(pan_dat)
-        self.assertTrue(tdf._same_data(dat, dat_3, nans_are_same_for_data_rows=True))
+            pdf = PanDatFactory.create_from_full_schema(tdf.schema(include_ancillary_info=True))
+            pan_dat = pdf.pgsql.create_pan_dat(cn, schema)
+            dat_3 = pdf.copy_to_tic_dat(pan_dat)
+            self.assertTrue(tdf._same_data(dat, dat_3, nans_are_same_for_data_rows=True))
 
     def test_pgtd_pandas_none_null(self):
         # https://rb.gy/t6m88 (issue 5 on pjcpjc/ro_h) is particularly interested in getting the PG NULL to map onto
@@ -1083,15 +1085,16 @@ class TestPostres(unittest.TestCase):
         tdf_1.set_data_type("t_one", "Field Two", strings_allowed='*', number_allowed=False, nullable=True)
         dat = tdf_1.TicDat(t_one = [["a", None], ["b", "b"], [None, "c"], ["c", "c"]])
         self.assertTrue(len(dat.t_one) == 4)
-        tdf_1.pgsql.write_schema(self.engine, schema, include_ancillary_info=False)
-        tdf_1.pgsql.write_data(dat, self.engine, schema)
-        dat_2 = tdf_1.pgsql.create_tic_dat(self.engine, schema)
-        self.assertTrue(tdf_1._same_data(dat, dat_2))
-        pdf = PanDatFactory.create_from_full_schema(tdf_1.schema(include_ancillary_info=True))
-        pan_dat = pdf.pgsql.create_pan_dat(self.engine, schema)
-        dat_3 = pdf.copy_to_tic_dat(pan_dat)
-        self.assertTrue(tdf_1._same_data(dat, dat_3))
-        self.assertTrue((dat_3.t_one["a"]['Field Two'] == None) and None in dat_3.t_one)
+        with self.engine.connect() as cn:
+            tdf_1.pgsql.write_schema(cn, schema, include_ancillary_info=False)
+            tdf_1.pgsql.write_data(dat, cn, schema)
+            dat_2 = tdf_1.pgsql.create_tic_dat(cn, schema)
+            self.assertTrue(tdf_1._same_data(dat, dat_2))
+            pdf = PanDatFactory.create_from_full_schema(tdf_1.schema(include_ancillary_info=True))
+            pan_dat = pdf.pgsql.create_pan_dat(cn, schema)
+            dat_3 = pdf.copy_to_tic_dat(pan_dat)
+            self.assertTrue(tdf_1._same_data(dat, dat_3))
+            self.assertTrue((dat_3.t_one["a"]['Field Two'] == None) and None in dat_3.t_one)
 
     def test_pickle_w_text_columns(self):
         # this text in response to a request for blob field type support. I'd rather not support blobs
@@ -1104,26 +1107,27 @@ class TestPostres(unittest.TestCase):
         pdf = tdf.clone(clone_factory=PanDatFactory)
         pan_dat = pdf.PanDat(**{t: getattr(tdf.copy_to_pandas(dat, reset_index=True), t) for t in tdf.all_tables})
         self.assertTrue(len(dat.t_one) == len(pan_dat.t_one) == 2)
-        tdf.pgsql.write_schema(self.engine, schema, include_ancillary_info=False,
-                               forced_field_types={("t_one", "Field Two"): "bytea"})
-        tdf.pgsql.write_data(dat, self.engine, schema)
-        dat_2 = tdf.pgsql.create_tic_dat(self.engine, schema)
-        self.assertFalse(tdf._same_data(dat, dat_2)) # its  weird this way, but no matter, we only care about pickle
-        self.assertTrue(set(dat.t_one) == set(dat_2.t_one))
-        for k, r in dat.t_one.items():
-            self.assertTrue(pickle.loads(r["Field Two"]) == pickle.loads(dat_2.t_one[k]["Field Two"]))
+        with self.engine.connect() as cn:
+            tdf.pgsql.write_schema(cn, schema, include_ancillary_info=False,
+                                   forced_field_types={("t_one", "Field Two"): "bytea"})
+            tdf.pgsql.write_data(dat, cn, schema)
+            dat_2 = tdf.pgsql.create_tic_dat(cn, schema)
+            self.assertFalse(tdf._same_data(dat, dat_2)) # its  weird this way, but no matter, we only care about pickle
+            self.assertTrue(set(dat.t_one) == set(dat_2.t_one))
+            for k, r in dat.t_one.items():
+                self.assertTrue(pickle.loads(r["Field Two"]) == pickle.loads(dat_2.t_one[k]["Field Two"]))
 
-        schema = test_schema+"_pickle_pdf"
-        pdf.pgsql.write_schema(self.engine, schema, include_ancillary_info=False,
-                               forced_field_types={("t_one", "Field Two"): "bytea"})
-        pdf.pgsql.write_data(pan_dat, self.engine, schema)
-        pan_dat_2 = pdf.pgsql.create_pan_dat(self.engine, schema)
-        dat_3 = pdf.copy_to_tic_dat(pan_dat)
-        dat_4 = pdf.copy_to_tic_dat(pan_dat_2)
-        self.assertFalse(tdf._same_data(dat_3, dat_4))
-        self.assertTrue(set(dat_3.t_one) == set(dat_4.t_one))
-        for k, r in dat_3.t_one.items():
-            self.assertTrue(pickle.loads(r["Field Two"]) == pickle.loads(dat_4.t_one[k]["Field Two"]))
+            schema = test_schema+"_pickle_pdf"
+            pdf.pgsql.write_schema(cn, schema, include_ancillary_info=False,
+                                   forced_field_types={("t_one", "Field Two"): "bytea"})
+            pdf.pgsql.write_data(pan_dat, cn, schema)
+            pan_dat_2 = pdf.pgsql.create_pan_dat(cn, schema)
+            dat_3 = pdf.copy_to_tic_dat(pan_dat)
+            dat_4 = pdf.copy_to_tic_dat(pan_dat_2)
+            self.assertFalse(tdf._same_data(dat_3, dat_4))
+            self.assertTrue(set(dat_3.t_one) == set(dat_4.t_one))
+            for k, r in dat_3.t_one.items():
+                self.assertTrue(pickle.loads(r["Field Two"]) == pickle.loads(dat_4.t_one[k]["Field Two"]))
 
 test_schema = 'test'
 
