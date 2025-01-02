@@ -331,7 +331,6 @@ class TestPostres(unittest.TestCase):
             self.assertTrue(pdf._same_data(pan_dat, pg_pan_dat))
 
     def test_wtf(self):
-        print("!*!\n"*2 + "DON'T FORGET THAT dsn argument not working" + "\n!*!"*2)
         schema = "wtf"
         tdf = TicDatFactory(table_one=[["Cost per Distance", "Cost per Hr. (in-transit)"], ["Stuff"]],
                             table_two=[["This", "That"], ["Tho"]])
@@ -339,7 +338,7 @@ class TestPostres(unittest.TestCase):
             tdf.pgsql.write_schema(cn, schema)
             data = [["a", "b", 1], ["dd", "ee", 10], ["023", "210", 102.1]]
             tic_dat = tdf.TicDat(table_one=data, table_two=data)
-            tdf.pgsql.write_data(tic_dat, cn, schema) #, dsn=self.postgresql.dsn())
+            tdf.pgsql.write_data(tic_dat, cn, schema, dsn=self.postgresql.dsn())
             pg_tic_dat = tdf.pgsql.create_tic_dat(cn, schema)
             self.assertTrue(tdf._same_data(tic_dat, pg_tic_dat))
 
@@ -349,7 +348,6 @@ class TestPostres(unittest.TestCase):
         pgtf = diet_schema.pgsql
         with self.engine.connect() as cn:
             pgtf.write_schema(cn, test_schema)
-            cn.commit() ## needed with dsn, which is inconsistent
             pgtf.write_data(diet_dat, cn, test_schema, dsn=self.postgresql.dsn())
             self.assertFalse(pgtf.find_duplicates(cn, test_schema))
             pg_tic_dat = pgtf.create_tic_dat(cn, test_schema)
@@ -421,7 +419,6 @@ class TestPostres(unittest.TestCase):
 
             test_schema_2 = test_schema +  "_none_inf"
             pgtf_null_inf.write_schema(cn, test_schema_2)
-            cn.commit() # sort of odd this was needed, but I guess hurts nothing
             pgtf_null_inf.write_data(pg_tic_dat_none_inf, cn, test_schema_2)
             pg_tic_dat = pgtf.create_tic_dat(cn, test_schema_2)
             self.assertFalse(diet_schema._same_data(diet_dat, pg_tic_dat))
