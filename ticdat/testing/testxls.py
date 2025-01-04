@@ -243,7 +243,7 @@ class TestXls(unittest.TestCase):
                     for row in data:
                         for f, c in zip(fields, row):
                             d[f].append(c)
-                    utils.pd.DataFrame(d).to_excel(writer, t, index=False)
+                    utils.pd.DataFrame(d).to_excel(writer, sheet_name=t, index=False)
                 writer.close()
 
 

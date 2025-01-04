@@ -33,6 +33,7 @@ try:
 except:
     drm = None
 import inspect
+import warnings
 
 def faster_df_apply(df, func, trip_wire_check=None):
     """
@@ -238,7 +239,13 @@ def dateutil_adjuster(x):
             return x
     def _try_to_timestamp(y):
         if pd and not numericish(y):
-            rtn = safe_apply(pd.Timestamp)(y)
+            with warnings.catch_warnings(): # suppressing the warning because if/when such strings
+                warnings.filterwarnings(    # fail going forward, they will just be handled by
+                    "ignore",               # dateutil.parser
+                    category=FutureWarning,
+                    message="Parsing 'PST' as tzlocal.*"
+                )
+                rtn = safe_apply(pd.Timestamp)(y)
             if not pd.isnull(rtn):
                 return rtn
         if dateutil:
