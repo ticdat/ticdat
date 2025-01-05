@@ -13,6 +13,6 @@ from ticdat.utils import Sloc, LogFile, Progress, Slicer, standard_main, \
                          gurobi_env, ampl_format, verify, faster_df_apply
 from ticdat.model import Model
 from ticdat.pandatfactory import PanDatFactory
-__version__ = '0.2.25'
+__version__ = '0.2.26'
 __all__ = ["TicDatFactory", "PanDatFactory", "freeze_me", "LogFile", "Sloc", "Slicer", "Progress", "standard_main",
            "Model", "ampl_format", "gurobi_env", "verify", "faster_df_apply"]
