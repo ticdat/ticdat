@@ -76,10 +76,11 @@ class TestSlowBernardo(unittest.TestCase):
     def test_tdf(self):
         tdf = kehaar.input_schema
         dat = _timeit(tdf.csv.create_tic_dat, 30)(os.path.join(_codeDir(), "bernardo_slowby"))
-        tdf.pgsql.write_schema(self.engine, test_schemas[0], include_ancillary_info=False,
-                               forced_field_types=_forced_field_types())
-        _timeit(tdf.pgsql.write_data, 30)(dat, self.engine, test_schemas[0], dsn=self.postgresql.dsn())
-        _timeit(tdf.pgsql.create_tic_dat, 15)(self.engine, test_schemas[0])
+        with self.engine.connect() as cn:
+            tdf.pgsql.write_schema(cn, test_schemas[0], include_ancillary_info=False,
+                                   forced_field_types=_forced_field_types())
+            _timeit(tdf.pgsql.write_data, 30)(dat, cn, test_schemas[0], dsn=self.postgresql.dsn())
+            _timeit(tdf.pgsql.create_tic_dat, 15)(cn, test_schemas[0])
 
     def test_tdf_2(self):
         tdf = kehaar.input_schema
@@ -90,10 +91,11 @@ class TestSlowBernardo(unittest.TestCase):
     def test_pdf(self):
         pdf = kehaar.input_schema.clone(clone_factory=PanDatFactory)
         dat = _timeit(pdf.csv.create_pan_dat, 10)(os.path.join(_codeDir(), "bernardo_slowby"))
-        pdf.pgsql.write_schema(self.engine, test_schemas[1], include_ancillary_info=False,
-                               forced_field_types=_forced_field_types())
-        _timeit(pdf.pgsql.write_data, 25)(dat, self.engine, test_schemas[1])
-        _timeit(pdf.pgsql.create_pan_dat, 15)(self.engine, test_schemas[1])
+        with self.engine.connect() as cn:
+            pdf.pgsql.write_schema(cn, test_schemas[1], include_ancillary_info=False,
+                                   forced_field_types=_forced_field_types())
+            _timeit(pdf.pgsql.write_data, 25)(dat, cn, test_schemas[1])
+            _timeit(pdf.pgsql.create_pan_dat, 15)(cn, test_schemas[1])
 
 
 test_schemas = [f"test_schema_{_}" for _ in range(5)]
