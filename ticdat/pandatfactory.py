@@ -432,16 +432,13 @@ class PanDatFactory(object):
                             fields_w_issues.add(f)
                 apply(df, find_fields_w_issues)
                 for f in fields_w_issues:
-                    fixme = apply(df, lambda row: utils.numericish(row[f]) and row[f] >= self.infinity_io_flag)
-                    if fixme.any():
-                        df.loc[fixme, f] = float("inf")
-                    fixme = apply(df, lambda row: utils.numericish(row[f]) and row[f] <= -self.infinity_io_flag)
-                    if fixme.any():
-                        df.loc[fixme, f] = -float("inf")
+                    df[f] = apply(df, lambda row: row[f] if not utils.numericish(row[f]) else
+                                        (float("inf") if row[f] >= self.infinity_io_flag else
+                                         (-float("inf") if row[f] <= -self.infinity_io_flag else row[f])))
             for f in all_fields:
                 if not utils.numericish(self.infinity_io_flag) and utils.numericish(self._none_as_infinity_bias(t, f)):
                     assert self.infinity_io_flag is None
-                    df[f].fillna(value=self._none_as_infinity_bias(t, f) * float("inf"), inplace=True)
+                    df[f] = df[f].fillna(value=self._none_as_infinity_bias(t, f) * float("inf"))
                 dt = self.data_types.get(t, {}).get(f, None)
                 if dt and dt.datetime:
                     def fixed_row(row):
@@ -1199,9 +1196,14 @@ class PanDatFactory(object):
                 verify(self._true_data_types()[table][field].valid_data(value),
                        "The replacement value %s is not itself valid for %s : %s"%(value, table, field))
 
-        for (table, field), rows in replacements_needed.items() :
+        for table, field in replacements_needed:
             if (table, field) in real_replacements:
-                getattr(pan_dat, table).loc[rows, field] = real_replacements[table, field]
+                data_type = self._true_data_types()[table][field]
+                def bad_row(row):
+                    data = row[field]
+                    return not data_type.valid_data(None if isnull(data) else data)
+                getattr(pan_dat, table)[field] = utils.faster_df_apply(getattr(pan_dat, table), lambda row:
+                        real_replacements[table, field] if bad_row(row) else row[field])
         assert not set(self.find_data_type_failures(pan_dat)).intersection(real_replacements)
         return pan_dat
     def find_data_row_failures(self, pan_dat, as_table=True, exception_handling="__debug__",

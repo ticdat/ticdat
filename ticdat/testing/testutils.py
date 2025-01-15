@@ -37,6 +37,7 @@ try:
     import dspotconnect
 except:
     dspotconnect = None
+import warnings
 
 def _deep_anonymize(x)  :
     if not hasattr(x, "__contains__") or utils.stringish(x):
@@ -1220,12 +1221,20 @@ class TestUtils(unittest.TestCase):
         dat = tdf.TicDat(table_with_stuffs=[["a", '2024-03-22 18:56:32.738122+46'],
                                             ["b", '2024-03-22 18:56:32 PST']],
                          parameters=[["p1", '2024-03-22 18:56:32 PST'], ["p2", '2024-03-22 18:56:32.738122+46']])
-        self.assertTrue(set(map(len, [tdf.find_data_type_failures(dat), tdf.find_data_row_failures(dat)])) == {1})
-        self.assertTrue(next(iter(tdf.find_data_type_failures(dat).values())).pks == ('a', ))
-        self.assertTrue(next(iter(tdf.find_data_row_failures(dat).values())) == ('p2',))
-        dat = tdf.json.create_tic_dat(tdf.json.write_file(dat, ""))
-        self.assertTrue(next(iter(tdf.find_data_type_failures(dat).values())).pks == ('a', ))
-        self.assertTrue(next(iter(tdf.find_data_row_failures(dat).values())) == ('p2',))
+        # upgraded pandas 1.5.3 to 2.2.2 then issue 201 went away (i.e. the crazy string created a valid Timestamp)
+        self.assertTrue(set(map(len, [tdf.find_data_type_failures(dat), tdf.find_data_row_failures(dat)])) == {0})
+
+        # checking that the future version of pandas that fails to accept these strings will just result
+        # in dateutil_adjuster falling through to calling dateutil and giving same result
+        t1 = dateutil.parser.parse('2024-01-22 18:56:32 PST')
+        with warnings.catch_warnings():
+            warnings.filterwarnings(  # fail going forward, they will just be handled by
+                "ignore",  # dateutil.parser
+                category=FutureWarning,
+                message="Parsing 'PST' as tzlocal.*"
+            )
+            t2 = pd.Timestamp('2024-01-22 18:56:32 PST')
+        self.assertTrue(t1 == t2)
 
     def testTwentyTwo(self):
         tdf = TicDatFactory(table_with_stuffs = [["field one"], ["field two"]],

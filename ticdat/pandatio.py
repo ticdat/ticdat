@@ -12,6 +12,7 @@ from itertools import product, chain
 from collections import defaultdict
 import datetime
 import inspect
+from io import StringIO
 try:
     import numpy
 except:
@@ -117,7 +118,7 @@ class JsonPanFactory(freezable_factory(object, "_isFrozen")):
                 kwargs_ = dict(kwargs)
                 if "dtype" not in kwargs_:
                     kwargs_["dtype"] = self.pan_dat_factory._dtypes_for_pandas_read(t)
-                rtn[t] = pd.read_json(json.dumps(loaded_dict[f]), orient=orient, **kwargs_)
+                rtn[t] = pd.read_json(StringIO(json.dumps(loaded_dict[f])), orient=orient, **kwargs_)
             missing_fields = {(t, f) for t in rtn for f in all_fields(self.pan_dat_factory, t)
                               if f not in rtn[t].columns}
             if fill_missing_fields:
@@ -565,9 +566,9 @@ class XlsPanFactory(freezable_factory(object, "_isFrozen")):
                 if f in self.pan_dat_factory.default_values.get(t, {}):
                     rtn[t][f] = self.pan_dat_factory.default_values[t][f]
                     missing_fields.remove((t, f))
+        xl.close()
         verify(not missing_fields,
                "The following are (table, field) pairs missing from the %s file.\n%s" % (xls_file_path, missing_fields))
-        xl.close()
         rtn = _clean_pandat_creator(self.pan_dat_factory, rtn)
         if self.pan_dat_factory.xlsx_trailing_empty_rows == "prune":
             from ticdat.pandatfactory import remove_trailing_all_nan
@@ -619,5 +620,5 @@ class XlsPanFactory(freezable_factory(object, "_isFrozen")):
         with pd.ExcelWriter(file_path) as writer:
             for t in self.pan_dat_factory.all_tables:
                 getattr(pan_dat, t).to_excel \
-                    (writer, (case_space_to_pretty(t) if case_space_sheet_names else t)[:_longest_sheet], index=False)
-
+                    (writer, sheet_name=(case_space_to_pretty(t) if case_space_sheet_names else t)[:_longest_sheet],
+                     index=False)

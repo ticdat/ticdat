@@ -25,7 +25,12 @@ input_schema.add_parameter("Number of Centroids", default_value=1, inclusive_min
 input_schema.add_parameter("MIP Gap", default_value=0.001, inclusive_min=False, inclusive_max=False, min=0,
                                 max=float("inf"), must_be_int=False)
 # not using a the "strong v weak" parameter, testing will always use the weak formulation
-input_schema.add_parameter("Core Model Type", "cplex", number_allowed=False, strings_allowed=["gurobi", "cplex"])
+input_schema.add_parameter("Core Model Type", "cplex", number_allowed=False,
+                           strings_allowed=["gurobi", "cplex", "xpress"])
+
+# testing parameter
+input_schema.add_parameter("Maximize Subtract", None, nullable=True, inclusive_max=False, inclusive_min=False)
+
 
 # data fields amongst them.
 solution_schema = TicDatFactory(
@@ -38,6 +43,8 @@ def solve(dat, progress):
     assert input_schema.good_tic_dat_object(dat)
     assert not input_schema.find_foreign_key_failures(dat)
     assert not input_schema.find_data_type_failures(dat)
+    assert not input_schema.find_data_row_failures(dat)
+
 
     full_parameters = input_schema.create_full_parameters_dict(dat)
 
@@ -85,14 +92,20 @@ def solve(dat, progress):
 
     m.set_parameters(MIP_Gap=full_parameters["MIP Gap"])
 
-    m.set_objective(m.sum(var * get_distance(n,assigned_to) * dat.sites[n]["Demand"]
+    if full_parameters["Maximize Subtract"] is None:
+        m.set_objective(m.sum(var * get_distance(n,assigned_to) * dat.sites[n]["Demand"]
                      for (n, assigned_to),var in assign_vars.items()), sense="minimize")
+    else:
+        m.set_objective(full_parameters["Maximize Subtract"] -
+                    m.sum(var * get_distance(n,assigned_to) * dat.sites[n]["Demand"]
+                     for (n, assigned_to),var in assign_vars.items()), sense="maximize")
+    sense_kwargs = {"sense": "minimize" if full_parameters["Maximize Subtract"] is None else "maximize"}
     if full_parameters["Core Model Type"] == "cplex":
-        progress.add_cplex_listener("COG Optimization", m.core_model)
+        progress.add_cplex_listener("COG Optimization", m.core_model, **sense_kwargs)
     if full_parameters["Core Model Type"] == "xpress":
-        progress.add_xpress_callback("COG Optimization", m.core_model)
+        progress.add_xpress_callback("COG Optimization", m.core_model, **sense_kwargs)
 
-    worked = m.optimize(*([progress.gurobi_call_back_factory("COG Optimization", m.core_model)]
+    worked = m.optimize(*([progress.gurobi_call_back_factory("COG Optimization", m.core_model, **sense_kwargs)]
                  if full_parameters["Core Model Type"] == "gurobi" else []))
 
     assert worked, "testing model set up only for success"
@@ -101,6 +114,10 @@ def solve(dat, progress):
     results = m.get_mip_results()
     sln.parameters["Lower Bound"] = results.best_bound
     sln.parameters["Upper Bound"] = results.objective_value
+    if full_parameters["Maximize Subtract"] is not None:
+        fix = lambda x: -x + full_parameters["Maximize Subtract"]
+        for k in ["Lower Bound", "Upper Bound"]:
+            sln.parameters[k] = fix(sln.parameters[k]["Value"])
 
     def almostone(x) :
         return abs(x-1) < 0.0001

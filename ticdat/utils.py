@@ -33,6 +33,7 @@ try:
 except:
     drm = None
 import inspect
+import warnings
 
 def faster_df_apply(df, func, trip_wire_check=None):
     """
@@ -238,7 +239,13 @@ def dateutil_adjuster(x):
             return x
     def _try_to_timestamp(y):
         if pd and not numericish(y):
-            rtn = safe_apply(pd.Timestamp)(y)
+            with warnings.catch_warnings(): # suppressing the warning because if/when such strings
+                warnings.filterwarnings(    # fail going forward, they will just be handled by
+                    "ignore",               # dateutil.parser
+                    category=FutureWarning,
+                    message="Parsing 'PST' as tzlocal.*"
+                )
+                rtn = safe_apply(pd.Timestamp)(y)
             if not pd.isnull(rtn):
                 return rtn
         if dateutil:
@@ -1236,53 +1243,62 @@ class Progress(object):
              print("%s:%s:%s"%(theme.ljust(30), "{:.5f}".format(lower_bound).ljust(20),
                                "{:.5f}".format(upper_bound)))
         return True
-    def gurobi_call_back_factory(self, theme, model) :
+    def gurobi_call_back_factory(self, theme, model, sense="minimize") :
         """
-        Allow a Gurobi  model to call mip_progress. **Only for minimize**
+        Allow a Gurobi  model to call mip_progress.
         :param theme: string describing the type of MIP solve underway
         :param model: a Gurobi model (or ticdat.Model.core_model)
+        :param sense: Either 'minimize' or 'maximize'
         :return: a call_back function that can be passed to Model.optimize
         """
         verify(gu, "gurobipy is not installed and properly licensed")
+        assert sense in ['minimize', 'maximize']
         def rtn(gu_model, where) :
             assert gu_model is model
             if where == gu.GRB.callback.MIP:
                 ub = model.cbGet(gu.GRB.callback.MIP_OBJBST)
                 lb = model.cbGet(gu.GRB.callback.MIP_OBJBND)
+                lb, ub = (lb, ub) if sense == "minimize" else (ub, lb)
                 keep_going = self.mip_progress(theme, lb, ub)
                 if not keep_going :
                     model.terminate()
         return rtn
-    def add_xpress_callback(self, theme, problem):
+    def add_xpress_callback(self, theme, problem, sense="minimize"):
         """
         Add a callback function to the xpress problem that is connected to this progress object
-        **Only for minimize**
         :param theme: short descriptive string
         :param problem: xpress..problem() object (or ticdat.Model.core_model)
+        :param sense: Either 'minimize' or 'maximize'
         :return:
         """
+        assert sense in ['minimize', 'maximize']
         def callback(prob, object):
             assert object is None
             # assert prob is problem # this fails for some reason!
             ub = prob.attributes.mipobjval
             lb = prob.attributes.bestbound
+            lb, ub = (lb, ub) if sense == "minimize" else (ub, lb)
             keep_going = self.mip_progress(theme, lb, ub)
             return 0 if keep_going else 1
         problem.addcbmiplog(callback=callback, data=None, priority=0)
-    def add_cplex_listener(self, theme, model):
+    def add_cplex_listener(self, theme, model, sense="minimize"):
         '''
-        Allow a CPLEX model to call mip_progress. **Only for minimize**
+        Allow a CPLEX model to call mip_progress.
         :param theme: short descriptive string
         :param model: cplex.Model object (or ticdat.Model.core_model)
+        :param sense: Either 'minimize' or 'maximize'
         :return:
         '''
         verify(cplexprogress, "docplex is not installed")
+        assert sense in ['minimize', 'maximize']
         super_self = self
         class MyListener(cplexprogress.ProgressListener):
             def notify_progress(self, progress_data):
-                # this is assuming a minimization problem.
-                ub = float("inf") if progress_data.current_objective is None else progress_data.current_objective
-                keep_going = super_self.mip_progress(theme, progress_data.best_bound, ub)
+                no_feasible_yet = {"minimize": float("inf"), "maximize": -float("inf")}
+                ub = no_feasible_yet if progress_data.current_objective is None else progress_data.current_objective
+                lb = progress_data.best_bound
+                lb, ub = (lb, ub) if sense == "minimize" else (ub, lb)
+                keep_going = super_self.mip_progress(theme, lb, ub)
                 if not keep_going:
                     self.abort()
         model.add_progress_listener(MyListener())
