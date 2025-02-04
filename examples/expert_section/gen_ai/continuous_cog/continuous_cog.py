@@ -1,9 +1,10 @@
+import math
 import gurobipy as gu
 from ticdat import TicDatFactory, standard_main, gurobi_env
 
 # ------------------------ define the input schema --------------------------------
 input_schema = TicDatFactory(
-    # Each site has a demand, plus (latitude, longitude) location
+    # Each site has a demand and a (latitude, longitude) location
     sites=[["Name"], ["Demand", "Latitude", "Longitude"]],
 
     # Two parameters: "Number of Centroids" and "MIP Gap"
@@ -27,72 +28,83 @@ input_schema.add_parameter(
 
 # ------------------------ define the output schema -------------------------------
 solution_schema = TicDatFactory(
-    # Which centroids were opened? We store their continuous coordinates.
+    # We store each of the K centroid coordinates
     openings=[["Centroid"], ["Latitude", "Longitude"]],
 
-    # Assignments from each site to a chosen centroid
+    # Assignments from each site to exactly one centroid
     assignments=[["Site", "Assigned To"], []],
 
-    # Basic reporting info for objective and bounds
+    # Reporting info: objective, bounds, etc.
     parameters=[["Parameter"], ["Value"]]
 )
 
 def solve(dat):
     """
-    Solve a continuous k-median / center of gravity style problem using:
-      - Binary assignment variables x[i,k]
-      - Continuous centroid coordinates (Cx[k], Cy[k])
-      - Quadratic constraints for Euclidean distance
-      - NonConvex=2 to allow binary*continuous coupling
+    Solve a continuous k-median / center of gravity problem WITHOUT any z[k].
+    We have exactly K centroids, each used.
 
-    Objective: Minimize sum_{i,k} Demand_i * Dist[i,k], where Dist[i,k] is
-               the distance if x[i,k] = 1, or effectively 0 if x[i,k] = 0.
-    We also enforce exactly 'Number of Centroids' many centroids to be used.
+    Key constraints:
+      1) sum_k x[i,k] = 1  (each site must be assigned to exactly one centroid)
+      2) Dist[i,k]^2 + M*(1 - x[i,k]) >= (Cx[k] - lat_i)^2 + (Cy[k] - lon_i)^2
+         (forces Dist[i,k] to match the Euclidian distance if x[i,k]=1,
+          or allows Dist[i,k] to be 0 if x[i,k]=0)
+      3) Dist[i,k] <= M*x[i,k]  (Dist must be 0 if x[i,k]=0)
+      4) Minimizes sum_{i,k} Demand_i * Dist[i,k}
+
+    We set NonConvex=2 because of the difference-of-quadratics gating.
     """
     # Validate input
     assert input_schema.good_tic_dat_object(dat)
     assert not input_schema.find_data_type_failures(dat)
     assert not input_schema.find_data_row_failures(dat)
 
-    # Extract parameters
+    # Grab parameters
     full_params = input_schema.create_full_parameters_dict(dat)
-    K = full_params["Number of Centroids"]
+    K = full_params["Number of Centroids"]  # exact number of centroids
     mip_gap = full_params["MIP Gap"]
 
     site_list = list(dat.sites)
     if not site_list:
         print("No sites found. Nothing to optimize.")
         return None
-
     n_sites = len(site_list)
 
-    # Create Model
-    m = gu.Model("continuous_cog", env=gurobi_env())
-    # We need NonConvex=2 to allow bilinear terms of form x[i,k]*(distance^2)
-    m.Params.NonConvex = 2
-    # MIP gap
+    # Create model
+    m = gu.Model("continuous_cog_no_z", env=gurobi_env())
+    m.Params.NonConvex = 2   # needed for difference-of-quadratics gating
     m.Params.MIPGap = mip_gap
 
     name_ = lambda s: "".join([_ if (_.lower() in "0123456789qwertyuiopasdfghjklzxcvbnm") else "_" for _ in s][:254])
     # ----- Decision Variables -----
-    # 1) For each centroid k, a binary z[k] indicating if that centroid is used
-    z = {k: m.addVar(vtype=gu.GRB.BINARY, name=name_(f"z_{k}")) for k in range(K)}
+    # 1) Centroid coordinates (Cx[k], Cy[k]) for each of the K centroids
+    lat_vals = [dat.sites[s]["Latitude"] for s in site_list]
+    lon_vals = [dat.sites[s]["Longitude"] for s in site_list]
+    min_lat, max_lat = min(lat_vals), max(lat_vals)
+    min_lon, max_lon = min(lon_vals), max(lon_vals)
 
-    # 2) Coordinates of each centroid (Cx[k], Cy[k]), continuous
-    #    Here we allow them to vary within some bounding box.
-    #    Adjust as needed if you have prior knowledge of location bounds.
-    big_coord = 1e6
-    Cx = {k: m.addVar(lb=-big_coord, ub=big_coord, name=name_(f"Cx_{k}")) for k in range(K)}
-    Cy = {k: m.addVar(lb=-big_coord, ub=big_coord, name=name_(f"Cy_{k}")) for k in range(K)}
+    # Expand bounding box if degenerate
+    if abs(min_lat - max_lat) < 1e-6:
+        min_lat -= 1
+        max_lat += 1
+    if abs(min_lon - max_lon) < 1e-6:
+        min_lon -= 1
+        max_lon += 1
+    margin = 0.1
+    lat_lb = min_lat - margin
+    lat_ub = max_lat + margin
+    lon_lb = min_lon - margin
+    lon_ub = max_lon + margin
 
-    # 3) For each site i and centroid k:
-    #    x[i,k] in {0,1} indicating if site i is assigned to centroid k
+    Cx = {k: m.addVar(lb=lat_lb, ub=lat_ub, name=name_(f"Cx_{k}")) for k in range(K)}
+    Cy = {k: m.addVar(lb=lon_lb, ub=lon_ub, name=name_(f"Cy_{k}"))for k in range(K)}
+
+    # 2) Binary assignment x[i,k] in {0,1}
     x_ik = {}
     for i, site_name in enumerate(site_list):
         for k in range(K):
             x_ik[i, k] = m.addVar(vtype=gu.GRB.BINARY, name=name_(f"x_{site_name}_{k}"))
 
-    # 4) Dist[i,k] >= 0 capturing the distance from site i to centroid k
+    # 3) Dist[i,k] >= 0 is the actual distance if x[i,k]=1, or 0 if x[i,k]=0
     Dist = {}
     for i, site_name in enumerate(site_list):
         for k in range(K):
@@ -100,62 +112,38 @@ def solve(dat):
 
     # ----- Constraints -----
 
-    # a) Exactly K centroids are used
-    #    sum_k z[k] == K
-    m.addConstr(gu.quicksum(z[k] for k in range(K)) == K, name="use_exactly_K")
-
-    # b) Assign each site to exactly one centroid
-    #    sum_k x[i,k] = 1,  for each site i
+    # a) Each site assigned to exactly 1 centroid
     for i, site_name in enumerate(site_list):
-        m.addConstr(gu.quicksum(x_ik[i, k] for k in range(K)) == 1,
-                    name=name_(f"assign_{site_name}"))
+        m.addConstr(
+            gu.quicksum(x_ik[i, k] for k in range(K)) == 1,
+            name=name_(f"assign_{site_name}")
+        )
 
-    # c) If centroid k is not used (z[k] = 0), then x[i,k] must be 0
-    #    x[i,k] <= z[k]
-    for i, site_name in enumerate(site_list):
-        for k in range(K):
-            m.addConstr(x_ik[i, k] <= z[k], name=name_(f"link_assign_{site_name}_{k}"))
+    # b) Gating constraints with difference of quadratics:
+    #    Dist[i,k]^2 + M(1 - x[i,k]) >= (Cx[k] - lat_i)^2 + (Cy[k] - lon_i)^2
+    #    Dist[i,k] <= M*x[i,k]
+    # We'll pick M as the diagonal of the bounding box to handle worst-case distances.
+    box_width = lat_ub - lat_lb
+    box_height = lon_ub - lon_lb
+    bigM = math.sqrt(box_width**2 + box_height**2) + 1
 
-    # d) Second-order cone (SOC) style constraints to tie Dist[i,k] to the
-    #    Euclidean distance from site i to centroid k, but only if x[i,k] = 1.
-    #
-    #    We use a *bilinear* approach:
-    #       Dist[i,k]^2 >= x[i,k] * ((Lat_i - Cx[k])^2 + (Lon_i - Cy[k])^2)
-    #    If x[i,k] = 0, the right side is 0 => Dist[i,k]^2 >= 0 => Dist[i,k] >= 0
-    #    If x[i,k] = 1, Dist[i,k]^2 >= (Lat_i - Cx[k])^2 + (Lon_i - Cy[k])^2
-    #
-    #    Minimizing Dist[i,k] in the objective will force Dist[i,k] to
-    #    "match" the actual distance if x[i,k] = 1.  This is a nonconvex constraint
-    #    because of the x[i,k]*(...) product, so we must use NonConvex=2.
     for i, site_name in enumerate(site_list):
         lat_i = dat.sites[site_name]["Latitude"]
         lon_i = dat.sites[site_name]["Longitude"]
         for k in range(K):
-            # Dist[i,k]^2 >= x[i,k] * ( (lat_i - Cx[k])^2 + (lon_i - Cy[k])^2 )
-            # We'll build the LHS and RHS as expressions
-            lhs = Dist[i, k]*Dist[i, k]
-            dx = lat_i - Cx[k]
-            dy = lon_i - Cy[k]
-            rhs = x_ik[i, k] * (dx*dx + dy*dy)
-            m.addQConstr(lhs >= rhs, name=name_(f"soc_site_{site_name}_centroid_{k}"))
+            lhs = Dist[i, k]*Dist[i, k] + bigM*(1 - x_ik[i, k])
+            rhs = (Cx[k] - lat_i)*(Cx[k] - lat_i) + (Cy[k] - lon_i)*(Cy[k] - lon_i)
+            m.addQConstr(lhs >= rhs, name=name_(f"distGating_{site_name}_{k}"))
+
+            m.addConstr(Dist[i, k] <= bigM * x_ik[i, k],
+                        name=name_(f"distBigM_{site_name}_{k}"))
 
     # ----- Objective -----
-    # Minimize the sum of (Demand_i * Dist[i,k]) for whichever centroid is chosen
-    # We do that as sum_{i,k} Demand_i * Dist[i,k]. But we only pay for Dist[i,k]
-    # if x[i,k] = 1 *and* it is forced to match the actual distance in that case.
-    # If x[i,k] = 0, Dist[i,k] can be small or zero, but it won't matter because
-    # x[i,k] * Dist[i,k] effectively is handled by the bilinear constraint above.
-    #
-    # Simpler approach in code: Just do sum_{i,k} Demand_i * Dist[i,k].
-    # Because Dist[i,k] won't blow up or help to reduce cost artificially—
-    # it's pinned to zero if x[i,k]=0 by the constraint Dist[i,k]^2 >= 0.
-    # And when x[i,k]=1, Dist[i,k] is forced to the "true" distance or bigger.
+    # Minimize sum of Demand_i * Dist[i,k]
     obj = gu.quicksum(
         dat.sites[site_list[i]]["Demand"] * Dist[i, k]
-        for i in range(n_sites)
-        for k in range(K)
+        for i in range(n_sites) for k in range(K)
     )
-
     m.setObjective(obj, gu.GRB.MINIMIZE)
 
     # Optimize
@@ -173,30 +161,28 @@ def solve(dat):
     sln = solution_schema.TicDat()
 
     # Parameter reporting
-    sln.parameters["Upper Bound"] = getattr(m, "objVal", float("inf"))
-    sln.parameters["Lower Bound"] = getattr(m, "objBound", sln.parameters["Upper Bound"]["Value"])
+    ub = getattr(m, "objVal", float("inf"))
+    lb = getattr(m, "objBound", ub)
+    sln.parameters["Upper Bound"] = ub
+    sln.parameters["Lower Bound"] = lb
 
-    print(f"Upper Bound = {sln.parameters['Upper Bound']['Value']}")
-    print(f"Lower Bound = {sln.parameters['Lower Bound']['Value']}")
+    print(f"Upper Bound = {ub}")
+    print(f"Lower Bound = {lb}")
 
-    # Record opened centroids and their coordinates
-    used_count = 0
+    # Record all K centroids (since there's no "z[k]"—they're all used)
     for k in range(K):
-        if z[k].X > 0.5:  # "opened" centroid
-            sln.openings[str(k)] = {
-                "Latitude": Cx[k].X,
-                "Longitude": Cy[k].X
-            }
-            used_count += 1
+        sln.openings[str(k)] = {
+            "Latitude": Cx[k].X,
+            "Longitude": Cy[k].X
+        }
+    print(f"Number of centroids used = {K}")
 
-    print(f"Number of centroids used = {used_count}")
-
-    # Assign each site to the centroid for which x[i,k]=1
+    # Assign each site to whichever centroid x[i,k]=1
     for i, site_name in enumerate(site_list):
         for k in range(K):
             if x_ik[i, k].X > 0.5:
                 sln.assignments[site_name, str(k)] = {}
-                break  # move to next site once assigned
+                break
 
     return sln
 
