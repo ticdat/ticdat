@@ -15,7 +15,7 @@ input_schema.set_data_type("sites", "Latitude", min=-90, max=90)
 input_schema.set_data_type("sites", "Longitude", min=-180, max=180)
 
 input_schema.add_parameter(
-    "Number of Centroids", default_value=1, must_be_int=True,
+    "Number of Centroids", default_value=3, must_be_int=True,
     min=1, max=float("inf")
 )
 input_schema.add_parameter(
@@ -65,11 +65,13 @@ def solve(dat):
     site_list = list(dat.sites)
     n_sites = len(site_list)
 
+    name_ = lambda s: "".join([_ if (_.lower() in "0123456789qwertyuiopasdfghjklzxcvbnm") else "_" for _ in s][:254])
+
     # Decision variables for each of the K centroids: (cx[k], cy[k])
     # No integrality needed; these are free continuous within some large bounds.
     # You might set them to smaller bounds if appropriate.
-    cx = {k: m.addVar(lb=-1e5, ub=1e5, name=f"cx_{k}") for k in range(K)}
-    cy = {k: m.addVar(lb=-1e5, ub=1e5, name=f"cy_{k}") for k in range(K)}
+    cx = {k: m.addVar(lb=-1e5, ub=1e5, name=name_(f"cx_{k}")) for k in range(K)}
+    cy = {k: m.addVar(lb=-1e5, ub=1e5, name=name_(f"cy_{k}")) for k in range(K)}
 
     # For each site i and centroid k, define d_{i,k} >= Euclidian distance.
     # We'll then define D_i to be the min_{k} d_{i,k}.
@@ -79,10 +81,10 @@ def solve(dat):
         lon_i = dat.sites[site_name]["Longitude"]
         for k in range(K):
             # d_{i,k} >= 0
-            d_ik[i, k] = m.addVar(lb=0, name=f"d_{site_name}_{k}")
+            d_ik[i, k] = m.addVar(lb=0, name=name_(f"d_{site_name}_{k}"))
 
-    # For each site i, define D_i to track the distance to the nearest centroid.
-    D_i = {i: m.addVar(lb=0, name=f"D_{site_list[i]}") for i in range(n_sites)}
+    # For each site i, define obj_i to track the distance to the nearest centroid.
+    obj_i = {i: m.addVar(lb=0, name=name_(f"D_{site_list[i]}")) for i in range(n_sites)}
 
     # Add second-order cone constraints:
     # d_{i,k} >= sqrt((cx[k] - lat_i)^2 + (cy[k] - lon_i)^2)
@@ -97,20 +99,20 @@ def solve(dat):
             m.addQConstr(
                 d_ik[i, k] * d_ik[i, k] >= (cx[k] - lat_i) * (cx[k] - lat_i)
                                          + (cy[k] - lon_i) * (cy[k] - lon_i),
-                name=f"soc_{site_name}_{k}"
+                name=name_(f"soc_{site_name}_{k}")
             )
 
     # For each site i, we want D_i <= d_{i,k} for all k so that
     # D_i = min_{k} d_{i,k}
     for i in range(n_sites):
         for k in range(K):
-            m.addConstr(D_i[i] <= d_ik[i, k], name=f"minDist_{i}_{k}")
+            m.addConstr(obj_i[i] <= d_ik[i, k], name=name_(f"minDist_{i}_{k}"))
 
     # Objective: Minimize sum_{i} Demand_i * D_i
     obj_expr = gu.LinExpr()
     for i, site_name in enumerate(site_list):
         demand = dat.sites[site_name]["Demand"]
-        obj_expr.addTerms(demand, D_i[i])
+        obj_expr.addTerms(demand, obj_i[i])
 
     m.setObjective(obj_expr, gu.GRB.MINIMIZE)
 
