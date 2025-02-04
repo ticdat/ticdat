@@ -17,8 +17,8 @@ input_schema.set_data_type("sites", "Longitude", min=-180, max=180)
 
 # Parameter definitions
 input_schema.add_parameter(
-    "Number of Centroids", default_value=1, must_be_int=True,
-    min=3, max=float("inf")
+    "Number of Centroids", default_value=3, must_be_int=True,
+    min=1, max=float("inf")
 )
 input_schema.add_parameter(
     "MIP Gap", default_value=0.001, must_be_int=False,
