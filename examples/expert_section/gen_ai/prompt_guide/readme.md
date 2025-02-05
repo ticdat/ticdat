@@ -12,7 +12,7 @@ experience is that simply providing some standard, boilerplate prompts alongside
 English description of the specific problem at hand tends to yield excellent results.
 
 Our suggestion is thus to initiate your chat session with a single long prompt that follows the 
-following format.  **Be advised** - this prompt assumes you are using `TicDatFactory`. To use
+format below.  **Be advised** - this prompt assumes you are using `TicDatFactory`. To use
 `PanDatFactory`, just replace `TicDat` with `PanDat` in the prompt below, and then copy
 the `pan_dat_template.py` file into the prompt instead of the `tic_dat_template.py` file. 
 
@@ -40,10 +40,45 @@ prompt, subsequent to the text above and preceding the template code that will e
 >    the solve function to read the parameters into a dictionary which can then be referenced
 >    by the rest of the solve logic.
 
-Finally, copy either `pan_dat_template.py`  or `tic_dat_template.py` into the prompt, 
+Finally, copy either `pan_dat_template.py` or `tic_dat_template.py` into the prompt, 
 depending on whether you want to use `DataFrame` objects or dict-of-dict objects to 
 represent your input and solution tables. 
 
+### gurobipy, pulp, pyomo or what?
 
+Left to its own devices, the LLM will likely use `pulp` in the .py file. If you prefer
+`gurobipy`, just include a sentence like "Please use gurobipy to handle the Mixed Integer Programming logic."
 
+### Field names versus table names.
+
+Bear in mind, `ticdat` has best practice 
+[naming conventions](https://github.com/ticdat/ticdat/wiki/Ticdat-naming-conventions)
+that might not be obvious to an LLM. So, for example, the LLM might create the following 
+`input_schema`.
+
+```
+input_schema = TicDatFactory (
+    categories=[["Name"], ["MinNutrition", "MaxNutrition"]],
+    foods=[["Name"], ["Cost"]],
+    nutrition_quantities=[["Food", "Category"], ["Quantity"]])
+```
+
+While functional, this will look ugly on Foresta. To get the best aesthetics, you want
+
+```
+input_schema = TicDatFactory (
+    categories=[["Name"], ["Min Nutrition", "Max Nutrition"]],
+    foods=[["Name"], ["Cost"]],
+    nutrition_quantities=[["Food", "Category"], ["Quantity"]])
+```
+
+If this happens, just go ahead and correct the LLM with your next prompt. Or you can 
+write the code that creates the `input_schema` object yourself. Also, look for similar
+issues with `solution_schema`.
+
+### Final thoughts
+
+Feel free to have a conversation with the LLM. If you think something is wrong, describe
+the problem in detail. When used properly, the LLM will do far more than write code for you. 
+It will instead guide you to become a better programmer yourself. 
 
