@@ -131,7 +131,7 @@ def solve(dat):
         lat_i = dat.sites[site_name]["Latitude"]
         lon_i = dat.sites[site_name]["Longitude"]
         for k in range(K):
-            lhs = Dist[i, k]*Dist[i, k] + bigM*(1 - x_ik[i, k])
+            lhs = Dist[i, k]*Dist[i, k] + (bigM**2)*(1 - x_ik[i, k])
             rhs = (Cx[k] - lat_i)*(Cx[k] - lat_i) + (Cy[k] - lon_i)*(Cy[k] - lon_i)
             m.addQConstr(lhs >= rhs, name=name_(f"distGating_{site_name}_{k}"))
 
@@ -145,7 +145,6 @@ def solve(dat):
         for i in range(n_sites) for k in range(K)
     )
     m.setObjective(obj, gu.GRB.MINIMIZE)
-
     # Optimize
     m.optimize()
 
