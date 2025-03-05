@@ -56,8 +56,8 @@ solution_schema = PanDatFactory(
 def solve(dat):
     """
     core solving routine
-    :param dat: a good ticdat for the dataFactory
-    :return: a good ticdat for the solutionFactory, or None
+    :param dat: a good PanDat object for the input_schema
+    :return: a good PanDat object for the solution_schema, or None
     """
     assert input_schema.good_pan_dat_object(dat)
     # PanDat objects might contain duplicate rows, whereas TicDat objects cannot. This is because DataFrames
