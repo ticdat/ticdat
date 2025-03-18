@@ -1,6 +1,10 @@
 #### This directory implements a simple pacakge named diet_simple_package.
 
-You can zip this up and upload it directly to Enframe in lieu of a `diet.py` file.
+You can zip this up and upload it directly to Foresta in lieu of a `diet.py` file.
+
+We have multiple other similar examples as proper GitHub repos. 
+[Here](https://github.com/ticdat/tts_diet), [here](https://github.com/ticdat/tts_diet_b), 
+[here](https://github.com/ticdat/tts_netflow_a) and [here](https://github.com/ticdat/tts_netflow_b).
 
 Note that the name of the package is `diet_simple_package`, because that's the name of the folder.
 
