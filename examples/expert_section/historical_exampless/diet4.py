@@ -2,7 +2,7 @@
 # https://docs.gurobi.com/projects/examples/en/current/examples/diet.html#diet4
 # maintaining a copy here just in case the Gurobi example goes down
 # note that this file assumes a cross tab representation of the
-# Nutrition Quantities table. ticdat uses normalized table data in Excel (i.e. the first
+# Nutrition Quantities table. ticdat uses normalized table data with Excel (i.e. the first
 # row has column names, not actual data)
 #!/usr/bin/env python3.11
 
