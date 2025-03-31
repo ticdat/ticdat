@@ -1130,20 +1130,22 @@ class PanDatFactory(object):
         rtn = {}
         TableField = clt.namedtuple("TableField", ["table", "field"])
         number_failures = [0]
-        check_too_many = None
-        if max_failures < float("inf"):
-            def check_too_many(is_bad_row):
-                if is_bad_row:
-                    number_failures[0] += 1
-                    if number_failures[0] >= max_failures:
-                        return lambda row: False  # all future rows will be good (i.e. not bad, i.e. False)
         for table, type_row in self._true_data_types().items():
             _table = getattr(pan_dat, table)
             for field, data_type in type_row.items():
-                def bad_row(row):
-                    data = row[field]
+                def _bad_row(data):
                     return not data_type.valid_data(None if isnull(data) else data)
-                where_bad_rows = utils.faster_df_apply(_table, bad_row, trip_wire_check=check_too_many)
+                if max_failures == float("inf"):
+                    bad_row = _bad_row
+                else:
+                    def bad_row(data):
+                        if number_failures[0] >= max_failures:
+                            return False  # all future rows will be good (i.e. not bad, i.e. False)
+                        rtn = _bad_row(data)
+                        if rtn:
+                            number_failures[0] += 1
+                        return rtn
+                where_bad_rows = _table[field].apply(bad_row)
                 if where_bad_rows.any():
                     rtn[TableField(table, field)] = _table[where_bad_rows].copy() if as_table else where_bad_rows
                 if number_failures[0] >= max_failures:
