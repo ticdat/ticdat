@@ -44,6 +44,8 @@ def faster_df_apply(df, func, trip_wire_check=None):
     faster_df_apply. We're investigating this matter to be sure. Assuming these results hold up, a future release
     of ticdat will simply be a redirect.
 
+    See https://github.com/ticdat/ticdat/issues/228 for continuing updates.
+
     :param df: a DataFrame
 
     :param func: a function to apply to each row of the DataFrame. The function should accept a fieldname->data
