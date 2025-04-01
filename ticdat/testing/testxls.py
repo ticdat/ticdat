@@ -594,7 +594,7 @@ class TestXls(unittest.TestCase):
             ["June 13 1960 4:30PM", "Dec 11 1970 1AM", "Sept 11 2001 9:30AM"]))})
         tdf = TicDatFactory(cool_runnings = [["a"],[]])
         tdf.set_data_type("cool_runnings", "a", datetime=True)
-        df.to_excel(file, "Cool Runnings")
+        df.to_excel(file, sheet_name="Cool Runnings")
         dat = tdf.xls.create_tic_dat(file)
         self.assertTrue(set(dat.cool_runnings) == set(df["a"]))
         for x, y in zip(sorted(dat.cool_runnings), sorted(set(df["a"]))):

@@ -8,6 +8,7 @@ import uuid
 import os
 from ticdat.utils import freezable_factory, verify, case_space_to_pretty, pd, TicDatError, FrozenDict, all_fields
 from ticdat.utils import all_underscore_replacements, stringish, dictish, containerish, debug_break, faster_df_apply
+from ticdat.utils import safe_apply
 from itertools import product, chain
 from collections import defaultdict
 import datetime
@@ -94,7 +95,7 @@ class JsonPanFactory(freezable_factory(object, "_isFrozen")):
         To address this, you need to either use set_data_type for your
         PanDatFactory, or specify "dtype" in kwargs. (The former is obviously better).
         """
-        if stringish(path_or_buf) and os.path.exists(path_or_buf):
+        if safe_apply(os.path.exists)(path_or_buf):
             verify(os.path.isfile(path_or_buf), "%s appears to be a directory and not a file." % path_or_buf)
             with open(path_or_buf, "r") as f:
                 loaded_dict = json.load(f)

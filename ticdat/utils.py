@@ -37,15 +37,14 @@ import warnings
 
 def faster_df_apply(df, func, trip_wire_check=None):
     """
-    pandas.DataFrame.apply is rarely used because it is slow. It is slow because it creates a Series for each row
-    of the DataFrame, and passes this Series to the function. faster_df_apply creates a dict for each row of the
-    DataFrame instead, and as a result is **much** faster.
+    In earlier versions of, DataFrame.apply(func=func, axis=1) was very slow. faster_df_apply was faster.
+    See https://bit.ly/3xnLFld for details.
 
-    See https://bit.ly/3xnLFld.
+    Currently, (pandas 2.2.2 or newer) it appears that DataFrame.apply(func=func, axis=1) will be faster than
+    faster_df_apply. We're investigating this matter to be sure. Assuming these results hold up, a future release
+    of ticdat will simply be a redirect.
 
-    It's certainly possible newer versions of pandas will implement a more performant DataFrame.apply. The broader
-    point is, row-wise apply should not be discarded wholesale for performance reasons, as DataFrame.itertuples
-    is reasonably fast
+    See https://github.com/ticdat/ticdat/issues/228 for continuing updates.
 
     :param df: a DataFrame
 
