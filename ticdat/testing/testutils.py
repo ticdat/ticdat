@@ -1207,6 +1207,7 @@ class TestUtils(unittest.TestCase):
             self.assertTrue(new_sch.pop("infinity_io_flag") == "N/A")
             self.assertTrue(new_sch.pop("xlsx_trailing_empty_rows") == "prune")
             self.assertTrue(new_sch.pop("duplicates_ticdat_init") == "assert")
+            self.assertTrue(new_sch.pop("automunge_multitype_fields") == True)
             self.assertTrue(new_sch.pop("tooltips") == {})
             new_sch = json.loads(json.dumps(new_sch))
             new_sch["foreign_keys"] = sorted(new_sch["foreign_keys"])
@@ -1375,7 +1376,7 @@ class TestUtils(unittest.TestCase):
                                        "Max Nutrition": [true, true, true, 0, Infinity, false, [], false, false]}, 
          "foods": {"Cost": [true, true, false, 0, Infinity, false, [], false, false]}, 
          "nutrition_quantities": {"Quantity": [true, true, false, 0, Infinity, false, [], false, false]}}, 
-         "parameters": {}, "infinity_io_flag": "N/A"}
+         "parameters": {}, "infinity_io_flag": "N/A", "automunge_multitype_fields": true}
         """
         for factory in (TicDatFactory, PanDatFactory):
             tdf = factory.create_from_full_schema(json.loads(sch))
@@ -1397,7 +1398,7 @@ class TestUtils(unittest.TestCase):
                                  'nutrition_quantities': {'Quantity': [True, True, False, 0, inf, False, [], False,
                                                                        False]}},
                  'parameters': {}, 'infinity_io_flag': 'N/A', "xlsx_trailing_empty_rows": "prune",
-                 "duplicates_ticdat_init": "assert", "tooltips": {}})
+                 "duplicates_ticdat_init": "assert", "automunge_multitype_fields": True, "tooltips": {}})
 
     def testTwentyNine(self):
         data_path = os.path.join(_scratchDir, "custom_module_three")
