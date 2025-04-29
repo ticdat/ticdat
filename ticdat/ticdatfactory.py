@@ -1035,10 +1035,13 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"ampl_prepend"})) :
         if t == "parameters": # infinity flagging doesn't apply to parameters table, see set_infinity_flag __doc__
             return x
         # SPEED IS IMPORTANT HERE!!!!
-        if self._data_types.get(t, {}).get(f) and self._data_types[t][f].datetime and \
-                (not (x is None or (utils.pd and utils.pd.isnull(x)))) and \
-                utils.dateutil_adjuster(x) is not None:
+        dt = self._data_types.get(t, {}).get(f)
+        if dt and dt.datetime and (not (x is None or (utils.pd and utils.pd.isnull(x)))) and \
+            utils.dateutil_adjuster(x) is not None:
             return utils.dateutil_adjuster(x)
+        if dt and not dt.datetime and dt.strings_allowed and dt.number_allowed and self.automunge_multitype_fields:
+            _x = safe_apply(float)(x)
+            x = x if _x is None else _x
         if utils.numericish(self.infinity_io_flag) and utils.numericish(x):
             if x >= self.infinity_io_flag:
                 return float("inf")

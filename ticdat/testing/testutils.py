@@ -1997,6 +1997,29 @@ class TestUtils(unittest.TestCase):
         self.assertTrue(all(set(_['table_three', 'in one or other']["Name"]) == {'x', 'z'} for _ in
                             [fails_two, fails_two_b]))
 
+    def test_automunging(self):
+        tdf = TicDatFactory(the_table=[["Field One"], ["Field Two", "Field Three"]])
+        tdf.set_data_type("the_table", "Field One", strings_allowed=["bob", "joe"])
+        tdf.set_data_type("the_table", "Field Two")
+        tdf.set_data_type("the_table", "Field Three", strings_allowed='*')
+        d = {"the_table": [["12", 13, "14"], [15, 16, 17], ["bob", 18, "junk"]]}
+        pdf = tdf.clone(clone_factory=PanDatFactory)
+        tdat = tdf.TicDat(**d)
+        pdat = pdf.PanDat(**d)
+        self.assertTrue(set(tdf.find_data_type_failures(tdat)) == set(pdf.find_data_type_failures(pdat)) ==
+                        {('the_table', 'Field One')})
+        for i in range(2):
+            if i == 1:
+                tdf.set_automunge_multitype_fields(False)
+                pdf.set_automunge_multitype_fields(False)
+            self.assertTrue(tdf.automunge_multitype_fields == tdf.clone().automunge_multitype_fields)
+            self.assertTrue(pdf.automunge_multitype_fields == pdf.clone().automunge_multitype_fields)
+            tdat2 = tdf.json.create_tic_dat(tdf.json.write_file(tdat, ""))
+            pdat2 = pdf.json.create_pan_dat(pdf.json.write_file(pdat, ""))
+            self.assertTrue(tdf._same_data(tdat, tdat2) == (i == 1))
+            self.assertTrue(pdf._same_data(pdat, pdat2) == (i == 1))
+            self.assertTrue((not tdf.find_data_type_failures(tdat2)) == (i == 0))
+            self.assertTrue((not pdf.find_data_type_failures(pdat2)) == (i == 0))
 
 _scratchDir = TestUtils.__name__ + "_scratch"
 

@@ -442,7 +442,21 @@ class PanDatFactory(object):
         :param json_read: special 'None'->None override needed for pandas json reader
         '''
         assert push_parameters_to_be_valid or not json_read, "json_read should always push_parameters_to_be_valid"
-        apply = utils.faster_df_apply
+        def _multitype_cell_adj(x):
+            _x = safe_apply(float)(x)
+            return x if _x is None else _x
+        def _datetime_cell_adj(x):
+            _x = utils.dateutil_adjuster(x)
+            return x if _x is None else _x
+        def _json_none_cell_adj(x):
+            if utils.stringish(x) and x.lower() == "none":
+                return None
+            return x
+        def _inf_cell_adj(x):
+            if not utils.numericish(x):
+                return x
+            return float("inf") if x >= self.infinity_io_flag else \
+                (-float("inf") if x <= -self.infinity_io_flag else x)
         for t in set(self.all_tables).difference(["parameters"]): # parameters table is handled differently
             df = getattr(dat, t)
             all_fields = tuple(self.primary_key_fields.get(t, ()) + self.data_fields.get(t, ()))
@@ -452,29 +466,24 @@ class PanDatFactory(object):
                     for f in all_fields:
                         if utils.numericish(row[f]) and abs(row[f]) >= self.infinity_io_flag:
                             fields_w_issues.add(f)
-                apply(df, find_fields_w_issues)
+                utils.faster_df_apply(df, find_fields_w_issues)
                 for f in fields_w_issues:
-                    df[f] = apply(df, lambda row: row[f] if not utils.numericish(row[f]) else
-                                        (float("inf") if row[f] >= self.infinity_io_flag else
-                                         (-float("inf") if row[f] <= -self.infinity_io_flag else row[f])))
+                    df[f] = df[f].apply(_inf_cell_adj)
             for f in all_fields:
+                dt = self.data_types.get(t, {}).get(f, None)
+                if dt and not dt.datetime and dt.strings_allowed and dt.number_allowed and \
+                    self.automunge_multitype_fields:
+                    df[f] = df[f].apply(_multitype_cell_adj)
                 if not utils.numericish(self.infinity_io_flag) and utils.numericish(self._none_as_infinity_bias(t, f)):
                     assert self.infinity_io_flag is None
-                    df[f] = df[f].fillna(value=self._none_as_infinity_bias(t, f) * float("inf"))
-                dt = self.data_types.get(t, {}).get(f, None)
+                    df[f] = df[f].apply(lambda x: self._none_as_infinity_bias(t, f) * float("inf")
+                                        if pd.isnull(x) else x)
                 if dt and dt.datetime:
-                    def fixed_row(row):
-                        new_row_f = utils.dateutil_adjuster(row[f])
-                        return new_row_f if new_row_f is not None else row[f]
-                    df[f] = apply(df, fixed_row)
+                    df[f] = df[f].apply(_datetime_cell_adj)
                 if json_read and self._dtypes_for_pandas_read(t).get(f) == str:
                     assert dt, "assumed because _dtypes_for_pandas_read result"
                     if dt.nullable:
-                        def fixed_row(row):
-                            if utils.stringish(row[f]) and row[f].lower() == "none":
-                                return None
-                            return row[f]
-                        df[f] = apply(df, fixed_row)
+                        df[f] = df[f].apply(_json_none_cell_adj)
 
         # this is the logic that is used in lieu of infinity_io_flag logic for the parameters table
         # it is predicated on the assumption that the parameters table will be serialized to a string/string table
