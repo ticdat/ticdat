@@ -108,6 +108,7 @@ class PanDatFactory(object):
                 "infinity_io_flag": self.infinity_io_flag,
                 "xlsx_trailing_empty_rows": self.xlsx_trailing_empty_rows,
                 "duplicates_ticdat_init": self.duplicates_ticdat_init,
+                "automunge_multitype_fields": self.automunge_multitype_fields,
                 "tooltips": utils.make_tooltips_dict_json_friendly(self.tooltips)}
     @staticmethod
     def create_from_full_schema(full_schema):
@@ -124,7 +125,8 @@ class PanDatFactory(object):
         old_schema = {"tables_fields", "foreign_keys", "default_values", "data_types"}
         verify(dictish(full_schema) and set(full_schema).issuperset(old_schema) and set(full_schema) in
                utils.all_subsets(old_schema.union({"parameters", "infinity_io_flag", "xlsx_trailing_empty_rows",
-                                                   "duplicates_ticdat_init", "tooltips"})),
+                                                   "duplicates_ticdat_init", "tooltips",
+                                                   "automunge_multitype_fields"})),
                "full_schema should be the result of calling schema(True) for some PanDatFactory")
         fks = full_schema["foreign_keys"]
         verify( (not fks) or (lupish(fks) and all(lupish(_) and len(_) >= 3 for _ in fks)),
@@ -163,6 +165,8 @@ class PanDatFactory(object):
             rtn.set_xlsx_trailing_empty_rows(full_schema["xlsx_trailing_empty_rows"])
         if "duplicates_ticdat_init" in full_schema:
             rtn.set_duplicates_ticdat_init(full_schema["duplicates_ticdat_init"])
+        if "automunge_multitype_fields" in full_schema:
+            rtn.set_automunge_multitype_fields(full_schema["automunge_multitype_fields"])
         if "tooltips" in full_schema:
             for t, tip_dict in full_schema["tooltips"].items():
                 for f, tip in tip_dict.items():
@@ -346,6 +350,24 @@ class PanDatFactory(object):
         verify(value in ["prune", "ignore"], f"bad value {value}")
         self._xlsx_trailing_empty_rows[0] = value
     @property
+    def automunge_multitype_fields(self):
+        """
+        see __doc__ for set_automunge_multitype_fields
+        :return:
+        """
+        return self._automunge_multitype_fields[0]
+    def set_automunge_multitype_fields(self, value):
+        """
+        Set the automunge_multitype_fields for the PanDatFactory. Choices are: True, False
+        Default is True. Prior to 0.2.28, there was no automunging of multitype fields, so if you want to
+        retain that behavior with the 0.2.28 release, you will need to call this function with value=False.
+        See https://github.com/ticdat/ticdat/wiki/ticdat-automunging for more details.
+        :param value:
+        :return:
+        """
+        verify(value in [True, False],  f"bad value {value}")
+        self._automunge_multitype_fields[0] = value
+    @property
     def infinity_io_flag(self):
         """
         see __doc__ for set_infinity_io_flag
@@ -420,7 +442,21 @@ class PanDatFactory(object):
         :param json_read: special 'None'->None override needed for pandas json reader
         '''
         assert push_parameters_to_be_valid or not json_read, "json_read should always push_parameters_to_be_valid"
-        apply = utils.faster_df_apply
+        def _multitype_cell_adj(x):
+            _x = safe_apply(float)(x)
+            return x if _x is None else _x
+        def _datetime_cell_adj(x):
+            _x = utils.dateutil_adjuster(x)
+            return x if _x is None else _x
+        def _json_none_cell_adj(x):
+            if utils.stringish(x) and x.lower() == "none":
+                return None
+            return x
+        def _inf_cell_adj(x):
+            if not utils.numericish(x):
+                return x
+            return float("inf") if x >= self.infinity_io_flag else \
+                (-float("inf") if x <= -self.infinity_io_flag else x)
         for t in set(self.all_tables).difference(["parameters"]): # parameters table is handled differently
             df = getattr(dat, t)
             all_fields = tuple(self.primary_key_fields.get(t, ()) + self.data_fields.get(t, ()))
@@ -430,29 +466,24 @@ class PanDatFactory(object):
                     for f in all_fields:
                         if utils.numericish(row[f]) and abs(row[f]) >= self.infinity_io_flag:
                             fields_w_issues.add(f)
-                apply(df, find_fields_w_issues)
+                utils.faster_df_apply(df, find_fields_w_issues)
                 for f in fields_w_issues:
-                    df[f] = apply(df, lambda row: row[f] if not utils.numericish(row[f]) else
-                                        (float("inf") if row[f] >= self.infinity_io_flag else
-                                         (-float("inf") if row[f] <= -self.infinity_io_flag else row[f])))
+                    df[f] = df[f].apply(_inf_cell_adj)
             for f in all_fields:
+                dt = self.data_types.get(t, {}).get(f, None)
+                if dt and not dt.datetime and dt.strings_allowed and dt.number_allowed and \
+                    self.automunge_multitype_fields:
+                    df[f] = df[f].apply(_multitype_cell_adj)
                 if not utils.numericish(self.infinity_io_flag) and utils.numericish(self._none_as_infinity_bias(t, f)):
                     assert self.infinity_io_flag is None
-                    df[f] = df[f].fillna(value=self._none_as_infinity_bias(t, f) * float("inf"))
-                dt = self.data_types.get(t, {}).get(f, None)
+                    df[f] = df[f].apply(lambda x: self._none_as_infinity_bias(t, f) * float("inf")
+                                        if pd.isnull(x) else x)
                 if dt and dt.datetime:
-                    def fixed_row(row):
-                        new_row_f = utils.dateutil_adjuster(row[f])
-                        return new_row_f if new_row_f is not None else row[f]
-                    df[f] = apply(df, fixed_row)
+                    df[f] = df[f].apply(_datetime_cell_adj)
                 if json_read and self._dtypes_for_pandas_read(t).get(f) == str:
                     assert dt, "assumed because _dtypes_for_pandas_read result"
                     if dt.nullable:
-                        def fixed_row(row):
-                            if utils.stringish(row[f]) and row[f].lower() == "none":
-                                return None
-                            return row[f]
-                        df[f] = apply(df, fixed_row)
+                        df[f] = df[f].apply(_json_none_cell_adj)
 
         # this is the logic that is used in lieu of infinity_io_flag logic for the parameters table
         # it is predicated on the assumption that the parameters table will be serialized to a string/string table
@@ -932,6 +963,7 @@ class PanDatFactory(object):
         self._infinity_io_flag = ["N/A"]
         self._xlsx_trailing_empty_rows = ["prune"]
         self._duplicates_ticdat_init = ["assert"]
+        self._automunge_multitype_fields = [True]
         self._none_as_infinity_bias_cache = {}
         self._convert_dat = []
 
