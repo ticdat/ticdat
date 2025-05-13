@@ -22,6 +22,26 @@ def _deep_anonymize(x)  :
 class TestUtils(unittest.TestCase):
     canRun = False
 
+    def test_i_236(self):
+        schema = PanDatFactory(any_table=[['PK'], ['Column1', 'Column2']])
+        schema.set_data_type(table='any_table', field='PK', strings_allowed=(), number_allowed=True, must_be_int=True)
+        schema.set_data_type(table='any_table', field='Column1', strings_allowed='*', number_allowed=False)
+        schema.set_data_type(table='any_table', field='Column2', strings_allowed='*', number_allowed=False)
+
+        df1 = utils.pd.DataFrame({'PK': [], 'Column1': [], 'Column2': []})
+        df2 = utils.pd.DataFrame({'PK': [1, 2], 'Column1': ['col1_value1', 'col1_value2'],
+                                  'Column2': ['col2_value1', 'col2_value2']})
+        dat1 = schema.PanDat()
+        dat1.any_table = df1.astype({'Column2': 'string'}, copy=True)
+        dat2 = schema.PanDat()
+        dat2.any_table = df1.astype({'Column2': str}, copy=True)
+        dat3 = schema.PanDat()
+        dat3.any_table = df2.astype({'Column2': 'string'}, copy=True)
+        dat4 = schema.PanDat()
+        dat4.any_table = df2.astype({'Column2': str}, copy=True)
+        for dat in [dat1, dat2, dat3, dat4]:
+            self.assertFalse(schema.find_data_type_failures(dat))
+
     def test_the_wacky_fk_bug_issue_173(self):
         pdf = PanDatFactory(parent=[[], ["Field"]], child=[[],["Field"]])
         pdf.add_foreign_key("child", "parent", ["Field", ] * 2)

@@ -24,6 +24,11 @@ except:
 
 pd, DataFrame = utils.pd, utils.DataFrame # if pandas not installed will be falsey
 
+def _safe_any(s):
+    if len(s) == 0:
+        return False
+    return s.any()
+
 def _is_last_rows_all_nan(df, last_rows):
     assert last_rows > 0
     # quick last row check to make faster
@@ -547,10 +552,10 @@ class PanDatFactory(object):
                 apply(df, find_fields_w_issues)
                 for f in fields_w_issues:
                     fixme = apply(df, lambda row: utils.numericish(row[f]) and row[f] >= self.infinity_io_flag)
-                    if fixme.any():
+                    if _safe_any(fixme):
                         df.loc[fixme, f] = self.infinity_io_flag
                     fixme = apply(df, lambda row: utils.numericish(row[f]) and row[f] <= -self.infinity_io_flag)
-                    if fixme.any():
+                    if _safe_any(fixme):
                         df.loc[fixme, f] = -self.infinity_io_flag
             else:
                 all_fields = tuple(f for f in all_fields if utils.numericish(self._none_as_infinity_bias(t, f)))
@@ -562,7 +567,7 @@ class PanDatFactory(object):
                 for f in fields_w_issues:
                     assert self.infinity_io_flag is None
                     fixme = apply(df, lambda row: row[f] == float("inf") * self._none_as_infinity_bias(t, f))
-                    if fixme.any():
+                    if _safe_any(fixme):
                         df.loc[fixme, f] = None
         return rtn
     def set_data_type(self, table, field, number_allowed = True,
@@ -1178,7 +1183,7 @@ class PanDatFactory(object):
                             number_failures[0] += 1
                         return rtn
                 where_bad_rows = _table[field].apply(bad_row)
-                if where_bad_rows.any():
+                if _safe_any(where_bad_rows):
                     rtn[TableField(table, field)] = _table[where_bad_rows].copy() if as_table else where_bad_rows
                 if number_failures[0] >= max_failures:
                     return rtn
@@ -1366,7 +1371,7 @@ class PanDatFactory(object):
                                   if exception_handling == "Unhandled" else (lambda row: not _p(row))
 
                         where_bad_rows = utils.faster_df_apply(_table, bad_row, trip_wire_check=check_too_many_bool)
-                        if where_bad_rows.any():
+                        if _safe_any(where_bad_rows):
                             rtn[TPN(tbl, pn)] = _table[where_bad_rows].copy() if as_table else where_bad_rows
                     else:
                         def _p(row):
@@ -1378,7 +1383,7 @@ class PanDatFactory(object):
                                     if exception_handling == "Unhandled" else (lambda row: _p(row))
                         predicate_result = utils.faster_df_apply(_table, predicate, trip_wire_check=check_too_many_msg)
                         where_bad_rows = predicate_result.apply(lambda x: x is not True)
-                        if where_bad_rows.any():
+                        if _safe_any(where_bad_rows):
                             if as_table:
                                 rtn[TPN(tbl, pn)] = _df = _table[where_bad_rows].copy()
                                 err_column = "Error Message"
@@ -1552,7 +1557,7 @@ class PanDatFactory(object):
         for t in self.all_tables:
             if self.primary_key_fields.get(t):
                 dups = getattr(pan_dat, t).duplicated(list(self.primary_key_fields[t]), keep=keep)
-                if dups.any():
+                if _safe_any(dups):
                     rtn[t] = getattr(pan_dat, t)[list(dups)] if as_table else dups
         return rtn
     def obfusimplify(self, pan_dat, table_prepends=utils.FrozenDict(), skip_tables=()) :
