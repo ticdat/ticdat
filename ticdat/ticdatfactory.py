@@ -784,11 +784,11 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"ampl_prepend"})) :
                         setattr(self, t, DataFrame(init_tables[t]))
                 for t,v in init_tables.items():
                   if t not in superself.generic_tables:
+                    dfvs = superself.default_values.get(t, {})
                     badticdattable = []
-                    if DataFrame and isinstance(v, DataFrame) and \
-                       set(superself.default_values.get(t, {})).difference(v.columns):
+                    if DataFrame and isinstance(v, DataFrame) and set(dfvs).difference(v.columns):
                         v = v.copy(deep=True)
-                        for f, d in superself.default_values.get(t, {}).items():
+                        for f, d in dfvs.items():
                             if f not in v.columns:
                                 v[f] = d
                     if not (goodticdattable(v, t, lambda x : badticdattable.append(x))) :
@@ -817,7 +817,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"ampl_prepend"})) :
                          def handle_row_dict(r):
                              if not utils.dictish(r):
                                  return r
-                             return [r.get(k, 0) for k in superself.primary_key_fields[t] +
+                             return [r.get(k, dfvs.get(k, 0)) for k in superself.primary_key_fields[t] +
                                       superself.data_fields.get(t,[])]
                          drf = datarowfactory(t) # lots of verification inside the datarowfactory
                          setattr(self, t, ticdattablefactory(self._all_data_dicts, t)(
