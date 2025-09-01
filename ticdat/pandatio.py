@@ -220,8 +220,9 @@ class JsonPanFactory(freezable_factory(object, "_isFrozen")):
         pan_dat = self.pan_dat_factory._pre_write_adjustment(pan_dat)
 
         if self._modern_pandas:
-            # FYI - pandas Exception: ValueError: 'index=False' is only valid when 'orient' is 'split' or 'table'
-            kwargs["index"] = index if orient in ("split", "table") else True
+            # FYI - pandas Exception:
+            # ValueError: 'index=False' is only valid when 'orient' is 'split', 'table', records or 'values'
+            kwargs["index"] = index if orient in ("split", "table", "records", "values") else True
         case_space_table_names = case_space_table_names and \
                                  len(set(self.pan_dat_factory.all_tables)) == \
                                  len(set(map(case_space_to_pretty, self.pan_dat_factory.all_tables)))
