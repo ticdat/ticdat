@@ -686,6 +686,22 @@ class TestIO(unittest.TestCase):
         panDat4 = pdf.PanDat(**dicted)
         self.assertTrue(pdf._same_data(panDat, panDat4, epsilon=1e-5))
 
+    def testJsonOrientFalseIndex(self):
+        if not self.can_run:
+            return
+
+        ticDat = TicDatFactory(**spacesSchema()).TicDat(**spacesData())
+        panDat = pan_dat_maker(spacesSchema(), ticDat)
+        pdf = PanDatFactory(**spacesSchema())
+
+        for orient in ("split", "table", "records", "values"):
+            with self.subTest(orient=orient):
+                file_path = os.path.join(_scratchDir, f'orient_{orient}.json')
+                pdf.json.write_file_pd(panDat, file_path, orient=orient)
+                panDatRead = pdf.json.create_pan_dat(file_path, orient=orient)
+                self.assertTrue(pdf._same_data(panDat, panDatRead), orient)
+
+
     def testIssue45(self):
         pdf = PanDatFactory(data=[["a"], ["b"]])
         tdf = TicDatFactory(**pdf.schema())
