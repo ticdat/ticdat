@@ -173,13 +173,16 @@ class TestUtils(unittest.TestCase):
         self.assertTrue(pdf.good_pan_dat_object(dat2))
         delattr(dat2, "nodes")
         msg = []
+        self.assertFalse(pdf.good_pan_dat_object(dat2))
         self.assertFalse(pdf.good_pan_dat_object(dat2, msg.append))
         self.assertTrue(msg[-1] == "nodes not an attribute.")
 
         dat3 = pdf.copy_pan_dat(dat)
         dat3.cost.drop("commodity", axis=1, inplace=True)
+        self.assertFalse(pdf.good_pan_dat_object(dat3))
         self.assertFalse(pdf.good_pan_dat_object(dat3, msg.append))
         self.assertTrue("The following are (table, field) pairs missing from the data" in msg[-1])
+
 
         dat4 = pdf.copy_pan_dat(dat)
         dat4.cost["cost"] += 1
@@ -193,6 +196,16 @@ class TestUtils(unittest.TestCase):
         dat.arcs = utils.pd.concat([dat.arcs, dat.arcs[dat.arcs["destination"] == "Boston"]])
         self.assertFalse(pdf2._same_data(dat, dat5))
         self.assertFalse(pdf._same_data(dat, dat5))
+
+        dat6 = pdf.copy_pan_dat(dat)
+        delattr(dat6, "nodes")
+        dat6.cost.drop("commodity", axis=1, inplace=True)
+        msg = []
+        self.assertFalse(pdf.good_pan_dat_object(dat6))
+        self.assertFalse(pdf.good_pan_dat_object(dat6, msg.append))
+        self.assertTrue(len(msg) == 2)
+        self.assertTrue(any("The following are (table, field) pairs missing from the data" in _ for _ in msg))
+        self.assertTrue("nodes not an attribute." in msg)
 
     def testDataTypes(self):
         if not self.canRun:
