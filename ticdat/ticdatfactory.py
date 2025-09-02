@@ -784,7 +784,7 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"ampl_prepend"})) :
                         setattr(self, t, DataFrame(init_tables[t]))
                 for t,v in init_tables.items():
                   if t not in superself.generic_tables:
-                    dfvs = superself.default_values.get(t, {})
+                    dfvs = dict(superself.default_values.get(t, {}))
                     badticdattable = []
                     if DataFrame and isinstance(v, DataFrame) and set(dfvs).difference(v.columns):
                         v = v.copy(deep=True)
