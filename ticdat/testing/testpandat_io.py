@@ -355,7 +355,7 @@ class TestIO(unittest.TestCase):
         ex = self.firesException(lambda : pdf2.json.create_pan_dat(pdf.json.write_file_pd(panDat, "")))
         self.assertTrue("missing" in ex and "extra" in ex)
         ex = self.firesException(lambda : pdf2.json.create_pan_dat(pdf.json.write_file(panDat, "")))
-        self.assertTrue("missing" in ex and "extra" in ex)
+        self.assertTrue("foods cannot be treated as a PanDat table : insufficient number of columns." == ex)
 
         panDat2 = pdf2.sql.create_pan_dat(sqlFilePath, fill_missing_fields=True)
         self.assertTrue(set(panDat2.foods["extra"]) == {0})
