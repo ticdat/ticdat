@@ -1002,7 +1002,7 @@ class PanDatFactory(object):
                         df.reset_index(drop=False, inplace=True)
                     if list(df.columns) == list(range(len(df.columns))):
                         verify(len(df.columns) >= len(superself._all_fields(t)),
-                               f"{t} cannot be used as a PanDat table : insufficient number of columns.")
+                               f"{t} cannot be treated as a PanDat table : insufficient number of columns.")
                         df.rename(columns={f1:f2 for f1, f2 in zip(df.columns, superself._all_fields(t))},
                                   inplace=True)
                     if list(df.columns) != list(range(len(df.columns))):
