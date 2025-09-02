@@ -1000,8 +1000,9 @@ class PanDatFactory(object):
                     if pks and not set(pks).intersection(df.columns) and \
                        set(pks) == utils.safe_apply(lambda: set(df.index.names))():
                         df.reset_index(drop=False, inplace=True)
-                    if list(df.columns) == list(range(len(df.columns))) and \
-                       len(df.columns) >= len(superself._all_fields(t)):
+                    if list(df.columns) == list(range(len(df.columns))):
+                        verify(len(df.columns) >= len(superself._all_fields(t)),
+                               f"{t} cannot be treated as a PanDat table : insufficient number of columns.")
                         df.rename(columns={f1:f2 for f1, f2 in zip(df.columns, superself._all_fields(t))},
                                   inplace=True)
                     if list(df.columns) != list(range(len(df.columns))):
