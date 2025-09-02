@@ -1000,8 +1000,9 @@ class PanDatFactory(object):
                     if pks and not set(pks).intersection(df.columns) and \
                        set(pks) == utils.safe_apply(lambda: set(df.index.names))():
                         df.reset_index(drop=False, inplace=True)
-                    if list(df.columns) == list(range(len(df.columns))) and \
-                       len(df.columns) >= len(superself._all_fields(t)):
+                    if list(df.columns) == list(range(len(df.columns))):
+                        verify(len(df.columns) >= len(superself._all_fields(t)),
+                               f"{t} cannot be treated as a PanDat table : insufficient number of columns.")
                         df.rename(columns={f1:f2 for f1, f2 in zip(df.columns, superself._all_fields(t))},
                                   inplace=True)
                     if list(df.columns) != list(range(len(df.columns))):
@@ -1029,31 +1030,41 @@ class PanDatFactory(object):
         self.json = pandatio.JsonPanFactory(self)
         self.pgsql = PostgresPanFactory(self)
 
-    def good_pan_dat_object(self, data_obj, bad_message_handler = lambda x : None):
+    def good_pan_dat_object(self, data_obj, bad_message_handler=None):
         """
         determines if an object is a valid PanDat object for this schema
 
         :param data_obj: the object to verify
 
         :param bad_message_handler: a call back function to receive description of any failure message
+                                    or None if you want fast fail with no diagnostics
 
         :return: True if the dataObj can be recognized as a PanDat data object. False otherwise.
         """
+        verify(bad_message_handler is None or callable(bad_message_handler),
+               "need bad_message_handler callable or None")
+        fast_fail = not bad_message_handler
+        bad_message_handler = bad_message_handler or (lambda x: None)
+
         verify(DataFrame and pd, "Need to install pandas")
+        df_found = {}
         for t in self.all_tables:
             if not hasattr(data_obj, t) :
                 bad_message_handler(t + " not an attribute.")
-                return False
-            if not isinstance(getattr(data_obj, t), DataFrame):
+                if fast_fail:
+                    return False
+            elif not isinstance(getattr(data_obj, t), DataFrame):
                 bad_message_handler(t + " is not a DataFrame")
-                return False
-        missing_fields = {(t, f) for t in self.all_tables for f in
+                if fast_fail:
+                    return False
+            else:
+                df_found[t] = getattr(data_obj, t)
+        missing_fields = {(t, f) for t in df_found for f in
                           self.primary_key_fields.get(t, ()) + self.data_fields.get(t, ())
-                          if f not in getattr(data_obj, t).columns}
+                          if f not in df_found[t].columns}
         if missing_fields:
-            bad_message_handler("The following are (table, field) pairs missing from the data.\n%s"%missing_fields)
-            return False
-        return True
+            bad_message_handler(f"The following are (table, field) pairs missing from the data.\n{missing_fields}")
+        return set(df_found) == set(self.all_tables) and not missing_fields
     def copy_pan_dat(self, pan_dat):
         """
         copies the tic_dat object into a new tic_dat object

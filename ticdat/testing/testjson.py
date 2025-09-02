@@ -276,6 +276,16 @@ class TestJson(unittest.TestCase):
                             for _ in v.values()))
 
 
+    def test_default(self):
+        tdf = TicDatFactory(table_with_stuffs=[["field one"], ["field two", "field three"]])
+        tdf.set_default_value("table_with_stuffs", "field three", 1)
+        d = {'table_with_stuffs': [{'field one': 'undercover', 'field two': 2}]}
+        s = json.dumps(d, indent=2)
+        dat = tdf.json.create_tic_dat(s)
+        dat_two = tdf.TicDat(table_with_stuffs=[["undercover", 2, 1]])
+        self.assertTrue(tdf._same_data(dat, dat_two))
+
+
 _scratchDir = TestJson.__name__ + "_scratch"
 
 # Run the tests.

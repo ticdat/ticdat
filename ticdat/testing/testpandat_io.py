@@ -92,6 +92,16 @@ class TestIO(unittest.TestCase):
             self.assertTrue("TicDatError" in e.__class__.__name__)
             return str(e)
 
+    def test_quickie(self):
+        tdf = TicDatFactory(this=[["Field One"], []])
+        tdf2 = TicDatFactory(this=[["Field One"], ["Field Two"]])
+        dat = tdf.TicDat(this=[["a"], ["b"]])
+        s = self.firesException(lambda :  tdf2.json.create_tic_dat(tdf.json.write_file(dat, "")))
+        self.assertTrue("this cannot be treated as a ticDat table : Inconsistent data row lengths." in s)
+        pdf2 = tdf2.clone(clone_factory=PanDatFactory)
+        s = self.firesException(lambda : pdf2.json.create_pan_dat(tdf.json.write_file(dat, "")))
+        self.assertTrue("this cannot be treated as a PanDat table : insufficient number of columns." in s)
+
     def testXlsSimple(self):
         if not self.can_run:
             return
@@ -345,7 +355,7 @@ class TestIO(unittest.TestCase):
         ex = self.firesException(lambda : pdf2.json.create_pan_dat(pdf.json.write_file_pd(panDat, "")))
         self.assertTrue("missing" in ex and "extra" in ex)
         ex = self.firesException(lambda : pdf2.json.create_pan_dat(pdf.json.write_file(panDat, "")))
-        self.assertTrue("missing" in ex and "extra" in ex)
+        self.assertTrue("foods cannot be treated as a PanDat table : insufficient number of columns." == ex)
 
         panDat2 = pdf2.sql.create_pan_dat(sqlFilePath, fill_missing_fields=True)
         self.assertTrue(set(panDat2.foods["extra"]) == {0})
@@ -743,6 +753,21 @@ class TestIO(unittest.TestCase):
             write_func(dat, path, **write_kwargs)
             dat_1 = utils._get_dat_object(pdf, "create_pan_dat", path, f_or_d, False)
             self.assertTrue(pdf._same_data(dat, dat_1, nans_are_same_for_data_rows=True))
+
+    def testJsonOrientFalseIndex(self):
+        if not self.can_run:
+            return
+
+        ticDat = TicDatFactory(**spacesSchema()).TicDat(**spacesData())
+        panDat = pan_dat_maker(spacesSchema(), ticDat)
+        pdf = PanDatFactory(**spacesSchema())
+
+        for orient in ("split", "table", "records", "values"):
+            with self.subTest(orient=orient):
+                file_path = os.path.join(_scratchDir, f'orient_{orient}.json')
+                pdf.json.write_file_pd(panDat, file_path, orient=orient)
+                panDatRead = pdf.json.create_pan_dat(file_path, orient=orient)
+                self.assertTrue(pdf._same_data(panDat, panDatRead), orient)
 
     def testLongName(self):
         prepend = "b"*20
