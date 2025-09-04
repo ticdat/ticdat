@@ -6,6 +6,7 @@ from ticdat.testing.ticdattestutils import dietData, dietSchema, netflowData, di
 from ticdat.testing.ticdattestutils import  netflowSchema, firesException, copyDataDietWeirdCase
 from ticdat.testing.ticdattestutils import sillyMeData, sillyMeSchema, sillyMeDataTwoTables, fail_to_debugger
 from ticdat.testing.ticdattestutils import makeCleanDir, dietSchemaWeirdCase2, copyDataDietWeirdCase2, makeCleanPath
+import pathlib
 from ticdat.testing.ticdattestutils import flagged_as_run_alone
 
 import unittest
@@ -49,6 +50,8 @@ class TestJson(unittest.TestCase):
             self.assertFalse(tdf.json.find_duplicates(writePath))
             jsonTicDat = tdf.json.create_tic_dat(writePath)
             self.assertTrue(tdf._same_data(ticDat, jsonTicDat, epsilon=1e-5))
+            jsonTicDat2 = tdf.json.create_tic_dat(pathlib.Path(writePath))
+            self.assertTrue(tdf._same_data(ticDat, jsonTicDat2, epsilon=1e-5))
 
             def change() :
                 jsonTicDat.categories["calories"]["minNutrition"]=12
