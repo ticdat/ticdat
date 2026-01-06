@@ -10,6 +10,7 @@ import ticdat.pandatio as pandatio
 import shutil
 import os
 import json
+import pathlib
 try:
     import numpy
     import pandas as pd
@@ -689,6 +690,9 @@ class TestIO(unittest.TestCase):
         pdf.json.write_file_pd(panDat, filePath, case_space_table_names=True)
         panDat2 = pdf.json.create_pan_dat(filePath)
         self.assertTrue(pdf._same_data(panDat, panDat2))
+        p = pathlib.Path(filePath)
+        panDat2_2 = pdf.json.create_pan_dat(p)
+        self.assertTrue(pdf._same_data(panDat, panDat2_2))
         panDat3 = pdf.json.create_pan_dat(pdf.json.write_file_pd(panDat, "", case_space_table_names=True))
         self.assertTrue(pdf._same_data(panDat, panDat3))
 

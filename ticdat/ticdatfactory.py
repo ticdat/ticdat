@@ -407,6 +407,12 @@ class TicDatFactory(freezable_factory(object, "_isFrozen", {"ampl_prepend"})) :
 
         :param default_value: the default value to apply
 
+        Note - the data fields of a schema will have the default default of zero. The primary key fields will
+        have no default at all (NOT None, but rather, no default).
+
+        The default value is used for replace_data_type_failures (which only performs data field replacements)
+        and for TicDat initialization (which falls through to 0 if the default value is missing).
+
         :return:
         """
         verify(not self._has_been_used,

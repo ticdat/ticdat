@@ -5,7 +5,7 @@ PEP8
 import os
 from collections import defaultdict
 from ticdat.utils import freezable_factory, TicDatError, verify, stringish, dictish, containerish
-from ticdat.utils import find_duplicates_from_dict_ticdat
+from ticdat.utils import find_duplicates_from_dict_ticdat, safe_apply
 import datetime
 import itertools
 
@@ -133,7 +133,7 @@ class JsonTicFactory(freezable_factory(object, "_isFrozen")) :
         rtn = find_duplicates_from_dict_ticdat(self.tic_dat_factory, jdict)
         return rtn or {}
     def _create_jdict(self, path_or_buf):
-        if stringish(path_or_buf) and os.path.exists(path_or_buf):
+        if safe_apply(os.path.exists)(path_or_buf):
             reasonble_string = path_or_buf
             verify(os.path.isfile(path_or_buf), "json_file_path is not a valid file path.")
             try :
