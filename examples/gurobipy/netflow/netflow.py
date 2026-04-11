@@ -50,8 +50,9 @@ input_schema.set_data_type("cost", "Cost", min=0, max=float("inf"),
 input_schema.set_data_type("inflow", "Quantity", min=-float("inf"), max=float("inf"),
                            inclusive_min=False, inclusive_max=False)
 
-# The default-default of zero makes sense everywhere except for Capacity
+# The default-default of zero makes sense everywhere except for Capacity, Volume
 input_schema.set_default_value("arcs", "Capacity", float("inf"))
+input_schema.set_default_value("commodities", "Volume", 1)
 # ---------------------------------------------------------------------------------
 
 # ------------------------ define the output schema -------------------------------
