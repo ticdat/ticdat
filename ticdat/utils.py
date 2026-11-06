@@ -1294,7 +1294,8 @@ class Progress(object):
         class MyListener(cplexprogress.ProgressListener):
             def notify_progress(self, progress_data):
                 no_feasible_yet = {"minimize": float("inf"), "maximize": -float("inf")}
-                ub = no_feasible_yet if progress_data.current_objective is None else progress_data.current_objective
+                ub = no_feasible_yet[sense] if progress_data.current_objective is None else \
+                    progress_data.current_objective
                 lb = progress_data.best_bound
                 lb, ub = (lb, ub) if sense == "minimize" else (ub, lb)
                 keep_going = super_self.mip_progress(theme, lb, ub)
